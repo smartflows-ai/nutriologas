@@ -1,0 +1,225 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── MULTITENANT ─────────────────────────────────────────
+model Tenant {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  logoUrl     String?
+  whatsappNumber String?
+  businessInfo   String?  // descripcion del negocio para la homepage
+
+  // Configuracion de colores (1:1)
+  theme       ThemeConfig?
+
+  // Relaciones
+  users           User[]
+  products        Product[]
+  orders          Order[]
+  reviews         Review[]
+  carouselImages  CarouselImage[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("tenants")
+}
+
+model ThemeConfig {
+  id             String  @id @default(uuid())
+  tenantId       String  @unique
+  tenant         Tenant  @relation(fields: [tenantId], references: [id])
+  primaryColor   String  @default("#16a34a")
+  secondaryColor String  @default("#15803d")
+  accentColor    String  @default("#4ade80")
+
+  updatedAt DateTime @updatedAt
+
+  @@map("theme_configs")
+}
+
+// ─── USUARIOS ────────────────────────────────────────────
+enum UserRole {
+  CUSTOMER
+  ADMIN
+}
+
+model User {
+  id           String    @id @default(uuid())
+  tenantId     String
+  tenant       Tenant    @relation(fields: [tenantId], references: [id])
+  email        String
+  name         String?
+  image        String?
+  role         UserRole  @default(CUSTOMER)
+  passwordHash String?
+  googleId     String?
+
+  // Google Calendar OAuth (solo admins)
+  googleCalendarToken        String?
+  googleCalendarRefreshToken String?
+  googleCalendarTokenExpiry  DateTime?
+
+  orders  Order[]
+  reviews Review[]
+  accounts Account[]
+  sessions Session[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, email])
+  @@map("users")
+}
+
+// NextAuth tables
+model Account {
+  id                String  @id @default(uuid())
+  userId            String
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  sessionToken String   @unique
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expires      DateTime
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ─── PRODUCTOS ───────────────────────────────────────────
+model Product {
+  id          String   @id @default(uuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  name        String
+  slug        String
+  description String?
+  price       Float
+  stock       Int      @default(0)
+  isActive    Boolean  @default(true)
+  images      String[] // URLs de Cloudinary
+  category    String?
+
+  orderItems  OrderItem[]
+  reviews     Review[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? // soft delete
+
+  @@unique([tenantId, slug])
+  @@map("products")
+}
+
+// ─── PEDIDOS ─────────────────────────────────────────────
+enum OrderStatus {
+  PENDING
+  PAID
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CARD_CONEKTA
+  OXXO_CONEKTA
+  PAYPAL
+}
+
+model Order {
+  id               String        @id @default(uuid())
+  tenantId         String
+  tenant           Tenant        @relation(fields: [tenantId], references: [id])
+  userId           String
+  user             User          @relation(fields: [userId], references: [id])
+  status           OrderStatus   @default(PENDING)
+  total            Float
+  paymentMethod    PaymentMethod?
+  paymentReference String?       // ID de Conekta o PayPal
+  shippingAddress  Json?
+
+  items OrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String  @id @default(uuid())
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id])
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  quantity  Int
+  unitPrice Float
+
+  @@map("order_items")
+}
+
+// ─── REVIEWS ─────────────────────────────────────────────
+model Review {
+  id        String  @id @default(uuid())
+  tenantId  String
+  tenant    Tenant  @relation(fields: [tenantId], references: [id])
+  userId    String
+  user      User    @relation(fields: [userId], references: [id])
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  rating    Int     // 1-5
+  comment   String?
+  isVisible Boolean @default(true)
+
+  createdAt DateTime @default(now())
+
+  @@map("reviews")
+}
+
+// ─── CARRUSEL ────────────────────────────────────────────
+model CarouselImage {
+  id        String  @id @default(uuid())
+  tenantId  String
+  tenant    Tenant  @relation(fields: [tenantId], references: [id])
+  url       String  // URL de Cloudinary
+  alt       String?
+  sortOrder Int     @default(0)
+  isActive  Boolean @default(true)
+
+  createdAt DateTime @default(now())
+
+  @@map("carousel_images")
+}
