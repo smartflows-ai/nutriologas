@@ -5,12 +5,27 @@ import { prisma } from "@/lib/db";
 import { NextRequest } from "next/server";
 
 export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const slug = searchParams.get("tenant") ?? "clinica-demo";
-  const tenant = await prisma.tenant.findUnique({ where: { slug } });
-  if (!tenant) return Response.json([]);
+  // For admin panel: use session tenantId (most reliable)
+  // For public storefront: parse tenant from host header
+  const session = await getServerSession(authOptions);
+  let tenantId: string | null = (session?.user as any)?.tenantId ?? null;
+
+  if (!tenantId) {
+    // Public access — resolve from host
+    const host = req.headers.get("host") || "";
+    let tenantSlug = "clinica-demo";
+    if (host.includes(".localhost")) tenantSlug = host.split(".")[0];
+    else if (!host.includes("localhost")) tenantSlug = host.split(":")[0];
+
+    const tenant = await prisma.tenant.findFirst({
+      where: { OR: [{ slug: tenantSlug }, { customDomain: tenantSlug }] },
+    });
+    if (!tenant) return Response.json([]);
+    tenantId = tenant.id;
+  }
+
   const images = await prisma.carouselImage.findMany({
-    where: { tenantId: tenant.id, isActive: true },
+    where: { tenantId, isActive: true },
     orderBy: { sortOrder: "asc" },
   });
   return Response.json(images);

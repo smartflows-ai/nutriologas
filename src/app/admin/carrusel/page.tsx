@@ -18,7 +18,7 @@ export default function CarruselPage() {
   const [dragging, setDragging] = useState<string | null>(null);
 
   const fetchImages = async () => {
-    const res = await fetch("/api/carousel?tenant=clinica-demo");
+    const res = await fetch(`/api/carousel?t=${Date.now()}`);
     setImages(await res.json());
   };
 
@@ -46,15 +46,23 @@ export default function CarruselPage() {
   const addImage = async () => {
     if (!newUrl.trim()) return;
     setAdding(true);
-    await fetch("/api/carousel", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url: newUrl.trim(), alt: newAlt.trim() || null }),
-    });
-    setNewUrl("");
-    setNewAlt("");
-    setAdding(false);
-    fetchImages();
+    try {
+      const res = await fetch("/api/carousel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: newUrl.trim(), alt: newAlt.trim() || null }),
+      });
+      const newImg = await res.json();
+      if (res.ok) {
+        // Actualizamos estado de forma optimista para evitar el caché de Next.js
+        setImages((prev) => [...prev, newImg]);
+      }
+    } finally {
+      setNewUrl("");
+      setNewAlt("");
+      setAdding(false);
+      fetchImages();
+    }
   };
 
   const deleteImage = async (id: string) => {
@@ -134,7 +142,7 @@ export default function CarruselPage() {
         </div>
         {newUrl && (
           <div className="relative h-32 rounded-xl overflow-hidden bg-gray-100 mb-4">
-            <Image src={newUrl} alt="Preview" fill className="object-cover" onError={() => {}} />
+            <Image src={newUrl} alt="Preview" fill sizes="(max-width: 768px) 100vw, 384px" className="object-cover" onError={() => { }} />
           </div>
         )}
         <button onClick={addImage} disabled={!newUrl.trim() || adding} className="btn-primary flex items-center gap-2">
@@ -168,7 +176,7 @@ export default function CarruselPage() {
                 <GripVertical size={18} className="text-gray-300 flex-shrink-0" />
                 <span className="text-xs text-gray-400 w-5 flex-shrink-0 text-center">{index + 1}</span>
                 <div className="relative w-24 h-14 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
-                  <Image src={img.url} alt={img.alt ?? ""} fill className="object-cover" />
+                  <Image src={img.url} alt={img.alt ?? ""} fill sizes="96px" className="object-cover" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-gray-600 truncate">{img.alt ?? "Sin texto alternativo"}</p>

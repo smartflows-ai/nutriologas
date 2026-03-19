@@ -98,7 +98,7 @@ export async function executeTool(
       }
 
       case "get_top_customers": {
-        const { startDate, endDate } = input.period === "all" ? { startDate: new Date(0), endDate: new Date() } : getPeriodDates(input.period as Period);
+        const { startDate, endDate } = input.period === "all" ? { startDate: new Date(0), endDate: new Date() } : getPeriodDates(input.period as "day" | "week" | "month" | "year");
         const limit = input.limit ?? 5;
         const grouped = await prisma.order.groupBy({
           by: ["userId"],

@@ -1,0 +1,4 @@
+
+[2026-03-18T21:54:41.017Z] HOST: nutri.localhost:3000 | HEADER SLUG: clinica-demo | FETCHED TENANT: undefined | PRODUCTS: undefined | CAROUSEL: undefined
+
+[2026-03-18T21:57:17.125Z] HOST: nutri.localhost:3000 | HEADER SLUG: clinica-demo | FETCHED TENANT: undefined | PRODUCTS: undefined | CAROUSEL: undefined

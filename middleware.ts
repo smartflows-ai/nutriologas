@@ -1,11 +1,23 @@
 // middleware.ts
-import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { getToken } from "next-auth/jwt";
 
-export default withAuth((req: NextRequest) => {
+export async function middleware(req: NextRequest) {
   const { nextUrl } = req;
-  const token = (req as any).nextauth?.token;
+  const hostname = req.headers.get("host") || "";
+  
+  let tenantIdentifier = "clinica-demo"; // fallback
+
+  // Lógica de detección de dominios
+  if (hostname.includes(".localhost")) {
+    tenantIdentifier = hostname.split(".")[0];
+  } else if (!hostname.includes("localhost") && !hostname.startsWith("www.smartflows")) {
+    tenantIdentifier = hostname;
+  }
+
+  // Extraer token de sesion crudo desde Edge
+  const token = await getToken({ req });
   const isLoggedIn = !!token;
   const isAdmin = token?.role === "ADMIN";
 
@@ -29,12 +41,17 @@ export default withAuth((req: NextRequest) => {
     return NextResponse.redirect(new URL(isAdmin ? "/admin/dashboard" : "/", nextUrl));
   }
 
-  return NextResponse.next();
-}, {
-  // Dejamos pasar y aplicamos redirecciones nosotros
-  callbacks: { authorized: () => true },
-});
+  // Insertar cabeceras personalizadas de manera nativa sin el envoltorio destructivo de NextAuth
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set("x-tenant-slug", tenantIdentifier);
+
+  return NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  });
+}
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|public).*)"],
+  matcher: ["/((?!api/auth|api/calendar|_next/static|_next/image|favicon.ico|public).*)"],
 };

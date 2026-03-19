@@ -2,13 +2,16 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { prisma } from "@/lib/db";
+import { getTenantSlug } from "@/lib/tenant";
 
 // El tenant se resuelve en v1 con el slug por defecto.
 // En v2 se resolverá desde el subdominio via middleware.
 async function getTenantTheme() {
+  const tenantSlug = getTenantSlug();
+
   try {
-    const tenant = await prisma.tenant.findUnique({
-      where: { slug: "clinica-demo" },
+    const tenant = await prisma.tenant.findFirst({
+      where: { OR: [{ slug: tenantSlug }, { customDomain: tenantSlug }] },
       include: { theme: true },
     });
     return {

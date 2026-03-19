@@ -2,6 +2,8 @@
 // src/components/chat/ChatAssistant.tsx
 import { useState, useRef, useEffect } from "react";
 import { Send, Bot, User, Loader2, Sparkles } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface Message { role: "user" | "assistant"; content: string; }
 
@@ -25,15 +27,62 @@ function MessageBubble({ message }: { message: Message }) {
 
       {/* Bubble */}
       <div className={`max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${isUser ? "bg-primary text-white rounded-tr-sm" : "bg-white border border-gray-200 text-gray-800 rounded-tl-sm shadow-sm"}`}>
-        {/* Render markdown-like formatting */}
-        {message.content.split("\n").map((line, i) => {
-          if (line.startsWith("# ")) return <p key={i} className="font-bold text-base mb-1">{line.slice(2)}</p>;
-          if (line.startsWith("## ")) return <p key={i} className="font-semibold mb-1">{line.slice(3)}</p>;
-          if (line.startsWith("- ") || line.startsWith("• ")) return <p key={i} className="ml-2">• {line.slice(2)}</p>;
-          if (line.startsWith("**") && line.endsWith("**")) return <p key={i} className="font-semibold">{line.slice(2, -2)}</p>;
-          if (line === "") return <div key={i} className="h-2" />;
-          return <p key={i}>{line}</p>;
-        })}
+        {isUser ? (
+          // User messages: plain text
+          <span>{message.content}</span>
+        ) : (
+          // Assistant messages: full markdown rendering
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              // Headings
+              h1: ({ children }) => <h1 className="text-base font-bold mt-2 mb-1">{children}</h1>,
+              h2: ({ children }) => <h2 className="text-sm font-bold mt-2 mb-1">{children}</h2>,
+              h3: ({ children }) => <h3 className="text-sm font-semibold mt-1 mb-0.5">{children}</h3>,
+              // Paragraphs
+              p: ({ children }) => <p className="mb-1.5 last:mb-0">{children}</p>,
+              // Bold / italic
+              strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+              em: ({ children }) => <em className="italic">{children}</em>,
+              // Lists
+              ul: ({ children }) => <ul className="list-disc list-inside space-y-0.5 mb-1.5 pl-1">{children}</ul>,
+              ol: ({ children }) => <ol className="list-decimal list-inside space-y-0.5 mb-1.5 pl-1">{children}</ol>,
+              li: ({ children }) => <li className="leading-snug">{children}</li>,
+              // Inline code
+              code: ({ inline, children }: any) =>
+                inline ? (
+                  <code className="bg-gray-100 text-gray-800 rounded px-1 py-0.5 font-mono text-xs">{children}</code>
+                ) : (
+                  <pre className="bg-gray-100 text-gray-800 rounded-lg p-3 font-mono text-xs overflow-x-auto my-2 whitespace-pre-wrap">
+                    <code>{children}</code>
+                  </pre>
+                ),
+              // Blockquote
+              blockquote: ({ children }) => (
+                <blockquote className="border-l-4 border-gray-300 pl-3 italic text-gray-600 my-1.5">{children}</blockquote>
+              ),
+              // Horizontal rule
+              hr: () => <hr className="border-gray-200 my-2" />,
+              // Tables (GFM)
+              table: ({ children }) => (
+                <div className="overflow-x-auto my-2">
+                  <table className="min-w-full text-xs border border-gray-200 rounded-lg overflow-hidden">{children}</table>
+                </div>
+              ),
+              thead: ({ children }) => <thead className="bg-gray-50 font-semibold">{children}</thead>,
+              tbody: ({ children }) => <tbody className="divide-y divide-gray-100">{children}</tbody>,
+              tr: ({ children }) => <tr>{children}</tr>,
+              th: ({ children }) => <th className="px-3 py-1.5 text-left text-gray-700 border-b border-gray-200">{children}</th>,
+              td: ({ children }) => <td className="px-3 py-1.5 text-gray-600">{children}</td>,
+              // Links
+              a: ({ href, children }) => (
+                <a href={href} target="_blank" rel="noopener noreferrer" className="underline text-primary hover:opacity-80">{children}</a>
+              ),
+            }}
+          >
+            {message.content}
+          </ReactMarkdown>
+        )}
       </div>
     </div>
   );

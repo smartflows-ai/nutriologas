@@ -3,11 +3,20 @@ import { prisma } from "@/lib/db";
 import HeroCarousel from "@/components/shop/HeroCarousel";
 import ProductCard from "@/components/shop/ProductCard";
 import Link from "next/link";
+import { getTenantSlug } from "@/lib/tenant";
 
 async function getHomeData() {
+  const tenantSlug = getTenantSlug();
+  console.log("[page.tsx] tenantSlug resolved:", tenantSlug);
+
   try {
-    const tenant = await prisma.tenant.findUnique({
-      where: { slug: "clinica-demo" },
+    const tenant = await prisma.tenant.findFirst({
+      where: {
+        OR: [
+          { slug: tenantSlug },
+          { customDomain: tenantSlug }
+        ]
+      },
       include: {
         carouselImages: { where: { isActive: true }, orderBy: { sortOrder: "asc" } },
         products: {
@@ -18,8 +27,12 @@ async function getHomeData() {
         },
       },
     });
+    console.log("[page.tsx] tenant fetched:", tenant?.slug, "products:", tenant?.products?.length);
     return tenant;
-  } catch { return null; }
+  } catch (err) {
+    console.error("[page.tsx] prisma error:", err);
+    return null;
+  }
 }
 
 export default async function HomePage() {

@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import CalendarView from "@/components/crm/CalendarView";
+import ConnectCalendarButton from "@/components/admin/ConnectCalendarButton";
 
 export default async function CalendarioPage() {
   const session = await getServerSession(authOptions);
@@ -17,28 +18,43 @@ export default async function CalendarioPage() {
 
   return (
     <div>
+      {/* Page Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Calendario</h1>
-          <p className="text-gray-500 text-sm">Citas y agenda</p>
+          <p className="text-gray-500 text-sm mt-0.5">Citas y agenda del negocio</p>
         </div>
-        {!isConnected && (
-          <a href="/api/auth/google-calendar" className="btn-primary flex items-center gap-2 text-sm">
-            Conectar Google Calendar
-          </a>
-        )}
+        {!isConnected && <ConnectCalendarButton />}
       </div>
 
       {!isConnected ? (
-        <div className="card text-center py-12">
-          <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg viewBox="0 0 24 24" width="32" height="32"><rect width="18" height="18" x="3" y="4" rx="2" fill="#4285F4" /><path fill="white" d="M3 9h18v2H3z" /><path fill="white" d="M8 2v4M16 2v4" stroke="white" strokeWidth="2" /><text x="6" y="18" fontSize="7" fill="white" fontWeight="bold">CAL</text></svg>
+        /* Empty state */
+        <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-200 bg-white py-20 text-center shadow-sm">
+          {/* Calendar icon */}
+          <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-primary/10 to-primary/20">
+            <svg viewBox="0 0 24 24" width="40" height="40" fill="none">
+              <rect x="3" y="4" width="18" height="17" rx="3" fill="#16a34a" opacity="0.15" />
+              <rect x="3" y="4" width="18" height="17" rx="3" stroke="#16a34a" strokeWidth="1.5" />
+              <path d="M3 9h18" stroke="#16a34a" strokeWidth="1.5" />
+              <path d="M8 2v4M16 2v4" stroke="#16a34a" strokeWidth="1.5" strokeLinecap="round" />
+              <circle cx="8" cy="14" r="1.2" fill="#16a34a" />
+              <circle cx="12" cy="14" r="1.2" fill="#16a34a" />
+              <circle cx="16" cy="14" r="1.2" fill="#16a34a" />
+            </svg>
           </div>
-          <h2 className="font-semibold text-gray-900 mb-2">Google Calendar no conectado</h2>
-          <p className="text-gray-500 text-sm mb-6 max-w-sm mx-auto">Conecta tu Google Calendar para ver tus citas, estadísticas de asistencia y cancelaciones.</p>
-          <a href="/api/auth/google-calendar" className="btn-primary inline-flex items-center gap-2">
-            Conectar ahora
-          </a>
+
+          <h2 className="text-xl font-bold text-gray-900 mb-2">
+            Conecta tu Google Calendar
+          </h2>
+          <p className="text-gray-500 text-sm max-w-sm mb-8 leading-relaxed">
+            Visualiza tus citas, mide la asistencia y detecta patrones de cancelación directamente desde tu agenda de Google.
+          </p>
+
+          <ConnectCalendarButton label="Conectar Google Calendar" />
+
+          <p className="mt-4 text-xs text-gray-400">
+            Solo lectura • Sin modificaciones a tu agenda
+          </p>
         </div>
       ) : (
         <CalendarView />

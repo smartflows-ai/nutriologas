@@ -23,7 +23,7 @@ export default function ProductosPage() {
   const { register, handleSubmit, reset, formState: { errors } } = useForm<ProductInput>({ resolver: zodResolver(productSchema) });
 
   const fetchProducts = async () => {
-    const res = await fetch("/api/products");
+    const res = await fetch(`/api/products?t=${Date.now()}`);
     setProducts(await res.json());
   };
 
@@ -89,8 +89,32 @@ export default function ProductosPage() {
         <button onClick={openCreate} className="btn-primary flex items-center gap-2"><Plus size={18} /> Nuevo producto</button>
       </div>
 
-      {/* Table */}
-      <div className="card p-0 overflow-hidden">
+      {/* Mobile: card list */}
+      <div className="md:hidden space-y-3">
+        {products.map((p) => (
+          <div key={p.id} className="card flex items-center gap-3">
+            <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center flex-shrink-0">
+              {p.images[0] ? <img src={p.images[0]} alt="" className="w-full h-full object-cover rounded-xl" /> : <Package size={20} className="text-gray-400" />}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-gray-900 text-sm truncate">{p.name}</p>
+              <p className="text-primary font-bold text-sm">{formatPrice(p.price)}</p>
+              <div className="flex gap-2 mt-1">
+                <span className={`badge text-xs ${p.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>{p.isActive ? "Activo" : "Inactivo"}</span>
+                <span className={`badge text-xs ${p.stock <= 5 ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-700"}`}>Stock: {p.stock}</span>
+              </div>
+            </div>
+            <div className="flex flex-col gap-1 flex-shrink-0">
+              <button onClick={() => openEdit(p)} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-primary"><Pencil size={16} /></button>
+              <button onClick={() => deleteProduct(p.id)} className="p-2 rounded-lg hover:bg-red-50 text-gray-500 hover:text-red-500"><Trash2 size={16} /></button>
+            </div>
+          </div>
+        ))}
+        {products.length === 0 && <p className="text-center text-gray-400 py-10 text-sm">Sin productos. Crea el primero.</p>}
+      </div>
+
+      {/* Desktop: table */}
+      <div className="hidden md:block card p-0 overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
@@ -111,15 +135,9 @@ export default function ProductosPage() {
                   </div>
                 </td>
                 <td className="px-4 py-3 font-semibold text-primary">{formatPrice(p.price)}</td>
-                <td className="px-4 py-3">
-                  <span className={`badge ${p.stock <= 5 ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-700"}`}>{p.stock}</span>
-                </td>
+                <td className="px-4 py-3"><span className={`badge ${p.stock <= 5 ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-700"}`}>{p.stock}</span></td>
                 <td className="px-4 py-3 text-gray-500">{p.category ?? "—"}</td>
-                <td className="px-4 py-3">
-                  <span className={`badge ${p.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
-                    {p.isActive ? "Activo" : "Inactivo"}
-                  </span>
-                </td>
+                <td className="px-4 py-3"><span className={`badge ${p.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>{p.isActive ? "Activo" : "Inactivo"}</span></td>
                 <td className="px-4 py-3">
                   <div className="flex gap-2 justify-end">
                     <button onClick={() => openEdit(p)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-primary transition-colors"><Pencil size={16} /></button>
@@ -128,9 +146,7 @@ export default function ProductosPage() {
                 </td>
               </tr>
             ))}
-            {products.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-10 text-center text-gray-400">Sin productos. Crea el primero.</td></tr>
-            )}
+            {products.length === 0 && (<tr><td colSpan={6} className="px-4 py-10 text-center text-gray-400">Sin productos. Crea el primero.</td></tr>)}
           </tbody>
         </table>
       </div>
@@ -174,7 +190,7 @@ export default function ProductosPage() {
                         <button
                           type="button"
                           onClick={() => setImages((prev) => prev.filter((_, i) => i !== idx))}
-                          className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-white shadow border border-gray-200 text-gray-500 hover:text-red-500 hidden group-hover:flex items-center justify-center"
+                          className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-white shadow border border-gray-200 text-gray-500 hover:text-red-500 flex items-center justify-center"
                           aria-label="Quitar imagen"
                         >
                           <X size={14} />

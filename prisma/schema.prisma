@@ -13,6 +13,7 @@ model Tenant {
   id          String   @id @default(uuid())
   name        String
   slug        String   @unique
+  customDomain String? @unique
   logoUrl     String?
   whatsappNumber String?
   businessInfo   String?  // descripcion del negocio para la homepage

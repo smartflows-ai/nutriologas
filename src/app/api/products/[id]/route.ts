@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { productSchema } from "@/lib/validations";
+import { deleteImageFromCloudinary } from "@/lib/cloudinary";
 
 export async function PUT(req: Request, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
@@ -26,10 +27,21 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
 
   const tenantId = (session.user as any).tenantId;
 
+  const product = await prisma.product.findUnique({
+    where: { id: params.id, tenantId },
+  });
+
+  if (product && product.images && product.images.length > 0) {
+    // Borrar físicamente las imágenes de Cloudinary
+    for (const image of product.images) {
+      await deleteImageFromCloudinary(image);
+    }
+  }
+
   // Soft delete
   await prisma.product.update({
     where: { id: params.id, tenantId },
-    data: { deletedAt: new Date(), isActive: false },
+    data: { deletedAt: new Date(), isActive: false, images: [] },
   });
 
   return Response.json({ ok: true });

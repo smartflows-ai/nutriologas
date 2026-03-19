@@ -7,15 +7,28 @@ import { slugify } from "@/lib/utils";
 import { NextRequest } from "next/server";
 
 export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const tenantSlug = searchParams.get("tenant") ?? "clinica-demo";
-  const category = searchParams.get("category");
+  const category = req.nextUrl.searchParams.get("category");
 
-  const tenant = await prisma.tenant.findUnique({ where: { slug: tenantSlug } });
-  if (!tenant) return Response.json({ error: "Tenant no encontrado" }, { status: 404 });
+  // For admin panel: use session tenantId (most reliable)
+  // For public storefront: parse tenant from host header
+  const session = await getServerSession(authOptions);
+  let tenantId: string | null = (session?.user as any)?.tenantId ?? null;
+
+  if (!tenantId) {
+    const host = req.headers.get("host") || "";
+    let tenantSlug = "clinica-demo";
+    if (host.includes(".localhost")) tenantSlug = host.split(".")[0];
+    else if (!host.includes("localhost")) tenantSlug = host.split(":")[0];
+
+    const tenant = await prisma.tenant.findFirst({ 
+      where: { OR: [{ slug: tenantSlug }, { customDomain: tenantSlug }] } 
+    });
+    if (!tenant) return Response.json({ error: "Tenant no encontrado" }, { status: 404 });
+    tenantId = tenant.id;
+  }
 
   const products = await prisma.product.findMany({
-    where: { tenantId: tenant.id, isActive: true, deletedAt: null, ...(category && { category }) },
+    where: { tenantId, isActive: true, deletedAt: null, ...(category && { category }) },
     include: { reviews: { select: { rating: true } } },
     orderBy: { createdAt: "desc" },
   });

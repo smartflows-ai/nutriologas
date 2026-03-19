@@ -8,12 +8,34 @@ import { NextRequest } from "next/server";
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const productId = searchParams.get("productId");
-  const tenantSlug = searchParams.get("tenant") ?? "clinica-demo";
-  const tenant = await prisma.tenant.findUnique({ where: { slug: tenantSlug } });
-  if (!tenant) return Response.json([]);
+
+  // Session-first (admin), then host-based for public visitors
+  const session = await getServerSession(authOptions);
+  let tenantId: string | null = (session?.user as any)?.tenantId ?? null;
+
+  if (!tenantId) {
+    const host = req.headers.get("host") || "";
+    let tenantSlug = "clinica-demo";
+    if (host.includes(".localhost")) tenantSlug = host.split(".")[0];
+    else if (!host.includes("localhost")) tenantSlug = host.split(":")[0];
+    const tenant = await prisma.tenant.findFirst({ 
+      where: { OR: [{ slug: tenantSlug }, { customDomain: tenantSlug }] } 
+    });
+    if (!tenant) return Response.json([]);
+    tenantId = tenant.id;
+  }
+  // Admins see all reviews; public visitors only see visible ones
+  const isAdmin = (session?.user as any)?.role === "ADMIN";
   const reviews = await prisma.review.findMany({
-    where: { tenantId: tenant.id, isVisible: true, ...(productId && { productId }) },
-    include: { user: { select: { name: true, image: true } } },
+    where: {
+      tenantId,
+      ...(isAdmin ? {} : { isVisible: true }),
+      ...(productId && { productId }),
+    },
+    include: {
+      user: { select: { name: true, image: true } },
+      product: { select: { name: true } },
+    },
     orderBy: { createdAt: "desc" },
   });
   return Response.json(reviews);
@@ -27,11 +49,19 @@ export async function POST(req: Request) {
   const body = await req.json();
   const { productId, ...data } = body;
   const parsed = reviewSchema.parse(data);
-  // Verificar que el usuario compró el producto
-  const purchased = await prisma.orderItem.findFirst({
-    where: { productId, order: { userId, tenantId, status: "PAID" } },
+
+  // Verificar que el producto pertenece al tenant
+  const product = await prisma.product.findFirst({
+    where: { id: productId, tenantId },
   });
-  if (!purchased) return Response.json({ error: "Solo puedes dejar review de productos que hayas comprado" }, { status: 403 });
+  if (!product) return Response.json({ error: "Producto no encontrado" }, { status: 404 });
+
+  // Verificar que el usuario no haya dejado ya una reseña para este producto
+  const existing = await prisma.review.findFirst({
+    where: { productId, userId, tenantId },
+  });
+  if (existing) return Response.json({ error: "Ya dejaste una reseña para este producto" }, { status: 409 });
+
   const review = await prisma.review.create({ data: { ...parsed, productId, userId, tenantId } });
   return Response.json(review, { status: 201 });
 }

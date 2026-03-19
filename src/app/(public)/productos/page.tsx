@@ -1,9 +1,14 @@
 // src/app/(public)/productos/page.tsx
 import { prisma } from "@/lib/db";
 import ProductCard from "@/components/shop/ProductCard";
+import { getTenantSlug } from "@/lib/tenant";
 
 async function getProducts(category?: string) {
-  const tenant = await prisma.tenant.findUnique({ where: { slug: "clinica-demo" } });
+  const tenantSlug = getTenantSlug();
+
+  const tenant = await prisma.tenant.findFirst({ 
+    where: { OR: [{ slug: tenantSlug }, { customDomain: tenantSlug }] } 
+  });
   if (!tenant) return { products: [], categories: [] };
 
   const products = await prisma.product.findMany({

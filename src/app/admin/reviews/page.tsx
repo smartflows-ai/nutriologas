@@ -14,7 +14,8 @@ export default function ReviewsPage() {
   const [filter, setFilter] = useState<"all" | "1" | "2" | "3" | "4" | "5">("all");
 
   const fetchReviews = async () => {
-    const res = await fetch("/api/reviews?tenant=clinica-demo");
+    // Al no pasar ?tenant=, el API backend usará el tenant del Admin autenticado
+    const res = await fetch(`/api/reviews?t=${Date.now()}`);
     setReviews(await res.json());
   };
 

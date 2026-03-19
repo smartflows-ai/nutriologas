@@ -1,5 +1,6 @@
 // prisma/seed.ts
 import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
@@ -8,11 +9,11 @@ async function main() {
 
   // Crear tenant inicial
   const tenant = await prisma.tenant.upsert({
-    where: { slug: "clinica-demo" },
+    where: { slug: "doctor" },
     update: {},
     create: {
-      name: "Clínica Nutrición Demo",
-      slug: "clinica-demo",
+      name: "Clínica Doctor",
+      slug: "doctor",
       whatsappNumber: "5211234567890",
       businessInfo:
         "Somos una clínica de nutrición dedicada a mejorar tu salud y bienestar a través de planes personalizados.",
@@ -30,15 +31,14 @@ async function main() {
 
   // Crear admin
   const admin = await prisma.user.upsert({
-    where: { tenantId_email: { tenantId: tenant.id, email: "admin@clinica-demo.com" } },
+    where: { tenantId_email: { tenantId: tenant.id, email: "smartflows.co@gmail.com" } },
     update: {},
     create: {
       tenantId: tenant.id,
-      email: "admin@clinica-demo.com",
+      email: "smartflows.co@gmail.com",
       name: "Admin Demo",
       role: "ADMIN",
-      passwordHash: "admin123", // en produccion usar bcrypt
-      // passwordHash: "$2b$10$placeholder",
+      passwordHash: await bcrypt.hash("admin123", 10),
     },
   });
 
@@ -98,9 +98,7 @@ async function main() {
   await prisma.carouselImage.createMany({
     skipDuplicates: true,
     data: [
-      { tenantId: tenant.id, url: "https://placehold.co/1200x500/16a34a/white?text=Bienvenidos", alt: "Banner principal", sortOrder: 0 },
-      { tenantId: tenant.id, url: "https://placehold.co/1200x500/15803d/white?text=Planes+Nutricionales", alt: "Planes", sortOrder: 1 },
-      { tenantId: tenant.id, url: "https://placehold.co/1200x500/4ade80/white?text=Suplementos", alt: "Suplementos", sortOrder: 2 },
+      { tenantId: tenant.id, url: "https://res.cloudinary.com/dbbjbwznc/image/upload/v1773868688/create_by_m9t3du.png", alt: "Banner principal", sortOrder: 0 }
     ],
   });
 
