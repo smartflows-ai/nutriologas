@@ -65,9 +65,9 @@ export async function GET(req: NextRequest) {
   // FullCalendar still only renders events within the visible window.
   const { searchParams } = new URL(req.url);
   const rawStart = new Date(searchParams.get("start") ?? Date.now() - 7 * 86400000);
-  const rawEnd   = new Date(searchParams.get("end")   ?? Date.now() + 30 * 86400000);
+  const rawEnd = new Date(searchParams.get("end") ?? Date.now() + 30 * 86400000);
   const timeMin = new Date(rawStart.getTime() - 86400000).toISOString();
-  const timeMax = new Date(rawEnd.getTime()   + 86400000).toISOString();
+  const timeMax = new Date(rawEnd.getTime() + 86400000).toISOString();
 
   // Step 1: Get list of all calendars
   const calListRes = await fetch(
@@ -114,15 +114,17 @@ export async function GET(req: NextRequest) {
     const startStr = isAllDay ? item.start.date : item.start.dateTime;
     const startDate = new Date(startStr);
     const googleCancelled = item.status === "cancelled";
+    const calOwnerEmail = primaryCal?.id ?? ""; // el id del calendario primario ES el email
+
 
     let status: "attended" | "pending" | "cancelled";
     let color: string;
     if (googleCancelled) {
       status = "cancelled"; color = "#ef4444";
     } else if (startDate < now) {
-      status = "attended";  color = "#16a34a"; // past → attended
+      status = "attended"; color = "#16a34a"; // past → attended
     } else {
-      status = "pending";   color = "#f59e0b"; // future → pending (amber)
+      status = "pending"; color = "#f59e0b"; // future → pending (amber)
     }
 
     return {
@@ -133,8 +135,17 @@ export async function GET(req: NextRequest) {
       allDay: isAllDay,
       backgroundColor: color,
       borderColor: color,
-      // Store _calendarId in extendedProps so the frontend can access it if needed
-      extendedProps: { status, description: item.description ?? "", location: item.location ?? "", htmlLink: item.htmlLink ?? "", _calendarId: item._calendarId },
+
+      extendedProps: {
+        status,
+        description: item.description ?? "",
+        location: item.location ?? "",
+        htmlLink: item.htmlLink ?? "",
+        eventId: item.id,
+        calendarId: item._calendarId,
+        calendarOwnerEmail: calOwnerEmail,
+        _calendarId: item._calendarId,
+      },
     };
   });
 
@@ -153,10 +164,10 @@ export async function GET(req: NextRequest) {
       return "pending";
     });
 
-  const total     = primaryEvents.length;
+  const total = primaryEvents.length;
   const cancelled = primaryEvents.filter((s) => s === "cancelled").length;
-  const attended  = primaryEvents.filter((s) => s === "attended").length;
-  const pending   = primaryEvents.filter((s) => s === "pending").length;
+  const attended = primaryEvents.filter((s) => s === "attended").length;
+  const pending = primaryEvents.filter((s) => s === "pending").length;
 
   return NextResponse.json({ events, stats: { total, attended, cancelled, pending } });
 }

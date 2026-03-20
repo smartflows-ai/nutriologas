@@ -263,10 +263,10 @@ export default function CalendarView() {
                 </div>
 
                 {/* Footer */}
-                {ep?.htmlLink && (
+                {ep?.htmlLink && ep?.calendarOwnerEmail && (
                   <div className="px-6 pb-6">
                     <a
-                      href={ep.htmlLink}
+                      href={`${ep.htmlLink}&authuser=${encodeURIComponent(ep.calendarOwnerEmail)}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center justify-center gap-2 w-full rounded-xl py-2.5 text-sm font-medium text-white transition"
@@ -281,7 +281,8 @@ export default function CalendarView() {
             </div>
           )}
         </>
-      )}
-    </div>
+      )
+      }
+    </div >
   );
 }
