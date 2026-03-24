@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import {
   LayoutDashboard, Package, Image, Palette,
-  Calendar, Star, Bot, LogOut, Menu, X,
+  Calendar, Star, Bot, LogOut, Menu, X, Plug, MessageSquare
 } from "lucide-react";
 import SignOutButton from "@/components/admin/SignOutButton";
 
@@ -16,6 +16,8 @@ const navItems = [
   { href: "/admin/apariencia", label: "Apariencia",   icon: Palette },
   { href: "/admin/calendario", label: "Calendario",   icon: Calendar },
   { href: "/admin/reviews",    label: "Reviews",      icon: Star },
+  { href: "/admin/apps",       label: "Apps",         icon: Plug },
+  { href: "/admin/whatsapp",   label: "WhatsApp",     icon: MessageSquare },
   { href: "/admin/asistente",  label: "Asistente IA", icon: Bot },
 ];
 
