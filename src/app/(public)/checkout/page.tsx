@@ -3,11 +3,29 @@
 import { useCartStore } from "@/store/cart";
 import { formatPrice } from "@/lib/utils";
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { PayPalButtons, PayPalScriptProvider } from "@paypal/react-paypal-js";
-import { CreditCard, Building2, CheckCircle } from "lucide-react";
+import {
+  CreditCard,
+  Building2,
+  CheckCircle,
+  Download,
+  ArrowRight,
+  Clock,
+} from "lucide-react";
 import { ConektaCheckout } from "@/components/shop/ConektaCheckout";
+
+// Add subscription to cart changes for debugging
+useCartStore.subscribe(
+  (state) => state.items,
+  (items) => {
+    console.log(
+      "[cart] Cart items changed:",
+      items.map((i) => ({ id: i.id, name: i.name, quantity: i.quantity })),
+    );
+  },
+);
 
 type Method = "card" | "oxxo" | "paypal";
 type Stage = "select" | "iframe" | "success";
@@ -55,6 +73,55 @@ export default function CheckoutPage() {
 
   const { status } = useSession();
 
+  // Handle Conekta redirect
+  const searchParams = useSearchParams();
+  const coneKtaOrderId = searchParams.get("order_id");
+  const paymentStatus = searchParams.get("payment_status");
+
+  // If we have Conekta redirect params, try to find the order and redirect
+  useEffect(() => {
+    if (coneKtaOrderId && paymentStatus) {
+      console.log("[checkout] Handling Conekta redirect:", {
+        coneKtaOrderId,
+        paymentStatus,
+      });
+
+      // Try to find order by paymentReference (Conekta order ID)
+      fetch("/api/checkout/verify-payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: coneKtaOrderId }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.orderId) {
+            console.log(
+              "[checkout] Found order, redirecting to:",
+              `/pedido/${data.orderId}?success=true`,
+            );
+            router.push(`/pedido/${data.orderId}?success=true`);
+          } else {
+            console.error(
+              "[checkout] Could not find order for Conekta redirect",
+            );
+          }
+        })
+        .catch((err) => {
+          console.error("[checkout] Error verifying payment:", err);
+        });
+    }
+  }, [coneKtaOrderId, paymentStatus, router]);
+
+  // Don't render anything if we're handling a Conekta redirect
+  if (coneKtaOrderId && paymentStatus) {
+    return (
+      <div className="max-w-md mx-auto px-4 py-20 text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
+        <p className="text-gray-500">Procesando pago...</p>
+      </div>
+    );
+  }
+
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/login?callbackUrl=/checkout");
@@ -62,10 +129,26 @@ export default function CheckoutPage() {
   }, [status, router]);
 
   useEffect(() => {
-    if (hydrated && !items.length && stage === "select") {
+    console.log("[checkout] Redirect check:", {
+      hydrated,
+      itemsLength: items.length,
+      stage,
+      pendingOrderId,
+    });
+    // Only redirect to /carrito if we're in select stage, cart is empty, and there's no pending order
+    // Don't redirect if we're in iframe stage (processing payment) even if cart is empty
+    if (hydrated && !items.length && stage === "select" && !pendingOrderId) {
+      console.log("[checkout] Redirecting to /carrito");
       router.push("/carrito");
+    } else {
+      console.log("[checkout] Not redirecting to /carrito", {
+        hydrated,
+        itemsLength: items.length,
+        stage,
+        pendingOrderId,
+      });
     }
-  }, [hydrated, items.length, stage, router]);
+  }, [hydrated, items.length, stage, pendingOrderId, router]);
 
   if (!hydrated || status === "loading" || status === "unauthenticated")
     return null;
@@ -111,15 +194,20 @@ export default function CheckoutPage() {
   };
 
   const handleConektaSuccess = (orderId: string) => {
-    clearCart();
-    setStage("success");
-    // Clear localStorage on successful payment
-    localStorage.removeItem(STORAGE_KEY);
-    console.log("[checkout] Payment successful, cleared localStorage");
-    setTimeout(() => router.push(`/pedido/${orderId}?success=true`), 2000);
+    console.log(
+      "[checkout] handleConektaSuccess called with orderId:",
+      orderId,
+    );
+    console.log(
+      "[checkout] Navigating to order page:",
+      `/pedido/${orderId}?success=true`,
+    );
+    // Cart already cleared in onPaymentConfirmed, just navigate to order page
+    router.push(`/pedido/${orderId}?success=true`);
   };
 
   const handleConektaExit = () => {
+    console.log("[checkout] handleConektaExit called");
     setStage("select");
     setCheckoutRequestId("");
     setPendingOrderId("");
@@ -128,40 +216,59 @@ export default function CheckoutPage() {
     console.log("[checkout] User exited checkout, cleared localStorage");
   };
 
-  // ── Success screen ──────────────────────────────────────
-  if (stage === "success") {
-    return (
-      <div className="max-w-md mx-auto px-4 py-20 text-center">
-        <CheckCircle className="mx-auto mb-4 text-green-500" size={56} />
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">
-          ¡Pago recibido!
-        </h1>
-        <p className="text-gray-500 text-sm">Redirigiendo a tu pedido…</p>
-      </div>
-    );
-  }
+  // Removed success screen - user stays on iframe page with "Ver pedido" button
 
   // ── Conekta iframe ──────────────────────────────────────
   if (stage === "iframe" && checkoutRequestId) {
+    console.log("[checkout] Rendering iframe stage with:", {
+      checkoutRequestId,
+      pendingOrderId,
+      itemsLength: items.length,
+      stage,
+    });
     return (
       <div className="max-w-2xl mx-auto px-4 py-10">
         <button
           onClick={handleConektaExit}
-          className="text-sm text-gray-500 hover:text-gray-700 mb-6 flex items-center gap-1"
+          disabled={stage === "iframe" && pendingOrderId}
+          className="text-sm text-gray-500 hover:text-gray-700 mb-6 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          ← Volver al carrito
+          ← Volver
         </button>
         <ConektaCheckout
           checkoutRequestId={checkoutRequestId}
           orderId={pendingOrderId}
           onSuccess={handleConektaSuccess}
+          onPaymentConfirmed={(orderId) => {
+            // Clear cart with delay to ensure success redirect happens first
+            console.log(
+              "[checkout] onPaymentConfirmed called with orderId:",
+              orderId,
+            );
+            // Use setTimeout to ensure navigation happens first
+            setTimeout(() => {
+              clearCart();
+              localStorage.removeItem(STORAGE_KEY);
+              console.log("[checkout] Payment confirmed, cart cleared");
+            }, 1000);
+          }}
           onError={(err) => {
-            console.error(err);
+            console.error("[checkout] Payment error:", err);
             setError("Hubo un error con el pago. Intenta de nuevo.");
             setStage("select");
           }}
           onExit={handleConektaExit}
         />
+      </div>
+    );
+  }
+
+  // Don't render anything if we're handling a Conekta redirect
+  if (coneKtaOrderId && paymentStatus) {
+    return (
+      <div className="max-w-md mx-auto px-4 py-20 text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
+        <p className="text-gray-500">Procesando pago...</p>
       </div>
     );
   }

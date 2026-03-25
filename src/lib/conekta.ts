@@ -71,12 +71,10 @@ export async function createConektaOrder(params: {
         type: "HostedPayment",
         expires_at: Math.floor(Date.now() / 1000) + 86400,
         allowed_payment_methods: params.allowedPaymentMethods,
-        success_url:
-          process.env.CONEKTA_SUCCESS_URL ??
-          `${process.env.NEXTAUTH_URL}/checkout/success`,
-        failure_url:
-          process.env.CONEKTA_FAILURE_URL ??
-          `${process.env.NEXTAUTH_URL}/checkout/error`,
+        // Point success/failure URLs back to checkout page to prevent redirects
+        // The iframe callbacks handle everything, so we don't need separate success/error pages
+        success_url: `${process.env.NEXTAUTH_URL}/checkout`,
+        failure_url: `${process.env.NEXTAUTH_URL}/checkout`,
       },
     }),
   });

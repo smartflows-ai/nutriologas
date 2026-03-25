@@ -21,10 +21,23 @@ export async function POST(req: Request) {
 
   console.log("[verify-payment] Verifying payment for order:", orderId);
 
-  // Find the order in DB
-  const order = await prisma.order.findFirst({
+  // First try to find by ID
+  let order = await prisma.order.findFirst({
     where: { id: orderId, userId },
   });
+
+  // If not found by ID, try to find by paymentReference (Conekta order ID)
+  if (!order) {
+    order = await prisma.order.findFirst({
+      where: {
+        paymentReference: orderId,
+        userId,
+      },
+    });
+    console.log(
+      "[verify-payment] Order not found by ID, trying by paymentReference",
+    );
+  }
 
   if (!order) {
     console.error("[verify-payment] Order not found:", orderId);
@@ -54,8 +67,7 @@ export async function POST(req: Request) {
     );
 
     const isPaid =
-      conektaOrder.status === "paid" ||
-      conektaOrder.payment_status === "paid";
+      conektaOrder.status === "paid" || conektaOrder.payment_status === "paid";
 
     // Update DB if payment is confirmed
     if (isPaid && order.status !== "PAID") {
