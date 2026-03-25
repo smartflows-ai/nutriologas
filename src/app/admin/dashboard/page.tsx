@@ -10,25 +10,22 @@ async function getDashboardData(tenantId: string) {
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const [totalOrders, monthOrders, totalCustomers, newCustomers, reviews, recentOrders, salesData] = await Promise.all([
-    prisma.order.count({ where: { tenantId, status: "PAID" } }),
-    prisma.order.findMany({ where: { tenantId, status: "PAID", createdAt: { gte: monthStart } } }),
-    prisma.user.count({ where: { tenantId, role: "CUSTOMER" } }),
-    prisma.user.count({ where: { tenantId, role: "CUSTOMER", createdAt: { gte: monthStart } } }),
-    prisma.review.aggregate({ where: { tenantId }, _avg: { rating: true }, _count: true }),
-    prisma.order.findMany({
-      where: { tenantId, status: "PAID" },
-      include: { user: { select: { name: true, email: true } }, items: true },
-      orderBy: { createdAt: "desc" },
-      take: 5,
-    }),
-    // Ventas de los últimos 7 dias
-    prisma.order.findMany({
-      where: { tenantId, status: "PAID", createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } },
-      select: { total: true, createdAt: true },
-      orderBy: { createdAt: "asc" },
-    }),
-  ]);
+  const totalOrders = await prisma.order.count({ where: { tenantId, status: "PAID" } });
+  const monthOrders = await prisma.order.findMany({ where: { tenantId, status: "PAID", createdAt: { gte: monthStart } } });
+  const totalCustomers = await prisma.user.count({ where: { tenantId, role: "CUSTOMER" } });
+  const newCustomers = await prisma.user.count({ where: { tenantId, role: "CUSTOMER", createdAt: { gte: monthStart } } });
+  const reviews = await prisma.review.aggregate({ where: { tenantId }, _avg: { rating: true }, _count: true });
+  const recentOrders = await prisma.order.findMany({
+    where: { tenantId, status: "PAID" },
+    include: { user: { select: { name: true, email: true } }, items: true },
+    orderBy: { createdAt: "desc" },
+    take: 5,
+  });
+  const salesData = await prisma.order.findMany({
+    where: { tenantId, status: "PAID", createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } },
+    select: { total: true, createdAt: true },
+    orderBy: { createdAt: "asc" },
+  });
 
   const monthRevenue = monthOrders.reduce((s, o) => s + o.total, 0);
 

@@ -6,7 +6,7 @@ import { getToken } from "next-auth/jwt";
 export async function middleware(req: NextRequest) {
   const { nextUrl } = req;
   const hostname = req.headers.get("host") || "";
-  
+
   let tenantIdentifier = "clinica-demo"; // fallback
 
   // Lógica de detección de dominios
@@ -53,5 +53,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!api/auth|api/calendar|_next/static|_next/image|favicon.ico|public).*)"],
+  matcher: ["/((?!api/auth|api/internal|api/apps|api/calendar|_next/static|_next/image|favicon.ico|public).*)"],
 };

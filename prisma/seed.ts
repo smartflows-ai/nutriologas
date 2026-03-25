@@ -31,11 +31,11 @@ async function main() {
 
   // Crear admin
   const admin = await prisma.user.upsert({
-    where: { tenantId_email: { tenantId: tenant.id, email: "smartflows.co@gmail.com" } },
+    where: { tenantId_email: { tenantId: tenant.id, email: "irvin.proyecto@gmail.com" } },
     update: {},
     create: {
       tenantId: tenant.id,
-      email: "smartflows.co@gmail.com",
+      email: "irvin.proyecto@gmail.com",
       name: "Admin Demo",
       role: "ADMIN",
       passwordHash: await bcrypt.hash("admin123", 10),
