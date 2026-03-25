@@ -4,35 +4,64 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import {
-  LayoutDashboard, Package, ShoppingBag, Image, Palette,
-  Calendar, Star, Bot, LogOut, Menu, X,
+  LayoutDashboard,
+  Package,
+  ShoppingBag,
+  Image,
+  Palette,
+  Calendar,
+  Star,
+  Bot,
+  LogOut,
+  Menu,
+  X,
+  LayoutDashboard,
+  Package,
+  Image,
+  Palette,
+  Calendar,
+  Star,
+  Bot,
+  LogOut,
+  Menu,
+  X,
+  Plug,
+  MessageSquare,
 } from "lucide-react";
 import SignOutButton from "@/components/admin/SignOutButton";
 
 const navItems = [
-  { href: "/admin/dashboard",  label: "Dashboard",    icon: LayoutDashboard },
-  { href: "/admin/productos",  label: "Productos",    icon: Package },
-  { href: "/admin/pedidos",    label: "Pedidos",      icon: ShoppingBag },
-  { href: "/admin/carrusel",   label: "Carrusel",     icon: Image },
-  { href: "/admin/apariencia", label: "Apariencia",   icon: Palette },
-  { href: "/admin/calendario", label: "Calendario",   icon: Calendar },
-  { href: "/admin/reviews",    label: "Reviews",      icon: Star },
-  { href: "/admin/asistente",  label: "Asistente IA", icon: Bot },
+  { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/admin/productos", label: "Productos", icon: Package },
+  { href: "/admin/pedidos", label: "Pedidos", icon: ShoppingBag },
+  { href: "/admin/carrusel", label: "Carrusel", icon: Image },
+  { href: "/admin/apariencia", label: "Apariencia", icon: Palette },
+  { href: "/admin/calendario", label: "Calendario", icon: Calendar },
+  { href: "/admin/reviews", label: "Reviews", icon: Star },
+  { href: "/admin/apps", label: "Apps", icon: Plug },
+  { href: "/admin/whatsapp", label: "WhatsApp", icon: MessageSquare },
+  { href: "/admin/asistente", label: "Asistente IA", icon: Bot },
 ];
 
-interface Props { userName?: string | null; }
+interface Props {
+  userName?: string | null;
+}
 
 export default function AdminSidebar({ userName }: Props) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
   // Close sidebar on route change (mobile nav)
-  useEffect(() => { setOpen(false); }, [pathname]);
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
 
   // Prevent body scroll when sidebar open on mobile
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
-    return () => { document.body.style.overflow = ""; };
+    return () => {
+      document.body.style.overflow = "";
+    };
   }, [open]);
 
   const sidebarContent = (
@@ -41,7 +70,9 @@ export default function AdminSidebar({ userName }: Props) {
       <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
         <div>
           <h1 className="font-bold text-lg text-primary">CRM Nutrición</h1>
-          <p className="text-xs text-gray-400 truncate max-w-[160px]">{userName}</p>
+          <p className="text-xs text-gray-400 truncate max-w-[160px]">
+            {userName}
+          </p>
         </div>
         <button
           className="md:hidden p-1 rounded-lg text-gray-400 hover:text-gray-600"
@@ -61,13 +92,19 @@ export default function AdminSidebar({ userName }: Props) {
               key={href}
               href={href}
               className={`flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-colors group
-                ${active
-                  ? "bg-primary/10 text-primary"
-                  : "text-gray-700 hover:bg-primary/5 hover:text-primary"}`}
+                ${
+                  active
+                    ? "bg-primary/10 text-primary"
+                    : "text-gray-700 hover:bg-primary/5 hover:text-primary"
+                }`}
             >
               <Icon
                 size={18}
-                className={active ? "text-primary" : "text-gray-400 group-hover:text-primary transition-colors"}
+                className={
+                  active
+                    ? "text-primary"
+                    : "text-gray-400 group-hover:text-primary transition-colors"
+                }
               />
               {label}
             </Link>

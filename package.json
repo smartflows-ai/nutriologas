@@ -7,10 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "db:push": "dotenv -e .env tsx node_modules/.bin/prisma db push",
-    "db:generate": "dotenv -e .env tsx node_modules/.bin/prisma generate",
+    "db:push": "prisma db push",
+    "db:generate": "prisma generate",
     "db:seed": "dotenv -e .env tsx prisma/seed.ts",
-    "db:studio": "dotenv -e .env tsx node_modules/.bin/prisma studio"
+    "db:studio": "prisma studio",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@fullcalendar/core": "^6.1.20",

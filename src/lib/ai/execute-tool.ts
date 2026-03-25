@@ -1,6 +1,7 @@
 // src/lib/ai/execute-tool.ts
 import { prisma } from "@/lib/db";
 import { getPeriodDates } from "@/lib/utils";
+import { getAppToken, getConnectedProvider } from "@/lib/connected-apps";
 
 type Period = "day" | "week" | "month" | "year" | "all";
 
@@ -167,26 +168,55 @@ export async function executeTool(
 
       // ── CALENDARIO ──────────────────────────────────────
       case "get_appointments_summary": {
-        // Lee el token de Google Calendar del admin del tenant
-        const admin = await prisma.user.findFirst({ where: { tenantId, role: "ADMIN" }, select: { googleCalendarToken: true } });
-        if (!admin?.googleCalendarToken) {
-          return JSON.stringify({ error: "Google Calendar no conectado. El admin debe conectar su cuenta en Configuracion." });
+        const calProvider = await getConnectedProvider(tenantId, ["GOOGLE", "MICROSOFT"]);
+        if (!calProvider) {
+          return JSON.stringify({ error: "Ningún calendario conectado. El admin debe conectar Google o Microsoft desde la página de Apps." });
         }
-        // TODO: llamar a Google Calendar API con el token
-        // Por ahora retorna datos de ejemplo
-        return JSON.stringify({
-          note: "Integrar con Google Calendar API usando el token del admin",
-          total: 0, attended: 0, cancelled: 0, attendanceRate: 0,
-          period: input.period,
-        });
+        const calToken = await getAppToken(tenantId, calProvider);
+        if (!calToken) {
+          return JSON.stringify({ error: "Token de calendario expirado. Reconectar desde Apps." });
+        }
+
+        const { startDate, endDate } = getPeriodDates(input.period);
+        const timeMin = startDate.toISOString();
+        const timeMax = endDate.toISOString();
+
+        let calEvents: any[] = [];
+        if (calProvider === "GOOGLE") {
+          const res = await fetch(
+            `https://www.googleapis.com/calendar/v3/calendars/primary/events?` +
+            new URLSearchParams({ timeMin, timeMax, singleEvents: "true", orderBy: "startTime", maxResults: "200" }).toString(),
+            { headers: { Authorization: `Bearer ${calToken}` } }
+          );
+          if (res.ok) { const d = await res.json(); calEvents = d.items ?? []; }
+        } else {
+          const res = await fetch(
+            `https://graph.microsoft.com/v1.0/me/calendarView?` +
+            new URLSearchParams({ startDateTime: timeMin, endDateTime: timeMax, $top: "200" }).toString(),
+            { headers: { Authorization: `Bearer ${calToken}` } }
+          );
+          if (res.ok) { const d = await res.json(); calEvents = d.value ?? []; }
+        }
+
+        const now = new Date();
+        const total = calEvents.length;
+        const cancelled = calEvents.filter((e: any) => e.status === "cancelled" || e.isCancelled).length;
+        const past = calEvents.filter((e: any) => {
+          const s = e.start?.dateTime || e.start?.date || "";
+          return new Date(s) < now;
+        }).length;
+        const attended = past - cancelled;
+        const rate = total > 0 ? Math.round((attended / total) * 100) : 0;
+
+        return JSON.stringify({ total, attended, cancelled, pending: total - past, attendanceRate: rate, period: input.period, provider: calProvider });
       }
 
       case "get_cancellation_patterns": {
-        return JSON.stringify({ note: "Requiere Google Calendar conectado. Implementar con googleapis." });
+        return JSON.stringify({ note: "Funcionalidad próxima. Conecta tu calendario desde Apps para habilitarla." });
       }
 
       case "get_busiest_slots": {
-        return JSON.stringify({ note: "Requiere Google Calendar conectado. Implementar con googleapis." });
+        return JSON.stringify({ note: "Funcionalidad próxima. Conecta tu calendario desde Apps para habilitarla." });
       }
 
       default:

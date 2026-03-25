@@ -26,6 +26,9 @@ model Tenant {
   orders          Order[]
   reviews         Review[]
   carouselImages  CarouselImage[]
+  connectedApps   ConnectedApp[]
+  whatsappChats   WhatsAppChat[]
+  whatsappMessages WhatsAppMessage[]
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -62,15 +65,7 @@ model User {
   role         UserRole  @default(CUSTOMER)
   passwordHash String?
   googleId     String?
-
-  // Google Calendar OAuth (solo admins)
-  googleCalendarToken        String?
-  googleCalendarRefreshToken String?
-  googleCalendarTokenExpiry  DateTime?
-
-  // Conekta customer ID (created at signup or first checkout)
   conektaCustomerId String?
-
   orders  Order[]
   reviews Review[]
   accounts Account[]
@@ -120,6 +115,78 @@ model VerificationToken {
 
   @@unique([identifier, token])
   @@map("verification_tokens")
+}
+
+// ─── APPS CONECTADAS (nivel tenant) ──────────────────────
+enum AppProvider {
+  GOOGLE
+  MICROSOFT
+  WHATSAPP
+  FACEBOOK
+  INSTAGRAM
+}
+
+model ConnectedApp {
+  id                String      @id @default(uuid())
+  tenantId          String
+  tenant            Tenant      @relation(fields: [tenantId], references: [id])
+  provider          AppProvider
+  accessToken       String
+  refreshToken      String?
+  tokenExpiry       DateTime?
+  scopes            String?
+  connectedAt       DateTime    @default(now())
+  connectedByUserId String?
+
+  // WhatsApp Evolution API specific fields
+  waInstanceId    String?
+  waInstanceName  String?
+  waStatus        String?
+  waQrCode        String?
+  waPhoneNumber   String?
+  waWebhookUrl    String?
+
+  waTemperature   Float?      @default(0.7)
+  waContext       String?     @db.Text
+
+  metadata        Json?
+
+  @@unique([tenantId, provider])
+  @@map("connected_apps")
+}
+
+model WhatsAppChat {
+  id          String   @id @default(uuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  remoteJid   String   // e.g. 12345678@s.whatsapp.net
+  pushName    String?
+  lastMessage String?  @db.Text
+  unreadCount Int      @default(0)
+  updatedAt   DateTime @updatedAt
+
+  messages    WhatsAppMessage[]
+
+  @@unique([tenantId, remoteJid])
+  @@map("whatsapp_chats")
+}
+
+model WhatsAppMessage {
+  id        String   @id @default(uuid())
+  chatId    String
+  chat      WhatsAppChat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  remoteJid String
+  keyId     String   @unique // ID del mensaje en WhatsApp para evitar duplicados
+  content   String   @db.Text
+  type      String   @default("text") // text, image, etc.
+  fromMe    Boolean  @default(false)
+  timestamp DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([chatId])
+  @@map("whatsapp_messages")
 }
 
 // ─── PRODUCTOS ───────────────────────────────────────────

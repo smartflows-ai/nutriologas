@@ -64,21 +64,6 @@ export const authOptions: NextAuthOptions = {
       clientId: process.env.GOOGLE_CLIENT_ID ?? "",
       clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
     }),
-    GoogleProvider({
-      id: "google-calendar",
-      name: "Google Calendar",
-      clientId: process.env.GOOGLE_CLIENT_ID ?? "",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
-      authorization: {
-        params: {
-          prompt: "consent",
-          access_type: "offline",
-          response_type: "code",
-          scope:
-            "openid email profile https://www.googleapis.com/auth/calendar.readonly",
-        },
-      },
-    }),
     CredentialsProvider({
       name: "credentials",
       credentials: {
@@ -133,19 +118,8 @@ export const authOptions: NextAuthOptions = {
     async signIn({ user, account, profile }) {
       console.log("====== CALLBACK SIGNIN START ======", { userEmail: user?.email, provider: account?.provider });
       
-      // 1. Manejo de Google Calendar Token para admins (código original)
-      if (account?.provider === "google-calendar") {
-        await prisma.user.update({
-          where: { id: user.id },
-          data: {
-            googleCalendarToken: account.access_token ?? null,
-            googleCalendarRefreshToken: account.refresh_token ?? null,
-            googleCalendarTokenExpiry: account.expires_at
-              ? new Date(account.expires_at * 1000)
-              : null,
-          },
-        });
-      }
+      // Google Calendar tokens now handled by /api/apps/oauth (connected_apps table)
+      // No longer need to handle google-calendar provider here
 
       // 2. Lógica sugerida por Claude para asignar tenantId si por alguna razón faltara
       if (account?.provider === "google") {

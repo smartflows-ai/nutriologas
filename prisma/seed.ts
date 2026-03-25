@@ -1,8 +1,16 @@
 // prisma/seed.ts
 import { PrismaClient } from "@prisma/client";
+import { Pool } from "pg";
+import { PrismaPg } from "@prisma/adapter-pg";
 import bcrypt from "bcryptjs";
 
-const prisma = new PrismaClient();
+function createPrismaClient() {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const adapter = new PrismaPg(pool);
+  return new PrismaClient({ adapter });
+}
+
+const prisma = createPrismaClient();
 
 async function main() {
   console.log("🌱 Seeding database...");
@@ -31,11 +39,16 @@ async function main() {
 
   // Crear admin
   const admin = await prisma.user.upsert({
-    where: { tenantId_email: { tenantId: tenant.id, email: "smartflows.co@gmail.com" } },
+    where: {
+      tenantId_email: {
+        tenantId: tenant.id,
+        email: "irvin.proyecto@gmail.com",
+      },
+    },
     update: {},
     create: {
       tenantId: tenant.id,
-      email: "smartflows.co@gmail.com",
+      email: "irvin.proyecto@gmail.com",
       name: "Admin Demo",
       role: "ADMIN",
       passwordHash: await bcrypt.hash("admin123", 10),
@@ -98,15 +111,25 @@ async function main() {
   await prisma.carouselImage.createMany({
     skipDuplicates: true,
     data: [
-      { tenantId: tenant.id, url: "https://res.cloudinary.com/dbbjbwznc/image/upload/v1773868688/create_by_m9t3du.png", alt: "Banner principal", sortOrder: 0 }
+      {
+        tenantId: tenant.id,
+        url: "https://res.cloudinary.com/dbbjbwznc/image/upload/v1773868688/create_by_m9t3du.png",
+        alt: "Banner principal",
+        sortOrder: 0,
+      },
     ],
   });
 
   console.log("✅ Imágenes del carrusel creadas");
   console.log("\n🎉 Seed completado!");
-  console.log(`\n📋 Datos de acceso:\n   Email: admin@clinica-demo.com\n   Tenant slug: clinica-demo`);
+  console.log(
+    `\n📋 Datos de acceso:\n   Email: irvin.proyecto@gmail.com\n   Tenant slug: doctor`,
+  );
 }
 
 main()
-  .catch((e) => { console.error(e); process.exit(1); })
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
   .finally(() => prisma.$disconnect());
