@@ -27,5 +27,5 @@ export function getTenantSlug(): string {
   }
 
   // Fallback for bare localhost:3000
-  return "clinica-demo";
+  return "doctor";
 }

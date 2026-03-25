@@ -5,9 +5,21 @@ import { formatPrice } from "@/lib/utils";
 import { Trash2, Plus, Minus, ShoppingBag } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
 export default function CarritoPage() {
   const { items, removeItem, updateQuantity, total, clearCart } = useCartStore();
+  const { status } = useSession();
+  const router = useRouter();
+
+  const handleCheckout = () => {
+    if (status === "authenticated") {
+      router.push("/checkout");
+    } else {
+      router.push("/login?callbackUrl=/checkout");
+    }
+  };
 
   if (items.length === 0) {
     return (
@@ -62,7 +74,7 @@ export default function CarritoPage() {
               <span className="text-primary">{formatPrice(total())}</span>
             </div>
           </div>
-          <Link href="/checkout" className="btn-primary block text-center w-full py-3">Proceder al pago</Link>
+          <button onClick={handleCheckout} className="btn-primary block text-center w-full py-3">Proceder al pago</button>
           <Link href="/productos" className="btn-ghost block text-center w-full py-2 mt-2 text-sm">Seguir comprando</Link>
         </div>
       </div>

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import {
-  LayoutDashboard, Package, Image, Palette,
+  LayoutDashboard, Package, ShoppingBag, Image, Palette,
   Calendar, Star, Bot, LogOut, Menu, X,
 } from "lucide-react";
 import SignOutButton from "@/components/admin/SignOutButton";
@@ -12,6 +12,7 @@ import SignOutButton from "@/components/admin/SignOutButton";
 const navItems = [
   { href: "/admin/dashboard",  label: "Dashboard",    icon: LayoutDashboard },
   { href: "/admin/productos",  label: "Productos",    icon: Package },
+  { href: "/admin/pedidos",    label: "Pedidos",      icon: ShoppingBag },
   { href: "/admin/carrusel",   label: "Carrusel",     icon: Image },
   { href: "/admin/apariencia", label: "Apariencia",   icon: Palette },
   { href: "/admin/calendario", label: "Calendario",   icon: Calendar },

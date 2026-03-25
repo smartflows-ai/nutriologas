@@ -3,6 +3,12 @@ node_modules/
 .pnp
 .pnp.js
 
+# Claude
+.claude/
+
+# Zed
+.zed/
+
 # Next.js
 .next/
 out/

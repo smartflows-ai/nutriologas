@@ -24,6 +24,7 @@ export async function middleware(req: NextRequest) {
   const isAdminRoute = nextUrl.pathname.startsWith("/admin");
   const isAuthRoute = nextUrl.pathname.startsWith("/login") || nextUrl.pathname.startsWith("/registro");
   const isCheckoutRoute = nextUrl.pathname.startsWith("/checkout");
+  const isOrderRoute = nextUrl.pathname.startsWith("/pedido/") || nextUrl.pathname.startsWith("/mis-pedidos");
 
   // Rutas /admin/* — solo admins
   if (isAdminRoute) {
@@ -31,9 +32,9 @@ export async function middleware(req: NextRequest) {
     if (!isAdmin) return NextResponse.redirect(new URL("/", nextUrl));
   }
 
-  // Checkout — requiere login
-  if (isCheckoutRoute && !isLoggedIn) {
-    return NextResponse.redirect(new URL("/login?callbackUrl=/checkout", nextUrl));
+  // Checkout y pedidos — requiere login
+  if ((isCheckoutRoute || isOrderRoute) && !isLoggedIn) {
+    return NextResponse.redirect(new URL(`/login?callbackUrl=${encodeURIComponent(nextUrl.pathname)}`, nextUrl));
   }
 
   // Si ya esta logueado no puede ir a login/registro

@@ -91,7 +91,7 @@ export const authOptions: NextAuthOptions = {
 
         // 1. Extraer a qué clínica está intentando entrar el usuario leyendo el encabezado Host
         const host = req?.headers?.host || "localhost";
-        let tenantIdentifier = "clinica-demo";
+        let tenantIdentifier = "doctor";
         if (host.includes(".localhost")) {
           tenantIdentifier = host.split(".")[0];
         } else if (!host.includes("localhost") && !host.startsWith("www.smartflows")) {
