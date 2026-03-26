@@ -30,6 +30,11 @@ export async function POST(req: NextRequest) {
         where: { provider: "WHATSAPP" },
         select: { waInstanceId: true, waStatus: true, waPhoneNumber: true, waTemperature: true, waContext: true },
       },
+      faqs: {
+        where: { isActive: true },
+        select: { question: true, answer: true },
+        orderBy: { sortOrder: "asc" },
+      },
     },
   });
 
@@ -52,6 +57,10 @@ export async function POST(req: NextRequest) {
       price: `$${p.price} MXN`,
       description: p.description,
       category: p.category,
+    })),
+    faqs: tenant.faqs.map(f => ({
+      question: f.question,
+      answer: f.answer,
     })),
   });
 }

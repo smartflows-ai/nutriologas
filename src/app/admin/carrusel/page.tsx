@@ -94,12 +94,12 @@ export default function CarruselPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-2">Carrusel</h1>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Carrusel</h1>
       <p className="text-gray-500 text-sm mb-8">Administra las imágenes del banner principal de tu tienda</p>
 
       {/* Add new image */}
       <div className="card mb-8">
-        <h2 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+        <h2 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
           <Plus size={18} className="text-primary" /> Agregar imagen
         </h2>
         <div className="flex items-center gap-3 mb-4">
@@ -122,7 +122,7 @@ export default function CarruselPage() {
         {uploadError && <p className="text-red-500 text-xs mb-3">{uploadError}</p>}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">URL de la imagen *</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">URL de la imagen *</label>
             <input
               value={newUrl}
               onChange={(e) => setNewUrl(e.target.value)}
@@ -131,7 +131,7 @@ export default function CarruselPage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Texto alternativo</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Texto alternativo</label>
             <input
               value={newAlt}
               onChange={(e) => setNewAlt(e.target.value)}
@@ -152,7 +152,7 @@ export default function CarruselPage() {
 
       {/* Images list */}
       <div>
-        <h2 className="font-semibold text-gray-900 mb-4">
+        <h2 className="font-semibold text-gray-900 dark:text-white mb-4">
           Imágenes actuales ({images.length})
           <span className="text-xs text-gray-400 font-normal ml-2">Arrastra para reordenar</span>
         </h2>
@@ -179,7 +179,7 @@ export default function CarruselPage() {
                   <Image src={img.url} alt={img.alt ?? ""} fill sizes="96px" className="object-cover" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-gray-600 truncate">{img.alt ?? "Sin texto alternativo"}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 truncate">{img.alt ?? "Sin texto alternativo"}</p>
                   <p className="text-xs text-gray-400 truncate">{img.url}</p>
                 </div>
                 <button

@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { prisma } from "@/lib/db";
 import { getTenantSlug } from "@/lib/tenant";
+import { ThemeProvider } from "@/components/ThemeProvider";
 
 // El tenant se resuelve en v1 con el slug por defecto.
 // En v2 se resolverá desde el subdominio via middleware.
@@ -34,6 +35,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html
       lang="es"
+      suppressHydrationWarning
       style={{
         "--color-primary": theme.primaryColor,
         "--color-secondary": theme.secondaryColor,
@@ -43,7 +45,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <head>
         <title>{name}</title>
       </head>
-      <body>{children}</body>
+      <body className="bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors duration-300">
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
+          {children}
+        </ThemeProvider>
+      </body>
     </html>
   );
 }
