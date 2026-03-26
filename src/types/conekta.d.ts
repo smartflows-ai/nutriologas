@@ -49,6 +49,7 @@ export interface ConektaOrderResult {
         type: string;
         last4?: string;
         brand?: string;
+        barcode?: string;
       };
     }>;
   };
