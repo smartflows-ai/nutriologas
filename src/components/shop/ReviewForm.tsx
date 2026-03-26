@@ -46,7 +46,7 @@ export default function ReviewForm({ productId, onSuccess }: Props) {
 
   return (
     <form onSubmit={handleSubmit} className="card mb-6">
-      <h3 className="font-semibold text-gray-900 mb-4">Escribe tu reseña</h3>
+      <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Escribe tu reseña</h3>
 
       {/* Star picker */}
       <div className="flex items-center gap-1 mb-4">
@@ -84,7 +84,7 @@ export default function ReviewForm({ productId, onSuccess }: Props) {
         placeholder="Cuéntanos tu experiencia con este producto (opcional)"
         rows={3}
         maxLength={500}
-        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-none"
+        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-none"
       />
       <div className="flex items-center justify-between mt-3">
         <span className="text-xs text-gray-400">{comment.length}/500</span>

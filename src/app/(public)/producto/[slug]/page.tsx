@@ -58,7 +58,7 @@ export default async function ProductoPage({
 
         {/* Info */}
         <div className="flex flex-col">
-          <h1 className="text-3xl font-bold text-gray-900 mb-3">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-3">
             {product.name}
           </h1>
 
@@ -77,13 +77,13 @@ export default async function ProductoPage({
                   />
                 ))}
               </div>
-              <span className="text-sm text-gray-600">
+              <span className="text-sm text-gray-600 dark:text-gray-400">
                 {avgRating.toFixed(1)} ({product.reviews.length} reseñas)
               </span>
             </div>
           )}
 
-          <p className="text-gray-600 leading-relaxed mb-6">
+          <p className="text-gray-600 dark:text-gray-400 leading-relaxed mb-6">
             {product.description}
           </p>
 

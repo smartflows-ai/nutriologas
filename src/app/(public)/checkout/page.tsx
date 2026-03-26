@@ -48,11 +48,11 @@ export default function CheckoutPage() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-10">
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">Checkout</h1>
+      <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">Checkout</h1>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Métodos de pago */}
         <div>
-          <h2 className="font-semibold text-gray-900 mb-4">Método de pago</h2>
+          <h2 className="font-semibold text-gray-900 dark:text-white mb-4">Método de pago</h2>
           <div className="space-y-3 mb-6">
             {[
               { id: "card" as Method, label: "Tarjeta de crédito/débito", icon: <CreditCard size={18} /> },
@@ -99,10 +99,10 @@ export default function CheckoutPage() {
 
         {/* Resumen */}
         <div className="card h-fit">
-          <h2 className="font-semibold text-gray-900 mb-4">Resumen</h2>
+          <h2 className="font-semibold text-gray-900 dark:text-white mb-4">Resumen</h2>
           <div className="space-y-2 text-sm">
             {items.map((item) => (
-              <div key={item.id} className="flex justify-between text-gray-600">
+              <div key={item.id} className="flex justify-between text-gray-600 dark:text-gray-400">
                 <span className="truncate flex-1 mr-2">{item.name} ×{item.quantity}</span>
                 <span>{formatPrice(item.price * item.quantity)}</span>
               </div>

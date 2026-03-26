@@ -22,7 +22,7 @@ export default async function CalendarioPage() {
       {/* Page Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Calendario</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Calendario</h1>
           <p className="text-gray-500 text-sm mt-0.5">Citas y agenda del negocio</p>
         </div>
         {!isConnected && (
@@ -37,7 +37,7 @@ export default async function CalendarioPage() {
 
       {!isConnected ? (
         /* Empty state */
-        <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-200 bg-white py-20 text-center shadow-sm">
+        <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-200 bg-white dark:bg-gray-900 py-20 text-center shadow-sm">
           <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-primary/10 to-primary/20">
             <svg viewBox="0 0 24 24" width="40" height="40" fill="none">
               <rect x="3" y="4" width="18" height="17" rx="3" fill="#16a34a" opacity="0.15" />
@@ -50,7 +50,7 @@ export default async function CalendarioPage() {
             </svg>
           </div>
 
-          <h2 className="text-xl font-bold text-gray-900 mb-2">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
             Conecta tu calendario
           </h2>
           <p className="text-gray-500 text-sm max-w-sm mb-8 leading-relaxed">

@@ -35,6 +35,7 @@ export const themeSchema = z.object({
   primaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Color inválido"),
   secondaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Color inválido"),
   accentColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Color inválido"),
+  fontFamily: z.string().optional(),
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;

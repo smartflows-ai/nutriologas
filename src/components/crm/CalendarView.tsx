@@ -123,7 +123,7 @@ export default function CalendarView() {
                   onClick={() => setFilter(status)}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all
                   ${filter === status
-                      ? `bg-white ring-2 ${ring} text-gray-800 shadow-sm border-transparent`
+                      ? `bg-white dark:bg-gray-900 ring-2 ${ring} text-gray-800 dark:text-gray-100 shadow-sm border-transparent`
                       : "bg-gray-100 border-gray-200 text-gray-500 hover:bg-gray-200"
                     }`}
                 >
@@ -137,7 +137,7 @@ export default function CalendarView() {
           </div>
 
           {/* Calendar */}
-          <div className="rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden">
+          <div className="rounded-2xl border border-gray-100 bg-white dark:bg-gray-900 shadow-sm overflow-hidden">
             <style>{`
             .fc { font-family: inherit; }
             .fc-toolbar-title { font-size: 1.1rem !important; font-weight: 700; color: #111827; }
@@ -185,7 +185,7 @@ export default function CalendarView() {
               onClick={() => setSelected(null)}
             >
               <div
-                className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4"
+                className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md mx-4"
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Header */}
@@ -199,7 +199,7 @@ export default function CalendarView() {
                         <ClipboardList size={18} className="text-white" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-bold text-gray-900 text-lg leading-tight">
+                        <h3 className="font-bold text-gray-900 dark:text-white text-lg leading-tight">
                           {(selected as any).title}
                         </h3>
                         <span className={`inline-block mt-1 text-xs font-semibold px-2.5 py-0.5 rounded-full ${ep?.status === "attended" ? "bg-green-100 text-green-700" :
@@ -212,7 +212,7 @@ export default function CalendarView() {
                     </div>
                     <button
                       onClick={() => setSelected(null)}
-                      className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0"
+                      className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 dark:text-gray-400 transition-colors flex-shrink-0"
                     >
                       <X size={20} />
                     </button>
@@ -224,7 +224,7 @@ export default function CalendarView() {
                   {/* Fecha */}
                   <div className="flex gap-3 text-sm items-start">
                     <CalendarDays size={18} className="flex-shrink-0 mt-0.5" style={{ color: "var(--color-primary)" }} />
-                    <p className="text-gray-700 capitalize">
+                    <p className="text-gray-700 dark:text-gray-200 capitalize">
                       {new Date((selected as any).start).toLocaleDateString("es-MX", {
                         weekday: "long", year: "numeric", month: "long", day: "numeric",
                         ...((selected as any).allDay ? {} : { hour: "2-digit", minute: "2-digit" }),
@@ -239,7 +239,7 @@ export default function CalendarView() {
                   {ep?.location && (
                     <div className="flex gap-3 text-sm items-start">
                       <MapPin size={18} className="flex-shrink-0 mt-0.5" style={{ color: "var(--color-primary)" }} />
-                      <p className="text-gray-700">{ep.location}</p>
+                      <p className="text-gray-700 dark:text-gray-200">{ep.location}</p>
                     </div>
                   )}
 
@@ -248,7 +248,7 @@ export default function CalendarView() {
                     <div className="flex gap-3 text-sm items-start">
                       <FileText size={18} className="flex-shrink-0 mt-0.5" style={{ color: "var(--color-primary)" }} />
                       <div
-                        className="text-gray-700 leading-relaxed whitespace-pre-wrap"
+                        className="text-gray-700 dark:text-gray-200 leading-relaxed whitespace-pre-wrap"
                         dangerouslySetInnerHTML={{ __html: ep.description }}
                       />
                     </div>
