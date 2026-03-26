@@ -44,14 +44,14 @@ export default function RegistroPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 px-4">
       <div className="card w-full max-w-sm">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2 text-center">Crear cuenta</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2 text-center">Crear cuenta</h1>
         <p className="text-gray-500 text-sm text-center mb-6">Únete para comprar y hacer seguimiento de tus pedidos</p>
 
         <button
           onClick={() => signIn("google", { callbackUrl })}
-          className="w-full border border-gray-300 rounded-lg py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center justify-center gap-2 mb-4"
+          className="w-full border border-gray-300 rounded-lg py-2.5 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:bg-gray-950 flex items-center justify-center gap-2 mb-4"
         >
           <svg viewBox="0 0 24 24" width="18" height="18">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -64,27 +64,27 @@ export default function RegistroPage() {
 
         <div className="relative mb-4">
           <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200" /></div>
-          <div className="relative text-center"><span className="bg-white px-3 text-xs text-gray-400">o con email</span></div>
+          <div className="relative text-center"><span className="bg-white dark:bg-gray-900 px-3 text-xs text-gray-400">o con email</span></div>
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Nombre completo</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Nombre completo</label>
             <input {...register("name")} className="input" placeholder="Tu nombre" />
             {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Email</label>
             <input {...register("email")} type="email" className="input" placeholder="tu@email.com" />
             {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Contraseña</label>
             <input {...register("password")} type="password" className="input" placeholder="Mínimo 6 caracteres" />
             {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Confirmar contraseña</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Confirmar contraseña</label>
             <input {...register("confirmPassword")} type="password" className="input" placeholder="Repite tu contraseña" />
             {errors.confirmPassword && <p className="text-red-500 text-xs mt-1">{errors.confirmPassword.message}</p>}
           </div>

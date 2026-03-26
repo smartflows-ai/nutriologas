@@ -29,6 +29,7 @@ model Tenant {
   connectedApps   ConnectedApp[]
   whatsappChats   WhatsAppChat[]
   whatsappMessages WhatsAppMessage[]
+  faqs            FAQ[]
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -43,6 +44,7 @@ model ThemeConfig {
   primaryColor   String  @default("#16a34a")
   secondaryColor String  @default("#15803d")
   accentColor    String  @default("#4ade80")
+  fontFamily     String  @default("Inter")
 
   updatedAt DateTime @updatedAt
 
@@ -293,4 +295,20 @@ model CarouselImage {
   createdAt DateTime @default(now())
 
   @@map("carousel_images")
+}
+
+// ─── FAQS ───────────────────────────────────────────────
+model FAQ {
+  id        String  @id @default(uuid())
+  tenantId  String
+  tenant    Tenant  @relation(fields: [tenantId], references: [id])
+  question  String  @db.Text
+  answer    String  @db.Text
+  sortOrder Int     @default(0)
+  isActive  Boolean @default(true)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("faqs")
 }

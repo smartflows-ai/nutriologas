@@ -55,20 +55,17 @@ export default function PedidoStatusPolling({
     try {
       const response = await fetch(`/api/pedido/${orderId}`);
       if (!response.ok) {
-        console.error("[Polling] Error fetching status:", response.status);
         return;
       }
       const data = await response.json();
       const newStatus = data.order?.status;
 
       if (newStatus && newStatus !== status) {
-        console.log("[Polling] Status cambiado:", status, "->", newStatus);
         setStatus(newStatus);
       }
 
       setLastChecked(new Date());
     } catch (error) {
-      console.error("[Polling] Error:", error);
     }
   };
 

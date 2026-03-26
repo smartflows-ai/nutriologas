@@ -4,11 +4,14 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { themeSchema, type ThemeInput } from "@/lib/validations";
-import { Check, Palette } from "lucide-react";
+import { Check, Palette, Moon, Sun, Monitor } from "lucide-react";
+import { useTheme } from "next-themes";
 
 export default function AparienciaPage() {
   const [saved, setSaved] = useState(false);
-  const [preview, setPreview] = useState({ primaryColor: "#16a34a", secondaryColor: "#15803d", accentColor: "#4ade80" });
+  const { theme, setTheme, systemTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  const [preview, setPreview] = useState({ primaryColor: "#16a34a", secondaryColor: "#15803d", accentColor: "#4ade80", fontFamily: "Inter, sans-serif" });
 
   const { register, handleSubmit, watch, reset, formState: { errors } } = useForm<ThemeInput>({
     resolver: zodResolver(themeSchema),
@@ -18,6 +21,7 @@ export default function AparienciaPage() {
   const values = watch();
 
   useEffect(() => {
+    setMounted(true);
     fetch("/api/theme").then(r => r.json()).then(data => { reset(data); setPreview(data); });
   }, [reset]);
 
@@ -26,6 +30,7 @@ export default function AparienciaPage() {
     if (values.primaryColor) document.documentElement.style.setProperty("--color-primary", values.primaryColor);
     if (values.secondaryColor) document.documentElement.style.setProperty("--color-secondary", values.secondaryColor);
     if (values.accentColor) document.documentElement.style.setProperty("--color-accent", values.accentColor);
+    if (values.fontFamily) document.documentElement.style.setProperty("--font-family-base", values.fontFamily);
   }, [values]);
 
   const onSubmit = async (data: ThemeInput) => {
@@ -36,7 +41,7 @@ export default function AparienciaPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-2">Apariencia</h1>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Apariencia</h1>
       <p className="text-gray-500 text-sm mb-8">Personaliza los colores de tu tienda</p>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -44,7 +49,7 @@ export default function AparienciaPage() {
         <form onSubmit={handleSubmit(onSubmit)} className="card space-y-6">
           <div className="flex items-center gap-3 mb-2">
             <Palette size={22} className="text-primary" />
-            <h2 className="font-semibold text-gray-900">Colores del tema</h2>
+            <h2 className="font-semibold text-gray-900 dark:text-white">Colores del tema</h2>
           </div>
 
           {[
@@ -53,7 +58,7 @@ export default function AparienciaPage() {
             { name: "accentColor" as const, label: "Color de acento", hint: "Detalles, badges, highlights" },
           ].map((field) => (
             <div key={field.name}>
-              <label className="block text-sm font-medium text-gray-700 mb-1">{field.label}</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{field.label}</label>
               <p className="text-xs text-gray-400 mb-2">{field.hint}</p>
               <div className="flex items-center gap-3">
                 <input {...register(field.name)} type="color" className="w-12 h-10 rounded-lg border border-gray-300 cursor-pointer p-0.5" />
@@ -63,36 +68,90 @@ export default function AparienciaPage() {
             </div>
           ))}
 
-          <button type="submit" className="btn-primary w-full flex items-center justify-center gap-2 py-3">
+          <div className="pt-4 border-t border-gray-100">
+            <label className="block text-sm font-semibold text-gray-900 dark:text-white mb-1">Tipografía Principal</label>
+            <p className="text-xs text-gray-400 mb-3">Define el carácter visual de todo tu sitio y paneles</p>
+            <select 
+              {...register("fontFamily")} 
+              className="input w-full bg-gray-50/50 dark:bg-gray-950/50 cursor-pointer"
+            >
+              <option value="Inter, sans-serif">Inter (Moderno y Limpio)</option>
+              <option value="'Playfair Display', serif">Playfair Display (Elegante y Clásico)</option>
+              <option value="Roboto, sans-serif">Roboto (Profesional y Neutro)</option>
+              <option value="'Montserrat', sans-serif">Montserrat (Geométrico y Fresco)</option>
+              <option value="'Comic Sans MS', cursive">Cómic (Divertido y Casual)</option>
+            </select>
+          </div>
+
+          <button type="submit" className="btn-primary w-full flex items-center justify-center gap-2 py-3 mt-4">
             {saved ? <><Check size={18} /> Guardado</> : "Guardar cambios"}
           </button>
         </form>
 
-        {/* Preview */}
-        <div className="card">
-          <h2 className="font-semibold text-gray-900 mb-4">Vista previa en tiempo real</h2>
-          <div className="space-y-4 p-4 border border-gray-100 rounded-xl bg-gray-50">
+        {/* Global toggles and Preview */}
+        <div className="flex flex-col gap-6">
+          {/* Dark Mode Toggle */}
+          <div className="card">
+            <h2 className="font-semibold text-gray-900 dark:text-gray-100 mb-4">Esquema de Color (Modo)</h2>
+            {mounted && (
+              <div className="grid grid-cols-3 gap-3">
+                <button
+                  onClick={() => setTheme("light")}
+                  className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${theme === "light" ? "border-primary bg-primary/5 text-primary" : "border-gray-100 dark:border-gray-800 text-gray-500 hover:border-gray-200"}`}
+                >
+                  <Sun size={24} />
+                  <span className="text-sm font-medium">Claro</span>
+                </button>
+                <button
+                  onClick={() => setTheme("dark")}
+                  className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${theme === "dark" ? "border-primary bg-primary/5 text-primary" : "border-gray-100 dark:border-gray-800 text-gray-500 hover:border-gray-200"}`}
+                >
+                  <Moon size={24} />
+                  <span className="text-sm font-medium">Oscuro</span>
+                </button>
+                <button
+                  onClick={() => setTheme("system")}
+                  className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${theme === "system" ? "border-primary bg-primary/5 text-primary" : "border-gray-100 dark:border-gray-800 text-gray-500 hover:border-gray-200"}`}
+                >
+                  <Monitor size={24} />
+                  <span className="text-sm font-medium">Sistema</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Preview */}
+          <div className="card">
+            <h2 className="font-semibold text-gray-900 dark:text-gray-100 mb-4">Vista previa en tiempo real</h2>
+            <div className="space-y-4 p-4 border border-gray-100 dark:border-gray-800 rounded-xl bg-gray-50 dark:bg-gray-900/50">
             {/* Simulated navbar */}
-            <div className="bg-white border-b border-gray-200 rounded-xl px-4 py-3 flex items-center justify-between shadow-sm">
+            <div 
+              className="bg-white dark:bg-gray-900 border-b border-gray-200 rounded-xl px-4 py-3 flex items-center justify-between shadow-sm"
+              style={{ fontFamily: values.fontFamily }}
+            >
               <span className="font-bold text-sm" style={{ color: values.primaryColor }}>Mi Clínica</span>
               <div className="flex gap-3 text-xs">
-                <span className="text-gray-600">Productos</span>
+                <span className="text-gray-600 dark:text-gray-400">Productos</span>
                 <span className="px-3 py-1 rounded-full text-white text-xs" style={{ background: values.primaryColor }}>Entrar</span>
               </div>
             </div>
 
             {/* Simulated product card */}
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+            <div 
+              className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 overflow-hidden shadow-sm"
+              style={{ fontFamily: values.fontFamily }}
+            >
               <div className="h-24 rounded-t-xl" style={{ background: values.accentColor + "40" }} />
               <div className="p-3">
-                <p className="font-semibold text-sm text-gray-900">Plan Detox 7 días</p>
-                <p className="font-bold mt-1" style={{ color: values.primaryColor }}>$1,200</p>
-                <button className="mt-2 w-full text-white text-xs py-1.5 rounded-lg" style={{ background: values.primaryColor }}>
+                <p className="font-semibold text-sm text-gray-900 dark:text-white">Plan Detox 7 días</p>
+                <p className="font-bold mt-1 text-lg" style={{ color: values.primaryColor }}>$1,200</p>
+                <button className="mt-2 w-full text-white text-xs py-2 rounded-lg font-medium transition-all hover:scale-[1.02]" style={{ background: values.primaryColor, boxShadow: `0 4px 14px 0 ${values.primaryColor}50` }}>
                   Agregar al carrito
                 </button>
               </div>
             </div>
           </div>
+        </div>
         </div>
       </div>
     </div>

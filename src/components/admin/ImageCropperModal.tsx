@@ -50,10 +50,10 @@ export default function ImageCropperModal(props: {
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden">
         <div className="p-5 border-b flex items-center justify-between">
-          <h3 className="font-semibold text-gray-900">{title}</h3>
-          <button type="button" onClick={onCancel} className="text-sm text-gray-500 hover:text-gray-900">
+          <h3 className="font-semibold text-gray-900 dark:text-white">{title}</h3>
+          <button type="button" onClick={onCancel} className="text-sm text-gray-500 hover:text-gray-900 dark:text-white">
             Cerrar
           </button>
         </div>

@@ -14,9 +14,6 @@ export async function POST(req: Request) {
   const userId = session.user.id!;
   const { orderId, conektaOrder } = await req.json();
 
-  console.log("[checkout/confirm] orderId:", orderId);
-  console.log("[checkout/confirm] conektaOrder:", JSON.stringify(conektaOrder, null, 2));
-
   const order = await prisma.order.findFirst({
     where: { id: orderId, userId },
   });
@@ -45,14 +42,11 @@ export async function POST(req: Request) {
   const orderPaymentStatus = conektaOrder?.payment_status;
   const isPaid = chargeStatus === "paid" || orderPaymentStatus === "paid";
 
-  console.log("[checkout/confirm] chargeStatus:", chargeStatus, "orderPaymentStatus:", orderPaymentStatus);
-
   if (isPaid && order.status !== "PAID") {
     await prisma.order.update({
       where: { id: order.id },
       data: { status: "PAID" },
     });
-    console.log("[checkout/confirm] Order marked as PAID (Conekta confirmed)");
   }
 
   return Response.json({ message: "Pago recibido", orderId: order.id });

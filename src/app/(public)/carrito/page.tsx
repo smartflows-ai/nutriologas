@@ -25,7 +25,7 @@ export default function CarritoPage() {
     return (
       <div className="max-w-2xl mx-auto px-4 py-20 text-center">
         <ShoppingBag size={64} className="mx-auto text-gray-300 mb-4" />
-        <h1 className="text-2xl font-bold text-gray-700 mb-2">Tu carrito está vacío</h1>
+        <h1 className="text-2xl font-bold text-gray-700 dark:text-gray-200 mb-2">Tu carrito está vacío</h1>
         <p className="text-gray-500 mb-8">Agrega productos para continuar</p>
         <Link href="/productos" className="btn-primary">Ver productos</Link>
       </div>
@@ -34,7 +34,7 @@ export default function CarritoPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-10">
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">Tu carrito</h1>
+      <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">Tu carrito</h1>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Items */}
         <div className="lg:col-span-2 space-y-4">
@@ -44,7 +44,7 @@ export default function CarritoPage() {
                 {item.image ? <Image src={item.image} alt={item.name} width={80} height={80} className="object-cover w-full h-full" /> : null}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-gray-900 truncate">{item.name}</p>
+                <p className="font-semibold text-gray-900 dark:text-white truncate">{item.name}</p>
                 <p className="text-primary font-bold">{formatPrice(item.price)}</p>
                 <div className="flex items-center gap-3 mt-2">
                   <button onClick={() => updateQuantity(item.id, item.quantity - 1)} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-100"><Minus size={14} /></button>
@@ -53,7 +53,7 @@ export default function CarritoPage() {
                 </div>
               </div>
               <div className="flex flex-col items-end justify-between">
-                <p className="font-bold text-gray-900">{formatPrice(item.price * item.quantity)}</p>
+                <p className="font-bold text-gray-900 dark:text-white">{formatPrice(item.price * item.quantity)}</p>
                 <button onClick={() => removeItem(item.id)} className="text-red-400 hover:text-red-600"><Trash2 size={18} /></button>
               </div>
             </div>
@@ -63,9 +63,9 @@ export default function CarritoPage() {
 
         {/* Resumen */}
         <div className="card h-fit sticky top-24">
-          <h2 className="font-bold text-lg text-gray-900 mb-4">Resumen del pedido</h2>
+          <h2 className="font-bold text-lg text-gray-900 dark:text-white mb-4">Resumen del pedido</h2>
           <div className="space-y-2 text-sm mb-4">
-            <div className="flex justify-between text-gray-600">
+            <div className="flex justify-between text-gray-600 dark:text-gray-400">
               <span>Subtotal ({items.reduce((s, i) => s + i.quantity, 0)} productos)</span>
               <span>{formatPrice(total())}</span>
             </div>

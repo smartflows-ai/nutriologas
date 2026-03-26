@@ -46,7 +46,7 @@ export default async function DashboardPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-8">Dashboard</h1>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-8">Dashboard</h1>
 
       {/* Metric cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -56,7 +56,7 @@ export default async function DashboardPage() {
               <span className="text-sm text-gray-500">{m.label}</span>
               <span className={`p-2 rounded-lg ${m.color}`}><m.icon size={18} /></span>
             </div>
-            <p className="text-2xl font-bold text-gray-900">{m.value}</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-white">{m.value}</p>
             <p className="text-xs text-gray-400 mt-1">{m.sub}</p>
           </div>
         ))}
@@ -65,18 +65,18 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Sales chart */}
         <div className="lg:col-span-2 card">
-          <h2 className="font-semibold text-gray-900 mb-4">Ventas últimos 7 días</h2>
+          <h2 className="font-semibold text-gray-900 dark:text-white mb-4">Ventas últimos 7 días</h2>
           <SalesChart data={data.salesData.map(o => ({ date: o.createdAt.toISOString().split("T")[0], total: o.total }))} />
         </div>
 
         {/* Recent orders */}
         <div className="card">
-          <h2 className="font-semibold text-gray-900 mb-4">Pedidos recientes</h2>
+          <h2 className="font-semibold text-gray-900 dark:text-white mb-4">Pedidos recientes</h2>
           <div className="space-y-3">
             {data.recentOrders.map((order) => (
               <div key={order.id} className="flex items-center justify-between text-sm">
                 <div className="min-w-0 flex-1 mr-2">
-                  <p className="font-medium text-gray-900 truncate">{order.user.name ?? order.user.email}</p>
+                  <p className="font-medium text-gray-900 dark:text-white truncate">{order.user.name ?? order.user.email}</p>
                   <p className="text-gray-400 text-xs">{order.items.length} producto(s)</p>
                 </div>
                 <span className="font-semibold text-primary flex-shrink-0">{formatPrice(order.total)}</span>

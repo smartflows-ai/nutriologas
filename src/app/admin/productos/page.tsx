@@ -83,7 +83,7 @@ export default function ProductosPage() {
     <div>
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Productos</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Productos</h1>
           <p className="text-gray-500 text-sm">{products.length} productos en total</p>
         </div>
         <button onClick={openCreate} className="btn-primary flex items-center gap-2"><Plus size={18} /> Nuevo producto</button>
@@ -97,11 +97,11 @@ export default function ProductosPage() {
               {p.images[0] ? <img src={p.images[0]} alt="" className="w-full h-full object-cover rounded-xl" /> : <Package size={20} className="text-gray-400" />}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-semibold text-gray-900 text-sm truncate">{p.name}</p>
+              <p className="font-semibold text-gray-900 dark:text-white text-sm truncate">{p.name}</p>
               <p className="text-primary font-bold text-sm">{formatPrice(p.price)}</p>
               <div className="flex gap-2 mt-1">
                 <span className={`badge text-xs ${p.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>{p.isActive ? "Activo" : "Inactivo"}</span>
-                <span className={`badge text-xs ${p.stock <= 5 ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-700"}`}>Stock: {p.stock}</span>
+                <span className={`badge text-xs ${p.stock <= 5 ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-700 dark:text-gray-200"}`}>Stock: {p.stock}</span>
               </div>
             </div>
             <div className="flex flex-col gap-1 flex-shrink-0">
@@ -116,7 +116,7 @@ export default function ProductosPage() {
       {/* Desktop: table */}
       <div className="hidden md:block card p-0 overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b border-gray-200">
+          <thead className="bg-gray-50 dark:bg-gray-950 border-b border-gray-200">
             <tr>
               {["Producto", "Precio", "Stock", "Categoría", "Estado", ""].map((h) => (
                 <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
@@ -125,17 +125,17 @@ export default function ProductosPage() {
           </thead>
           <tbody className="divide-y divide-gray-100">
             {products.map((p) => (
-              <tr key={p.id} className="hover:bg-gray-50 transition-colors">
+              <tr key={p.id} className="hover:bg-gray-50 dark:bg-gray-950 transition-colors">
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
                       {p.images[0] ? <img src={p.images[0]} alt="" className="w-full h-full object-cover rounded-lg" /> : <Package size={18} className="text-gray-400" />}
                     </div>
-                    <span className="font-medium text-gray-900">{p.name}</span>
+                    <span className="font-medium text-gray-900 dark:text-white">{p.name}</span>
                   </div>
                 </td>
                 <td className="px-4 py-3 font-semibold text-primary">{formatPrice(p.price)}</td>
-                <td className="px-4 py-3"><span className={`badge ${p.stock <= 5 ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-700"}`}>{p.stock}</span></td>
+                <td className="px-4 py-3"><span className={`badge ${p.stock <= 5 ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-700 dark:text-gray-200"}`}>{p.stock}</span></td>
                 <td className="px-4 py-3 text-gray-500">{p.category ?? "—"}</td>
                 <td className="px-4 py-3"><span className={`badge ${p.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>{p.isActive ? "Activo" : "Inactivo"}</span></td>
                 <td className="px-4 py-3">
@@ -154,14 +154,14 @@ export default function ProductosPage() {
       {/* Modal */}
       {open && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b">
               <h2 className="font-bold text-lg">{editing ? "Editar producto" : "Nuevo producto"}</h2>
               <button onClick={() => setOpen(false)}><X size={22} /></button>
             </div>
             <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Fotos</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Fotos</label>
                 <div className="flex items-center gap-3">
                   <label className="btn-ghost cursor-pointer">
                     <input
@@ -190,7 +190,7 @@ export default function ProductosPage() {
                         <button
                           type="button"
                           onClick={() => setImages((prev) => prev.filter((_, i) => i !== idx))}
-                          className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-white shadow border border-gray-200 text-gray-500 hover:text-red-500 flex items-center justify-center"
+                          className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-white dark:bg-gray-900 shadow border border-gray-200 text-gray-500 hover:text-red-500 flex items-center justify-center"
                           aria-label="Quitar imagen"
                         >
                           <X size={14} />
@@ -201,32 +201,32 @@ export default function ProductosPage() {
                 )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nombre *</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Nombre *</label>
                 <input {...register("name")} className="input" />
                 {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Descripción</label>
                 <textarea {...register("description")} rows={3} className="input resize-none" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Precio (MXN) *</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Precio (MXN) *</label>
                   <input {...register("price", { valueAsNumber: true })} type="number" step="0.01" className="input" />
                   {errors.price && <p className="text-red-500 text-xs mt-1">{errors.price.message}</p>}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Stock</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Stock</label>
                   <input {...register("stock", { valueAsNumber: true })} type="number" className="input" />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Categoría</label>
                 <input {...register("category")} className="input" placeholder="ej: Servicios, Planes, Suplementos" />
               </div>
               <div className="flex items-center gap-3">
                 <input {...register("isActive")} type="checkbox" id="isActive" className="w-4 h-4 accent-primary" />
-                <label htmlFor="isActive" className="text-sm text-gray-700">Producto activo (visible en tienda)</label>
+                <label htmlFor="isActive" className="text-sm text-gray-700 dark:text-gray-200">Producto activo (visible en tienda)</label>
               </div>
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setOpen(false)} className="btn-ghost flex-1">Cancelar</button>

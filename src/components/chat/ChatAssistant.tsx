@@ -21,12 +21,12 @@ function MessageBubble({ message }: { message: Message }) {
   return (
     <div className={`flex gap-3 ${isUser ? "flex-row-reverse" : "flex-row"}`}>
       {/* Avatar */}
-      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${isUser ? "bg-primary text-white" : "bg-gray-100 text-gray-600"}`}>
+      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${isUser ? "bg-primary text-white" : "bg-gray-100 text-gray-600 dark:text-gray-400"}`}>
         {isUser ? <User size={16} /> : <Bot size={16} />}
       </div>
 
       {/* Bubble */}
-      <div className={`max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${isUser ? "bg-primary text-white rounded-tr-sm" : "bg-white border border-gray-200 text-gray-800 rounded-tl-sm shadow-sm"}`}>
+      <div className={`max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${isUser ? "bg-primary text-white rounded-tr-sm" : "bg-white dark:bg-gray-900 border border-gray-200 text-gray-800 dark:text-gray-100 rounded-tl-sm shadow-sm"}`}>
         {isUser ? (
           // User messages: plain text
           <span>{message.content}</span>
@@ -51,15 +51,15 @@ function MessageBubble({ message }: { message: Message }) {
               // Inline code
               code: ({ inline, children }: any) =>
                 inline ? (
-                  <code className="bg-gray-100 text-gray-800 rounded px-1 py-0.5 font-mono text-xs">{children}</code>
+                  <code className="bg-gray-100 text-gray-800 dark:text-gray-100 rounded px-1 py-0.5 font-mono text-xs">{children}</code>
                 ) : (
-                  <pre className="bg-gray-100 text-gray-800 rounded-lg p-3 font-mono text-xs overflow-x-auto my-2 whitespace-pre-wrap">
+                  <pre className="bg-gray-100 text-gray-800 dark:text-gray-100 rounded-lg p-3 font-mono text-xs overflow-x-auto my-2 whitespace-pre-wrap">
                     <code>{children}</code>
                   </pre>
                 ),
               // Blockquote
               blockquote: ({ children }) => (
-                <blockquote className="border-l-4 border-gray-300 pl-3 italic text-gray-600 my-1.5">{children}</blockquote>
+                <blockquote className="border-l-4 border-gray-300 pl-3 italic text-gray-600 dark:text-gray-400 my-1.5">{children}</blockquote>
               ),
               // Horizontal rule
               hr: () => <hr className="border-gray-200 my-2" />,
@@ -69,11 +69,11 @@ function MessageBubble({ message }: { message: Message }) {
                   <table className="min-w-full text-xs border border-gray-200 rounded-lg overflow-hidden">{children}</table>
                 </div>
               ),
-              thead: ({ children }) => <thead className="bg-gray-50 font-semibold">{children}</thead>,
+              thead: ({ children }) => <thead className="bg-gray-50 dark:bg-gray-950 font-semibold">{children}</thead>,
               tbody: ({ children }) => <tbody className="divide-y divide-gray-100">{children}</tbody>,
               tr: ({ children }) => <tr>{children}</tr>,
-              th: ({ children }) => <th className="px-3 py-1.5 text-left text-gray-700 border-b border-gray-200">{children}</th>,
-              td: ({ children }) => <td className="px-3 py-1.5 text-gray-600">{children}</td>,
+              th: ({ children }) => <th className="px-3 py-1.5 text-left text-gray-700 dark:text-gray-200 border-b border-gray-200">{children}</th>,
+              td: ({ children }) => <td className="px-3 py-1.5 text-gray-600 dark:text-gray-400">{children}</td>,
               // Links
               a: ({ href, children }) => (
                 <a href={href} target="_blank" rel="noopener noreferrer" className="underline text-primary hover:opacity-80">{children}</a>
@@ -131,7 +131,7 @@ export default function ChatAssistant() {
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-white rounded-2xl border border-gray-200 overflow-hidden min-h-0">
+    <div className="flex-1 flex flex-col bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 overflow-hidden min-h-0">
       {/* Chat area */}
       <div className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0">
         {/* Welcome state */}
@@ -140,7 +140,7 @@ export default function ChatAssistant() {
             <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-4">
               <Sparkles size={32} className="text-primary" />
             </div>
-            <h2 className="font-bold text-gray-900 text-lg mb-2">Asistente de negocios</h2>
+            <h2 className="font-bold text-gray-900 dark:text-white text-lg mb-2">Asistente de negocios</h2>
             <p className="text-gray-500 text-sm mb-8 max-w-sm">
               Pregúntame sobre tus ventas, clientes, productos o citas. Analizo tus datos en tiempo real y te doy recomendaciones.
             </p>
@@ -150,7 +150,7 @@ export default function ChatAssistant() {
                 <button
                   key={s}
                   onClick={() => sendMessage(s)}
-                  className="text-left text-sm px-4 py-3 rounded-xl border border-gray-200 hover:border-primary hover:bg-primary/5 hover:text-primary transition-colors text-gray-700"
+                  className="text-left text-sm px-4 py-3 rounded-xl border border-gray-200 hover:border-primary hover:bg-primary/5 hover:text-primary transition-colors text-gray-700 dark:text-gray-200"
                 >
                   {s}
                 </button>
@@ -166,9 +166,9 @@ export default function ChatAssistant() {
         {loading && (
           <div className="flex gap-3">
             <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
-              <Bot size={16} className="text-gray-600" />
+              <Bot size={16} className="text-gray-600 dark:text-gray-400" />
             </div>
-            <div className="bg-white border border-gray-200 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm flex items-center gap-2">
+            <div className="bg-white dark:bg-gray-900 border border-gray-200 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm flex items-center gap-2">
               <Loader2 size={16} className="animate-spin text-primary" />
               <span className="text-sm text-gray-500">Analizando tus datos...</span>
             </div>
@@ -182,7 +182,7 @@ export default function ChatAssistant() {
         {messages.length > 0 && (
           <div className="flex gap-2 mb-3 overflow-x-auto pb-1 scrollbar-hide">
             {SUGGESTIONS.slice(0, 3).map((s) => (
-              <button key={s} onClick={() => sendMessage(s)} className="flex-shrink-0 text-xs px-3 py-1.5 rounded-full bg-gray-100 hover:bg-primary/10 hover:text-primary text-gray-600 transition-colors whitespace-nowrap">
+              <button key={s} onClick={() => sendMessage(s)} className="flex-shrink-0 text-xs px-3 py-1.5 rounded-full bg-gray-100 hover:bg-primary/10 hover:text-primary text-gray-600 dark:text-gray-400 transition-colors whitespace-nowrap">
                 {s}
               </button>
             ))}

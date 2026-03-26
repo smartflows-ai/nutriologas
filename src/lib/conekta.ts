@@ -59,7 +59,9 @@ export async function createConektaOrder(params: {
   referenceId: string;
   lineItems: ConektaLineItem[];
   allowedPaymentMethods: string[];
+  baseUrl?: string;
 }) {
+  const base = params.baseUrl ?? process.env.NEXTAUTH_URL ?? "http://localhost:3000";
   return conektaFetch("/orders", {
     method: "POST",
     body: JSON.stringify({
@@ -71,10 +73,8 @@ export async function createConektaOrder(params: {
         type: "HostedPayment",
         expires_at: Math.floor(Date.now() / 1000) + 86400,
         allowed_payment_methods: params.allowedPaymentMethods,
-        // Point success/failure URLs back to checkout page to prevent redirects
-        // The iframe callbacks handle everything, so we don't need separate success/error pages
-        success_url: `${process.env.NEXTAUTH_URL}/checkout`,
-        failure_url: `${process.env.NEXTAUTH_URL}/checkout`,
+        success_url: `${base}/checkout`,
+        failure_url: `${base}/checkout`,
       },
     }),
   });

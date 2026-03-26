@@ -20,6 +20,11 @@ export async function POST(req: Request) {
   const tenantId = (session.user as any).tenantId;
   const { items, paymentMethod } = await req.json();
 
+  // Build the base URL preserving the tenant subdomain (e.g. doctor.localhost:3000)
+  const host = (req as any).headers?.get?.("host") ?? (req.headers as any)?.host ?? "";
+  const protocol = host.includes("localhost") ? "http" : "https";
+  const tenantBaseUrl = host ? `${protocol}://${host}` : (process.env.NEXTAUTH_URL ?? "http://localhost:3000");
+
   if (!items?.length) {
     return Response.json({ error: "Carrito vacío" }, { status: 400 });
   }
@@ -48,11 +53,6 @@ export async function POST(req: Request) {
     );
 
     if (sameItems && existingPendingOrder.paymentReference) {
-      console.log(
-        "[checkout] Reusing existing pending order:",
-        existingPendingOrder.id,
-      );
-
       // Fetch the Conekta order to get the checkoutRequestId
       try {
         const conektaOrder = await getConektaOrder(
@@ -63,18 +63,11 @@ export async function POST(req: Request) {
           checkoutRequestId: conektaOrder.checkout?.id,
         });
       } catch (err) {
-        console.log(
-          "[checkout] Existing Conekta order expired, creating new one",
-        );
         // Continue to create new order - the expired one will be handled below
       }
     }
 
     // Cancel the existing pending order (restore stock)
-    console.log(
-      "[checkout] Cancelling existing pending order:",
-      existingPendingOrder.id,
-    );
     await prisma.$transaction(async (tx) => {
       // Restore stock
       for (const item of existingPendingOrder.items) {
@@ -89,7 +82,6 @@ export async function POST(req: Request) {
       });
       await tx.order.delete({ where: { id: existingPendingOrder.id } });
     });
-    console.log("[checkout] Existing order cancelled, stock restored");
   }
 
   // Verify prices from DB — never trust the client
@@ -225,6 +217,7 @@ export async function POST(req: Request) {
       referenceId: order.id,
       lineItems,
       allowedPaymentMethods,
+      baseUrl: tenantBaseUrl,
     });
 
     // Persist Conekta order ID

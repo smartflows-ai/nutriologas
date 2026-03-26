@@ -14,7 +14,7 @@
   }
 
   body {
-    @apply text-gray-900 bg-white;
+    @apply text-gray-900 bg-white dark:bg-gray-950 dark:text-gray-100 transition-colors duration-300;
   }
 
   h1 {
@@ -32,28 +32,27 @@
 
 @layer components {
   .btn-primary {
-    @apply bg-primary text-white px-4 py-2 rounded-lg font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply bg-gradient-to-br from-primary to-emerald-500 text-white px-5 py-2.5 rounded-xl font-medium shadow-[0_4px_14px_0_rgba(22,163,74,0.39)] hover:shadow-[0_6px_20px_rgba(22,163,74,0.23)] hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none;
   }
 
   .btn-secondary {
-    @apply border border-primary text-primary px-4 py-2 rounded-lg font-medium hover:bg-primary hover:text-white transition-colors;
+    @apply bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-200 shadow-sm px-5 py-2.5 rounded-xl font-medium hover:bg-gray-50 dark:hover:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-700 transition-all duration-200;
   }
 
   .btn-ghost {
-    @apply text-gray-600 px-4 py-2 rounded-lg font-medium hover:bg-gray-100 transition-colors;
+    @apply text-gray-600 dark:text-gray-400 px-5 py-2.5 rounded-xl font-medium hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200;
   }
 
   .input {
-    @apply w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:border-primary transition-colors;
-    --tw-ring-color: var(--color-primary);
-    --tw-ring-opacity: 0.3;
+    @apply w-full bg-gray-50/50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-800 rounded-xl px-4 py-2.5 text-sm text-gray-900 dark:text-white focus:bg-white dark:focus:bg-gray-900 focus:outline-none focus:ring-4 focus:ring-primary focus:border-primary transition-all duration-200 shadow-sm;
+    --tw-ring-opacity: 0.2;
   }
 
   .card {
-    @apply bg-white border border-gray-200 rounded-xl p-6;
+    @apply bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border border-gray-100 dark:border-gray-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(255,255,255,0.02)] rounded-2xl p-6 transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] dark:hover:shadow-[0_8px_30px_rgb(255,255,255,0.04)];
   }
 
   .badge {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-bold tracking-wide uppercase;
   }
 }

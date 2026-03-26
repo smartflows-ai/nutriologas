@@ -19,8 +19,10 @@ export default async function MisPedidosPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user) redirect("/login?callbackUrl=/mis-pedidos");
 
+  const tenantId = (session.user as any).tenantId;
+
   const orders = await prisma.order.findMany({
-    where: { userId: session.user.id! },
+    where: { userId: session.user.id!, tenantId },
     include: {
       items: { include: { product: { select: { name: true, images: true } } } },
     },

@@ -63,7 +63,7 @@ export default function ReviewSection({ productId, initialReviews }: Props) {
     <section className="mt-14">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
           Reseñas ({reviews.length})
         </h2>
         {avgRating && (
@@ -81,7 +81,7 @@ export default function ReviewSection({ productId, initialReviews }: Props) {
                 />
               ))}
             </div>
-            <span className="text-sm font-medium text-gray-700">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
               {avgRating.toFixed(1)}
             </span>
           </div>
@@ -98,7 +98,7 @@ export default function ReviewSection({ productId, initialReviews }: Props) {
         </div>
       ) : !isAdmin && status === "unauthenticated" ? (
         <div className="card mb-6 flex items-center justify-between gap-4 flex-wrap">
-          <p className="text-gray-600 text-sm">
+          <p className="text-gray-600 dark:text-gray-400 text-sm">
             ¿Ya probaste este producto? Inicia sesión para dejar tu reseña.
           </p>
           <Link
@@ -125,7 +125,7 @@ export default function ReviewSection({ productId, initialReviews }: Props) {
                   {review.user.name?.charAt(0).toUpperCase() ?? "U"}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm text-gray-900 truncate">
+                  <p className="font-medium text-sm text-gray-900 dark:text-white truncate">
                     {review.user.name ?? "Usuario"}
                   </p>
                   <p className="text-xs text-gray-400">
@@ -148,7 +148,7 @@ export default function ReviewSection({ productId, initialReviews }: Props) {
                 </div>
               </div>
               {review.comment && (
-                <p className="text-gray-600 text-sm leading-relaxed pl-12">
+                <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed pl-12">
                   {review.comment}
                 </p>
               )}

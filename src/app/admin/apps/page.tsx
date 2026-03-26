@@ -134,10 +134,10 @@ function WhatsAppConnectModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 relative">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl w-full max-w-sm p-6 relative">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="font-bold text-gray-900">Conectar WhatsApp</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+          <h2 className="font-bold text-gray-900 dark:text-white">Conectar WhatsApp</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:text-gray-400">
             <X size={20} />
           </button>
         </div>
@@ -159,7 +159,7 @@ function WhatsAppConnectModal({
         {step === "loading" && (
           <div className="flex flex-col items-center gap-4 py-8 px-2 text-center h-40 justify-center">
             <Loader2 size={32} className="animate-spin text-green-500" />
-            <p className="text-sm text-gray-600 italic animate-pulse transition-opacity duration-500">
+            <p className="text-sm text-gray-600 dark:text-gray-400 italic animate-pulse transition-opacity duration-500">
               {LOADING_MESSAGES[loadingMsgIdx]}
             </p>
           </div>
@@ -170,7 +170,7 @@ function WhatsAppConnectModal({
             <p className="text-sm text-gray-500 mb-4">
               Abre WhatsApp en tu teléfono → Dispositivos vinculados → Vincular dispositivo → escanea este QR
             </p>
-            <div className="border-2 border-gray-100 rounded-xl p-3 inline-block mb-4 bg-white">
+            <div className="border-2 border-gray-100 rounded-xl p-3 inline-block mb-4 bg-white dark:bg-gray-900">
               {/* Evolution API returns base64 directly */}
               <img src={qrCode.startsWith("data:image") ? qrCode : `data:image/png;base64,${qrCode}`} alt="QR WhatsApp" className="w-48 h-48" />
             </div>
@@ -184,7 +184,7 @@ function WhatsAppConnectModal({
         {step === "connected" && (
           <div className="text-center py-6">
             <CheckCircle2 size={48} className="text-green-500 mx-auto mb-3" />
-            <p className="font-semibold text-gray-900">¡WhatsApp conectado!</p>
+            <p className="font-semibold text-gray-900 dark:text-white">¡WhatsApp conectado!</p>
             {phone && <p className="text-sm text-gray-500 mt-1">{phone}</p>}
           </div>
         )}
@@ -244,7 +244,7 @@ export default function AppsPage() {
     <div>
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
           <Plug className="text-primary" size={24} />
           Apps e integraciónes
         </h1>
@@ -255,7 +255,7 @@ export default function AppsPage() {
 
       {/* Info Banner */}
       <div className="mb-6 rounded-xl bg-gradient-to-r from-primary/5 to-primary/10 border border-primary/20 p-4">
-        <p className="text-sm text-gray-700">
+        <p className="text-sm text-gray-700 dark:text-gray-200">
           <strong className="text-primary">Nivel clínica</strong> — las conexiones aplican para toda la clínica. Solo los administradores pueden conectar o desconectar apps.
         </p>
       </div>
@@ -275,7 +275,7 @@ export default function AppsPage() {
             return (
               <div
                 key={feat.id}
-                className={`flex flex-col relative rounded-2xl border bg-white shadow-sm overflow-hidden transition-all hover:shadow-md ${
+                className={`flex flex-col relative rounded-2xl border bg-white dark:bg-gray-900 shadow-sm overflow-hidden transition-all hover:shadow-md ${
                   isConnected ? "border-primary/30" : feat.comingSoon ? "border-gray-100 opacity-60" : "border-gray-200"
                 }`}
               >
@@ -288,7 +288,7 @@ export default function AppsPage() {
                     <div className="flex items-center gap-3">
                       <span className="text-2xl">{feat.icon}</span>
                       <div>
-                        <h3 className="font-semibold text-gray-900 text-sm">{feat.name}</h3>
+                        <h3 className="font-semibold text-gray-900 dark:text-white text-sm">{feat.name}</h3>
                         {feat.comingSoon && (
                           <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full">
                             Próximamente
@@ -309,8 +309,8 @@ export default function AppsPage() {
 
                   {/* Connected info */}
                   {isConnected && activeConn && (
-                    <div className="mb-4 p-2.5 bg-gray-50 rounded-lg border border-gray-100">
-                      <p className="text-[11px] font-medium text-gray-700 flex items-center gap-1.5 mb-1">
+                    <div className="mb-4 p-2.5 bg-gray-50 dark:bg-gray-950 rounded-lg border border-gray-100">
+                      <p className="text-[11px] font-medium text-gray-700 dark:text-gray-200 flex items-center gap-1.5 mb-1">
                         <Plug size={12} className="text-primary" />
                         Usando {getProviderName(activeConn.provider)}
                       </p>
@@ -350,7 +350,7 @@ export default function AppsPage() {
                               <button
                                 key={p.id}
                                 onClick={() => setWhatsappModalOpen(true)}
-                                className="w-full flex items-center justify-center gap-1.5 px-2 py-2 bg-white border border-gray-200 text-gray-700 text-xs font-semibold rounded-lg hover:border-primary hover:text-primary transition-colors shadow-sm"
+                                className="w-full flex items-center justify-center gap-1.5 px-2 py-2 bg-white dark:bg-gray-900 border border-gray-200 text-gray-700 dark:text-gray-200 text-xs font-semibold rounded-lg hover:border-primary hover:text-primary transition-colors shadow-sm"
                               >
                                 Conectar {p.name}
                               </button>
@@ -358,7 +358,7 @@ export default function AppsPage() {
                               <a
                                 key={p.id}
                                 href={p.connectUrl}
-                                className="w-full flex items-center justify-center gap-1.5 px-2 py-2 bg-white border border-gray-200 text-gray-700 text-xs font-semibold rounded-lg hover:border-primary hover:text-primary transition-colors shadow-sm"
+                                className="w-full flex items-center justify-center gap-1.5 px-2 py-2 bg-white dark:bg-gray-900 border border-gray-200 text-gray-700 dark:text-gray-200 text-xs font-semibold rounded-lg hover:border-primary hover:text-primary transition-colors shadow-sm"
                               >
                                 Conectar {p.name}
                               </a>

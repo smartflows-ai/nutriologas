@@ -88,7 +88,6 @@ export function ConektaCheckout({
       try {
         await loadConektaScript();
       } catch (err) {
-        console.error("[Conekta] Script load error:", err);
         if (!cancelled)
           setError(
             "No se pudo cargar Conekta. Verifica tu conexión e intenta de nuevo.",
@@ -142,9 +141,6 @@ export function ConektaCheckout({
                   setRedirectCountdown((prev) => {
                     if (prev === 1) {
                       clearInterval(interval);
-                      console.log(
-                        "[ConektaCheckout] Auto-redirecting to order page",
-                      );
                       if (!redirectTriggered) {
                         setRedirectTriggered(true);
                         callbacksRef.current.onSuccess(orderId);
@@ -160,14 +156,12 @@ export function ConektaCheckout({
               }
             },
             onErrorPayment: (err: unknown) => {
-              console.error("[Conekta] Payment error:", err);
               callbacksRef.current.onError?.(err);
             },
             onExit: () => callbacksRef.current.onExit?.(),
           },
         });
       } catch (err) {
-        console.error("[Conekta] Integration error:", err);
         if (!cancelled)
           setError(
             "Error al inicializar el formulario de pago. Intenta de nuevo.",
@@ -305,7 +299,6 @@ export function ConektaCheckout({
         <div className="flex flex-col gap-3 mt-4">
           <button
             onClick={() => {
-              console.log("[ConektaCheckout] Manual redirect to order page");
               if (!redirectTriggered) {
                 setRedirectTriggered(true);
                 callbacksRef.current.onSuccess(orderId);

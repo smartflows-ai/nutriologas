@@ -16,17 +16,6 @@ import {
 } from "lucide-react";
 import { ConektaCheckout } from "@/components/shop/ConektaCheckout";
 
-// Add subscription to cart changes for debugging
-useCartStore.subscribe(
-  (state) => state.items,
-  (items) => {
-    console.log(
-      "[cart] Cart items changed:",
-      items.map((i) => ({ id: i.id, name: i.name, quantity: i.quantity })),
-    );
-  },
-);
-
 type Method = "card" | "oxxo" | "paypal";
 type Stage = "select" | "iframe" | "success";
 
@@ -57,15 +46,10 @@ export default function CheckoutPage() {
     if (stored) {
       try {
         const { orderId, checkoutRequestId: reqId } = JSON.parse(stored);
-        console.log(
-          "[checkout] Restoring pending checkout from localStorage:",
-          reqId,
-        );
         setCheckoutRequestId(reqId);
         setPendingOrderId(orderId);
         setStage("iframe");
       } catch (e) {
-        console.error("[checkout] Failed to parse stored checkout data");
         localStorage.removeItem(STORAGE_KEY);
       }
     }
@@ -81,12 +65,22 @@ export default function CheckoutPage() {
   // If we have Conekta redirect params, try to find the order and redirect
   useEffect(() => {
     if (coneKtaOrderId && paymentStatus) {
-      console.log("[checkout] Handling Conekta redirect:", {
-        coneKtaOrderId,
-        paymentStatus,
-      });
+      // First try localStorage — we stored the DB orderId when creating the checkout
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        try {
+          const { orderId } = JSON.parse(stored);
+          if (orderId) {
+            localStorage.removeItem(STORAGE_KEY);
+            router.push(`/pedido/${orderId}?success=true`);
+            return;
+          }
+        } catch {
+          localStorage.removeItem(STORAGE_KEY);
+        }
+      }
 
-      // Try to find order by paymentReference (Conekta order ID)
+      // Fallback: look up by Conekta order ID via API
       fetch("/api/checkout/verify-payment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -95,19 +89,13 @@ export default function CheckoutPage() {
         .then((res) => res.json())
         .then((data) => {
           if (data.orderId) {
-            console.log(
-              "[checkout] Found order, redirecting to:",
-              `/pedido/${data.orderId}?success=true`,
-            );
             router.push(`/pedido/${data.orderId}?success=true`);
           } else {
-            console.error(
-              "[checkout] Could not find order for Conekta redirect",
-            );
+            router.push("/productos");
           }
         })
-        .catch((err) => {
-          console.error("[checkout] Error verifying payment:", err);
+        .catch(() => {
+          router.push("/productos");
         });
     }
   }, [coneKtaOrderId, paymentStatus, router]);
@@ -129,24 +117,10 @@ export default function CheckoutPage() {
   }, [status, router]);
 
   useEffect(() => {
-    console.log("[checkout] Redirect check:", {
-      hydrated,
-      itemsLength: items.length,
-      stage,
-      pendingOrderId,
-    });
     // Only redirect to /carrito if we're in select stage, cart is empty, and there's no pending order
     // Don't redirect if we're in iframe stage (processing payment) even if cart is empty
     if (hydrated && !items.length && stage === "select" && !pendingOrderId) {
-      console.log("[checkout] Redirecting to /carrito");
       router.push("/carrito");
-    } else {
-      console.log("[checkout] Not redirecting to /carrito", {
-        hydrated,
-        itemsLength: items.length,
-        stage,
-        pendingOrderId,
-      });
     }
   }, [hydrated, items.length, stage, pendingOrderId, router]);
 
@@ -176,11 +150,6 @@ export default function CheckoutPage() {
         timestamp: Date.now(),
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(checkoutData));
-      console.log(
-        "[checkout] Saved checkout data to localStorage:",
-        checkoutData,
-      );
-
       setCheckoutRequestId(data.checkoutRequestId);
       setPendingOrderId(data.orderId);
       setStage("iframe");
@@ -194,43 +163,27 @@ export default function CheckoutPage() {
   };
 
   const handleConektaSuccess = (orderId: string) => {
-    console.log(
-      "[checkout] handleConektaSuccess called with orderId:",
-      orderId,
-    );
-    console.log(
-      "[checkout] Navigating to order page:",
-      `/pedido/${orderId}?success=true`,
-    );
     // Cart already cleared in onPaymentConfirmed, just navigate to order page
     router.push(`/pedido/${orderId}?success=true`);
   };
 
   const handleConektaExit = () => {
-    console.log("[checkout] handleConektaExit called");
     setStage("select");
     setCheckoutRequestId("");
     setPendingOrderId("");
     // Clear localStorage when user exits checkout
     localStorage.removeItem(STORAGE_KEY);
-    console.log("[checkout] User exited checkout, cleared localStorage");
   };
 
   // Removed success screen - user stays on iframe page with "Ver pedido" button
 
   // ── Conekta iframe ──────────────────────────────────────
   if (stage === "iframe" && checkoutRequestId) {
-    console.log("[checkout] Rendering iframe stage with:", {
-      checkoutRequestId,
-      pendingOrderId,
-      itemsLength: items.length,
-      stage,
-    });
     return (
       <div className="max-w-2xl mx-auto px-4 py-10">
         <button
           onClick={handleConektaExit}
-          disabled={stage === "iframe" && pendingOrderId}
+          disabled={stage === "iframe" && !!pendingOrderId}
           className="text-sm text-gray-500 hover:text-gray-700 mb-6 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           ← Volver
@@ -239,21 +192,14 @@ export default function CheckoutPage() {
           checkoutRequestId={checkoutRequestId}
           orderId={pendingOrderId}
           onSuccess={handleConektaSuccess}
-          onPaymentConfirmed={(orderId) => {
-            // Clear cart with delay to ensure success redirect happens first
-            console.log(
-              "[checkout] onPaymentConfirmed called with orderId:",
-              orderId,
-            );
+          onPaymentConfirmed={() => {
             // Use setTimeout to ensure navigation happens first
             setTimeout(() => {
               clearCart();
               localStorage.removeItem(STORAGE_KEY);
-              console.log("[checkout] Payment confirmed, cart cleared");
             }, 1000);
           }}
-          onError={(err) => {
-            console.error("[checkout] Payment error:", err);
+          onError={() => {
             setError("Hubo un error con el pago. Intenta de nuevo.");
             setStage("select");
           }}
@@ -276,11 +222,11 @@ export default function CheckoutPage() {
   // ── Method selector ─────────────────────────────────────
   return (
     <div className="max-w-3xl mx-auto px-4 py-10">
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">Checkout</h1>
+      <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">Checkout</h1>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Payment methods */}
         <div>
-          <h2 className="font-semibold text-gray-900 mb-4">Método de pago</h2>
+          <h2 className="font-semibold text-gray-900 dark:text-white mb-4">Método de pago</h2>
           <div className="space-y-3 mb-6">
             {[
               {
@@ -370,13 +316,11 @@ export default function CheckoutPage() {
 
         {/* Order summary */}
         <div className="card h-fit">
-          <h2 className="font-semibold text-gray-900 mb-4">Resumen</h2>
+          <h2 className="font-semibold text-gray-900 dark:text-white mb-4">Resumen</h2>
           <div className="space-y-2 text-sm">
             {items.map((item) => (
-              <div key={item.id} className="flex justify-between text-gray-600">
-                <span className="truncate flex-1 mr-2">
-                  {item.name} ×{item.quantity}
-                </span>
+              <div key={item.id} className="flex justify-between text-gray-600 dark:text-gray-400">
+                <span className="truncate flex-1 mr-2">{item.name} ×{item.quantity}</span>
                 <span>{formatPrice(item.price * item.quantity)}</span>
               </div>
             ))}

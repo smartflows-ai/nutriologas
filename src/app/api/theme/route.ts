@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
     themeResult = tenant?.theme;
   }
 
-  return Response.json(themeResult ?? { primaryColor: "#16a34a", secondaryColor: "#15803d", accentColor: "#4ade80" });
+  return Response.json(themeResult ?? { primaryColor: "#16a34a", secondaryColor: "#15803d", accentColor: "#4ade80", fontFamily: "Inter, sans-serif" });
 }
 
 export async function PUT(req: Request) {
