@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 
 const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL!;
 const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY!;
@@ -51,6 +52,10 @@ export async function GET(req: NextRequest) {
         waPhoneNumber: phone,
       },
     });
+    
+    revalidatePath("/admin");
+    revalidatePath("/admin/apps");
+    revalidatePath("/admin", "layout");
   }
 
   // Si sigue pendiente de QR, refrescar el QR

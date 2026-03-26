@@ -36,8 +36,8 @@ export default function ReviewSection({ productId, initialReviews }: Props) {
   const fetchReviews = useCallback(async () => {
     const res = await fetch(`/api/reviews?productId=${productId}&t=${Date.now()}`);
     if (res.ok) {
-      const data: Review[] = await res.json();
-      setReviews(data);
+      const data = await res.json();
+      setReviews(data.reviews || []);
     }
   }, [productId]);
 

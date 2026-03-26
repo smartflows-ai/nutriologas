@@ -1,7 +1,7 @@
 "use client";
 // src/app/admin/carrusel/page.tsx
 import { useState, useEffect } from "react";
-import { Trash2, Plus, GripVertical, ImageIcon } from "lucide-react";
+import { Trash2, Plus, GripVertical, ImageIcon, UploadCloud, X, Check } from "lucide-react";
 import Image from "next/image";
 import ImageCropperModal from "@/components/admin/ImageCropperModal";
 
@@ -16,6 +16,7 @@ export default function CarruselPage() {
   const [uploadError, setUploadError] = useState("");
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
+  const [showAddForm, setShowAddForm] = useState(false);
 
   const fetchImages = async () => {
     const res = await fetch(`/api/carousel?t=${Date.now()}`);
@@ -54,8 +55,8 @@ export default function CarruselPage() {
       });
       const newImg = await res.json();
       if (res.ok) {
-        // Actualizamos estado de forma optimista para evitar el caché de Next.js
         setImages((prev) => [...prev, newImg]);
+        setShowAddForm(false);
       }
     } finally {
       setNewUrl("");
@@ -93,69 +94,159 @@ export default function CarruselPage() {
   };
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Carrusel</h1>
-      <p className="text-gray-500 text-sm mb-8">Administra las imágenes del banner principal de tu tienda</p>
-
-      {/* Add new image */}
-      <div className="card mb-8">
-        <h2 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-          <Plus size={18} className="text-primary" /> Agregar imagen
-        </h2>
-        <div className="flex items-center gap-3 mb-4">
-          <label className="btn-ghost cursor-pointer">
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) setPendingFile(f);
-                e.currentTarget.value = "";
-              }}
-              disabled={uploading}
-            />
-            {uploading ? "Subiendo..." : "Subir desde tu computadora"}
-          </label>
-          <span className="text-xs text-gray-400">o pega una URL</span>
+    <>
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Carrusel</h1>
+          <p className="text-gray-500 text-sm">Gestiona el escaparate principal de tu tienda con banners impactantes.</p>
         </div>
-        {uploadError && <p className="text-red-500 text-xs mb-3">{uploadError}</p>}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">URL de la imagen *</label>
-            <input
-              value={newUrl}
-              onChange={(e) => setNewUrl(e.target.value)}
-              className="input"
-              placeholder="https://res.cloudinary.com/... o cualquier URL"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Texto alternativo</label>
-            <input
-              value={newAlt}
-              onChange={(e) => setNewAlt(e.target.value)}
-              className="input"
-              placeholder="ej: Banner principal"
-            />
-          </div>
-        </div>
-        {newUrl && (
-          <div className="relative h-32 rounded-xl overflow-hidden bg-gray-100 mb-4">
-            <Image src={newUrl} alt="Preview" fill sizes="(max-width: 768px) 100vw, 384px" className="object-cover" onError={() => { }} />
-          </div>
+        {!showAddForm && (
+          <button 
+            onClick={() => setShowAddForm(true)}
+            className="btn-primary flex items-center gap-2 shadow-lg shadow-primary/20"
+          >
+            <Plus size={18} /> Nuevo Banner
+          </button>
         )}
-        <button onClick={addImage} disabled={!newUrl.trim() || adding} className="btn-primary flex items-center gap-2">
-          <ImageIcon size={16} /> {adding ? "Agregando..." : "Agregar al carrusel"}
-        </button>
       </div>
+
+      {/* Agregar nueva imagen */}
+      {showAddForm && (
+        <div className="card mb-10 border-primary/20 bg-primary/5 animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="font-bold text-gray-900 dark:text-white flex items-center gap-2 text-lg">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <Plus size={18} className="text-primary" />
+              </div> 
+              Añadir imagen al carrusel
+            </h2>
+            <button 
+              onClick={() => setShowAddForm(false)}
+              className="p-2 hover:bg-white dark:hover:bg-gray-800 rounded-full text-gray-400 transition-colors"
+            >
+              <X size={20} />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+             {/* Left: Dropzone */}
+             <div className="space-y-4">
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200">
+                  Archivo de Imagen
+                </label>
+                
+                <label className={`aspect-[12/5] flex flex-col items-center justify-center border-2 border-dashed rounded-2xl cursor-pointer transition-all group overflow-hidden relative ${
+                  uploading 
+                    ? "border-primary/40 bg-primary/5 cursor-wait" 
+                    : "border-gray-200 dark:border-gray-800 hover:border-primary/50 hover:bg-primary/5 shadow-sm"
+                }`}>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) setPendingFile(f);
+                      e.currentTarget.value = "";
+                    }}
+                    disabled={uploading}
+                  />
+                  
+                  {newUrl ? (
+                    <>
+                      <img src={newUrl} alt="Preview" className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <div className="text-white text-xs font-bold flex items-center gap-2 px-3 py-1.5 bg-black/50 rounded-full border border-white/20">
+                           <UploadCloud size={14} /> Reemplazar imagen
+                        </div>
+                      </div>
+                    </>
+                  ) : uploading ? (
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+                      <span className="text-xs font-bold text-primary animate-pulse">Subiendo imagen...</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="w-14 h-14 rounded-full bg-gray-50 dark:bg-gray-900 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                        <UploadCloud size={24} className="text-gray-400 group-hover:text-primary" />
+                      </div>
+                      <span className="text-sm font-bold text-gray-500 group-hover:text-primary">Click para subir banner</span>
+                      <p className="text-[10px] text-gray-400 mt-1 uppercase tracking-wider font-bold">1200 x 500 px recomendado</p>
+                    </>
+                  )}
+                </label>
+                
+                {uploadError && (
+                  <div className="p-3 bg-red-50 dark:bg-red-900/10 rounded-xl border border-red-100 flex items-center gap-2">
+                    <X size={14} className="text-red-500" />
+                    <span className="text-xs text-red-600 font-medium">{uploadError}</span>
+                  </div>
+                )}
+             </div>
+
+             {/* Right: Metadata */}
+             <div className="space-y-6">
+                <div className="space-y-1.5">
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200">URL del Banner (Opcional)</label>
+                  <input
+                    value={newUrl}
+                    onChange={(e) => setNewUrl(e.target.value)}
+                    className="input bg-white dark:bg-gray-900 border-gray-200 transition-all font-mono text-xs"
+                    placeholder="https://..."
+                  />
+                  <p className="text-[10px] text-gray-400">Si lo subes arriba la URL se autocompletará.</p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200">Texto Alternativo (Alt)</label>
+                  <input
+                    value={newAlt}
+                    onChange={(e) => setNewAlt(e.target.value)}
+                    className="input bg-white dark:bg-gray-900 border-gray-200 transition-all"
+                    placeholder="Ej: Promo de Suplementos Primavera"
+                  />
+                  <p className="text-[10px] text-gray-400">Ayuda al SEO y accesibilidad.</p>
+                </div>
+
+                <div className="pt-4 flex gap-3">
+                  <button 
+                    onClick={addImage} 
+                    disabled={!newUrl.trim() || adding} 
+                    className="btn-primary flex-1 h-12 flex items-center justify-center gap-2 font-bold shadow-lg shadow-primary/20"
+                  >
+                    {adding ? (
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : <Check size={18} />}
+                    {adding ? "Agregando..." : "Confirmar y Publicar"}
+                  </button>
+                  <button 
+                    onClick={() => setShowAddForm(false)}
+                    className="btn-ghost flex-1 h-12 text-gray-500 font-semibold"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+             </div>
+          </div>
+        </div>
+      )}
 
       {/* Images list */}
       <div>
-        <h2 className="font-semibold text-gray-900 dark:text-white mb-4">
-          Imágenes actuales ({images.length})
-          <span className="text-xs text-gray-400 font-normal ml-2">Arrastra para reordenar</span>
-        </h2>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="font-bold text-gray-900 dark:text-white flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">
+              <ImageIcon size={18} className="text-gray-500" />
+            </div>
+            Banners Actuales ({images.length})
+          </h2>
+          {images.length > 0 && (
+            <span className="text-[10px] font-bold text-primary uppercase tracking-wider bg-primary/10 px-3 py-1 rounded-full border border-primary/20">
+              Arrastra para reordenar
+            </span>
+          )}
+        </div>
 
         {images.length === 0 ? (
           <div className="card text-center py-10 text-gray-400">
@@ -175,12 +266,12 @@ export default function CarruselPage() {
               >
                 <GripVertical size={18} className="text-gray-300 flex-shrink-0" />
                 <span className="text-xs text-gray-400 w-5 flex-shrink-0 text-center">{index + 1}</span>
-                <div className="relative w-24 h-14 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
-                  <Image src={img.url} alt={img.alt ?? ""} fill sizes="96px" className="object-cover" />
+                <div className="relative w-32 h-16 bg-gray-100 rounded-xl overflow-hidden flex-shrink-0 border border-gray-200 ring-4 ring-white shadow-sm">
+                  <Image src={img.url} alt={img.alt ?? ""} fill sizes="128px" className="object-cover" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-gray-600 dark:text-gray-400 truncate">{img.alt ?? "Sin texto alternativo"}</p>
-                  <p className="text-xs text-gray-400 truncate">{img.url}</p>
+                  <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{img.alt ?? "Banner sin descripción"}</p>
+                  <p className="text-[10px] text-gray-400 truncate font-mono mt-0.5">{img.url}</p>
                 </div>
                 <button
                   onClick={() => deleteImage(img.id)}
@@ -206,6 +297,6 @@ export default function CarruselPage() {
           }}
         />
       )}
-    </div>
+    </>
   );
 }

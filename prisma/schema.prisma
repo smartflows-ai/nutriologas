@@ -16,6 +16,7 @@ model Tenant {
   logoUrl     String?
   whatsappNumber String?
   businessInfo   String?  // descripcion del negocio para la homepage
+  isAssistantEnabled Boolean @default(true)
 
   // Configuracion de colores (1:1)
   theme       ThemeConfig?

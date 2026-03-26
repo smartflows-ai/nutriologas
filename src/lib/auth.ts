@@ -1,5 +1,6 @@
 // src/lib/auth.ts
 import { NextAuthOptions } from "next-auth";
+import { headers } from "next/headers";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
@@ -65,13 +66,15 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials, req) {
+      async authorize(credentials: any, req) {
         if (!credentials?.email || !credentials?.password) return null;
         const email = credentials.email.trim().toLowerCase();
 
         // 1. Extraer a qué clínica está intentando entrar el usuario leyendo el encabezado Host
-        const host = req?.headers?.host || "localhost";
-        let tenantIdentifier = "doctor";
+        const headersList = headers();
+        const host = headersList.get("host") || req?.headers?.host || "localhost";
+        
+        let tenantIdentifier = "clinica-demo";
         if (host.includes(".localhost")) {
           tenantIdentifier = host.split(".")[0];
         } else if (!host.includes("localhost") && !host.startsWith("www.smartflows")) {
@@ -79,10 +82,14 @@ export const authOptions: NextAuthOptions = {
         }
 
         // 2. Buscar clínica y bloquear si no existe
-        const tenant = await prisma.tenant.findFirst({
+        let tenant = await prisma.tenant.findFirst({
            where: { OR: [{ slug: tenantIdentifier }, { customDomain: tenantIdentifier }] }
         });
-        if (!tenant) return null;
+
+        if (!tenant) {
+          console.warn(`[AUTH] Intento de login en dominio sin tenant: ${host}`);
+          return null;
+        }
 
         // 3. Checar si el usuario REAlMENTE pertenece a ESTA clínica específica
         const user = await prisma.user.findFirst({
@@ -116,7 +123,7 @@ export const authOptions: NextAuthOptions = {
 
       // 2. Lógica sugerida por Claude para asignar tenantId si por alguna razón faltara
       if (account?.provider === "google") {
-        const tenant = await prisma.tenant.findUnique({
+        let tenant = await prisma.tenant.findUnique({
           where: { slug: "clinica-demo" },
         });
         if (!tenant) return false;

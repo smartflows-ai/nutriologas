@@ -22,7 +22,7 @@ export default function Navbar({ storeName }: { storeName: string }) {
   return (
     <header className="sticky top-0 z-50 bg-white/80 dark:bg-gray-950/80 backdrop-blur-xl border-b border-gray-100 dark:border-gray-800 shadow-sm transition-all duration-300">
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-        <Link href="/" className="font-bold text-2xl text-transparent bg-clip-text bg-gradient-to-r from-primary to-emerald-600 dark:to-emerald-400 tracking-tight">{storeName}</Link>
+        <Link href="/" className="font-bold text-2xl text-primary tracking-tight">{storeName}</Link>
 
         {/* Desktop links */}
         <div className="hidden md:flex items-center gap-8 text-sm font-semibold text-gray-600 dark:text-gray-300">
@@ -36,7 +36,7 @@ export default function Navbar({ storeName }: { storeName: string }) {
           <Link href="/carrito" className="relative text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-primary transition-all hover:scale-105">
             <ShoppingCart size={22} />
             {mounted && itemCount > 0 && (
-              <span className="absolute -top-2 -right-2 bg-gradient-to-br from-primary to-emerald-500 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center shadow-sm font-bold border-2 border-white">{itemCount}</span>
+              <span className="absolute -top-2 -right-2 bg-primary text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center shadow-sm font-bold border-2 border-white">{itemCount}</span>
             )}
           </Link>
           {isLoggedIn ? (
@@ -46,7 +46,7 @@ export default function Navbar({ storeName }: { storeName: string }) {
               </Link>
               <span className="text-gray-500 text-xs truncate max-w-[120px]">{userName}</span>
               <button
-                onClick={() => signOut({ callbackUrl: "/" })}
+                onClick={async () => { await signOut({ redirect: false }); window.location.href = "/"; }}
                 className="text-gray-400 hover:text-red-500 transition-colors"
                 title="Cerrar sesión"
               >
@@ -84,7 +84,7 @@ export default function Navbar({ storeName }: { storeName: string }) {
               <div className="flex items-center justify-between">
                 <span className="text-gray-500 text-sm truncate">{userName}</span>
                 <button
-                  onClick={() => { setOpen(false); signOut({ callbackUrl: "/" }); }}
+                  onClick={async () => { setOpen(false); await signOut({ redirect: false }); window.location.href = "/"; }}
                   className="text-sm text-red-500 font-medium"
                 >
                   Cerrar sesión

@@ -28,7 +28,7 @@ export async function middleware(req: NextRequest) {
 
   // Rutas /admin/* — solo admins
   if (isAdminRoute) {
-    if (!isLoggedIn) return NextResponse.redirect(new URL("/login?callbackUrl=/admin/dashboard", nextUrl));
+    if (!isLoggedIn) return NextResponse.redirect(new URL("/login", nextUrl));
     if (!isAdmin) return NextResponse.redirect(new URL("/", nextUrl));
   }
 

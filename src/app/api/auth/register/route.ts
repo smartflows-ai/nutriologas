@@ -15,10 +15,11 @@ export async function POST(req: NextRequest) {
   if (host.includes(".localhost")) tenantSlug = host.split(".")[0];
   else if (!host.includes("localhost")) tenantSlug = host.split(":")[0];
 
-  const tenant = await prisma.tenant.findFirst({ 
+  let tenant = await prisma.tenant.findFirst({ 
     where: { OR: [{ slug: tenantSlug }, { customDomain: tenantSlug }] } 
   });
-  if (!tenant) return Response.json({ error: "Configuración no encontrada" }, { status: 500 });
+  
+  if (!tenant) return Response.json({ error: "Configuración no encontrada o debes usar el subdominio de tu clínica" }, { status: 400 });
 
   const existing = await prisma.user.findFirst({ where: { tenantId: tenant.id, email } });
   if (existing) return Response.json({ error: "Ya existe una cuenta con ese email" }, { status: 409 });

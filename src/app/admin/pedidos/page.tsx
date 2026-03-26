@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { formatPrice, formatDate } from "@/lib/utils";
 import Link from "next/link";
 import { Eye } from "lucide-react";
+import Pagination from "@/components/admin/Pagination";
 
 const STATUS_LABELS: Record<string, { label: string; class: string }> = {
   PENDING:   { label: "Pendiente",  class: "bg-yellow-100 text-yellow-700" },
@@ -23,23 +24,32 @@ const PAYMENT_LABELS: Record<string, string> = {
 export default async function PedidosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string }>;
+  searchParams: Promise<{ status?: string; page?: string }>;
 }) {
   const session = await getServerSession(authOptions);
   const tenantId = (session!.user as any).tenantId as string;
   const params = await searchParams;
   const statusFilter = params.status;
+  const currentPage = parseInt(params.page || "1");
+  const pageSize = 10;
+
+  const where = {
+    tenantId,
+    ...(statusFilter && statusFilter !== "ALL" ? { status: statusFilter as any } : {}),
+  };
+
+  const totalFilteredCount = await prisma.order.count({ where });
+  const totalPages = Math.ceil(totalFilteredCount / pageSize);
 
   const orders = await prisma.order.findMany({
-    where: {
-      tenantId,
-      ...(statusFilter && statusFilter !== "ALL" ? { status: statusFilter as any } : {}),
-    },
+    where,
     include: {
       user: { select: { name: true, email: true } },
       items: { include: { product: { select: { name: true } } } },
     },
     orderBy: { createdAt: "desc" },
+    skip: (currentPage - 1) * pageSize,
+    take: pageSize,
   });
 
   const counts = await prisma.order.groupBy({
@@ -149,6 +159,13 @@ export default async function PedidosPage({
           </tbody>
         </table>
       </div>
+
+      <Pagination 
+        currentPage={currentPage}
+        totalPages={totalPages}
+        baseUrl="/admin/pedidos"
+        searchParams={statusFilter ? { status: statusFilter } : {}}
+      />
     </div>
   );
 }

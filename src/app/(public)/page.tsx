@@ -55,7 +55,7 @@ export default async function HomePage() {
       {tenant?.businessInfo && (
         <section id="nosotros" className="relative overflow-hidden py-24 sm:py-32 bg-white dark:bg-gray-900">
           <div className="absolute inset-x-0 -top-40 -z-10 transform-gpu overflow-hidden blur-3xl sm:-top-80">
-            <div className="relative left-[calc(50%-11rem)] aspect-[1155/678] w-[36.125rem] -translate-x-1/2 rotate-[30deg] bg-gradient-to-tr from-green-100 to-emerald-300 dark:from-green-900 dark:to-emerald-900 opacity-40 sm:left-[calc(50%-30rem)] sm:w-[72.1875rem]"></div>
+            <div className="relative left-[calc(50%-11rem)] aspect-[1155/678] w-[36.125rem] -translate-x-1/2 rotate-[30deg] bg-primary/20 dark:bg-primary/10 opacity-60 sm:left-[calc(50%-30rem)] sm:w-[72.1875rem]"></div>
           </div>
           
           <div className="mx-auto max-w-4xl px-6 lg:px-8 relative z-10 text-center">

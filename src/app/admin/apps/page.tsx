@@ -2,10 +2,12 @@
 // src/app/admin/apps/page.tsx
 // Central hub for managing connected integrations (tenant-level).
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Plug, Check, X, ExternalLink, Loader2, Calendar as CalendarIcon, CheckCircle2
 } from "lucide-react";
 import { useRef } from "react";
+import { toggleAssistant, disconnectApp, refreshSidebar } from "./actions";
 
 // ── Feature definitions ─────────────────────────────────────────
 interface FeatureDef {
@@ -15,6 +17,7 @@ interface FeatureDef {
   icon: string | React.ReactNode;
   color: string;     // tailwind gradient classes
   comingSoon?: boolean;
+  isInternalToggle?: boolean;
   providers: {
     id: string; // e.g., 'GOOGLE', 'MICROSOFT'
     name: string;
@@ -24,6 +27,15 @@ interface FeatureDef {
 }
 
 const FEATURES: FeatureDef[] = [
+  {
+    id: "assistant",
+    name: "Asistente IA",
+    description: "Responde dudas, atiende citas y explica Faqs automáticamente.",
+    icon: "🤖",
+    color: "from-indigo-500 to-purple-600",
+    isInternalToggle: true,
+    providers: []
+  },
   {
     id: "calendar",
     name: "Calendario",
@@ -108,6 +120,14 @@ function WhatsAppConnectModal({
     setLoadingMsgIdx(0);
     const res = await fetch("/api/apps/connect/whatsapp", { method: "POST" });
     const data = await res.json();
+
+    // Si ya esta conectado, saltamos al exito
+    if (data.status === "connected") {
+      setStep("connected");
+      setTimeout(() => { onSuccess(); onClose(); }, 2000);
+      return;
+    }
+
     if (data.qrCode) {
       setQrCode(data.qrCode);
       setStep("qr");
@@ -149,7 +169,7 @@ function WhatsAppConnectModal({
             </p>
             <button
               onClick={startConnect}
-              className="w-full py-3 text-white text-sm font-semibold rounded-xl bg-green-500 hover:bg-green-600 transition"
+              className="w-full py-3 text-white text-sm font-semibold rounded-xl bg-primary hover:opacity-90 transition shadow-sm"
             >
               Generar código QR
             </button>
@@ -158,7 +178,7 @@ function WhatsAppConnectModal({
 
         {step === "loading" && (
           <div className="flex flex-col items-center gap-4 py-8 px-2 text-center h-40 justify-center">
-            <Loader2 size={32} className="animate-spin text-green-500" />
+            <Loader2 size={32} className="animate-spin text-primary" />
             <p className="text-sm text-gray-600 dark:text-gray-400 italic animate-pulse transition-opacity duration-500">
               {LOADING_MESSAGES[loadingMsgIdx]}
             </p>
@@ -194,10 +214,17 @@ function WhatsAppConnectModal({
 }
 
 export default function AppsPage() {
+  const router = useRouter();
   const [apps, setApps] = useState<ConnectedAppInfo[]>([]);
+  const [isAssistantEnabled, setIsAssistantEnabled] = useState(false);
+  const [togglingAssistant, setTogglingAssistant] = useState(false);
   const [loading, setLoading] = useState(true);
   const [disconnecting, setDisconnecting] = useState<string | null>(null);
   const [whatsappModalOpen, setWhatsappModalOpen] = useState(false);
+
+  // Custom modals
+  const [confirmState, setConfirmState] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
+  const [notificationState, setNotificationState] = useState<{ title: string; message: string; type: "error" | "success" } | null>(null);
 
   const fetchApps = async () => {
     setLoading(true);
@@ -206,6 +233,7 @@ export default function AppsPage() {
       if (res.ok) {
         const data = await res.json();
         setApps(data.apps ?? []);
+        setIsAssistantEnabled(data.isAssistantEnabled ?? false);
       }
     } catch (e) {
       console.error("Error loading apps:", e);
@@ -216,15 +244,26 @@ export default function AppsPage() {
 
   useEffect(() => { fetchApps(); }, []);
 
-  const handleDisconnect = async (provider: string) => {
-    if (!confirm(`¿Desconectar ${provider}? Se perderá el acceso hasta reconectar.`)) return;
-    setDisconnecting(provider);
-    try {
-      await fetch(`/api/apps/${provider.toLowerCase()}`, { method: "DELETE" });
-      setApps((prev) => prev.filter((a) => a.provider !== provider));
-    } finally {
-      setDisconnecting(null);
-    }
+  const handleDisconnect = (provider: string) => {
+    setConfirmState({
+      title: "Desconectar integración",
+      message: `¿Estás seguro que deseas desconectar ${provider}? El sistema perderá el acceso y las automatizaciones fallarán hasta que lo vuelvas a conectar.`,
+      onConfirm: async () => {
+        setDisconnecting(provider);
+        try {
+          await disconnectApp(provider);
+          setApps((prev) => prev.filter((a) => a.provider !== provider));
+        } catch (err) {
+          setNotificationState({
+            title: "Error",
+            message: "No se pudo desconectar la aplicación.",
+            type: "error"
+          });
+        } finally {
+          setDisconnecting(null);
+        }
+      }
+    });
   };
 
   // Helper to find a matching active connection for a given feature
@@ -269,15 +308,14 @@ export default function AppsPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {FEATURES.map((feat) => {
             const activeConn = getActiveConnectionForFeature(feat);
-            const isConnected = !!activeConn;
+            const isConnected = feat.isInternalToggle ? isAssistantEnabled : !!activeConn;
             const isDisconnecting = activeConn ? disconnecting === activeConn.provider : false;
 
             return (
               <div
                 key={feat.id}
-                className={`flex flex-col relative rounded-2xl border bg-white dark:bg-gray-900 shadow-sm overflow-hidden transition-all hover:shadow-md ${
-                  isConnected ? "border-primary/30" : feat.comingSoon ? "border-gray-100 opacity-60" : "border-gray-200"
-                }`}
+                className={`flex flex-col relative rounded-2xl border bg-white dark:bg-gray-900 shadow-sm overflow-hidden transition-all hover:shadow-md ${isConnected ? "border-primary/30" : feat.comingSoon ? "border-gray-100 opacity-60" : "border-gray-200"
+                  }`}
               >
                 {/* Gradient top bar */}
                 <div className={`h-1.5 bg-gradient-to-r ${feat.color}`} />
@@ -325,6 +363,33 @@ export default function AppsPage() {
                     {feat.comingSoon ? (
                       <button disabled className="w-full px-3 py-2 bg-gray-100 text-gray-400 text-xs font-medium rounded-lg cursor-not-allowed">
                         No disponible aún
+                      </button>
+                    ) : feat.isInternalToggle ? (
+                      <button
+                        onClick={async () => {
+                          setTogglingAssistant(true);
+                          try {
+                            await toggleAssistant(!isAssistantEnabled);
+                            setIsAssistantEnabled(!isAssistantEnabled);
+                            if (!isAssistantEnabled) {
+                              await refreshSidebar();
+                              router.push("/admin/asistente");
+                            }
+                          } catch (e) {
+                            setNotificationState({
+                              title: "Error",
+                              message: "No se pudo actualizar el estado del asistente.",
+                              type: "error"
+                            });
+                          } finally {
+                            setTogglingAssistant(false);
+                          }
+                        }}
+                        disabled={togglingAssistant}
+                        className={`w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg transition-colors disabled:opacity-50 ${isAssistantEnabled ? "bg-red-50 text-red-600 hover:bg-red-100" : "bg-primary text-white hover:bg-primary/90"}`}
+                      >
+                        {togglingAssistant ? <Loader2 size={14} className="animate-spin" /> : (isAssistantEnabled ? <X size={14} /> : <Check size={14} />)}
+                        {isAssistantEnabled ? "Desactivar Asistente" : "Activar Asistente"}
                       </button>
                     ) : isConnected && activeConn ? (
                       <button
@@ -378,8 +443,56 @@ export default function AppsPage() {
       {whatsappModalOpen && (
         <WhatsAppConnectModal
           onClose={() => setWhatsappModalOpen(false)}
-          onSuccess={fetchApps}
+          onSuccess={async () => {
+            fetchApps();
+            await refreshSidebar();
+            router.refresh();
+            router.push("/admin/whatsapp");
+          }}
         />
+      )}
+
+      {/* Custom Confirm Modal */}
+      {confirmState && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md p-6 border border-gray-100 dark:border-gray-800">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{confirmState.title}</h3>
+            <p className="text-gray-500 mb-8">{confirmState.message}</p>
+            <div className="flex gap-3 justify-end">
+              <button
+                className="px-5 py-2.5 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors"
+                onClick={() => setConfirmState(null)}
+              >
+                Cancelar
+              </button>
+              <button
+                className="px-5 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl shadow-sm transition-colors"
+                onClick={() => { setConfirmState(null); confirmState.onConfirm(); }}
+              >
+                Sí, desconectar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Notification Modal */}
+      {notificationState && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center border border-gray-100 dark:border-gray-800">
+            <div className={`mx-auto w-14 h-14 rounded-full flex items-center justify-center mb-5 ${notificationState.type === 'error' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
+              {notificationState.type === 'error' ? <X size={28} /> : <Check size={28} />}
+            </div>
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{notificationState.title}</h3>
+            <p className="text-gray-500 mb-8 max-w-[280px] mx-auto">{notificationState.message}</p>
+            <button
+              className="px-6 py-3 w-full text-sm font-semibold text-white bg-gray-900 dark:bg-gray-800 rounded-xl hover:bg-gray-800 dark:hover:bg-gray-700 transition-colors shadow-sm"
+              onClick={() => setNotificationState(null)}
+            >
+              Entendido
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
