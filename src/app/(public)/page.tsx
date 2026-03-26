@@ -7,7 +7,6 @@ import { getTenantSlug } from "@/lib/tenant";
 
 async function getHomeData(): Promise<any> {
   const tenantSlug = getTenantSlug();
-  console.log("[page.tsx] tenantSlug resolved:", tenantSlug);
 
   try {
     const tenant = await prisma.tenant.findFirst({
@@ -28,7 +27,6 @@ async function getHomeData(): Promise<any> {
         faqs: { where: { isActive: true }, orderBy: { sortOrder: "asc" } },
       } as any,
     });
-    console.log("[page.tsx] tenant fetched:", tenant?.slug, "products:", (tenant as any)?.products?.length);
     return tenant;
   } catch (err) {
     console.error("[page.tsx] prisma error:", err);

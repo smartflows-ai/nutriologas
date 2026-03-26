@@ -4,14 +4,27 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import {
-  LayoutDashboard, Package, Image, Palette,
-  Calendar, Star, Bot, LogOut, Menu, X, Plug, MessageSquare, HelpCircle
+  LayoutDashboard,
+  Package,
+  ShoppingBag,
+  Image,
+  Palette,
+  Calendar,
+  Star,
+  Bot,
+  LogOut,
+  Menu,
+  X,
+  Plug,
+  MessageSquare,
+  HelpCircle
 } from "lucide-react";
 import SignOutButton from "@/components/admin/SignOutButton";
 
 const navItems = [
   { href: "/admin/dashboard",  label: "Dashboard",    icon: LayoutDashboard },
   { href: "/admin/productos",  label: "Productos",    icon: Package },
+  { href: "/admin/pedidos", label: "Pedidos", icon: ShoppingBag },
   { href: "/admin/carrusel",   label: "Carrusel",     icon: Image },
   { href: "/admin/apariencia", label: "Apariencia",   icon: Palette },
   { href: "/admin/calendario", label: "Calendario",   icon: Calendar },
@@ -22,19 +35,25 @@ const navItems = [
   { href: "/admin/asistente",  label: "Asistente IA", icon: Bot },
 ];
 
-interface Props { userName?: string | null; }
+interface Props {
+  userName?: string | null;
+}
 
 export default function AdminSidebar({ userName }: Props) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
   // Close sidebar on route change (mobile nav)
-  useEffect(() => { setOpen(false); }, [pathname]);
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
 
   // Prevent body scroll when sidebar open on mobile
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
-    return () => { document.body.style.overflow = ""; };
+    return () => {
+      document.body.style.overflow = "";
+    };
   }, [open]);
 
   const sidebarContent = (

@@ -21,10 +21,8 @@ export const authOptions: NextAuthOptions = {
       return account?.user ? (account.user as any) : null;
     },
     createUser: async (data: any) => {
-      console.log("====== ADAPTER.CREATEUSER CALLED ======", data);
       const defaultTenant = await prisma.tenant.findFirst();
       if (!defaultTenant) {
-        console.error("====== ADAPTER.CREATEUSER FAILED: NO TENANT ======");
         throw new Error("No hay un tenant configurado en la BD.");
       }
 
@@ -37,12 +35,9 @@ export const authOptions: NextAuthOptions = {
           tenantId: defaultTenant.id,
         },
       });
-      console.log("====== ADAPTER.CREATEUSER SUCCESS ======", user);
-      
       // NextAuth sometimes strictly requires emailVerified to be present
       return { ...user, emailVerified: null } as any;
     } catch (error) {
-      console.error("====== ADAPTER.CREATEUSER PRISMA ERROR ======", error);
       throw error;
     }
     },
@@ -76,7 +71,7 @@ export const authOptions: NextAuthOptions = {
 
         // 1. Extraer a qué clínica está intentando entrar el usuario leyendo el encabezado Host
         const host = req?.headers?.host || "localhost";
-        let tenantIdentifier = "clinica-demo";
+        let tenantIdentifier = "doctor";
         if (host.includes(".localhost")) {
           tenantIdentifier = host.split(".")[0];
         } else if (!host.includes("localhost") && !host.startsWith("www.smartflows")) {
@@ -116,8 +111,6 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async signIn({ user, account, profile }) {
-      console.log("====== CALLBACK SIGNIN START ======", { userEmail: user?.email, provider: account?.provider });
-      
       // Google Calendar tokens now handled by /api/apps/oauth (connected_apps table)
       // No longer need to handle google-calendar provider here
 
@@ -141,7 +134,6 @@ export const authOptions: NextAuthOptions = {
         }
       }
 
-      console.log("====== CALLBACK SIGNIN END: RETURNING TRUE ======");
       return true;
     },
     async jwt({ token, user, account }) {

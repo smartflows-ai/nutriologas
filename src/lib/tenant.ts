@@ -26,6 +26,6 @@ export function getTenantSlug(): string {
     return host.split(":")[0]; // strip port if any
   }
 
-  // Fallback for bare localhost:3000
-  return "clinica-demo";
+  // Fallback for bare localhost:3000 — no tenant
+  return "";
 }

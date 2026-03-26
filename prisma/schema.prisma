@@ -5,7 +5,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 // ─── MULTITENANT ─────────────────────────────────────────
@@ -68,7 +67,7 @@ model User {
   role         UserRole  @default(CUSTOMER)
   passwordHash String?
   googleId     String?
-
+  conektaCustomerId String?
   orders  Order[]
   reviews Review[]
   accounts Account[]
@@ -148,7 +147,7 @@ model ConnectedApp {
   waQrCode        String?
   waPhoneNumber   String?
   waWebhookUrl    String?
-  
+
   waTemperature   Float?      @default(0.7)
   waContext       String?     @db.Text
 
@@ -167,7 +166,7 @@ model WhatsAppChat {
   lastMessage String?  @db.Text
   unreadCount Int      @default(0)
   updatedAt   DateTime @updatedAt
-  
+
   messages    WhatsAppMessage[]
 
   @@unique([tenantId, remoteJid])
@@ -241,7 +240,8 @@ model Order {
   status           OrderStatus   @default(PENDING)
   total            Float
   paymentMethod    PaymentMethod?
-  paymentReference String?       // ID de Conekta o PayPal
+  paymentReference String?       // Conekta order ID or PayPal reference
+  conektaChargeId  String?       // Conekta charge ID (set by charge.created webhook)
   shippingAddress  Json?
 
   items OrderItem[]

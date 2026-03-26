@@ -5,11 +5,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { registerSchema, type RegisterInput } from "@/lib/validations";
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 
 export default function RegistroPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl") ?? "/";
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -33,7 +35,7 @@ export default function RegistroPage() {
       }
       // Auto-login after register
       await signIn("credentials", { email: data.email, password: data.password, redirect: false });
-      router.push("/");
+      router.push(callbackUrl);
     } catch {
       setError("Error al crear la cuenta");
     } finally {
@@ -48,7 +50,7 @@ export default function RegistroPage() {
         <p className="text-gray-500 text-sm text-center mb-6">Únete para comprar y hacer seguimiento de tus pedidos</p>
 
         <button
-          onClick={() => signIn("google", { callbackUrl: "/" })}
+          onClick={() => signIn("google", { callbackUrl })}
           className="w-full border border-gray-300 rounded-lg py-2.5 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:bg-gray-950 flex items-center justify-center gap-2 mb-4"
         >
           <svg viewBox="0 0 24 24" width="18" height="18">
@@ -93,7 +95,7 @@ export default function RegistroPage() {
         </form>
 
         <p className="text-center text-sm text-gray-500 mt-4">
-          ¿Ya tienes cuenta? <Link href="/login" className="text-primary hover:underline">Inicia sesión</Link>
+          ¿Ya tienes cuenta? <Link href={`/login${callbackUrl !== "/" ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ""}`} className="text-primary hover:underline">Inicia sesión</Link>
         </p>
       </div>
     </div>
