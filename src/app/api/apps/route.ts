@@ -13,6 +13,11 @@ export async function GET() {
 
   const tenantId = (session.user as any).tenantId as string;
 
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    select: { isAssistantEnabled: true }
+  });
+
   const apps = await prisma.connectedApp.findMany({
     where: { tenantId },
     select: {
@@ -23,5 +28,5 @@ export async function GET() {
     },
   });
 
-  return NextResponse.json({ apps });
+  return NextResponse.json({ apps, isAssistantEnabled: tenant?.isAssistantEnabled ?? false });
 }

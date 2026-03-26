@@ -110,5 +110,5 @@ export async function GET(req: NextRequest) {
 
   // 7. Redirect back to the page the user was on (admin/apps)
   const finalRedirectOrigin = stateParam && !stateParam.includes('localhost') ? stateParam : origin;
-  return NextResponse.redirect(new URL("/admin/apps?connected=microsoft", finalRedirectOrigin));
+  return NextResponse.redirect(new URL("/admin/calendario?connected=microsoft", finalRedirectOrigin));
 }

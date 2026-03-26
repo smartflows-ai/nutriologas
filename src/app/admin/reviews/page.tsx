@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Star, Eye, EyeOff } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import Pagination from "@/components/admin/Pagination";
 
 interface Review {
   id: string; rating: number; comment: string | null; isVisible: boolean; createdAt: string;
@@ -12,38 +13,69 @@ interface Review {
 export default function ReviewsPage() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [filter, setFilter] = useState<"all" | "1" | "2" | "3" | "4" | "5">("all");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [loading, setLoading] = useState(false);
 
-  const fetchReviews = async () => {
-    // Al no pasar ?tenant=, el API backend usará el tenant del Admin autenticado
-    const res = await fetch(`/api/reviews?t=${Date.now()}`);
-    setReviews(await res.json());
+  const fetchReviews = async (pageNumber = 1, currentFilter = "all") => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/reviews?page=${pageNumber}&limit=10&rating=${currentFilter}&t=${Date.now()}`);
+      const data = await res.json();
+      setReviews(data.reviews || []);
+      setTotalPages(data.totalPages || 1);
+      setTotalCount(data.totalCount || 0);
+    } catch (e) {
+      console.error("Error fetching reviews:", e);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  useEffect(() => { fetchReviews(); }, []);
+  useEffect(() => {
+    fetchReviews(page, filter);
+  }, [page, filter]);
 
   const toggleVisibility = async (id: string, isVisible: boolean) => {
     await fetch(`/api/reviews/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ isVisible: !isVisible }) });
-    fetchReviews();
+    fetchReviews(page, filter);
   };
 
-  const filtered = filter === "all" ? reviews : reviews.filter(r => r.rating === parseInt(filter));
+  const handleFilterChange = (f: "all" | "1" | "2" | "3" | "4" | "5") => {
+    setFilter(f);
+    setPage(1); // Reset to first page when filter changes
+  };
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Reviews</h1>
-      <p className="text-gray-500 text-sm mb-8">{reviews.length} reseñas en total</p>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Reseñas</h1>
+      <p className="text-gray-500 text-sm mb-8">{totalCount} reseñas en total</p>
 
       {/* Filter */}
       <div className="flex gap-2 mb-6 flex-wrap">
         {(["all", "5", "4", "3", "2", "1"] as const).map((f) => (
-          <button key={f} onClick={() => setFilter(f)} className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${filter === f ? "bg-primary text-white border-primary" : "border-gray-300 text-gray-600 dark:text-gray-400 hover:border-primary"}`}>
-            {f === "all" ? "Todos" : `${"⭐".repeat(parseInt(f))} (${reviews.filter(r => r.rating === parseInt(f)).length})`}
+          <button 
+            key={f} 
+            onClick={() => handleFilterChange(f)} 
+            className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${filter === f ? "bg-primary text-white border-primary" : "border-gray-300 text-gray-600 dark:text-gray-400 hover:border-primary"}`}
+          >
+            {f === "all" ? "Todos" : `${"⭐".repeat(parseInt(f))}`}
           </button>
         ))}
       </div>
 
-      <div className="space-y-3">
-        {filtered.map((review) => (
+      <div className="space-y-3 relative">
+        {loading && (
+          <div className="absolute inset-x-0 -top-4 flex justify-center z-10">
+             <div className="bg-white dark:bg-gray-800 shadow-md rounded-full px-4 py-1 flex items-center gap-2 border border-gray-100 dark:border-gray-700">
+               <div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+               <span className="text-xs font-medium text-gray-500">Cargando...</span>
+             </div>
+          </div>
+        )}
+        
+        {reviews.map((review) => (
           <div key={review.id} className={`card transition-opacity ${!review.isVisible ? "opacity-60" : ""}`}>
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1 min-w-0">
@@ -64,8 +96,16 @@ export default function ReviewsPage() {
             </div>
           </div>
         ))}
-        {filtered.length === 0 && <p className="text-gray-400 text-sm py-6 text-center">No hay reseñas con este filtro.</p>}
+        {reviews.length === 0 && !loading && (
+          <p className="text-gray-400 text-sm py-6 text-center">No hay reseñas con este filtro.</p>
+        )}
       </div>
+
+      <Pagination 
+        currentPage={page}
+        totalPages={totalPages}
+        onPageChange={(p) => setPage(p)}
+      />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Trash2, Plus, GripVertical, Check, Pencil, Eye, EyeOff } from "lucide-react";
+import { Trash2, Plus, GripVertical, Check, Pencil, Eye, EyeOff, X } from "lucide-react";
 
 interface FAQ {
   id: string;
@@ -15,6 +15,7 @@ export default function FAQPage() {
   const [newQuestion, setNewQuestion] = useState("");
   const [newAnswer, setNewAnswer] = useState("");
   const [adding, setAdding] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
   const [dragging, setDragging] = useState<string | null>(null);
 
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -43,6 +44,7 @@ export default function FAQPage() {
         setFaqs((prev) => [...prev, newFaq]);
         setNewQuestion("");
         setNewAnswer("");
+        setShowAddForm(false);
       }
     } finally {
       setAdding(false);
@@ -117,50 +119,87 @@ export default function FAQPage() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Preguntas Frecuentes (FAQ)</h1>
-          <p className="text-gray-500 text-sm">Administra las preguntas que aparecen en la página principal</p>
+          <p className="text-gray-500 text-sm">Administra las respuestas rápidas que aparecen en el centro de ayuda.</p>
         </div>
+        {!showAddForm && (
+          <button 
+            onClick={() => setShowAddForm(true)}
+            className="btn-primary flex items-center gap-2 shadow-lg shadow-primary/20"
+          >
+            <Plus size={18} /> Nueva Pregunta
+          </button>
+        )}
       </div>
 
       {/* Agregar FAQ */}
-      <div className="card mb-8">
-        <h2 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-          <Plus size={18} className="text-primary" /> Agregar nueva pregunta
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Pregunta *</label>
-            <textarea
-              value={newQuestion}
-              onChange={(e) => setNewQuestion(e.target.value)}
-              className="input min-h-[100px] resize-none"
-              placeholder="Ej: ¿Cuáles son las formas de pago?"
-            />
+      {showAddForm && (
+        <div className="card mb-8 border-primary/20 bg-primary/5 animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="font-bold text-gray-900 dark:text-white flex items-center gap-2 text-lg">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <Plus size={18} className="text-primary" />
+              </div> 
+              Agregar nueva pregunta
+            </h2>
+            <button 
+              onClick={() => setShowAddForm(false)}
+              className="p-2 hover:bg-white dark:hover:bg-gray-800 rounded-full text-gray-400 transition-colors"
+            >
+              <X size={20} />
+            </button>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Respuesta *</label>
-            <textarea
-              value={newAnswer}
-              onChange={(e) => setNewAnswer(e.target.value)}
-              className="input min-h-[100px] resize-none"
-              placeholder="Ej: Aceptamos tarjetas de crédito, débito y transferencias..."
-            />
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div className="space-y-1.5">
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200">Pregunta *</label>
+              <textarea
+                value={newQuestion}
+                onChange={(e) => setNewQuestion(e.target.value)}
+                className="input min-h-[120px] resize-none bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 focus:ring-2 focus:ring-primary/20 transition-all text-sm"
+                placeholder="Ej: ¿Cuáles son las formas de pago?"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200">Respuesta *</label>
+              <textarea
+                value={newAnswer}
+                onChange={(e) => setNewAnswer(e.target.value)}
+                className="input min-h-[120px] resize-none bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 focus:ring-2 focus:ring-primary/20 transition-all text-sm"
+                placeholder="Ej: Aceptamos tarjetas de crédito, débito y transferencias bancarias..."
+              />
+            </div>
+          </div>
+          
+          <div className="flex gap-3">
+             <button
+              onClick={addFaq}
+              disabled={!newQuestion.trim() || !newAnswer.trim() || adding}
+              className="btn-primary flex items-center justify-center gap-2 px-6 h-11 font-bold shadow-lg shadow-primary/20"
+            >
+              {adding ? (
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : <Check size={18} />}
+              {adding ? "Guardando..." : "Guardar Pregunta"}
+            </button>
+            <button
+              onClick={() => setShowAddForm(false)}
+              className="btn-ghost px-6 h-11 font-semibold text-gray-500"
+            >
+              Cancelar
+            </button>
           </div>
         </div>
-        <button
-          onClick={addFaq}
-          disabled={!newQuestion.trim() || !newAnswer.trim() || adding}
-          className="btn-primary flex items-center justify-center gap-2 w-max"
-        >
-          <Check size={16} /> {adding ? "Guardando..." : "Guardar Pregunta"}
-        </button>
-      </div>
+      )}
 
       {/* Lista de FAQs */}
       <div>
-        <h2 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+        <h2 className="font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+            <Check size={18} className="text-gray-500" />
+          </div>
           Preguntas actuales ({faqs.length})
-          <span className="text-xs font-normal text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
-            Arrastra para reordenar
+          <span className="text-[10px] font-bold text-primary uppercase tracking-wider bg-primary/10 px-2.5 py-1 rounded-full border border-primary/20">
+            Click & Arrastra para reordenar
           </span>
         </h2>
 

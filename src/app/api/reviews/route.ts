@@ -4,10 +4,14 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { reviewSchema } from "@/lib/validations";
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const productId = searchParams.get("productId");
+  const page = parseInt(searchParams.get("page") || "1");
+  const limit = parseInt(searchParams.get("limit") || "10");
+  const skip = (page - 1) * limit;
 
   // Session-first (admin), then host-based for public visitors
   const session = await getServerSession(authOptions);
@@ -26,19 +30,37 @@ export async function GET(req: NextRequest) {
   }
   // Admins see all reviews; public visitors only see visible ones
   const isAdmin = (session?.user as any)?.role === "ADMIN";
-  const reviews = await prisma.review.findMany({
-    where: {
-      tenantId,
-      ...(isAdmin ? {} : { isVisible: true }),
-      ...(productId && { productId }),
-    },
-    include: {
-      user: { select: { name: true, image: true } },
-      product: { select: { name: true } },
-    },
-    orderBy: { createdAt: "desc" },
+  const rating = searchParams.get("rating");
+
+  const where = {
+    tenantId,
+    ...(isAdmin ? {} : { isVisible: true }),
+    ...(productId && { productId }),
+    ...(rating && rating !== "all" ? { rating: parseInt(rating) } : {}),
+  };
+
+  const [reviews, totalCount] = await Promise.all([
+    prisma.review.findMany({
+      where,
+      include: {
+        user: { select: { name: true, image: true } },
+        product: { select: { name: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: limit,
+    }),
+    prisma.review.count({ where })
+  ]);
+
+  const totalPages = Math.ceil(totalCount / limit);
+
+  return Response.json({
+    reviews,
+    totalCount,
+    totalPages,
+    currentPage: page,
   });
-  return Response.json(reviews);
 }
 
 export async function POST(req: Request) {
@@ -63,5 +85,9 @@ export async function POST(req: Request) {
   if (existing) return Response.json({ error: "Ya dejaste una reseña para este producto" }, { status: 409 });
 
   const review = await prisma.review.create({ data: { ...parsed, productId, userId, tenantId } });
+
+  // Revalidate the product page to update SSR content (avg rating, etc.)
+  revalidatePath(`/producto/${product.slug}`);
+
   return Response.json(review, { status: 201 });
 }

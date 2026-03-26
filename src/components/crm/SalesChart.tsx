@@ -12,7 +12,7 @@ export default function SalesChart({ data }: Props) {
   }, {});
 
   const chartData = Object.entries(grouped).map(([date, total]) => ({
-    date: new Date(date).toLocaleDateString("es-MX", { month: "short", day: "numeric" }),
+    date: new Date(date + "T12:00:00").toLocaleDateString("es-MX", { month: "short", day: "numeric" }),
     total: Math.round(total),
   }));
 

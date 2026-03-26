@@ -21,25 +21,42 @@ import {
 } from "lucide-react";
 import SignOutButton from "@/components/admin/SignOutButton";
 
-const navItems = [
-  { href: "/admin/dashboard",  label: "Dashboard",    icon: LayoutDashboard },
-  { href: "/admin/productos",  label: "Productos",    icon: Package },
-  { href: "/admin/pedidos", label: "Pedidos", icon: ShoppingBag },
-  { href: "/admin/carrusel",   label: "Carrusel",     icon: Image },
-  { href: "/admin/apariencia", label: "Apariencia",   icon: Palette },
-  { href: "/admin/calendario", label: "Calendario",   icon: Calendar },
-  { href: "/admin/reviews",    label: "Reviews",      icon: Star },
-  { href: "/admin/apps",       label: "Apps",         icon: Plug },
-  { href: "/admin/whatsapp",   label: "WhatsApp",     icon: MessageSquare },
-  { href: "/admin/faq",        label: "FAQ",          icon: HelpCircle },
-  { href: "/admin/asistente",  label: "Asistente IA", icon: Bot },
+const baseCategories = [
+  {
+    title: "General",
+    items: [
+      { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/admin/pedidos", label: "Pedidos", icon: ShoppingBag },
+      { href: "/admin/productos", label: "Productos", icon: Package },
+      { href: "/admin/reviews", label: "Reviews", icon: Star },
+    ],
+  },
+  {
+    title: "Sitio Web",
+    items: [
+      { href: "/admin/carrusel", label: "Carrusel", icon: Image },
+      { href: "/admin/apariencia", label: "Apariencia", icon: Palette },
+      { href: "/admin/faq", label: "FAQ", icon: HelpCircle },
+    ],
+  },
+  {
+    title: "Apps & Automatización",
+    items: [
+      { href: "/admin/apps", label: "Tienda", icon: Plug },
+      { href: "/admin/asistente", label: "Asistente IA", icon: Bot, isAssistant: true },
+      { href: "/admin/calendario", label: "Calendario", icon: Calendar, providersReq: ["GOOGLE", "MICROSOFT"] },
+      { href: "/admin/whatsapp", label: "WhatsApp", icon: MessageSquare, providersReq: ["WHATSAPP"] },
+    ],
+  },
 ];
 
 interface Props {
   userName?: string | null;
+  isAssistantEnabled: boolean;
+  connectedApps: string[];
 }
 
-export default function AdminSidebar({ userName }: Props) {
+export default function AdminSidebar({ userName, isAssistantEnabled, connectedApps }: Props) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
@@ -55,6 +72,25 @@ export default function AdminSidebar({ userName }: Props) {
       document.body.style.overflow = "";
     };
   }, [open]);
+
+  // ── Filtrado Dinamico de Menu ──
+  const navCategories = baseCategories.map(category => {
+    return {
+      ...category,
+      items: category.items.filter(item => {
+        // Evaluate AI Assistant requirement
+        if (item.isAssistant && !isAssistantEnabled) return false;
+
+        // Evaluate Integrations requirement (if requires at least one of providersReq)
+        if (item.providersReq) {
+          const hasConnectedProvider = item.providersReq.some(p => connectedApps.includes(p as string));
+          if (!hasConnectedProvider) return false;
+        }
+
+        return true;
+      })
+    };
+  });
 
   const sidebarContent = (
     <div className="flex flex-col h-full bg-white/70 dark:bg-gray-950/70 backdrop-blur-md border-r border-gray-100 dark:border-transparent">
@@ -74,27 +110,36 @@ export default function AdminSidebar({ userName }: Props) {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
-        {navItems.map(({ href, label, icon: Icon }) => {
-          const active = pathname === href;
-          return (
-            <Link
-              key={href}
-              href={href}
-              className={`flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-all duration-200 group relative
-                ${active
-                  ? "bg-gradient-to-r from-green-100/50 dark:from-primary/10 to-transparent text-primary font-semibold shadow-sm"
-                  : "text-gray-600 dark:text-gray-400 hover:bg-gray-100/80 dark:hover:bg-gray-800/80 hover:text-gray-900 dark:text-white dark:hover:text-gray-200"}`}
-            >
-              {active && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full" />}
-              <Icon
-                size={18}
-                className={active ? "text-primary" : "text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:text-gray-400 dark:group-hover:text-gray-300 transition-colors"}
-              />
-              {label}
-            </Link>
-          );
-        })}
+      <nav className="flex-1 px-4 py-6 space-y-6 overflow-y-auto">
+        {navCategories.map((category) => (
+          <div key={category.title}>
+            <h3 className="px-2 text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">
+              {category.title}
+            </h3>
+            <div className="space-y-1">
+              {category.items.map(({ href, label, icon: Icon }) => {
+                const active = pathname === href;
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group relative
+                      ${active
+                        ? "bg-gradient-to-r from-green-100/50 dark:from-primary/10 to-transparent text-primary font-semibold shadow-sm"
+                        : "text-gray-600 dark:text-gray-400 hover:bg-gray-100/80 dark:hover:bg-gray-800/80 hover:text-gray-900 dark:text-white dark:hover:text-gray-200"}`}
+                  >
+                    {active && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full" />}
+                    <Icon
+                      size={18}
+                      className={active ? "text-primary" : "text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:text-gray-400 dark:group-hover:text-gray-300 transition-colors"}
+                    />
+                    {label}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
 
       {/* Sign out */}

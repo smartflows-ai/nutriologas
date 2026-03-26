@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { MessageSquare, Settings, Send, User, Bot, RefreshCw, ChevronLeft } from "lucide-react";
+import { MessageSquare, Settings, Send, User, Bot, RefreshCw, ChevronLeft, X, Check } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -26,6 +26,7 @@ export default function WhatsAppPage() {
   const [config, setConfig] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [notificationState, setNotificationState] = useState<{ title: string; message: string; type: "error" | "success" } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -88,9 +89,19 @@ export default function WhatsAppPage() {
           waContext: config.waContext
         }),
       });
-      if (res.ok) alert("Configuración guardada");
+      if (res.ok) {
+        setNotificationState({
+          title: "¡Configuración guardada!",
+          message: "Los cambios en la IA de WhatsApp se han aplicado correctamente.",
+          type: "success"
+        });
+      }
     } catch (error) {
-      alert("Error al guardar");
+      setNotificationState({
+        title: "Error al guardar",
+        message: "Ocurrió un problema técnico. Por favor intenta de nuevo.",
+        type: "error"
+      });
     } finally {
       setSaving(false);
     }
@@ -254,51 +265,103 @@ export default function WhatsAppPage() {
         </div>
       ) : (
         /* Settings Tab */
-        <div className="flex-1 overflow-y-auto p-8 max-w-4xl mx-auto w-full">
-          <form onSubmit={handleSaveConfig} className="space-y-8 bg-white dark:bg-gray-900 p-8 rounded-xl shadow-sm border border-gray-100">
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <label className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                  <RefreshCw className="w-5 h-5 text-green-500" /> Temperatura del Bot
-                </label>
-                <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm font-bold">{config.waTemperature}</span>
+        <div className="flex-1 overflow-y-auto p-8 max-w-5xl mx-auto w-full">
+          <form onSubmit={handleSaveConfig} className="bg-white dark:bg-gray-950 p-8 md:p-10 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-800 space-y-10">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+              {/* Left Side: Parameters */}
+              <div className="space-y-8">
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-2">
+                    <RefreshCw className="w-5 h-5 text-green-500" /> Parámetros de la IA
+                  </h3>
+                  <p className="text-sm text-gray-500 mb-8 font-medium">Define qué tan creativa o estrictamente técnica debe ser la Inteligencia Artificial.</p>
+                  
+                  <div className="bg-gray-50 dark:bg-gray-900 p-6 rounded-2xl border border-gray-100 dark:border-gray-800">
+                    <div className="flex items-center justify-between mb-6">
+                      <label className="text-sm font-bold text-gray-700 dark:text-gray-300">Temperatura (Creatividad)</label>
+                      <span className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-3 py-1 rounded-full text-xs font-bold ring-1 ring-green-200 dark:ring-green-800">
+                        {config.waTemperature}
+                      </span>
+                    </div>
+                    <input 
+                      type="range" min="0" max="1" step="0.1" 
+                      value={config.waTemperature}
+                      onChange={(e) => setConfig({ ...config, waTemperature: parseFloat(e.target.value) })}
+                      className="w-full h-2 bg-gray-200 dark:bg-gray-800 rounded-lg appearance-none cursor-pointer accent-green-600 mb-2"
+                    />
+                    <div className="flex justify-between text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                      <span>Conservadora</span>
+                      <span>Creativa</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-6 bg-green-50 dark:bg-green-900/10 rounded-2xl border border-green-100 dark:border-green-900/20">
+                  <h4 className="text-sm font-bold text-green-800 dark:text-green-400 flex items-center gap-2 mb-2">
+                     💡 Tip de Configuración
+                  </h4>
+                  <p className="text-xs text-green-700 dark:text-green-500 leading-relaxed">
+                    Para una clínica, recomendamos una temperatura de **0.3 a 0.5**. Esto asegura respuestas profesionales y precisas sin inventar información médica.
+                  </p>
+                </div>
               </div>
-              <input 
-                type="range" min="0" max="1" step="0.1" 
-                value={config.waTemperature}
-                onChange={(e) => setConfig({ ...config, waTemperature: parseFloat(e.target.value) })}
-                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-green-600"
-              />
-              <div className="flex justify-between text-xs text-gray-400 mt-2">
-                <span>Preciso y técnico</span>
-                <span>Creativo y amigable</span>
+
+              {/* Right Side: Identity */}
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-2">
+                    <Bot className="w-5 h-5 text-green-500" /> Identidad y Contexto
+                  </h3>
+                  <p className="text-sm text-gray-500 mb-4 font-medium">Dale instrucciones específicas al agente sobre cómo debe hablar y comportarse.</p>
+                  
+                  <textarea 
+                    className="w-full h-64 p-5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl focus:ring-4 focus:ring-green-500/10 focus:border-green-500 outline-none text-gray-700 dark:text-gray-200 font-mono text-sm shadow-inner transition-all"
+                    placeholder="Ej: Eres la asistente de la Dra. Ana. Sé amable, usa emojis de nutrición y siempre sugiere agendar una cita de valoración..."
+                    value={config.waContext || ""}
+                    onChange={(e) => setConfig({ ...config, waContext: e.target.value })}
+                  />
+                  <div className="mt-2 flex items-center gap-2 text-[10px] text-gray-400">
+                    <Check className="w-3 h-3 text-green-500" /> Los cambios se aplican a todos los chats nuevos.
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div className="pt-4 border-t border-gray-50">
-              <label className="text-lg font-bold text-gray-900 dark:text-white block mb-4 flex items-center gap-2">
-                <Bot className="w-5 h-5 text-green-500" /> Instrucciones del Agente (Contexto)
-              </label>
-              <p className="text-sm text-gray-500 mb-4 bg-gray-50 dark:bg-gray-950 p-3 rounded-lg border-l-4 border-green-500 italic">
-                Usa este espacio para darle personalidad a tu bot. Ejemplo: "Responde como una nutricionista experta, usa emojis, no des precios hasta que pregunten".
-              </p>
-              <textarea 
-                className="w-full h-48 p-4 bg-gray-50 dark:bg-gray-950 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 outline-none text-gray-700 dark:text-gray-200 font-mono text-sm"
-                placeholder="Identifícate como asistente de la clínica..."
-                value={config.waContext || ""}
-                onChange={(e) => setConfig({ ...config, waContext: e.target.value })}
-              />
-            </div>
-
-            <div className="pt-6">
+            <div className="pt-10 border-t border-gray-100 dark:border-gray-800">
               <button 
                 type="submit" disabled={saving}
-                className="w-full bg-green-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-green-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-green-100 disabled:opacity-50"
+                className="w-full md:w-auto md:px-12 bg-green-600 text-white py-4 rounded-2xl font-bold hover:bg-green-700 hover:scale-[1.01] active:scale-95 transition-all flex items-center justify-center gap-3 shadow-xl shadow-green-600/20 disabled:opacity-50"
               >
-                {saving ? "Guardando..." : <><Send className="w-5 h-5" /> Guardar Configuración Personalizada</>}
+                {saving ? (
+                  <RefreshCw className="w-5 h-5 animate-spin" />
+                ) : (
+                  <>
+                    <Send className="w-5 h-5" />
+                    <span>Guardar Configuración Especializada</span>
+                  </>
+                )}
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* Custom Notification Modal */}
+       {notificationState && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-sm p-8 text-center border border-gray-100 dark:border-gray-800">
+            <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-6 ${notificationState.type === 'error' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
+              {notificationState.type === 'error' ? <X size={32} /> : <Check size={32} />}
+            </div>
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{notificationState.title}</h3>
+            <p className="text-gray-500 text-sm mb-8 leading-relaxed">{notificationState.message}</p>
+            <button
+              className="px-6 py-3 w-full text-sm font-bold text-white bg-gray-900 dark:bg-gray-800 rounded-2xl hover:bg-gray-800 dark:hover:bg-gray-700 transition-all shadow-lg active:scale-95"
+              onClick={() => setNotificationState(null)}
+            >
+              Entendido
+            </button>
+          </div>
         </div>
       )}
     </div>

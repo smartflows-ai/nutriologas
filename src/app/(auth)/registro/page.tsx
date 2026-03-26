@@ -33,9 +33,21 @@ export default function RegistroPage() {
         setError(body.error ?? "Error al registrar");
         return;
       }
-      // Auto-login after register
-      await signIn("credentials", { email: data.email, password: data.password, redirect: false });
-      router.push(callbackUrl);
+      // Auto-login
+      const result = await signIn("credentials", { email: data.email, password: data.password, redirect: false });
+      if (result?.ok) {
+        try {
+          const sessionRes = await fetch("/api/auth/session");
+          const sessionData = await sessionRes.json();
+          if (sessionData?.user?.role === "ADMIN") {
+            window.location.href = "/admin/dashboard";
+          } else {
+            window.location.href = "/";
+          }
+        } catch (err) {
+          window.location.href = "/";
+        }
+      }
     } catch {
       setError("Error al crear la cuenta");
     } finally {
