@@ -31,6 +31,7 @@ model Tenant {
   whatsappChats   WhatsAppChat[]
   whatsappMessages WhatsAppMessage[]
   faqs            FAQ[]
+  socialCampaigns SocialCampaign[]
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -312,4 +313,39 @@ model FAQ {
   updatedAt DateTime @updatedAt
 
   @@map("faqs")
+}
+
+// ─── CAMPAÑAS SOCIALES ───────────────────────────────────
+enum CampaignFrequency {
+  DAILY
+  EVERY_3_DAYS
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+}
+
+enum SocialPlatform {
+  FACEBOOK
+  INSTAGRAM
+}
+
+model SocialCampaign {
+  id              String             @id @default(uuid())
+  tenantId        String
+  tenant          Tenant             @relation(fields: [tenantId], references: [id])
+  name            String             @default("Campaña")
+  platforms       SocialPlatform[]   // [FACEBOOK, INSTAGRAM]
+  productIds      String[]           // IDs of selected products
+  referenceImages String[]           // Cloudinary URLs uploaded as AI reference
+  campaignGoal    String             // "promocion" | "informativo" | "urgencia" | "testimonio" | "educativo"
+  tone            String             // "profesional" | "cercano" | "motivacional" | "urgente"
+  extraContext    String?            @db.Text
+  frequency       CampaignFrequency  @default(WEEKLY)
+  isActive        Boolean            @default(true)
+  lastPostedAt    DateTime?
+  nextPostAt      DateTime?          // computed on create/update
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@map("social_campaigns")
 }

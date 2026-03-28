@@ -61,11 +61,13 @@ const FEATURES: FeatureDef[] = [
   {
     id: "facebook",
     name: "Facebook",
-    description: "Páginas, Messenger y anuncios.",
+    description: "Publica posts promocionales en tu página de Facebook con enlace a WhatsApp.",
     icon: "📘",
     color: "from-blue-600 to-blue-700",
-    comingSoon: true,
-    providers: []
+    comingSoon: false,
+    providers: [
+      { id: "FACEBOOK", name: "Facebook", connectUrl: "/api/apps/oauth/facebook/start" }
+    ]
   },
   {
     id: "instagram",
