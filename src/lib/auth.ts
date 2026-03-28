@@ -7,7 +7,47 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@/lib/db";
 import bcrypt from "bcryptjs";
 
+// Cookie domain for subdomain sharing.
+// In dev: ".localhost" so doctor.localhost:3000 shares cookies with localhost:3000
+// In prod: ".yourdomain.com" so tenant.yourdomain.com works
+const useSecureCookies = process.env.NODE_ENV === "production";
+const cookieDomain = process.env.NODE_ENV === "production"
+  ? `.${new URL(process.env.NEXTAUTH_URL ?? "http://localhost:3000").hostname.replace(/^www\./, "")}`
+  : ".localhost";
+
 export const authOptions: NextAuthOptions = {
+  cookies: {
+    sessionToken: {
+      name: useSecureCookies ? "__Secure-next-auth.session-token" : "next-auth.session-token",
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: useSecureCookies,
+        domain: cookieDomain,
+      },
+    },
+    callbackUrl: {
+      name: useSecureCookies ? "__Secure-next-auth.callback-url" : "next-auth.callback-url",
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: useSecureCookies,
+        domain: cookieDomain,
+      },
+    },
+    csrfToken: {
+      name: useSecureCookies ? "__Host-next-auth.csrf-token" : "next-auth.csrf-token",
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: useSecureCookies,
+        // NOTE: csrfToken does NOT get a domain — it must be host-only for security
+      },
+    },
+  },
   adapter: {
     ...PrismaAdapter(prisma),
     getUserByEmail: async (email) => {
@@ -67,19 +107,31 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials: any, req) {
-        if (!credentials?.email || !credentials?.password) return null;
+        console.log("[AUTH] ===== authorize() called =====");
+        if (!credentials?.email || !credentials?.password) {
+          console.log("[AUTH] Missing email or password");
+          return null;
+        }
         const email = credentials.email.trim().toLowerCase();
 
         // 1. Extraer a qué clínica está intentando entrar el usuario leyendo el encabezado Host
-        const headersList = headers();
-        const host = headersList.get("host") || req?.headers?.host || "localhost";
-        
+        let host = "localhost";
+        try {
+          const headersList = headers();
+          host = headersList.get("host") || "localhost";
+        } catch {
+          // headers() may throw in some contexts, fall back to req
+          host = req?.headers?.host || "localhost";
+        }
+        console.log("[AUTH] Host:", host, "| Email:", email);
+
         let tenantIdentifier = "clinica-demo";
         if (host.includes(".localhost")) {
           tenantIdentifier = host.split(".")[0];
         } else if (!host.includes("localhost") && !host.startsWith("www.smartflows")) {
           tenantIdentifier = host;
         }
+        console.log("[AUTH] Tenant identifier:", tenantIdentifier);
 
         // 2. Buscar clínica y bloquear si no existe
         let tenant = await prisma.tenant.findFirst({
@@ -87,15 +139,25 @@ export const authOptions: NextAuthOptions = {
         });
 
         if (!tenant) {
-          console.warn(`[AUTH] Intento de login en dominio sin tenant: ${host}`);
+          console.warn(`[AUTH] Tenant NOT found for: ${tenantIdentifier} (host: ${host})`);
           return null;
         }
+        console.log("[AUTH] Tenant found:", tenant.id, tenant.name);
 
-        // 3. Checar si el usuario REAlMENTE pertenece a ESTA clínica específica
+        // 3. Checar si el usuario REALMENTE pertenece a ESTA clínica específica
         const user = await prisma.user.findFirst({
           where: { email, tenantId: tenant.id },
         });
-        if (!user || !user.passwordHash) return null;
+        if (!user) {
+          console.log("[AUTH] User NOT found for email:", email, "in tenant:", tenant.id);
+          return null;
+        }
+        if (!user.passwordHash) {
+          console.log("[AUTH] User has no passwordHash:", email);
+          return null;
+        }
+        console.log("[AUTH] User found:", user.id, user.email, "| hash starts with:", user.passwordHash.substring(0, 4));
+
         // Usar bcrypt si el hash tiene el formato estándar (empieza con $2), si no retrocompatibilidad
         let isValid = false;
         if (
@@ -109,9 +171,13 @@ export const authOptions: NextAuthOptions = {
           const isHashedMatch = user.passwordHash === `hashed_${credentials.password}`;
           isValid = isPlainMatch || isHashedMatch;
         }
-        
-        if (!isValid) return null;
-        
+
+        if (!isValid) {
+          console.log("[AUTH] Password INVALID for:", email);
+          return null;
+        }
+
+        console.log("[AUTH] Login SUCCESS for:", email, "tenant:", tenant.id);
         return { id: user.id, email: user.email, name: user.name, role: user.role, tenantId: user.tenantId };
       },
     }),

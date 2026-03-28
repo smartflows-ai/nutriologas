@@ -25,7 +25,8 @@ export async function GET(req: NextRequest) {
   const redirectUri = `${origin}/api/apps/oauth/google/callback`;
 
   const scopes = [
-    "https://www.googleapis.com/auth/calendar.readonly",
+    "https://www.googleapis.com/auth/calendar.events",
+    "https://www.googleapis.com/auth/gmail.send",
     "https://www.googleapis.com/auth/spreadsheets.readonly",
     "https://www.googleapis.com/auth/userinfo.email",
     "https://www.googleapis.com/auth/userinfo.profile",
