@@ -47,23 +47,32 @@ export async function GET(req: NextRequest) {
 
 // ── Google Calendar ────────────────────────────────────────────────
 async function fetchGoogleCalendar(accessToken: string, timeMin: string, timeMax: string) {
-  // Step 1: Get list of all calendars
-  const calListRes = await fetch(
-    "https://www.googleapis.com/calendar/v3/users/me/calendarList",
-    { headers: { Authorization: `Bearer ${accessToken}` } }
-  );
-  const calListData = await calListRes.json();
-  const calendarList: any[] = calListData.items ?? [];
-  const calendarIds: string[] = calendarList.map((c: any) => c.id);
+  // Fetch events directly from the primary calendar.
+  // Note: calendar.events scope allows reading events from "primary"
+  // but does NOT allow listing all calendars via calendarList API.
+  // If calendarList is available, also fetch from secondary calendars.
+  let calendarIds: string[] = ["primary"];
+  let primaryCalEmail = "";
 
-  const primaryCal = calendarList.find((c: any) => c.primary === true);
-  const primaryCalId: string = primaryCal?.id ?? "primary";
-
-  if (calendarIds.length === 0) {
-    return NextResponse.json({ events: [], stats: { total: 0, attended: 0, cancelled: 0, pending: 0 } });
+  try {
+    const calListRes = await fetch(
+      "https://www.googleapis.com/calendar/v3/users/me/calendarList",
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    if (calListRes.ok) {
+      const calListData = await calListRes.json();
+      const calendarList: any[] = calListData.items ?? [];
+      if (calendarList.length > 0) {
+        calendarIds = calendarList.map((c: any) => c.id);
+        const primaryCal = calendarList.find((c: any) => c.primary === true);
+        primaryCalEmail = primaryCal?.id ?? "";
+      }
+    }
+  } catch {
+    // calendarList not available (insufficient scopes) — just use "primary"
   }
 
-  // Step 2: Fetch events from each calendar in parallel
+  // Fetch events from each calendar in parallel
   const allItems: any[] = [];
   await Promise.all(
     calendarIds.map(async (calId: string) => {
@@ -113,31 +122,22 @@ async function fetchGoogleCalendar(accessToken: string, timeMin: string, timeMax
         htmlLink: item.htmlLink ?? "",
         eventId: item.id,
         calendarId: item._calendarId,
-        calendarOwnerEmail: primaryCal?.id ?? "",
+        calendarOwnerEmail: primaryCalEmail,
         _calendarId: item._calendarId,
       },
     };
   });
 
-  // Stats only from primary calendar
-  const primaryEvents = allItems
-    .filter((item: any) => item._calendarId === primaryCalId)
-    .map((item: any) => {
-      const isAllDay = !!item.start?.date;
-      const startStr = isAllDay ? item.start.date : item.start.dateTime;
-      const startDate = new Date(startStr);
-      if (item.status === "cancelled") return "cancelled";
-      if (startDate < now) return "attended";
-      return "pending";
-    });
+  // Stats from all fetched events
+  const statuses = events.map((e) => e.extendedProps.status);
 
   return NextResponse.json({
     events,
     stats: {
-      total: primaryEvents.length,
-      attended: primaryEvents.filter((s) => s === "attended").length,
-      cancelled: primaryEvents.filter((s) => s === "cancelled").length,
-      pending: primaryEvents.filter((s) => s === "pending").length,
+      total: statuses.length,
+      attended: statuses.filter((s) => s === "attended").length,
+      cancelled: statuses.filter((s) => s === "cancelled").length,
+      pending: statuses.filter((s) => s === "pending").length,
     },
   });
 }

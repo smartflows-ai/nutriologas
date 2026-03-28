@@ -29,9 +29,9 @@ export async function GET(req: NextRequest) {
   }
 
   // 2. Resolve redirect_uri (Google strictly demands the exact string used in step 1)
+  // We always use the base domain for the redirect_uri (what's registered in Google Console)
   const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
-  const originalUri = url.searchParams.get("original_uri");
-  const redirectUri = originalUri ?? `${baseUrl}/api/apps/oauth/google/callback`;
+  const redirectUri = `${baseUrl}/api/apps/oauth/google/callback`;
 
   // 3. Exchange code for tokens FIRST (before session check)
   const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
