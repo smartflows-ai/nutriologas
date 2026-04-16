@@ -44,7 +44,7 @@ const FEATURES: FeatureDef[] = [
     color: "from-blue-500 to-indigo-600",
     providers: [
       { id: "GOOGLE", name: "Google", connectUrl: "/api/apps/oauth/google/start" },
-      { id: "MICROSOFT", name: "Outlook", connectUrl: "/api/apps/oauth/microsoft/start" },
+      // { id: "MICROSOFT", name: "Outlook", connectUrl: "/api/apps/oauth/microsoft/start" },
     ]
   },
   {
