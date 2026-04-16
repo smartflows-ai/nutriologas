@@ -32,6 +32,7 @@ model Tenant {
   whatsappMessages WhatsAppMessage[]
   faqs            FAQ[]
   socialCampaigns SocialCampaign[]
+  socialPosts     SocialPost[]
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -354,5 +355,26 @@ model SocialCampaign {
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
 
+  posts           SocialPost[]
+
   @@map("social_campaigns")
+}
+
+model SocialPost {
+  id              String         @id @default(uuid())
+  tenantId        String
+  tenant          Tenant         @relation(fields: [tenantId], references: [id])
+  campaignId      String
+  campaign        SocialCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  
+  content         String         @db.Text   // The AI generated text
+  platforms       String[]       // e.g. ["FACEBOOK", "INSTAGRAM"]
+  frequency       String         // Inherited from the campaign at the time of posting
+  
+  postUrls        Json?          // { facebook: "url", instagram: "url" }
+  postedAt        DateTime       @default(now())
+
+  @@index([tenantId])
+  @@index([campaignId])
+  @@map("social_posts")
 }

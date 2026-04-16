@@ -6,8 +6,13 @@ import { useState, useEffect } from "react";
 import {
   Facebook, Instagram, Sparkles, Loader2, X, Check, Plus,
   ChevronDown, Zap, Target, MessageSquare, Tag, Calendar,
-  Pause, Play, Trash2, Edit3, Clock, Globe
+  Pause, Play, Trash2, Edit3, Clock, Globe, LayoutList, History, Search, Filter,
+  ExternalLink, Image as ImageIcon, FileText
 } from "lucide-react";
+import CampaignMetrics from "@/components/crm/CampaignMetrics";
+import Pagination from "@/components/admin/Pagination";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface Product {
@@ -33,26 +38,26 @@ interface SocialCampaign {
 
 // ── Constants ──────────────────────────────────────────────────────────────
 const GOALS = [
-  { id: "promocion",   label: "🎯 Promoción",    desc: "Oferta o precio especial" },
-  { id: "informativo", label: "📋 Informativo",  desc: "Presenta el servicio" },
-  { id: "urgencia",    label: "⚡ Urgencia",     desc: "Cupos / tiempo limitado" },
-  { id: "testimonio",  label: "⭐ Testimonio",   desc: "Basado en resultados" },
-  { id: "educativo",   label: "🎓 Educativo",    desc: "Tips de valor" },
+  { id: "promocion", label: "🎯 Promoción", desc: "Oferta o precio especial" },
+  { id: "informativo", label: "📋 Informativo", desc: "Presenta el servicio" },
+  { id: "urgencia", label: "⚡ Urgencia", desc: "Cupos / tiempo limitado" },
+  { id: "testimonio", label: "⭐ Testimonio", desc: "Basado en resultados" },
+  { id: "educativo", label: "🎓 Educativo", desc: "Tips de valor" },
 ];
 
 const TONES = [
   { id: "profesional", label: "Profesional" },
-  { id: "cercano",     label: "Cercano" },
+  { id: "cercano", label: "Cercano" },
   { id: "motivacional", label: "Motivacional" },
-  { id: "urgente",     label: "Urgente" },
+  { id: "urgente", label: "Urgente" },
 ];
 
 const FREQUENCIES = [
-  { id: "DAILY",        label: "Diario",         desc: "1 post por día" },
-  { id: "EVERY_3_DAYS", label: "Cada 3 días",    desc: "~10 posts/mes" },
-  { id: "WEEKLY",       label: "Semanal",        desc: "4 posts/mes" },
-  { id: "BIWEEKLY",     label: "Quincenal",      desc: "2 posts/mes" },
-  { id: "MONTHLY",      label: "Mensual",        desc: "1 post/mes" },
+  { id: "DAILY", label: "Diario", desc: "1 post por día" },
+  { id: "EVERY_3_DAYS", label: "Cada 3 días", desc: "~10 posts/mes" },
+  { id: "WEEKLY", label: "Semanal", desc: "4 posts/mes" },
+  { id: "BIWEEKLY", label: "Quincenal", desc: "2 posts/mes" },
+  { id: "MONTHLY", label: "Mensual", desc: "1 post/mes" },
 ];
 
 const FREQ_LABELS: Record<string, string> = {
@@ -77,24 +82,34 @@ function toDateLocal(iso: string | null): string {
 
 // ── Main Component ─────────────────────────────────────────────────────────
 export default function SocialCampaignPage() {
-  const [config,    setConfig]    = useState<FacebookConfig | null>(null);
-  const [products,  setProducts]  = useState<Product[]>([]);
+  const [config, setConfig] = useState<FacebookConfig | null>(null);
+  const [products, setProducts] = useState<Product[]>([]);
   const [campaigns, setCampaigns] = useState<SocialCampaign[]>([]);
-  const [loading,   setLoading]   = useState(true);
-  const [view,      setView]      = useState<"list" | "form">("list");
-  const [editId,    setEditId]    = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [view, setView] = useState<"list" | "form" | "history">("list");
+  const [editId, setEditId] = useState<string | null>(null);
+
+  // ── History state ────────────────────────────────────────────────────────
+  const [history, setHistory] = useState<any[]>([]);
+  const [histPage, setHistPage] = useState(1);
+  const [histTotalPages, setHistTotalPages] = useState(1);
+  const [histLoading, setHistLoading] = useState(false);
+  const [filterPlatform, setFilterPlatform] = useState("");
+  const [filterFreq, setFilterFreq] = useState("");
+  const [filterSearch, setFilterSearch] = useState("");
+  const [selectedPost, setSelectedPost] = useState<any | null>(null);
 
   // ── Form state ───────────────────────────────────────────────────────────
-  const [formName,       setFormName]       = useState("");
-  const [formPlatforms,  setFormPlatforms]  = useState<string[]>(["FACEBOOK"]);
+  const [formName, setFormName] = useState("");
+  const [formPlatforms, setFormPlatforms] = useState<string[]>(["FACEBOOK"]);
   const [formProductIds, setFormProductIds] = useState<string[]>([]);
-  const [formGoal,       setFormGoal]       = useState("promocion");
-  const [formTone,       setFormTone]       = useState("cercano");
-  const [formContext,    setFormContext]     = useState("");
-  const [formFrequency,  setFormFrequency]  = useState("WEEKLY");
-  const [formStartDate,  setFormStartDate]  = useState("");
-  const [formEndDate,    setFormEndDate]    = useState("");
-  const [saving,         setSaving]         = useState(false);
+  const [formGoal, setFormGoal] = useState("promocion");
+  const [formTone, setFormTone] = useState("cercano");
+  const [formContext, setFormContext] = useState("");
+  const [formFrequency, setFormFrequency] = useState("WEEKLY");
+  const [formStartDate, setFormStartDate] = useState("");
+  const [formEndDate, setFormEndDate] = useState("");
+  const [saving, setSaving] = useState(false);
 
   // Notification
   const [notif, setNotif] = useState<{ msg: string; ok: boolean } | null>(null);
@@ -115,6 +130,28 @@ export default function SocialCampaignPage() {
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   };
+
+  const fetchHistory = async () => {
+    setHistLoading(true);
+    try {
+      const q = new URLSearchParams({ page: histPage.toString(), limit: "10" });
+      if (filterPlatform) q.append("platform", filterPlatform);
+      if (filterFreq) q.append("frequency", filterFreq);
+      if (filterSearch) q.append("search", filterSearch);
+      
+      const res = await fetch(`/api/campaigns/social/history?${q.toString()}`);
+      if (res.ok) {
+        const data = await res.json();
+        setHistory(data.posts || []);
+        setHistTotalPages(data.totalPages || 1);
+      }
+    } catch (e) { console.error(e); }
+    finally { setHistLoading(false); }
+  };
+
+  useEffect(() => {
+    if (view === "history") fetchHistory();
+  }, [view, histPage, filterPlatform, filterFreq, filterSearch]);
 
   // ── Save campaign ─────────────────────────────────────────────────────────
   const handleSave = async () => {
@@ -240,6 +277,18 @@ export default function SocialCampaignPage() {
         )}
       </div>
 
+      {/* ── TABS ──────────────────────────────────────────────────────────── */}
+      {view !== "form" && (
+        <div className="flex items-center gap-1 bg-gray-100/50 dark:bg-gray-800/50 p-1 rounded-xl w-fit mb-6 border border-gray-200 dark:border-gray-800">
+          <button onClick={() => setView("list")} className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all ${view === "list" ? "bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm border border-gray-200/50 dark:border-gray-700/50" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"}`}>
+            <LayoutList size={16} /> Campañas
+          </button>
+          <button onClick={() => setView("history")} className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all ${view === "history" ? "bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm border border-gray-200/50 dark:border-gray-700/50" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"}`}>
+            <History size={16} /> Historial de Posteos
+          </button>
+        </div>
+      )}
+
       {/* ── LIST VIEW ──────────────────────────────────────────────────────── */}
       {view === "list" && (
         <div className="space-y-4">
@@ -275,7 +324,7 @@ export default function SocialCampaignPage() {
                     <span className="text-xs text-gray-500">{FREQ_LABELS[c.frequency]}</span>
                     {c.productIds.length > 0 && (
                       <><span className="text-xs text-gray-400">·</span>
-                      <span className="text-xs text-gray-500">{c.productIds.length} producto{c.productIds.length !== 1 ? "s" : ""}</span></>
+                        <span className="text-xs text-gray-500">{c.productIds.length} producto{c.productIds.length !== 1 ? "s" : ""}</span></>
                     )}
                   </div>
 
@@ -316,6 +365,102 @@ export default function SocialCampaignPage() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* ── HISTORY VIEW ───────────────────────────────────────────────────── */}
+      {view === "history" && (
+        <div className="space-y-4">
+          <div className="flex flex-col xl:flex-row gap-4 mb-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+              <input type="text" placeholder="Buscar por contenido o campaña..." value={filterSearch} onChange={e => { setFilterSearch(e.target.value); setHistPage(1); }} className="w-full pl-9 pr-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
+            </div>
+            
+            <div className="flex flex-wrap items-center gap-2">
+              {[
+                { value: "", label: "Todas las Apps" },
+                { value: "FACEBOOK", label: "Facebook" },
+                { value: "INSTAGRAM", label: "Instagram" }
+              ].map(f => (
+                <button
+                  key={f.value}
+                  onClick={() => { setFilterPlatform(f.value); setHistPage(1); }}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    filterPlatform === f.value
+                      ? "bg-primary text-white"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+              
+              <div className="relative ml-2">
+                <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+                <select value={filterFreq} onChange={e => { setFilterFreq(e.target.value); setHistPage(1); }} className="pl-8 pr-8 py-1.5 bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 border border-transparent rounded-lg text-sm appearance-none outline-none transition-colors font-medium cursor-pointer">
+                  <option value="">Frecuencia: Todas</option>
+                  {FREQUENCIES.map(f => (<option key={f.id} value={f.id}>{f.label}</option>))}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div className="card p-0 overflow-hidden">
+            {histLoading ? (
+              <div className="flex flex-col items-center justify-center py-20 gap-3">
+                <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+                <p className="text-sm text-gray-500 animate-pulse">Cargando historial...</p>
+              </div>
+            ) : history.length === 0 ? (
+              <div className="text-center py-16 text-gray-400">
+                <History size={40} className="mx-auto mb-4 opacity-30" />
+                <p className="font-medium">No hay posteos en el historial</p>
+                <p className="text-sm mt-1">Cuando la IA publique, aparecerán aquí</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-800">
+                    <tr>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Campaña</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Contenido IA</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-48">Plataformas</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-32">Frecuencia</th>
+                      <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-32">Fecha</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                    {history.map((h) => (
+                      <tr
+                        key={h.id}
+                        onClick={() => setSelectedPost(h)}
+                        className="hover:bg-primary/5 dark:hover:bg-primary/10 transition-colors cursor-pointer group"
+                      >
+                        <td className="px-4 py-4 font-semibold text-gray-900 dark:text-white max-w-[150px] truncate group-hover:text-primary transition-colors">{h.campaign?.name || "Eliminada"}</td>
+                        <td className="px-4 py-4 text-gray-600 dark:text-gray-300">
+                          <div className="line-clamp-2 max-w-sm whitespace-pre-wrap text-xs">{h.content}</div>
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="flex flex-wrap gap-1">
+                            {h.platforms.map((p: string) => p === "FACEBOOK" ? 
+                              <span key={p} className="badge bg-blue-50 text-blue-600 dark:bg-blue-900/30 text-[10px]"><Facebook size={10} className="mr-1 inline" />Facebook</span> :
+                              <span key={p} className="badge bg-pink-50 text-pink-600 dark:bg-pink-900/30 text-[10px]"><Instagram size={10} className="mr-1 inline" />Instagram</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-4 text-gray-500"><span className="badge bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">{FREQ_LABELS[h.frequency] || h.frequency}</span></td>
+                        <td className="px-4 py-4 text-right text-gray-500 text-xs">{formatDate(h.postedAt)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+          {histTotalPages > 1 && (
+            <Pagination currentPage={histPage} totalPages={histTotalPages} onPageChange={setHistPage} />
+          )}
         </div>
       )}
 
@@ -500,6 +645,122 @@ export default function SocialCampaignPage() {
             className="btn-primary w-full py-4 text-base flex justify-center items-center gap-2 disabled:opacity-50">
             {saving ? <><Loader2 size={18} className="animate-spin" /> Guardando...</> : <><Zap size={18} /> {editId ? "Guardar cambios" : "Crear campaña"}</>}
           </button>
+        </div>
+      )}
+
+      {/* ── POST DETAIL MODAL ────────────────────────────────────────────── */}
+      {selectedPost && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={() => setSelectedPost(null)}
+        >
+          <div
+            className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="p-6 border-b border-gray-100 dark:border-gray-800">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3 flex-1 min-w-0">
+                  <div
+                    className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+                    style={{ backgroundColor: "var(--color-primary)" }}
+                  >
+                    <Sparkles size={18} className="text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-bold text-gray-900 dark:text-white text-lg leading-tight">
+                      {selectedPost.campaign?.name || "Campaña eliminada"}
+                    </h3>
+                    <div className="flex flex-wrap gap-1.5 mt-1.5">
+                      {selectedPost.platforms.map((p: string) => p === "FACEBOOK" ?
+                        <span key={p} className="badge bg-blue-50 text-blue-600 dark:bg-blue-900/30 text-[10px]"><Facebook size={10} className="mr-1 inline" />Facebook</span> :
+                        <span key={p} className="badge bg-pink-50 text-pink-600 dark:bg-pink-900/30 text-[10px]"><Instagram size={10} className="mr-1 inline" />Instagram</span>
+                      )}
+                      <span className="badge bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-[10px]">
+                        {FREQ_LABELS[selectedPost.frequency] || selectedPost.frequency}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelectedPost(null)}
+                  className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors flex-shrink-0"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 space-y-4 overflow-y-auto flex-1">
+
+              {/* AI Content */}
+              <div className="flex gap-3 text-sm items-start">
+                <FileText size={18} className="flex-shrink-0 mt-0.5" style={{ color: "var(--color-primary)" }} />
+                <div className="text-gray-700 dark:text-gray-200 leading-relaxed flex-1">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                      strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                      em: ({ children }) => <em className="italic">{children}</em>,
+                      ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-0.5">{children}</ul>,
+                      ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-0.5">{children}</ol>,
+                      li: ({ children }) => <li>{children}</li>,
+                      a: ({ href, children }) => <a href={href} target="_blank" rel="noreferrer" className="underline hover:opacity-80" style={{ color: "var(--color-primary)" }}>{children}</a>,
+                      blockquote: ({ children }) => <blockquote className="border-l-2 border-gray-300 pl-3 italic text-gray-500 dark:text-gray-400 my-2">{children}</blockquote>,
+                      hr: () => <hr className="my-3 border-gray-200 dark:border-gray-700" />,
+                    }}
+                  >
+                    {selectedPost.content || "Contenido no disponible"}
+                  </ReactMarkdown>
+                </div>
+              </div>
+
+              {/* Date */}
+              <div className="flex gap-3 text-sm items-start">
+                <Clock size={18} className="flex-shrink-0 mt-0.5" style={{ color: "var(--color-primary)" }} />
+                <p className="text-gray-700 dark:text-gray-200">
+                  {new Date(selectedPost.postedAt).toLocaleString("es-MX", {
+                    weekday: "long", day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit"
+                  })}
+                </p>
+              </div>
+
+              {/* Post links */}
+              {(selectedPost.postUrls?.facebook?.postUrl || selectedPost.postUrls?.instagram?.postUrl) && (
+                <div className="flex gap-3 text-sm items-start">
+                  <ExternalLink size={18} className="flex-shrink-0 mt-0.5" style={{ color: "var(--color-primary)" }} />
+                  <div className="flex flex-wrap gap-2">
+                    {selectedPost.postUrls?.facebook?.postUrl && (
+                      <a href={selectedPost.postUrls.facebook.postUrl} target="_blank" rel="noreferrer"
+                        className="flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:underline">
+                        <Facebook size={13} /> Ver en Facebook
+                      </a>
+                    )}
+                    {selectedPost.postUrls?.instagram?.postUrl && (
+                      <a href={selectedPost.postUrls.instagram.postUrl} target="_blank" rel="noreferrer"
+                        className="flex items-center gap-1.5 text-xs font-medium text-pink-600 hover:underline">
+                        <Instagram size={13} /> Ver en Instagram
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 pb-6">
+              <button
+                onClick={() => setSelectedPost(null)}
+                className="flex items-center justify-center gap-2 w-full rounded-xl py-2.5 text-sm font-medium text-white transition"
+                style={{ backgroundColor: "var(--color-primary)" }}
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

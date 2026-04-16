@@ -268,6 +268,7 @@ export default function AppsPage() {
     if (providerId === 'GOOGLE') return 'Google Calendar';
     if (providerId === 'MICROSOFT') return 'Outlook';
     if (providerId === 'WHATSAPP') return 'WhatsApp';
+    if (providerId === 'FACEBOOK') return 'Facebook';
     return providerId;
   };
 
