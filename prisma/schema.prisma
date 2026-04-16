@@ -127,7 +127,6 @@ enum AppProvider {
   MICROSOFT
   WHATSAPP
   FACEBOOK
-  INSTAGRAM
 }
 
 model ConnectedApp {
@@ -336,14 +335,22 @@ model SocialCampaign {
   name            String             @default("Campaña")
   platforms       SocialPlatform[]   // [FACEBOOK, INSTAGRAM]
   productIds      String[]           // IDs of selected products
-  referenceImages String[]           // Cloudinary URLs uploaded as AI reference
   campaignGoal    String             // "promocion" | "informativo" | "urgencia" | "testimonio" | "educativo"
   tone            String             // "profesional" | "cercano" | "motivacional" | "urgente"
   extraContext    String?            @db.Text
   frequency       CampaignFrequency  @default(WEEKLY)
   isActive        Boolean            @default(true)
+  startDate       DateTime           @default(now())
+  endDate         DateTime
   lastPostedAt    DateTime?
   nextPostAt      DateTime?          // computed on create/update
+  
+  // Tracking automation (n8n)
+  lastResults     Json?              // Stores { facebook: { postId, success }, instagram: { ... } }
+  lastError       String?            @db.Text
+  lastErrorAt     DateTime?
+  errorNode       String?            // The n8n node where the error occurred
+  
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
 

@@ -16,6 +16,7 @@ export async function GET(req: NextRequest) {
     where: {
       isActive: true,
       nextPostAt: { lte: now },
+      endDate: { gte: now },
     },
     select: {
       id: true,
@@ -23,7 +24,6 @@ export async function GET(req: NextRequest) {
       name: true,
       platforms: true,
       productIds: true,
-      referenceImages: true,
       campaignGoal: true,
       tone: true,
       extraContext: true,

@@ -1,10 +1,10 @@
 "use client";
 // DEV-ONLY page to manually set a Facebook Page Access Token.
-// Access at /admin/facebook/setup — remove before production.
+// Access at /admin/social-campaign/setup — remove before production.
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export default function FacebookSetupPage() {
+export default function SocialCampaignSetupPage() {
   const router = useRouter();
   const [pageAccessToken, setPageAccessToken] = useState("");
   const [pageId, setPageId] = useState("");
@@ -25,7 +25,7 @@ export default function FacebookSetupPage() {
       if (res.ok) {
         setStatus("ok");
         setMsg(`✅ Token guardado para la página "${data.pageName}" (${data.pageId})`);
-        setTimeout(() => router.push("/admin/facebook"), 2000);
+        setTimeout(() => router.push("/admin/social-campaign"), 2000);
       } else {
         setStatus("error");
         setMsg(`❌ Error: ${data.error}`);
@@ -41,7 +41,7 @@ export default function FacebookSetupPage() {
       <div className="bg-gray-900 border border-yellow-500/40 rounded-2xl p-8 w-full max-w-lg">
         <div className="flex items-center gap-2 mb-1">
           <span className="bg-yellow-500 text-black text-xs font-bold px-2 py-0.5 rounded">DEV ONLY</span>
-          <h1 className="text-white text-xl font-bold">Setup Manual — Facebook</h1>
+          <h1 className="text-white text-xl font-bold">Setup Manual — Social Campaign</h1>
         </div>
         <p className="text-gray-400 text-sm mb-6">
           Pega el Page Access Token obtenido desde el{" "}

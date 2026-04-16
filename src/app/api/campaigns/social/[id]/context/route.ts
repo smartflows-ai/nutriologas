@@ -17,8 +17,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
   const { tenantId } = campaign;
 
-  // Load tenant + connected apps in parallel
-  const [tenant, fbApp, igApp] = await Promise.all([
+  // Load tenant + SINGLE Facebook connected app (Instagram IG account ID lives in its metadata)
+  const [tenant, fbApp] = await Promise.all([
     prisma.tenant.findUnique({
       where: { id: tenantId },
       select: { name: true, whatsappNumber: true, slug: true },
@@ -26,21 +26,26 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     prisma.connectedApp.findUnique({
       where: { tenantId_provider: { tenantId, provider: "FACEBOOK" } },
     }),
-    prisma.connectedApp.findUnique({
-      where: { tenantId_provider: { tenantId, provider: "INSTAGRAM" } },
-    }),
   ]);
 
   // Load selected products
   const products = campaign.productIds.length > 0
     ? await prisma.product.findMany({
         where: { id: { in: campaign.productIds }, tenantId, deletedAt: null },
-        select: { id: true, name: true, description: true, price: true, images: true },
+        select: { id: true, name: true, description: true, price: true, images: true, slug: true },
       })
     : [];
 
-  const fbMeta = fbApp?.metadata as { pageId?: string; pageName?: string } | null;
-  const igMeta = igApp?.metadata as { pageId?: string; pageName?: string } | null;
+  // Both Facebook and Instagram credentials come from the same connected app row.
+  // The Instagram Business Account ID is stored in metadata.igBusinessAccountId (fetched during OAuth).
+  const fbMeta = fbApp?.metadata as {
+    pageId?: string;
+    pageName?: string;
+    igBusinessAccountId?: string;
+  } | null;
+
+  // Build base URL for product links: use custom domain if set, otherwise subdomain
+  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "localhost:3000";
 
   return NextResponse.json({
     campaign: {
@@ -50,22 +55,23 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       campaignGoal: campaign.campaignGoal,
       tone: campaign.tone,
       extraContext: campaign.extraContext,
-      referenceImages: campaign.referenceImages,
     },
     products,
     tenant: {
       name: tenant?.name,
       slug: tenant?.slug,
       whatsappNumber: (tenant?.whatsappNumber ?? "").replace(/\D/g, ""),
+      baseUrl: `https://${tenant?.slug}.${rootDomain}`,
     },
-    facebook: campaign.platforms.includes("FACEBOOK") && fbApp ? {
+    // Single access token for both platforms (Meta Graph API).
+    // Always return credentials if the FB app exists — an Instagram-only campaign still needs the token.
+    facebook: fbApp ? {
       accessToken: fbApp.accessToken,
       pageId: fbMeta?.pageId,
       pageName: fbMeta?.pageName,
     } : null,
-    instagram: campaign.platforms.includes("INSTAGRAM") && igApp ? {
-      accessToken: igApp.accessToken,
-      pageId: igMeta?.pageId,
+    instagram: fbApp && fbMeta?.igBusinessAccountId ? {
+      igUserId: fbMeta.igBusinessAccountId,
     } : null,
   });
 }

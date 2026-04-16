@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
   if (key !== process.env.INTERNAL_API_KEY)
     return Response.json({ error: "No autorizado" }, { status: 401 });
 
-  const { slug: rawSlug } = await req.json();
+  const { slug: rawSlug, productIds } = await req.json();
 
   let searchCondition: any = { slug: rawSlug };
   if (rawSlug && typeof rawSlug === 'string' && rawSlug.length > 36) {
@@ -34,6 +34,23 @@ export async function POST(req: NextRequest) {
         where: { isActive: true },
         select: { question: true, answer: true },
         orderBy: { sortOrder: "asc" },
+      },
+      reviews: {
+        where: {
+          isVisible: true,
+          ...(productIds && Array.isArray(productIds) && productIds.length > 0
+            ? { productId: { in: productIds } }
+            : {}),
+        },
+        select: {
+          id: true,
+          productId: true,
+          rating: true,
+          comment: true,
+          user: { select: { name: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 10,
       },
     },
   });
@@ -61,6 +78,13 @@ export async function POST(req: NextRequest) {
     faqs: tenant.faqs.map(f => ({
       question: f.question,
       answer: f.answer,
+    })),
+    reviews: tenant.reviews.map(r => ({
+      id: r.id,
+      productId: r.productId,
+      rating: r.rating,
+      comment: r.comment,
+      author: r.user?.name || "Cliente",
     })),
   });
 }

@@ -37,21 +37,36 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (body.name !== undefined) updateData.name = body.name;
   if (body.platforms !== undefined) updateData.platforms = body.platforms;
   if (body.productIds !== undefined) updateData.productIds = body.productIds;
-  if (body.referenceImages !== undefined) updateData.referenceImages = body.referenceImages;
   if (body.campaignGoal !== undefined) updateData.campaignGoal = body.campaignGoal;
   if (body.tone !== undefined) updateData.tone = body.tone;
   if (body.extraContext !== undefined) updateData.extraContext = body.extraContext;
   if (body.isActive !== undefined) updateData.isActive = body.isActive;
+  if (body.startDate !== undefined) updateData.startDate = new Date(body.startDate);
+  if (body.endDate !== undefined && body.endDate !== null) updateData.endDate = new Date(body.endDate);
 
   // After posting: update lastPostedAt and compute nextPostAt
   if (body.markPosted) {
     const now = new Date();
     updateData.lastPostedAt = now;
-    // Fetch frequency to compute next
+    if (body.postResults) updateData.lastResults = body.postResults;
+
+    // Fetch campaign to check bounds
     const campaign = await prisma.socialCampaign.findUnique({ where: { id: params.id } });
     if (campaign) {
-      updateData.nextPostAt = computeNextPostAt(campaign.frequency, now);
+      const nextTime = computeNextPostAt(campaign.frequency, now);
+      updateData.nextPostAt = nextTime;
+      // If we've passed the endDate, deactivate the campaign
+      if (campaign.endDate && nextTime > campaign.endDate) {
+        updateData.isActive = false;
+      }
     }
+  }
+
+  // Error handling from n8n
+  if (body.markError) {
+    updateData.lastError = body.errorMessage || "Unknown error";
+    updateData.errorNode = body.errorNode || "unknown node";
+    updateData.lastErrorAt = body.errorAt ? new Date(body.errorAt) : new Date();
   }
 
   if (body.frequency !== undefined) {

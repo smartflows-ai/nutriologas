@@ -2,12 +2,11 @@
 // src/app/admin/facebook/page.tsx
 // Social Campaign Manager — create/manage AI-driven social media campaigns
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import {
   Facebook, Instagram, Sparkles, Loader2, X, Check, Plus,
   ChevronDown, Zap, Target, MessageSquare, Tag, Calendar,
-  Pause, Play, Trash2, Edit3, Clock, Image as ImageIcon,
-  Upload, Globe
+  Pause, Play, Trash2, Edit3, Clock, Globe
 } from "lucide-react";
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -24,9 +23,10 @@ interface FacebookConfig {
 interface SocialCampaign {
   id: string; name: string;
   platforms: string[]; productIds: string[];
-  referenceImages: string[]; campaignGoal: string;
+  campaignGoal: string;
   tone: string; extraContext: string | null;
   frequency: string; isActive: boolean;
+  startDate: string; endDate: string;
   nextPostAt: string | null; lastPostedAt: string | null;
   createdAt: string;
 }
@@ -64,12 +64,19 @@ const FREQ_LABELS: Record<string, string> = {
 function formatDate(iso: string | null): string {
   if (!iso) return "—";
   return new Date(iso).toLocaleDateString("es-MX", {
-    day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit",
+    day: "2-digit", month: "short", year: "numeric",
   });
 }
 
+function toDateLocal(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 10);
+}
+
 // ── Main Component ─────────────────────────────────────────────────────────
-export default function FacebookPage() {
+export default function SocialCampaignPage() {
   const [config,    setConfig]    = useState<FacebookConfig | null>(null);
   const [products,  setProducts]  = useState<Product[]>([]);
   const [campaigns, setCampaigns] = useState<SocialCampaign[]>([]);
@@ -81,16 +88,13 @@ export default function FacebookPage() {
   const [formName,       setFormName]       = useState("");
   const [formPlatforms,  setFormPlatforms]  = useState<string[]>(["FACEBOOK"]);
   const [formProductIds, setFormProductIds] = useState<string[]>([]);
-  const [formImages,     setFormImages]     = useState<string[]>([]);
   const [formGoal,       setFormGoal]       = useState("promocion");
   const [formTone,       setFormTone]       = useState("cercano");
   const [formContext,    setFormContext]     = useState("");
   const [formFrequency,  setFormFrequency]  = useState("WEEKLY");
+  const [formStartDate,  setFormStartDate]  = useState("");
+  const [formEndDate,    setFormEndDate]    = useState("");
   const [saving,         setSaving]         = useState(false);
-
-  // Image upload
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
 
   // Notification
   const [notif, setNotif] = useState<{ msg: string; ok: boolean } | null>(null);
@@ -112,40 +116,24 @@ export default function FacebookPage() {
     finally { setLoading(false); }
   };
 
-  // ── Image upload (to Cloudinary via existing upload API) ─────────────────
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []);
-    if (!files.length) return;
-    setUploading(true);
-    try {
-      for (const file of files) {
-        const fd = new FormData();
-        fd.append("file", file);
-        const res = await fetch("/api/upload", { method: "POST", body: fd });
-        if (res.ok) {
-          const data = await res.json();
-          const url = data.url ?? data.secure_url;
-          if (url) setFormImages(prev => [...prev, url]);
-        }
-      }
-    } catch (e) { console.error(e); }
-    finally { setUploading(false); if (fileRef.current) fileRef.current.value = ""; }
-  };
-
   // ── Save campaign ─────────────────────────────────────────────────────────
   const handleSave = async () => {
-    if (!formPlatforms.length) return;
+    if (!formPlatforms.length || !formEndDate || !formContext.trim()) {
+      setNotif({ msg: "La plataforma, fin y descripción son obligatorios", ok: false });
+      return;
+    }
     setSaving(true);
     try {
       const body = {
         name: formName || "Campaña",
         platforms: formPlatforms,
         productIds: formProductIds,
-        referenceImages: formImages,
         campaignGoal: formGoal,
         tone: formTone,
         extraContext: formContext || undefined,
         frequency: formFrequency,
+        startDate: formStartDate || undefined,
+        endDate: formEndDate,
       };
       const url = editId ? `/api/campaigns/social/${editId}` : "/api/campaigns/social";
       const method = editId ? "PATCH" : "POST";
@@ -185,16 +173,19 @@ export default function FacebookPage() {
   const openEdit = (c: SocialCampaign) => {
     setEditId(c.id);
     setFormName(c.name); setFormPlatforms(c.platforms);
-    setFormProductIds(c.productIds); setFormImages(c.referenceImages);
+    setFormProductIds(c.productIds);
     setFormGoal(c.campaignGoal); setFormTone(c.tone);
     setFormContext(c.extraContext ?? ""); setFormFrequency(c.frequency);
+    setFormStartDate(toDateLocal(c.startDate));
+    setFormEndDate(toDateLocal(c.endDate));
     setView("form");
   };
 
   const resetForm = () => {
     setEditId(null); setFormName(""); setFormPlatforms(["FACEBOOK"]);
-    setFormProductIds([]); setFormImages([]); setFormGoal("promocion");
+    setFormProductIds([]); setFormGoal("promocion");
     setFormTone("cercano"); setFormContext(""); setFormFrequency("WEEKLY");
+    setFormStartDate(""); setFormEndDate("");
   };
 
   const togglePlatform = (p: string) =>
@@ -206,19 +197,19 @@ export default function FacebookPage() {
   // ── Loading ────────────────────────────────────────────────────────────────
   if (loading) return (
     <div className="flex items-center justify-center py-24">
-      <Loader2 className="animate-spin text-blue-600" size={36} />
+      <Loader2 className="animate-spin text-primary" size={36} />
     </div>
   );
 
   // ── Not connected ──────────────────────────────────────────────────────────
   if (!config) return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-8">
-      <div className="w-20 h-20 bg-blue-50 dark:bg-blue-900/20 rounded-3xl flex items-center justify-center mb-6">
-        <Facebook className="w-10 h-10 text-blue-600" />
+      <div className="w-20 h-20 bg-primary/10 dark:bg-primary/20 rounded-3xl flex items-center justify-center mb-6">
+        <Facebook className="w-10 h-10 text-primary" />
       </div>
       <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">Facebook no conectado</h1>
       <p className="text-gray-500 mb-8 max-w-sm">Conecta tu página desde Apps para crear campañas.</p>
-      <a href="/admin/apps" className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-blue-700 transition-colors">
+      <a href="/admin/apps" className="btn-primary inline-flex items-center gap-2 px-6 py-3">
         <Facebook size={18} /> Conectar Facebook
       </a>
     </div>
@@ -230,7 +221,7 @@ export default function FacebookPage() {
       <div className="mb-8 flex items-center justify-between">
         <div>
           <div className="flex items-center gap-3 mb-1">
-            <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center">
+            <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center">
               <Globe className="w-5 h-5 text-white" />
             </div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Campañas Sociales</h1>
@@ -242,7 +233,7 @@ export default function FacebookPage() {
         {view === "list" && (
           <button
             onClick={() => { resetForm(); setView("form"); }}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-semibold text-sm transition-all shadow-lg shadow-blue-600/20"
+            className="btn-primary flex items-center gap-2 text-sm px-4 py-2.5"
           >
             <Plus size={16} /> Nueva campaña
           </button>
@@ -289,7 +280,15 @@ export default function FacebookPage() {
                   </div>
 
                   {/* Dates */}
-                  <div className="flex gap-4 text-xs text-gray-400">
+                  <div className="flex flex-wrap gap-4 text-xs text-gray-500">
+                    <span className="flex items-center gap-1">
+                      <Clock size={11} /> Inicio: {formatDate(c.startDate)}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Clock size={11} /> Fin: {formatDate(c.endDate)}
+                    </span>
+                  </div>
+                  <div className="flex gap-4 text-xs text-gray-400 mt-1">
                     <span className="flex items-center gap-1">
                       <Clock size={11} /> Próximo: {formatDate(c.nextPostAt)}
                     </span>
@@ -302,7 +301,7 @@ export default function FacebookPage() {
                 {/* Actions */}
                 <div className="flex items-center gap-1 shrink-0">
                   <button onClick={() => openEdit(c)} title="Editar"
-                    className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all">
+                    className="p-2 text-gray-400 hover:text-primary hover:bg-primary/10 dark:hover:bg-primary/20 rounded-lg transition-all">
                     <Edit3 size={15} />
                   </button>
                   <button onClick={() => toggleActive(c.id, c.isActive)} title={c.isActive ? "Pausar" : "Activar"}
@@ -339,7 +338,7 @@ export default function FacebookPage() {
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Nombre de la campaña</label>
             <input type="text" value={formName} onChange={e => setFormName(e.target.value)}
               placeholder="Temporada de verano"
-              className="w-full border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-100 text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+              className="w-full border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-100 text-sm focus:ring-2 focus:ring-primary outline-none" />
           </div>
 
           {/* Platforms */}
@@ -349,12 +348,12 @@ export default function FacebookPage() {
             </label>
             <div className="flex gap-3">
               <button type="button" onClick={() => togglePlatform("FACEBOOK")}
-                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-medium transition-all ${formPlatforms.includes("FACEBOOK") ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300" : "border-gray-200 dark:border-gray-700 text-gray-500"}`}>
+                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-medium transition-all ${formPlatforms.includes("FACEBOOK") ? "border-primary bg-primary/10 dark:bg-primary/20 text-primary" : "border-gray-200 dark:border-gray-700 text-gray-500"}`}>
                 <Facebook size={16} /> Facebook
                 {formPlatforms.includes("FACEBOOK") && <Check size={14} />}
               </button>
               <button type="button" onClick={() => togglePlatform("INSTAGRAM")}
-                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-medium transition-all ${formPlatforms.includes("INSTAGRAM") ? "border-pink-500 bg-pink-50 dark:bg-pink-900/20 text-pink-700 dark:text-pink-300" : "border-gray-200 dark:border-gray-700 text-gray-500"}`}>
+                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-medium transition-all ${formPlatforms.includes("INSTAGRAM") ? "border-primary bg-primary/10 dark:bg-primary/20 text-primary" : "border-gray-200 dark:border-gray-700 text-gray-500"}`}>
                 <Instagram size={16} /> Instagram
                 {formPlatforms.includes("INSTAGRAM") && <Check size={14} />}
               </button>
@@ -372,7 +371,7 @@ export default function FacebookPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-64 overflow-y-auto pr-1">
                 {products.map(p => (
                   <button key={p.id} type="button" onClick={() => toggleProduct(p.id)}
-                    className={`flex items-center gap-3 text-left p-3 rounded-xl border-2 transition-all ${formProductIds.includes(p.id) ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20" : "border-gray-200 dark:border-gray-700 hover:border-gray-300"}`}>
+                    className={`flex items-center gap-3 text-left p-3 rounded-xl border-2 transition-all ${formProductIds.includes(p.id) ? "border-primary bg-primary/10 dark:bg-primary/20" : "border-gray-200 dark:border-gray-700 hover:border-gray-300"}`}>
                     {p.images?.[0] && (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={p.images[0]} alt={p.name} className="w-10 h-10 rounded-lg object-cover shrink-0" />
@@ -381,38 +380,8 @@ export default function FacebookPage() {
                       <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">{p.name}</p>
                       <p className="text-xs text-gray-400">{new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(p.price)}</p>
                     </div>
-                    {formProductIds.includes(p.id) && <Check size={14} className="text-blue-500 shrink-0" />}
+                    {formProductIds.includes(p.id) && <Check size={14} className="text-primary shrink-0" />}
                   </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Reference images */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-1.5">
-              <ImageIcon size={14} /> Imágenes de referencia para el agente
-            </label>
-            <p className="text-xs text-gray-400 mb-3">El agente usará estas imágenes como inspiración para generar las imágenes de los posts.</p>
-
-            <input ref={fileRef} type="file" accept="image/*" multiple onChange={handleImageUpload} className="hidden" />
-            <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading}
-              className="w-full border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl p-6 flex flex-col items-center gap-2 hover:border-blue-400 hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-all disabled:opacity-50">
-              {uploading ? <Loader2 size={20} className="animate-spin text-blue-500" /> : <Upload size={20} className="text-gray-400" />}
-              <span className="text-sm text-gray-500">{uploading ? "Subiendo..." : "Haz clic para subir imágenes"}</span>
-            </button>
-
-            {formImages.length > 0 && (
-              <div className="grid grid-cols-4 gap-2 mt-3">
-                {formImages.map((url, i) => (
-                  <div key={i} className="relative group aspect-square">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={url} alt="" className="w-full h-full object-cover rounded-xl" />
-                    <button type="button" onClick={() => setFormImages(prev => prev.filter((_, idx) => idx !== i))}
-                      className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <X size={12} />
-                    </button>
-                  </div>
                 ))}
               </div>
             )}
@@ -426,7 +395,7 @@ export default function FacebookPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {GOALS.map(g => (
                 <button key={g.id} type="button" onClick={() => setFormGoal(g.id)}
-                  className={`text-left px-4 py-3 rounded-xl border text-sm transition-all ${formGoal === g.id ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300" : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300"}`}>
+                  className={`text-left px-4 py-3 rounded-xl border text-sm transition-all ${formGoal === g.id ? "border-primary bg-primary/10 dark:bg-primary/20 text-primary" : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300"}`}>
                   <div className="font-medium">{g.label}</div>
                   <div className="text-xs opacity-70 mt-0.5">{g.desc}</div>
                 </button>
@@ -442,7 +411,7 @@ export default function FacebookPage() {
             <div className="flex flex-wrap gap-2">
               {TONES.map(t => (
                 <button key={t.id} type="button" onClick={() => setFormTone(t.id)}
-                  className={`px-4 py-2 rounded-xl text-sm font-medium border transition-all ${formTone === t.id ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300" : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300"}`}>
+                  className={`px-4 py-2 rounded-xl text-sm font-medium border transition-all ${formTone === t.id ? "border-primary bg-primary/10 dark:bg-primary/20 text-primary" : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300"}`}>
                   {t.label}
                 </button>
               ))}
@@ -457,7 +426,7 @@ export default function FacebookPage() {
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {FREQUENCIES.map(f => (
                 <button key={f.id} type="button" onClick={() => setFormFrequency(f.id)}
-                  className={`text-left px-3 py-3 rounded-xl border text-sm transition-all ${formFrequency === f.id ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300" : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300"}`}>
+                  className={`text-left px-3 py-3 rounded-xl border text-sm transition-all ${formFrequency === f.id ? "border-primary bg-primary/10 dark:bg-primary/20 text-primary" : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300"}`}>
                   <div className="font-medium">{f.label}</div>
                   <div className="text-xs opacity-70 mt-0.5">{f.desc}</div>
                 </button>
@@ -465,14 +434,57 @@ export default function FacebookPage() {
             </div>
           </div>
 
-          {/* Extra context */}
+          {/* Dates */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Fecha de inicio</label>
+              <input type="date" value={formStartDate} onChange={e => setFormStartDate(e.target.value)}
+                className="w-full border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2.5 bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-100 text-sm focus:ring-2 focus:ring-primary outline-none" />
+              <p className="text-xs text-gray-400 mt-1">Si está vacía, iniciará inmediatamente.</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Fecha de finalización <span className="text-red-500">*</span></label>
+              <input type="date" value={formEndDate} onChange={e => setFormEndDate(e.target.value)} required
+                className="w-full border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2.5 bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-100 text-sm focus:ring-2 focus:ring-primary outline-none" />
+              <p className="text-xs text-gray-400 mt-1">Obligatorio. La campaña se pausará en esta fecha.</p>
+            </div>
+          </div>
+
+          {/* Extra context / Campaign description */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-1.5">
-              <Sparkles size={14} /> Contexto adicional (opcional)
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-1.5">
+              <Sparkles size={14} /> Describe tu campaña <span className="text-red-500">*</span>
             </label>
-            <input type="text" value={formContext} onChange={e => setFormContext(e.target.value)}
-              placeholder="Ej: 20% de descuento en agendar cita en línea"
-              className="w-full border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-100 text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+            <p className="text-xs text-gray-400 mb-3">
+              Obligatorio. Cuéntale al agente qué quieres publicar. Puedes mencionar fechas especiales, ofertas, contexto o cualquier idea.
+            </p>
+
+            {/* Example chips */}
+            <div className="flex flex-wrap gap-2 mb-3">
+              {[
+                "Promoción por el 8M, 10% de descuento para las primeras 10 en contactar",
+                "Campaña del Día de las Madres",
+                "Lanzamiento de nuevo producto, quiero generar expectativa",
+                "Recordatorio de citas disponibles esta semana",
+              ].map((example) => (
+                <button
+                  key={example}
+                  type="button"
+                  onClick={() => setFormContext(example)}
+                  className="text-xs px-3 py-1.5 rounded-full border border-primary/30 text-primary bg-primary/10 hover:bg-primary/20 transition-colors text-left"
+                >
+                  {example.length > 50 ? example.slice(0, 50) + "…" : example}
+                </button>
+              ))}
+            </div>
+
+            <textarea
+              value={formContext}
+              onChange={e => setFormContext(e.target.value)}
+              rows={3}
+              placeholder="Ej: Esta campaña es para el Día de las Madres, quiero resaltar nuestro plan de nutrición familiar y ofrecer 15% de descuento a las primeras 5 en agendar cita."
+              className="w-full border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-100 text-sm focus:ring-2 focus:ring-primary outline-none resize-none leading-relaxed"
+            />
           </div>
 
           {/* WhatMe notice */}
@@ -484,8 +496,8 @@ export default function FacebookPage() {
           </div>
 
           {/* Save */}
-          <button onClick={handleSave} disabled={saving || !formPlatforms.length}
-            className="w-full py-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-blue-800 active:scale-95 transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-600/25 disabled:opacity-60">
+          <button onClick={handleSave} disabled={saving || !formPlatforms.length || !formEndDate || !formContext.trim()}
+            className="btn-primary w-full py-4 text-base flex justify-center items-center gap-2 disabled:opacity-50">
             {saving ? <><Loader2 size={18} className="animate-spin" /> Guardando...</> : <><Zap size={18} /> {editId ? "Guardar cambios" : "Crear campaña"}</>}
           </button>
         </div>

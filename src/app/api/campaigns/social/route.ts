@@ -47,27 +47,35 @@ export async function POST(req: NextRequest) {
     name,
     platforms,
     productIds,
-    referenceImages,
     campaignGoal,
     tone,
     extraContext,
     frequency,
+    startDate,
+    endDate,
   } = body as {
     name?: string;
     platforms: SocialPlatform[];
     productIds: string[];
-    referenceImages: string[];
     campaignGoal: string;
     tone: string;
     extraContext?: string;
     frequency: CampaignFrequency;
+    startDate?: string;
+    endDate: string;
   };
 
-  if (!platforms?.length || !campaignGoal || !tone || !frequency) {
+  if (!platforms?.length || !campaignGoal || !tone || !frequency || !endDate || !extraContext) {
     return NextResponse.json({ error: "Faltan campos requeridos" }, { status: 400 });
   }
 
-  const nextPostAt = computeNextPostAt(frequency);
+  const parsedStartDate = startDate ? new Date(startDate) : new Date();
+  const parsedEndDate = new Date(endDate);
+
+  // Use startDate as the first post time if it is in the future.
+  // Otherwise compute normally.
+  const now = new Date();
+  let nextPostAt = parsedStartDate > now ? parsedStartDate : computeNextPostAt(frequency);
 
   const campaign = await prisma.socialCampaign.create({
     data: {
@@ -75,11 +83,12 @@ export async function POST(req: NextRequest) {
       name: name ?? "Campaña",
       platforms,
       productIds: productIds ?? [],
-      referenceImages: referenceImages ?? [],
       campaignGoal,
       tone,
       extraContext: extraContext ?? null,
       frequency,
+      startDate: parsedStartDate,
+      endDate: parsedEndDate,
       nextPostAt,
       isActive: true,
     },

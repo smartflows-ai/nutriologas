@@ -15,13 +15,15 @@ export async function GET(req: NextRequest) {
 
   // Helper: redirect to the subdomain (or fallback to base) for error/success pages
   const subdomainRedirect = (path: string) => {
-    const base = stateParam ?? url.origin;
+    // If stateParam is available (e.g. http://doctor.localhost:3000), use it.
+    // Otherwise fallback to base domain for error display.
+    const base = stateParam?.split('#')[0] ?? url.origin;
     return NextResponse.redirect(`${base}${path}`);
   };
 
   if (errorParam || !code) {
     const msg = url.searchParams.get("error_description") ?? "Autorización cancelada";
-    return subdomainRedirect(`/admin/apps?error=${encodeURIComponent(msg)}`);
+    return subdomainRedirect(`/admin/social-campaign?error=${encodeURIComponent(msg)}`);
   }
 
   // redirect_uri MUST exactly match NEXTAUTH_URL-based URI registered in Meta App
@@ -106,49 +108,60 @@ export async function GET(req: NextRequest) {
 
   const page = pages[0];
 
-  // ── 6. Upsert ConnectedApp ─────────────────────────────────────────────────
+  // ── 6. Fetch linked Instagram Business Account (same token, same page) ────
+  // If the Facebook Page has a linked IG Business Account, store its ID in metadata.
+  // The Instagram Graph API accepts the same Facebook Page Access Token.
+  let igBusinessAccountId: string | null = null;
+  try {
+    const igRes = await fetch(
+      `https://graph.facebook.com/v19.0/${page.id}?fields=instagram_business_account&access_token=${page.access_token}`
+    );
+    const igData = await igRes.json();
+    igBusinessAccountId = igData.instagram_business_account?.id ?? null;
+  } catch (_) {}
+
+  // ── 7. Upsert ConnectedApp ─────────────────────────────────────────────────
+  const metadata = {
+    pageId: page.id,
+    pageName: page.name,
+    allPages: pages.map((p) => ({ id: p.id, name: p.name })),
+    ...(igBusinessAccountId ? { igBusinessAccountId } : {}),
+  };
+
   await prisma.connectedApp.upsert({
     where: { tenantId_provider: { tenantId: user.tenantId, provider: "FACEBOOK" } },
     update: {
       accessToken: page.access_token,
       connectedByUserId: user.id,
-      metadata: {
-        pageId: page.id,
-        pageName: page.name,
-        allPages: pages.map((p) => ({ id: p.id, name: p.name })),
-      },
+      metadata,
     },
     create: {
       tenantId: user.tenantId,
       provider: "FACEBOOK",
       accessToken: page.access_token,
       connectedByUserId: user.id,
-      metadata: {
-        pageId: page.id,
-        pageName: page.name,
-        allPages: pages.map((p) => ({ id: p.id, name: p.name })),
-      },
+      metadata,
     },
   });
 
   // ── 7. Redirect to tenant subdomain ───────────────────────────────────────
   // Prefer stateParam (set by start route). Fall back to building from tenant slug.
-  let finalOrigin = stateParam;
+  let finalOrigin = stateParam?.split('#')[0]; // strip FB fragment if present
 
   if (!finalOrigin) {
-    const baseHost = process.env.NEXT_PUBLIC_APP_URL
-      ? new URL(process.env.NEXT_PUBLIC_APP_URL).host
+    const baseHost = process.env.NEXTAUTH_URL
+      ? new URL(process.env.NEXTAUTH_URL).host
       : "localhost:3000";
     const protocol = process.env.NODE_ENV === "production" ? "https:" : "http:";
 
     if (user.tenant.customDomain) {
       finalOrigin = `${protocol}//${user.tenant.customDomain}`;
     } else if (baseHost.includes("localhost")) {
-      finalOrigin = `http://${user.tenant.slug}.localhost:3000`;
+      finalOrigin = `http://${user.tenant.slug}.${baseHost}`;
     } else {
       finalOrigin = `${protocol}//${user.tenant.slug}.${baseHost.replace(/^www\./, "")}`;
     }
   }
 
-  return NextResponse.redirect(`${finalOrigin}/admin/facebook?connected=facebook`);
+  return NextResponse.redirect(`${finalOrigin}/admin/social-campaign?connected=facebook`);
 }

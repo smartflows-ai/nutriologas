@@ -29,7 +29,8 @@ export async function GET(req: NextRequest) {
     tenantId = tenant.id;
   }
 
-  const where = { tenantId, isActive: true, deletedAt: null, ...(category && { category }) };
+  const isAdmin = session?.user && (session.user as any).role === "ADMIN";
+  const where = { tenantId, deletedAt: null, ...(!isAdmin && { isActive: true }), ...(category && { category }) };
 
   const [products, totalCount] = await Promise.all([
     prisma.product.findMany({
