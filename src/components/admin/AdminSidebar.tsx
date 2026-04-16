@@ -17,7 +17,9 @@ import {
   X,
   Plug,
   MessageSquare,
-  HelpCircle
+  HelpCircle,
+  Facebook,
+  Globe
 } from "lucide-react";
 import SignOutButton from "@/components/admin/SignOutButton";
 
@@ -46,6 +48,7 @@ const baseCategories = [
       { href: "/admin/asistente", label: "Asistente IA", icon: Bot, isAssistant: true },
       { href: "/admin/calendario", label: "Calendario", icon: Calendar, providersReq: ["GOOGLE", "MICROSOFT"] },
       { href: "/admin/whatsapp", label: "WhatsApp", icon: MessageSquare, providersReq: ["WHATSAPP"] },
+      { href: "/admin/social-campaign", label: "Campañas Sociales", icon: Globe, providersReq: ["FACEBOOK"] },
     ],
   },
 ];

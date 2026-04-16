@@ -4,6 +4,10 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { productSchema } from "@/lib/validations";
 import { deleteImageFromCloudinary } from "@/lib/cloudinary";
+import { z } from "zod";
+
+// Override isActive without a default so false is never replaced by a default value
+const updateProductSchema = productSchema.extend({ isActive: z.boolean().optional() }).partial();
 
 export async function PUT(req: Request, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
@@ -11,7 +15,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
 
   const tenantId = (session.user as any).tenantId;
   const body = await req.json();
-  const data = productSchema.partial().parse(body);
+  const data = updateProductSchema.parse(body);
 
   const product = await prisma.product.update({
     where: { id: params.id, tenantId },
