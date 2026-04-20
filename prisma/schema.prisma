@@ -33,6 +33,7 @@ model Tenant {
   faqs            FAQ[]
   socialCampaigns SocialCampaign[]
   socialPosts     SocialPost[]
+  subscription    Subscription?
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -377,4 +378,42 @@ model SocialPost {
   @@index([tenantId])
   @@index([campaignId])
   @@map("social_posts")
+}
+
+// ─── SUSCRIPCIONES (Stripe - Platform Billing) ──────────
+enum PlanId {
+  STARTER
+  PRO
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  UNPAID
+}
+
+model Subscription {
+  id                   String             @id @default(uuid())
+  tenantId             String             @unique
+  tenant               Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  stripeCustomerId     String             @unique
+  stripeSubscriptionId String?            @unique
+  stripePriceId        String?
+
+  plan                 PlanId             @default(STARTER)
+  status               SubscriptionStatus @default(TRIALING)
+
+  trialEndsAt          DateTime
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean            @default(false)
+
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  @@map("subscriptions")
 }

@@ -12,10 +12,12 @@ import CTASection from "./CTASection";
 import MarketingFooter from "./MarketingFooter";
 import DemoModal from "./DemoModal";
 import SignInModal from "./SignInModal";
+import OnboardingModal from "./OnboardingModal";
 
 export default function MarketingPage() {
   const [showDemo, setShowDemo] = useState(false);
   const [showSignIn, setShowSignIn] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   return (
     <div
@@ -31,7 +33,10 @@ export default function MarketingPage() {
 
       {/* Page sections */}
       <main>
-        <HeroSection onWatchDemo={() => setShowDemo(true)} />
+        <HeroSection
+          onWatchDemo={() => setShowDemo(true)}
+          onGetStarted={() => setShowOnboarding(true)}
+        />
         <FeaturesSection />
         <HowItWorksSection />
         <PricingSection />
@@ -41,8 +46,9 @@ export default function MarketingPage() {
       <MarketingFooter />
 
       {/* Modals */}
-      {showDemo && <DemoModal onClose={() => setShowDemo(false)} />}
-      {showSignIn && <SignInModal onClose={() => setShowSignIn(false)} />}
+      {showDemo       && <DemoModal       onClose={() => setShowDemo(false)} />}
+      {showSignIn     && <SignInModal     onClose={() => setShowSignIn(false)} />}
+      {showOnboarding && <OnboardingModal onClose={() => setShowOnboarding(false)} />}
     </div>
   );
 }
