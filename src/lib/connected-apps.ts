@@ -65,6 +65,7 @@ export async function getAppToken(
 
     if (!res.ok) {
       console.error(`[connected-apps] Failed to refresh ${provider} token:`, await res.text());
+      await prisma.connectedApp.delete({ where: { id: app.id } }).catch(() => {});
       return null;
     }
 

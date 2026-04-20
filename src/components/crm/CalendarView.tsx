@@ -63,7 +63,15 @@ export default function CalendarView() {
       });
       const res = await fetch(`/api/calendar/events?${params}`);
       const data = await res.json();
-      if (data.error) { failureCallback(new Error(data.error)); setError(data.error); return; }
+      if (data.error) {
+        if (data.errorCode === "TOKEN_EXPIRED") {
+          window.location.href = "/admin/apps";
+          return;
+        }
+        failureCallback(new Error(data.error)); 
+        setError(data.error); 
+        return; 
+      }
       setStats(data.stats ?? { total: 0, attended: 0, cancelled: 0 });
       setError(null);
       allEventsRef.current = data.events ?? [];

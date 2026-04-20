@@ -12,7 +12,7 @@ const agentTypes = [
   "Appointment Scheduler",
 ];
 
-export default function HeroSection({ onWatchDemo }: { onWatchDemo: () => void }) {
+export default function HeroSection({ onWatchDemo, onGetStarted }: { onWatchDemo: () => void; onGetStarted: () => void }) {
   const [currentAgent, setCurrentAgent] = useState(0);
   const [visible, setVisible] = useState(true);
 
@@ -137,9 +137,9 @@ export default function HeroSection({ onWatchDemo }: { onWatchDemo: () => void }
 
             {/* CTAs */}
             <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4">
-              <a
+              <button
                 id="hero-get-started"
-                href="#pricing"
+                onClick={onGetStarted}
                 className="group relative inline-flex items-center gap-2.5 px-8 py-4 rounded-2xl text-base font-bold text-white overflow-hidden transition-all duration-300 hover:shadow-[0_0_30px_rgba(124,58,237,0.5)] hover:-translate-y-0.5"
                 style={{
                   background: "linear-gradient(135deg, #7C3AED 0%, #4F46E5 100%)",
@@ -148,7 +148,7 @@ export default function HeroSection({ onWatchDemo }: { onWatchDemo: () => void }
                 <span className="relative z-10">Get Started Free</span>
                 <span className="relative z-10 transition-transform duration-200 group-hover:translate-x-1">→</span>
                 <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-              </a>
+              </button>
 
               <button
                 id="hero-watch-demo"
@@ -209,7 +209,7 @@ export default function HeroSection({ onWatchDemo }: { onWatchDemo: () => void }
             </div>
             {/* Floating agent cards */}
             <div
-              className="absolute top-4 -left-4 bg-[#12121e]/80 backdrop-blur-xl border border-white/10 rounded-2xl px-4 py-3 shadow-xl"
+              className="absolute top-4 -left-4 z-20 bg-transparent backdrop-blur-xl border border-white/10 rounded-2xl px-4 py-3 shadow-xl"
               style={{ animation: "float 3s ease-in-out infinite" }}
             >
               <div className="flex items-center gap-2">
@@ -221,7 +221,7 @@ export default function HeroSection({ onWatchDemo }: { onWatchDemo: () => void }
               </div>
             </div>
             <div
-              className="absolute bottom-8 -right-4 bg-[#12121e]/80 backdrop-blur-xl border border-white/10 rounded-2xl px-4 py-3 shadow-xl"
+              className="absolute bottom-8 -right-4 z-20 bg-transparent backdrop-blur-xl border border-white/10 rounded-2xl px-4 py-3 shadow-xl"
               style={{ animation: "float 4s ease-in-out infinite 1.5s" }}
             >
               <div className="flex items-center gap-2">
