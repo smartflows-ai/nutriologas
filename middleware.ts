@@ -7,13 +7,17 @@ export async function middleware(req: NextRequest) {
   const { nextUrl } = req;
   const hostname = req.headers.get("host") || "";
 
-  let tenantIdentifier = "clinica-demo"; // fallback
+  let tenantIdentifier = "";
 
   // Lógica de detección de dominios
-  if (hostname.includes(".localhost")) {
-    tenantIdentifier = hostname.split(".")[0];
-  } else if (!hostname.includes("localhost") && !hostname.startsWith("www.smartflows")) {
-    tenantIdentifier = hostname;
+  if (hostname === "localhost:3000" || hostname === "newaigent.com" || hostname === "www.newaigent.com") {
+    tenantIdentifier = ""; // Root domain -> NeoAigent Marketing Page
+  } else if (hostname.endsWith(".localhost:3000")) {
+    tenantIdentifier = hostname.replace(".localhost:3000", "");
+  } else if (hostname.endsWith(".newaigent.com")) {
+    tenantIdentifier = hostname.replace(".newaigent.com", "");
+  } else {
+    tenantIdentifier = hostname; // Custom domain (e.g. myclinic.com)
   }
 
   // Extraer token de sesion crudo desde Edge
