@@ -6,16 +6,17 @@ import { getToken } from "next-auth/jwt";
 export async function middleware(req: NextRequest) {
   const { nextUrl } = req;
   const hostname = req.headers.get("host") || "";
+  const rootDomain = (process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "newaigent.com").toLowerCase();
 
   let tenantIdentifier = "";
 
   // Lógica de detección de dominios
-  if (hostname === "localhost:3000" || hostname === "newaigent.com" || hostname === "www.newaigent.com") {
+  if (hostname === `localhost:3000` || hostname === rootDomain || hostname === `www.${rootDomain}`) {
     tenantIdentifier = ""; // Root domain -> NeoAigent Marketing Page
   } else if (hostname.endsWith(".localhost:3000")) {
     tenantIdentifier = hostname.replace(".localhost:3000", "");
-  } else if (hostname.endsWith(".newaigent.com")) {
-    tenantIdentifier = hostname.replace(".newaigent.com", "");
+  } else if (hostname.endsWith(`.${rootDomain}`)) {
+    tenantIdentifier = hostname.replace(`.${rootDomain}`, "");
   } else {
     tenantIdentifier = hostname; // Custom domain (e.g. myclinic.com)
   }
