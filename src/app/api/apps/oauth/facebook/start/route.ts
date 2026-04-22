@@ -15,9 +15,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "FACEBOOK_APP_ID no configurado." }, { status: 500 });
   }
 
-  // ── Fixed registered redirect_uri (must match Meta App dashboard exactly) ──
-  // Register only ONE URI: http://localhost:3000/api/apps/oauth/facebook/callback
-  const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+  const hostHeader = req.headers.get("host") || new URL(req.url).host;
+  const baseUrlFallback = hostHeader.includes("localhost") ? `http://${hostHeader}` : `https://${hostHeader}`;
+  const baseUrl = process.env.NEXTAUTH_URL ?? baseUrlFallback;
   const redirectUri = `${baseUrl}/api/apps/oauth/facebook/callback`;
 
   // ── Capture the subdomain origin from the Host header ──────────────────────
