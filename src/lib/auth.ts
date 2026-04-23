@@ -29,18 +29,18 @@ export const authOptions: NextAuthOptions = {
 
       try {
         const user = await prisma.user.create({
-        data: {
-          email: data.email,
-          name: data.name,
-          image: data.image,
-          tenantId: defaultTenant.id,
-        },
-      });
-      // NextAuth sometimes strictly requires emailVerified to be present
-      return { ...user, emailVerified: null } as any;
-    } catch (error) {
-      throw error;
-    }
+          data: {
+            email: data.email,
+            name: data.name,
+            image: data.image,
+            tenantId: defaultTenant.id,
+          },
+        });
+        // NextAuth sometimes strictly requires emailVerified to be present
+        return { ...user, emailVerified: null } as any;
+      } catch (error) {
+        throw error;
+      }
     },
     updateUser: async (data: any) => {
       const user = await prisma.user.update({
@@ -70,20 +70,24 @@ export const authOptions: NextAuthOptions = {
         if (!credentials?.email || !credentials?.password) return null;
         const email = credentials.email.trim().toLowerCase();
 
-        // 1. Extraer a qué clínica está intentando entrar el usuario leyendo el encabezado Host
         const headersList = headers();
-        const host = headersList.get("host") || req?.headers?.host || "localhost";
-        
-        let tenantIdentifier = "clinica-demo";
-        if (host.includes(".localhost")) {
+        const host = (headersList.get("host") || req?.headers?.host || "localhost").toLowerCase();
+        const rootDomain = (process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "newaigent.com").toLowerCase();
+
+        let tenantIdentifier: string;
+        if (host.endsWith(".localhost:3000") || host.endsWith(".localhost")) {
           tenantIdentifier = host.split(".")[0];
-        } else if (!host.includes("localhost") && !host.startsWith("www.smartflows")) {
-          tenantIdentifier = host;
+        } else if (host.endsWith(`.${rootDomain}`)) {
+          tenantIdentifier = host.replace(`.${rootDomain}`, "");
+        } else if (host === rootDomain || host === `www.${rootDomain}` || host.startsWith("localhost")) {
+          tenantIdentifier = "";
+        } else {
+          tenantIdentifier = host.split(":")[0];
         }
 
         // 2. Buscar clínica y bloquear si no existe
         let tenant = await prisma.tenant.findFirst({
-           where: { OR: [{ slug: tenantIdentifier }, { customDomain: tenantIdentifier }] }
+          where: { OR: [{ slug: tenantIdentifier }, { customDomain: tenantIdentifier }] }
         });
 
         if (!tenant) {
@@ -91,12 +95,10 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        // 3. Checar si el usuario REAlMENTE pertenece a ESTA clínica específica
         const user = await prisma.user.findFirst({
           where: { email, tenantId: tenant.id },
         });
         if (!user || !user.passwordHash) return null;
-        // Usar bcrypt si el hash tiene el formato estándar (empieza con $2), si no retrocompatibilidad
         let isValid = false;
         if (
           user.passwordHash.startsWith("$2a$") ||
@@ -109,19 +111,15 @@ export const authOptions: NextAuthOptions = {
           const isHashedMatch = user.passwordHash === `hashed_${credentials.password}`;
           isValid = isPlainMatch || isHashedMatch;
         }
-        
+
         if (!isValid) return null;
-        
+
         return { id: user.id, email: user.email, name: user.name, role: user.role, tenantId: user.tenantId };
       },
     }),
   ],
   callbacks: {
     async signIn({ user, account, profile }) {
-      // Google Calendar tokens now handled by /api/apps/oauth (connected_apps table)
-      // No longer need to handle google-calendar provider here
-
-      // 2. Lógica sugerida por Claude para asignar tenantId si por alguna razón faltara
       if (account?.provider === "google") {
         let tenant = await prisma.tenant.findUnique({
           where: { slug: "clinica-demo" },
@@ -132,7 +130,6 @@ export const authOptions: NextAuthOptions = {
           where: { email: user.email! },
         });
 
-        // Si existe pero mágicamente no tiene tenantId o role, se lo asignamos
         if (existing && (!existing.tenantId || !existing.role)) {
           await prisma.user.update({
             where: { id: existing.id },
@@ -149,8 +146,7 @@ export const authOptions: NextAuthOptions = {
         token.role = (user as any).role;
         token.tenantId = (user as any).tenantId;
       }
-      
-      // Failsafe sugerido por Claude: Si el token no tiene tenantId, forzamos buscarlo en la DB
+
       if (!token.tenantId && token.email) {
         const dbUser = await prisma.user.findFirst({
           where: { email: token.email as string },
@@ -160,7 +156,7 @@ export const authOptions: NextAuthOptions = {
           token.tenantId = dbUser.tenantId;
         }
       }
-      
+
       return token;
     },
     async session({ session, token }) {
@@ -172,15 +168,11 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
     async redirect({ url, baseUrl }) {
-      // Allow relative URLs
       if (url.startsWith("/")) return `${baseUrl}${url}`;
-      // Allow same origin
       if (url.startsWith(baseUrl)) return url;
-      // Allow localhost subdomains (e.g. doctor.localhost:3000, nutri.localhost:3000)
       try {
         const targetUrl = new URL(url);
         const base = new URL(baseUrl);
-        // Same port, and target hostname ends with base hostname (subdomain match)
         if (
           targetUrl.port === base.port &&
           (targetUrl.hostname === base.hostname ||
@@ -188,7 +180,7 @@ export const authOptions: NextAuthOptions = {
         ) {
           return url;
         }
-      } catch {}
+      } catch { }
       return baseUrl;
     },
   },

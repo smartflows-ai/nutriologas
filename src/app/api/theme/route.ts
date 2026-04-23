@@ -1,9 +1,9 @@
-// src/app/api/theme/route.ts
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { themeSchema } from "@/lib/validations";
 import { NextRequest } from "next/server";
+import { resolveTenantSlug } from "@/lib/tenant";
 
 export async function GET(req: NextRequest) {
   // Session-first (admin panel), then host-based for public
@@ -16,9 +16,7 @@ export async function GET(req: NextRequest) {
     themeResult = tenant?.theme;
   } else {
     const host = req.headers.get("host") || "";
-    let tenantSlug = "clinica-demo";
-    if (host.includes(".localhost")) tenantSlug = host.split(".")[0];
-    else if (!host.includes("localhost")) tenantSlug = host.split(":")[0];
+    const tenantSlug = resolveTenantSlug(host);
     const tenant = await prisma.tenant.findFirst({ 
       where: { OR: [{ slug: tenantSlug }, { customDomain: tenantSlug }] }, 
       include: { theme: true } 

@@ -3,17 +3,16 @@ import { prisma } from "@/lib/db";
 import { NextRequest } from "next/server";
 import bcrypt from "bcryptjs";
 import { createConektaCustomer } from "@/lib/conekta";
+import { resolveTenantSlug } from "@/lib/tenant";
 
 export async function POST(req: NextRequest) {
   const { name, email, password } = await req.json();
 
   if (!email || !password) return Response.json({ error: "Email y contraseña requeridos" }, { status: 400 });
 
-  // Resolve tenant from the host header (reliable across all Next.js 14 contexts)
+  // Resolve tenant from the host header using the shared helper
   const host = req.headers.get("host") || "";
-  let tenantSlug = "clinica-demo";
-  if (host.includes(".localhost")) tenantSlug = host.split(".")[0];
-  else if (!host.includes("localhost")) tenantSlug = host.split(":")[0];
+  const tenantSlug = resolveTenantSlug(host);
 
   let tenant = await prisma.tenant.findFirst({ 
     where: { OR: [{ slug: tenantSlug }, { customDomain: tenantSlug }] } 

@@ -1,10 +1,10 @@
-// src/app/api/products/route.ts
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { productSchema } from "@/lib/validations";
 import { slugify } from "@/lib/utils";
 import { NextRequest } from "next/server";
+import { resolveTenantSlug } from "@/lib/tenant";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -18,9 +18,7 @@ export async function GET(req: NextRequest) {
 
   if (!tenantId) {
     const host = req.headers.get("host") || "";
-    let tenantSlug = "clinica-demo";
-    if (host.includes(".localhost")) tenantSlug = host.split(".")[0];
-    else if (!host.includes("localhost")) tenantSlug = host.split(":")[0];
+    const tenantSlug = resolveTenantSlug(host);
 
     const tenant = await prisma.tenant.findFirst({ 
       where: { OR: [{ slug: tenantSlug }, { customDomain: tenantSlug }] } 

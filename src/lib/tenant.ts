@@ -42,3 +42,28 @@ export function getTenantSlug(): string {
   // Strip port if any
   return host.split(":")[0];
 }
+
+/**
+ * API-route variant — takes an explicit host string instead of reading headers.
+ * Use this in route.ts files where you already have: req.headers.get("host")
+ *
+ * doctor.newaigent.com → "doctor"
+ * doctor.localhost:3000 → "doctor"
+ * myclinic.com         → "myclinic.com"  (custom domain, looked up by customDomain field)
+ */
+export function resolveTenantSlug(host: string): string {
+  const h = host.toLowerCase();
+  const rootDomain = (process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "newaigent.com").toLowerCase();
+
+  if (h.endsWith(".localhost:3000") || h.endsWith(".localhost")) {
+    return h.split(".")[0];
+  }
+  if (h === rootDomain || h === `www.${rootDomain}` || h.startsWith("localhost")) {
+    return "";
+  }
+  if (h.endsWith(`.${rootDomain}`)) {
+    return h.replace(`.${rootDomain}`, "");
+  }
+  // Custom domain — strip port
+  return h.split(":")[0];
+}

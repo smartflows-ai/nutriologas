@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { NextRequest } from "next/server";
+import { resolveTenantSlug } from "@/lib/tenant";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -9,9 +10,7 @@ export async function GET(req: NextRequest) {
 
   if (!tenantId) {
     const host = req.headers.get("host") || "";
-    let tenantSlug = "clinica-demo";
-    if (host.includes(".localhost")) tenantSlug = host.split(".")[0];
-    else if (!host.includes("localhost")) tenantSlug = host.split(":")[0];
+    const tenantSlug = resolveTenantSlug(host);
 
     const tenant = await prisma.tenant.findFirst({
       where: { OR: [{ slug: tenantSlug }, { customDomain: tenantSlug }] },
