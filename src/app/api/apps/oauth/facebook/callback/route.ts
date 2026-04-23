@@ -149,10 +149,11 @@ export async function GET(req: NextRequest) {
   let finalOrigin = stateParam?.split('#')[0]; // strip FB fragment if present
 
   if (!finalOrigin) {
+    const fallbackHost = req.headers.get("host") || "localhost:3000";
     const baseHost = process.env.NEXTAUTH_URL
       ? new URL(process.env.NEXTAUTH_URL).host
-      : "localhost:3000";
-    const protocol = process.env.NODE_ENV === "production" ? "https:" : "http:";
+      : fallbackHost;
+    const protocol = process.env.NODE_ENV === "production" || !baseHost.includes("localhost") ? "https:" : "http:";
 
     if (user.tenant.customDomain) {
       finalOrigin = `${protocol}//${user.tenant.customDomain}`;

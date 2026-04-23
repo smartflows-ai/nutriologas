@@ -38,7 +38,7 @@ export async function POST(req: Request) {
         break;
       }
       case "invoice.paid": {
-        const inv = event.data.object as Stripe.Invoice;
+        const inv = event.data.object as any;
         if (inv.subscription) {
           await prisma.subscription.updateMany({
             where: { stripeSubscriptionId: inv.subscription as string },
@@ -48,7 +48,7 @@ export async function POST(req: Request) {
         break;
       }
       case "invoice.payment_failed": {
-        const inv = event.data.object as Stripe.Invoice;
+        const inv = event.data.object as any;
         if (inv.subscription) {
           await prisma.subscription.updateMany({
             where: { stripeSubscriptionId: inv.subscription as string },

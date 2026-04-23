@@ -6,14 +6,19 @@ import { getToken } from "next-auth/jwt";
 export async function middleware(req: NextRequest) {
   const { nextUrl } = req;
   const hostname = req.headers.get("host") || "";
+  const rootDomain = (process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "newaigent.com").toLowerCase();
 
-  let tenantIdentifier = "clinica-demo"; // fallback
+  let tenantIdentifier = "";
 
   // Lógica de detección de dominios
-  if (hostname.includes(".localhost")) {
-    tenantIdentifier = hostname.split(".")[0];
-  } else if (!hostname.includes("localhost") && !hostname.startsWith("www.smartflows")) {
-    tenantIdentifier = hostname;
+  if (hostname === `localhost:3000` || hostname === rootDomain || hostname === `www.${rootDomain}`) {
+    tenantIdentifier = ""; // Root domain -> NeoAigent Marketing Page
+  } else if (hostname.endsWith(".localhost:3000")) {
+    tenantIdentifier = hostname.replace(".localhost:3000", "");
+  } else if (hostname.endsWith(`.${rootDomain}`)) {
+    tenantIdentifier = hostname.replace(`.${rootDomain}`, "");
+  } else {
+    tenantIdentifier = hostname; // Custom domain (e.g. myclinic.com)
   }
 
   // Extraer token de sesion crudo desde Edge
