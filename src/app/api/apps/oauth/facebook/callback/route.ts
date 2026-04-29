@@ -145,23 +145,24 @@ export async function GET(req: NextRequest) {
   });
 
   // ── 7. Redirect to tenant subdomain ───────────────────────────────────────
-  // Prefer stateParam (set by start route). Fall back to building from tenant slug.
-  let finalOrigin = stateParam?.split('#')[0]; // strip FB fragment if present
+  // Always build from the DB tenant slug — the only reliable source.
+  // stateParam can be the root domain if user navigated from newaigent.com,
+  // which would cause a wrong redirect. DB slug is always correct.
+  const rootDomain = (process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "newaigent.com")
+    .replace(/^https?:\/\//, "")
+    .replace(/^www\./, "");
+  const isProduction = process.env.NODE_ENV === "production";
+  const protocol = isProduction ? "https" : "http";
 
-  if (!finalOrigin) {
-    const fallbackHost = req.headers.get("host") || "localhost:3000";
-    const baseHost = process.env.NEXTAUTH_URL
-      ? new URL(process.env.NEXTAUTH_URL).host
-      : fallbackHost;
-    const protocol = process.env.NODE_ENV === "production" || !baseHost.includes("localhost") ? "https:" : "http:";
-
-    if (user.tenant.customDomain) {
-      finalOrigin = `${protocol}//${user.tenant.customDomain}`;
-    } else if (baseHost.includes("localhost")) {
-      finalOrigin = `http://${user.tenant.slug}.${baseHost}`;
-    } else {
-      finalOrigin = `${protocol}//${user.tenant.slug}.${baseHost.replace(/^www\./, "")}`;
-    }
+  let finalOrigin: string;
+  if (user.tenant.customDomain) {
+    const cleanDomain = user.tenant.customDomain.replace(/^https?:\/\//, "");
+    finalOrigin = `${protocol}://${cleanDomain}`;
+  } else if (!isProduction) {
+    // Local dev: build from slug
+    finalOrigin = `http://${user.tenant.slug}.localhost:3000`;
+  } else {
+    finalOrigin = `${protocol}://${user.tenant.slug}.${rootDomain}`;
   }
 
   return NextResponse.redirect(`${finalOrigin}/admin/social-campaign?connected=facebook`);

@@ -31,6 +31,24 @@ export async function middleware(req: NextRequest) {
   const isCheckoutRoute = nextUrl.pathname.startsWith("/checkout");
   const isOrderRoute = nextUrl.pathname.startsWith("/pedido/") || nextUrl.pathname.startsWith("/mis-pedidos");
 
+  // On the root domain, only the marketing page (/) is allowed.
+  // All tenant-specific routes return 404 — they belong on subdomains only.
+  const isRootDomain = tenantIdentifier === "";
+  const ROOT_BLOCKED_PREFIXES = [
+    "/admin",
+    "/login",
+    "/registro",
+    "/checkout",
+    "/carrito",
+    "/pedido",
+    "/mis-pedidos",
+    "/productos",
+    "/producto",
+  ];
+  if (isRootDomain && ROOT_BLOCKED_PREFIXES.some((p) => nextUrl.pathname.startsWith(p))) {
+    return NextResponse.rewrite(new URL("/_not-found", req.url));
+  }
+
   // Rutas /admin/* — solo admins
   if (isAdminRoute) {
     if (!isLoggedIn) return NextResponse.redirect(new URL("/login", nextUrl));
