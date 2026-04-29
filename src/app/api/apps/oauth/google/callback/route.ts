@@ -121,20 +121,21 @@ export async function GET(req: NextRequest) {
   }
 
   // 8. Redirect back to the correct tenant subdomain using DB info
-  let host = "localhost:3000";
+  const rootDomain = (process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "newaigent.com").replace(/^https?:\/\//, "");
+  const isProduction = process.env.NODE_ENV === "production";
+  const protocol = isProduction ? "https" : "http";
+
+  let host: string;
   if (user.tenant.customDomain) {
-    host = user.tenant.customDomain;
-  } else if (user.tenant.slug) {
-    // If we're in prod, it might be slug.smartflows.com. For now we use standard suffix.
-    const baseHost = process.env.NEXT_PUBLIC_APP_URL ? new URL(process.env.NEXT_PUBLIC_APP_URL).host : "localhost:3000";
-    if (baseHost.includes("localhost")) {
-      host = `${user.tenant.slug}.localhost:3000`;
-    } else {
-      host = `${user.tenant.slug}.${baseHost.replace(/^www\./, '')}`;
-    }
+    // Strip protocol if accidentally included
+    host = user.tenant.customDomain.replace(/^https?:\/\//, "");
+  } else {
+    const baseHost = rootDomain.replace(/^www\./, "");
+    host = baseHost.includes("localhost")
+      ? `${user.tenant.slug}.localhost:3000`
+      : `${user.tenant.slug}.${baseHost}`;
   }
 
-  const protocol = process.env.NODE_ENV === "production" ? "https:" : new URL(req.url).protocol;
-  const finalRedirectUrl = `${protocol}//${host}/admin/calendario?connected=google`;
+  const finalRedirectUrl = `${protocol}://${host}/admin/calendario?connected=google`;
   return NextResponse.redirect(finalRedirectUrl);
 }
