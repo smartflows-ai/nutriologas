@@ -1,6 +1,5 @@
 // src/app/(public)/mis-pedidos/page.tsx
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getAppSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { formatPrice, formatDate } from "@/lib/utils";
 import { redirect } from "next/navigation";
@@ -16,13 +15,13 @@ const STATUS_LABELS: Record<string, { label: string; class: string }> = {
 };
 
 export default async function MisPedidosPage() {
-  const session = await getServerSession(authOptions);
+  const session = await getAppSession();
   if (!session?.user) redirect("/login?callbackUrl=/mis-pedidos");
 
-  const tenantId = (session.user as any).tenantId;
+  const tenantId = session.user.tenantId;
 
   const orders = await prisma.order.findMany({
-    where: { userId: session.user.id!, tenantId },
+    where: { userId: session.user.id, tenantId },
     include: {
       items: { include: { product: { select: { name: true, images: true } } } },
     },

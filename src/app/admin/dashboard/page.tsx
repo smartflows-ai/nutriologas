@@ -1,6 +1,5 @@
 // src/app/admin/dashboard/page.tsx
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getAppSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { formatPrice } from "@/lib/utils";
 import { ShoppingBag, Users, Star, TrendingUp } from "lucide-react";
@@ -98,8 +97,8 @@ async function getDashboardData(tenantId: string, rangeStr: string) {
 }
 
 export default async function DashboardPage({ searchParams }: { searchParams: { range?: string } }) {
-  const session = await getServerSession(authOptions);
-  const tenantId = (session!.user as any).tenantId as string;
+  const session = await getAppSession();
+  const tenantId = session!.user.tenantId;
   const range = searchParams.range || "7d";
   const data = await getDashboardData(tenantId, range);
 

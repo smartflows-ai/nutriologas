@@ -6,6 +6,7 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import esLocale from "@fullcalendar/core/locales/es";
 import { useState, useCallback, useEffect, useRef } from "react";
+import type FullCalendarType from "@fullcalendar/react";
 import { X, MapPin, FileText, ExternalLink, CalendarDays, ClipboardList } from "lucide-react";
 
 interface CalStats { total: number; attended: number; cancelled: number; }
@@ -31,12 +32,24 @@ export default function CalendarView() {
   const [filter, setFilter] = useState<FilterStatus>("all");
   const allEventsRef = useRef<any[]>([]);
   const successCbRef = useRef<((events: any[]) => void) | null>(null);
+  const calendarRef = useRef<FullCalendarType>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
     check();
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
+  }, []);
+
+  // Re-render FullCalendar when the container resizes (e.g. sidebar collapse/expand)
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver(() => {
+      calendarRef.current?.getApi().updateSize();
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
   }, []);
 
   const applyFilter = useCallback((events: any[], status: FilterStatus, cb?: (events: any[]) => void) => {
@@ -137,7 +150,7 @@ export default function CalendarView() {
           </div>
 
           {/* Calendar */}
-          <div className="rounded-2xl border border-gray-100 bg-white dark:bg-gray-900 shadow-sm overflow-hidden">
+          <div ref={containerRef} className="rounded-2xl border border-gray-100 bg-white dark:bg-gray-900 shadow-sm overflow-hidden">
             <style>{`
             .fc { font-family: inherit; }
             .fc-toolbar-title { font-size: 1.1rem !important; font-weight: 700; color: #111827; }
@@ -165,6 +178,7 @@ export default function CalendarView() {
             }
           `}</style>
             <FullCalendar
+              ref={calendarRef}
               plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
               initialView={isMobile ? "timeGridDay" : "dayGridMonth"}
               locale={esLocale}

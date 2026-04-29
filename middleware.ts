@@ -17,7 +17,7 @@ export async function middleware(req: NextRequest) {
   }
 
   // Extraer token de sesion crudo desde Edge
-  const token = await getToken({ req });
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
   const isLoggedIn = !!token;
   const isAdmin = token?.role === "ADMIN";
 
@@ -42,9 +42,21 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL(isAdmin ? "/admin/dashboard" : "/", nextUrl));
   }
 
-  // Insertar cabeceras personalizadas de manera nativa sin el envoltorio destructivo de NextAuth
   const requestHeaders = new Headers(req.headers);
+  // Quitar cualquier header x-session-user que venga del cliente (prevenir spoofing)
+  requestHeaders.delete("x-session-user");
   requestHeaders.set("x-tenant-slug", tenantIdentifier);
+
+  // Pasar los datos de sesión al servidor via header (getToken ya funciona en middleware)
+  if (token) {
+    requestHeaders.set("x-session-user", JSON.stringify({
+      id: token.id,
+      email: token.email,
+      name: token.name ?? null,
+      role: token.role,
+      tenantId: token.tenantId,
+    }));
+  }
 
   return NextResponse.next({
     request: {

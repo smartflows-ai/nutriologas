@@ -1,18 +1,17 @@
 "use server";
 import { prisma } from "@/lib/db";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getAppSession } from "@/lib/session";
 import { revalidatePath } from "next/cache";
 import { AppProvider } from "@prisma/client";
 
 export async function toggleAssistant(enabled: boolean) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user || (session.user as any).role !== "ADMIN") {
+  const session = await getAppSession();
+  if (!session?.user || session.user.role !== "ADMIN") {
     throw new Error("No autorizado");
   }
-  
+
   await prisma.tenant.update({
-    where: { id: (session.user as any).tenantId },
+    where: { id: session.user.tenantId },
     data: { isAssistantEnabled: enabled }
   });
 
@@ -22,14 +21,14 @@ export async function toggleAssistant(enabled: boolean) {
 }
 
 export async function disconnectApp(provider: string) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user || (session.user as any).role !== "ADMIN") {
+  const session = await getAppSession();
+  if (!session?.user || session.user.role !== "ADMIN") {
     throw new Error("No autorizado");
   }
 
   await prisma.connectedApp.deleteMany({
     where: {
-      tenantId: (session.user as any).tenantId,
+      tenantId: session.user.tenantId,
       provider: provider.toUpperCase() as AppProvider
     }
   });

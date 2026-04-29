@@ -1,15 +1,14 @@
 // src/app/admin/asistente/page.tsx
 import ChatAssistant from "@/components/chat/ChatAssistant";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getAppSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import Link from "next/link";
 import { Bot } from "lucide-react";
 
 export default async function AsistentePage() {
-  const session = await getServerSession(authOptions);
+  const session = await getAppSession();
   const tenant = await prisma.tenant.findUnique({
-    where: { id: (session?.user as any)?.tenantId },
+    where: { id: session?.user.tenantId },
     select: { isAssistantEnabled: true }
   });
 

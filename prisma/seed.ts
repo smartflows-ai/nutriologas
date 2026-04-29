@@ -121,9 +121,53 @@ async function main() {
   });
 
   console.log("✅ Imágenes del carrusel creadas");
+
+  // Crear segundo tenant para pruebas multi-tenant
+  const tenant2 = await prisma.tenant.upsert({
+    where: { slug: "beto" },
+    update: {},
+    create: {
+      name: "Clínica Beto",
+      slug: "beto",
+      whatsappNumber: "5219876543210",
+      businessInfo:
+        "Clínica de nutrición especializada en planes deportivos y rendimiento.",
+      theme: {
+        create: {
+          primaryColor: "#2563eb",
+          secondaryColor: "#1d4ed8",
+          accentColor: "#60a5fa",
+        },
+      },
+    },
+  });
+
+  console.log(`✅ Tenant creado: ${tenant2.name} (slug: ${tenant2.slug})`);
+
+  const admin2 = await prisma.user.upsert({
+    where: {
+      tenantId_email: {
+        tenantId: tenant2.id,
+        email: "betoproyectos8@gmail.com",
+      },
+    },
+    update: { role: "ADMIN" },
+    create: {
+      tenantId: tenant2.id,
+      email: "betoproyectos8@gmail.com",
+      name: "Beto Admin",
+      role: "ADMIN",
+      passwordHash: await bcrypt.hash("admin123", 10),
+    },
+  });
+
+  console.log(`✅ Admin creado: ${admin2.email} (tenant: beto)`);
+
   console.log("\n🎉 Seed completado!");
   console.log(
-    `\n📋 Datos de acceso:\n   Email: irvin.proyecto@gmail.com\n   Tenant slug: doctor`,
+    `\n📋 Datos de acceso:` +
+    `\n   doctor.localhost:3000 → irvin.proyecto@gmail.com / admin123` +
+    `\n   beto.localhost:3000   → betoproyectos8@gmail.com / admin123`,
   );
 }
 

@@ -12,8 +12,13 @@ export async function GET(req: NextRequest) {
   const stateParam = url.searchParams.get("state");
   const origin = url.origin;
 
+  // Handle cancel / error from Google (no code present)
   if (!code) {
-    return NextResponse.redirect(new URL("/admin/apps?error=no_code", req.url));
+    // Bounce back to the correct subdomain if we know it from state
+    const cancelTarget = stateParam && stateParam !== origin
+      ? `${stateParam}/admin/apps?error=cancelled`
+      : `${origin}/admin/apps?error=cancelled`;
+    return NextResponse.redirect(cancelTarget);
   }
 
   // 1. Multi-tenant bounce: If we're on localhost but came from a subdomain,

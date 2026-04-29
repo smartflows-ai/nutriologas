@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { MessageSquare, Settings, Send, User, Bot, RefreshCw, ChevronLeft, X, Check } from "lucide-react";
+import { MessageSquare, Settings, Send, User, Bot, RefreshCw, ChevronLeft, X, Check, PanelLeftClose, PanelLeftOpen, Trash2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -26,8 +26,14 @@ export default function WhatsAppPage() {
   const [config, setConfig] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [chatListCollapsed, setChatListCollapsed] = useState(false);
   const [notificationState, setNotificationState] = useState<{ title: string; message: string; type: "error" | "success" } | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{ chat: any } | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const isAtBottomRef = useRef(true);
+  const prevMessagesLengthRef = useRef(0);
 
   useEffect(() => {
     fetchData();
@@ -35,15 +41,45 @@ export default function WhatsAppPage() {
 
   useEffect(() => {
     if (selectedChat) {
+      // Reset scroll state when switching chats
+      prevMessagesLengthRef.current = 0;
+      isAtBottomRef.current = true;
       fetchMessages(selectedChat.id);
-      const interval = setInterval(() => fetchMessages(selectedChat.id), 5000); // Polling cada 5s
+      const interval = setInterval(() => fetchMessages(selectedChat.id), 5000);
       return () => clearInterval(interval);
     }
   }, [selectedChat]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const isFirstLoad = prevMessagesLengthRef.current === 0 && messages.length > 0;
+    const hasNewMessages = messages.length > prevMessagesLengthRef.current;
+
+    if (isFirstLoad) {
+      // First load: jump instantly to bottom without animation
+      messagesEndRef.current?.scrollIntoView({ behavior: "instant" as ScrollBehavior });
+    } else if (hasNewMessages && isAtBottomRef.current) {
+      // New message arrived and user was already at the bottom: follow it
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+
+    prevMessagesLengthRef.current = messages.length;
   }, [messages]);
+
+  useEffect(() => {
+    if (!confirmDelete) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !deleting) setConfirmDelete(null);
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [confirmDelete, deleting]);
+
+  const handleMessagesScroll = () => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    // Consider "at bottom" if within 80px of the bottom edge
+    isAtBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -74,6 +110,41 @@ export default function WhatsAppPage() {
       }
     } catch (error) {
       console.error("Error fetching messages:", error);
+    }
+  };
+
+  const requestDeleteChat = (chat: any) => {
+    setConfirmDelete({ chat });
+  };
+
+  const confirmDeleteChat = async () => {
+    if (!confirmDelete) return;
+    const chat = confirmDelete.chat;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/apps/whatsapp/chats/${chat.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete");
+
+      setChats(prev => prev.filter(c => c.id !== chat.id));
+      if (selectedChat?.id === chat.id) {
+        setSelectedChat(null);
+        setMessages([]);
+      }
+      setConfirmDelete(null);
+      setNotificationState({
+        title: "Conversación eliminada",
+        message: "La conversación y todos sus mensajes han sido borrados.",
+        type: "success",
+      });
+    } catch (error) {
+      setConfirmDelete(null);
+      setNotificationState({
+        title: "Error al eliminar",
+        message: "No se pudo borrar la conversación. Intenta de nuevo.",
+        type: "error",
+      });
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -137,14 +208,24 @@ export default function WhatsAppPage() {
             <p className="text-sm text-green-600 font-medium mt-1">● Conectado: {config.waPhoneNumber}</p>
           </div>
         </div>
-        <div className="flex gap-2">
-          <button 
+        <div className="flex items-center gap-2">
+          {activeTab === "chats" && (
+            <button
+              onClick={() => setChatListCollapsed(c => !c)}
+              aria-label={chatListCollapsed ? "Mostrar lista" : "Ocultar lista"}
+              className="p-2 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              title={chatListCollapsed ? "Mostrar conversaciones" : "Ocultar conversaciones"}
+            >
+              {chatListCollapsed ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
+            </button>
+          )}
+          <button
             onClick={() => { setActiveTab("chats"); setSelectedChat(null); }}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'chats' ? 'bg-green-50 text-green-700' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100'}`}
           >
             <MessageSquare className="w-4 h-4" /> Conversaciones
           </button>
-          <button 
+          <button
             onClick={() => setActiveTab("settings")}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'settings' ? 'bg-green-50 text-green-700' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100'}`}
           >
@@ -156,7 +237,9 @@ export default function WhatsAppPage() {
       {activeTab === "chats" ? (
         <div className="flex-1 flex overflow-hidden">
           {/* Chat List */}
-          <div className={`w-full md:w-80 bg-white dark:bg-gray-900 border-r border-gray-200 flex flex-col ${selectedChat ? 'hidden md:flex' : 'flex'}`}>
+          <div className={`w-full md:w-80 bg-white dark:bg-gray-900 border-r border-gray-200 flex-col flex-shrink-0
+            ${chatListCollapsed ? 'hidden' : selectedChat ? 'hidden md:flex' : 'flex'}
+          `}>
             <div className="p-4 border-b border-gray-100">
               <button onClick={fetchData} className="w-full flex items-center justify-center gap-2 text-xs text-gray-400 hover:text-green-600 transition-colors">
                 <RefreshCw className="w-3 h-3" /> Actualizar lista
@@ -167,32 +250,41 @@ export default function WhatsAppPage() {
                 <div className="p-8 text-center text-gray-400 text-sm">No hay conversaciones registradas</div>
               ) : (
                 chats.map(chat => (
-                  <button 
-                    key={chat.id}
-                    onClick={() => setSelectedChat(chat)}
-                    className={`w-full p-4 flex items-center gap-3 border-b border-gray-50 hover:bg-gray-50 dark:bg-gray-950 transition-colors text-left ${selectedChat?.id === chat.id ? 'bg-green-50' : ''}`}
-                  >
-                    <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0 text-gray-400">
-                      <User className="w-6 h-6" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-bold text-gray-900 dark:text-white truncate">{chat.pushName || chat.remoteJid.split('@')[0]}</p>
-                      <div className="text-sm text-gray-500 line-clamp-1 break-all">
-                        <ReactMarkdown 
-                          components={{
-                            p: ({node, ...props}) => <span {...props} />,
-                            strong: ({node, ...props}) => <strong className="font-semibold text-gray-700 dark:text-gray-200" {...props} />,
-                            em: ({node, ...props}) => <em className="italic" {...props} />,
-                            br: () => <span className="mx-1 text-gray-300">·</span>,
-                            ul: ({node, ...props}) => <span {...props} />,
-                            li: ({node, ...props}) => <span className="mr-1" {...props} />
-                          }}
-                        >
-                          {parseWhatsAppToMarkdown(chat.lastMessage || "")}
-                        </ReactMarkdown>
+                  <div key={chat.id} className="relative group border-b border-gray-50">
+                    <button
+                      onClick={() => setSelectedChat(chat)}
+                      className={`w-full p-4 pr-12 flex items-center gap-3 hover:bg-gray-50 dark:bg-gray-950 transition-colors text-left ${selectedChat?.id === chat.id ? 'bg-green-50' : ''}`}
+                    >
+                      <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0 text-gray-400">
+                        <User className="w-6 h-6" />
                       </div>
-                    </div>
-                  </button>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-gray-900 dark:text-white truncate">{chat.pushName || chat.remoteJid.split('@')[0]}</p>
+                        <div className="text-sm text-gray-500 line-clamp-1 break-all">
+                          <ReactMarkdown
+                            components={{
+                              p: ({node, ...props}) => <span {...props} />,
+                              strong: ({node, ...props}) => <strong className="font-semibold text-gray-700 dark:text-gray-200" {...props} />,
+                              em: ({node, ...props}) => <em className="italic" {...props} />,
+                              br: () => <span className="mx-1 text-gray-300">·</span>,
+                              ul: ({node, ...props}) => <span {...props} />,
+                              li: ({node, ...props}) => <span className="mr-1" {...props} />
+                            }}
+                          >
+                            {parseWhatsAppToMarkdown(chat.lastMessage || "")}
+                          </ReactMarkdown>
+                        </div>
+                      </div>
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); requestDeleteChat(chat); }}
+                      aria-label="Eliminar conversación"
+                      title="Eliminar conversación"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 ))
               )}
             </div>
@@ -217,7 +309,11 @@ export default function WhatsAppPage() {
                 </div>
 
                 {/* Messages List */}
-                <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50 dark:bg-gray-950">
+                <div
+                  ref={messagesContainerRef}
+                  onScroll={handleMessagesScroll}
+                  className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50 dark:bg-gray-950"
+                >
                   {messages.map((msg, i) => (
                     <div key={msg.id || i} className={`flex ${msg.fromMe ? 'justify-end' : 'justify-start'}`}>
                       <div className={`max-w-[85%] md:max-w-[75%] px-4 py-2 rounded-2xl text-sm shadow-sm ${msg.fromMe ? 'bg-green-600 text-white rounded-tr-none' : 'bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 rounded-tl-none border border-gray-100'}`}>
@@ -343,6 +439,65 @@ export default function WhatsAppPage() {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {confirmDelete && (
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => { if (!deleting) setConfirmDelete(null); }}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-chat-title"
+        >
+          <div
+            className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-sm p-8 text-center border border-gray-100 dark:border-gray-800 animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-6 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 ring-4 ring-red-50 dark:ring-red-900/10">
+              <Trash2 size={28} />
+            </div>
+            <h3 id="delete-chat-title" className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+              ¿Eliminar conversación?
+            </h3>
+            <p className="text-gray-500 dark:text-gray-400 text-sm mb-2 leading-relaxed">
+              Estás a punto de eliminar la conversación con{" "}
+              <span className="font-semibold text-gray-900 dark:text-white">
+                {confirmDelete.chat.pushName || confirmDelete.chat.remoteJid?.split('@')[0]}
+              </span>
+              .
+            </p>
+            <p className="text-gray-400 dark:text-gray-500 text-xs mb-8 leading-relaxed">
+              Esta acción es permanente. Se borrarán todos los mensajes guardados.
+            </p>
+            <div className="flex flex-col-reverse sm:flex-row gap-3">
+              <button
+                disabled={deleting}
+                onClick={() => setConfirmDelete(null)}
+                className="flex-1 px-6 py-3 text-sm font-bold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 rounded-2xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancelar
+              </button>
+              <button
+                disabled={deleting}
+                onClick={confirmDeleteChat}
+                className="flex-1 flex items-center justify-center gap-2 px-6 py-3 text-sm font-bold text-white bg-red-600 rounded-2xl hover:bg-red-700 transition-all shadow-lg shadow-red-600/20 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {deleting ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Eliminando…</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    <span>Eliminar</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

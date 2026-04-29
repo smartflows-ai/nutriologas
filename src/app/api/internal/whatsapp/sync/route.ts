@@ -84,7 +84,31 @@ export async function POST(req: NextRequest) {
       }
     });
 
-    return Response.json({ success: true, chatId: chat.id });
+    // 3. Loop guard: si el bot ya envió ≥3 mensajes a este JID en los últimos 60s,
+    //    asumimos un loop runaway y dejamos de responder.
+    let shouldRespond = true;
+    let loopReason: string | null = null;
+
+    if (!fromMe) {
+      const cutoff = new Date(Date.now() - 60_000);
+
+      const recentBotMessages = await (prisma as any).whatsAppMessage.count({
+        where: {
+          tenantId,
+          remoteJid,
+          fromMe: true,
+          timestamp: { gte: cutoff },
+        },
+      });
+
+      if (recentBotMessages >= 3) {
+        shouldRespond = false;
+        loopReason = `loop_detected: ${recentBotMessages} bot messages in last 60s`;
+        console.warn(`[whatsapp/sync] Loop guard triggered for ${remoteJid} — ${loopReason}`);
+      }
+    }
+
+    return Response.json({ success: true, chatId: chat.id, shouldRespond, loopReason });
   } catch (error: any) {
     console.error("Error syncing WhatsApp message:", error);
     return Response.json({ error: error.message }, { status: 500 });

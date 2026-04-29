@@ -11,11 +11,14 @@ import bcrypt from "bcryptjs";
 // In dev: ".localhost" so doctor.localhost:3000 shares cookies with localhost:3000
 // In prod: ".yourdomain.com" so tenant.yourdomain.com works
 const useSecureCookies = process.env.NODE_ENV === "production";
+// In dev: no domain → host-specific cookie per subdomain (Chrome rejects Domain=.localhost)
+// In prod: wildcard domain so all subdomains share the session
 const cookieDomain = process.env.NODE_ENV === "production"
   ? `.${new URL(process.env.NEXTAUTH_URL ?? "http://localhost:3000").hostname.replace(/^www\./, "")}`
-  : ".localhost";
+  : undefined;
 
 export const authOptions: NextAuthOptions = {
+  secret: process.env.NEXTAUTH_SECRET,
   cookies: {
     sessionToken: {
       name: useSecureCookies ? "__Secure-next-auth.session-token" : "next-auth.session-token",
@@ -24,7 +27,7 @@ export const authOptions: NextAuthOptions = {
         sameSite: "lax",
         path: "/",
         secure: useSecureCookies,
-        domain: cookieDomain,
+        ...(cookieDomain ? { domain: cookieDomain } : {}),
       },
     },
     callbackUrl: {
@@ -34,7 +37,7 @@ export const authOptions: NextAuthOptions = {
         sameSite: "lax",
         path: "/",
         secure: useSecureCookies,
-        domain: cookieDomain,
+        ...(cookieDomain ? { domain: cookieDomain } : {}),
       },
     },
     csrfToken: {
@@ -44,7 +47,6 @@ export const authOptions: NextAuthOptions = {
         sameSite: "lax",
         path: "/",
         secure: useSecureCookies,
-        // NOTE: csrfToken does NOT get a domain — it must be host-only for security
       },
     },
   },

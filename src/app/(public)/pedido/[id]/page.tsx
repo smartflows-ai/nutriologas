@@ -1,6 +1,5 @@
 // src/app/(public)/pedido/[id]/page.tsx
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getAppSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { formatPrice, formatDate } from "@/lib/utils";
 import { notFound, redirect } from "next/navigation";
@@ -38,7 +37,7 @@ export default async function PedidoPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ success?: string; print?: string }>;
 }) {
-  const session = await getServerSession(authOptions);
+  const session = await getAppSession();
   if (!session?.user) redirect("/login");
 
   const { id } = await params;
@@ -47,7 +46,7 @@ export default async function PedidoPage({
   const isPrintMode = print === "true";
 
   const order = await prisma.order.findFirst({
-    where: { id, userId: session.user.id! },
+    where: { id, userId: session.user.id },
     include: {
       items: {
         include: {

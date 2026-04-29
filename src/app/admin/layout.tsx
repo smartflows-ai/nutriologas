@@ -1,15 +1,14 @@
 // src/app/admin/layout.tsx
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import { prisma } from "@/lib/db";
+import { getAppSession } from "@/lib/session";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const session = await getServerSession(authOptions);
-  if (!session || (session.user as any).role !== "ADMIN") redirect("/login");
+  const session = await getAppSession();
+  if (!session || session.user.role !== "ADMIN") redirect("/login");
 
-  const tenantId = (session.user as any).tenantId;
+  const tenantId = session.user.tenantId;
   const tenant = await prisma.tenant.findUnique({ 
     where: { id: tenantId }, 
     include: { theme: true, connectedApps: true } 
@@ -31,8 +30,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 overflow-hidden" style={{ fontFamily: 'var(--font-family-base), system-ui, sans-serif' }}>
       <style dangerouslySetInnerHTML={{ __html: dynamicStyles }} />
-      <AdminSidebar 
-        userName={session.user?.name ?? session.user?.email} 
+      <AdminSidebar
+        userName={session.user.name ?? session.user.email}
         isAssistantEnabled={tenant?.isAssistantEnabled ?? false}
         connectedApps={tenant?.connectedApps.map(a => a.provider) ?? []}
       />

@@ -1,12 +1,11 @@
 // src/app/api/apps/oauth/google/start/route.ts
 // Initiates Google OAuth flow with Calendar + Sheets scopes.
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getAppSession } from "@/lib/session";
 
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user || (session.user as any).role !== "ADMIN") {
+  const session = await getAppSession();
+  if (!session?.user || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
@@ -45,7 +44,7 @@ export async function GET(req: NextRequest) {
   authUrl.searchParams.set("hd_host", host);
 
   // Force Google to use this specific email
-  if (session.user?.email) {
+  if (session.user.email) {
     authUrl.searchParams.set("login_hint", session.user.email);
     authUrl.searchParams.set("hd", session.user.email.split("@")[1] || "");
   }

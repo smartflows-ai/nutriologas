@@ -40,9 +40,7 @@ export async function GET(req: NextRequest) {
       { headers: { apikey: EVOLUTION_API_KEY } }
     );
     const infoData = infoRes.ok ? await infoRes.json() : [];
-    const phone = infoData[0]?.instance?.profilePictureUrl
-      ? infoData[0]?.instance?.number
-      : null;
+    const phone = infoData[0]?.instance?.number ?? infoData[0]?.instance?.ownerJid?.replace(/@.*$/, "") ?? null;
 
     await prisma.connectedApp.update({
       where: { tenantId_provider: { tenantId, provider: "WHATSAPP" } },
