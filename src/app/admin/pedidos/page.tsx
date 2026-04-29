@@ -1,6 +1,5 @@
 // src/app/admin/pedidos/page.tsx
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getAppSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { formatPrice, formatDate } from "@/lib/utils";
 import Link from "next/link";
@@ -26,8 +25,8 @@ export default async function PedidosPage({
 }: {
   searchParams: Promise<{ status?: string; page?: string }>;
 }) {
-  const session = await getServerSession(authOptions);
-  const tenantId = (session!.user as any).tenantId as string;
+  const session = await getAppSession();
+  const tenantId = session!.user.tenantId;
   const params = await searchParams;
   const statusFilter = params.status;
   const currentPage = parseInt(params.page || "1");

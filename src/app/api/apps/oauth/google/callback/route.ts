@@ -12,8 +12,13 @@ export async function GET(req: NextRequest) {
   const stateParam = url.searchParams.get("state");
   const origin = url.origin;
 
+  // Handle cancel / error from Google (no code present)
   if (!code) {
-    return NextResponse.redirect(new URL("/admin/apps?error=no_code", req.url));
+    // Bounce back to the correct subdomain if we know it from state
+    const cancelTarget = stateParam && stateParam !== origin
+      ? `${stateParam}/admin/apps?error=cancelled`
+      : `${origin}/admin/apps?error=cancelled`;
+    return NextResponse.redirect(cancelTarget);
   }
 
   // 1. Multi-tenant bounce: If we're on localhost but came from a subdomain,
@@ -29,9 +34,9 @@ export async function GET(req: NextRequest) {
   }
 
   // 2. Resolve redirect_uri (Google strictly demands the exact string used in step 1)
+  // We always use the base domain for the redirect_uri (what's registered in Google Console)
   const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
-  const originalUri = url.searchParams.get("original_uri");
-  const redirectUri = originalUri ?? `${baseUrl}/api/apps/oauth/google/callback`;
+  const redirectUri = `${baseUrl}/api/apps/oauth/google/callback`;
 
   // 3. Exchange code for tokens FIRST (before session check)
   const tokenRes = await fetch("https://oauth2.googleapis.com/token", {

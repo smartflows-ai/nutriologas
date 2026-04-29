@@ -1,6 +1,5 @@
 // src/app/admin/pedidos/[id]/page.tsx
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getAppSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { formatPrice, formatDate } from "@/lib/utils";
 import { notFound } from "next/navigation";
@@ -13,8 +12,8 @@ export default async function OrderDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const session = await getServerSession(authOptions);
-  const tenantId = (session!.user as any).tenantId as string;
+  const session = await getAppSession();
+  const tenantId = session!.user.tenantId;
   const { id } = await params;
 
   const order = await prisma.order.findFirst({

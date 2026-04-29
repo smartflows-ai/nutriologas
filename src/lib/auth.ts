@@ -7,7 +7,49 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@/lib/db";
 import bcrypt from "bcryptjs";
 
+// Cookie domain for subdomain sharing.
+// In dev: ".localhost" so doctor.localhost:3000 shares cookies with localhost:3000
+// In prod: ".yourdomain.com" so tenant.yourdomain.com works
+const useSecureCookies = process.env.NODE_ENV === "production";
+// In dev: no domain → host-specific cookie per subdomain (Chrome rejects Domain=.localhost)
+// In prod: wildcard domain so all subdomains share the session
+const cookieDomain = process.env.NODE_ENV === "production"
+  ? `.${process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "newaigent.com"}`
+  : undefined;
+
 export const authOptions: NextAuthOptions = {
+  secret: process.env.NEXTAUTH_SECRET,
+  cookies: {
+    sessionToken: {
+      name: useSecureCookies ? "__Secure-next-auth.session-token" : "next-auth.session-token",
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: useSecureCookies,
+        ...(cookieDomain ? { domain: cookieDomain } : {}),
+      },
+    },
+    callbackUrl: {
+      name: useSecureCookies ? "__Secure-next-auth.callback-url" : "next-auth.callback-url",
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: useSecureCookies,
+        ...(cookieDomain ? { domain: cookieDomain } : {}),
+      },
+    },
+    csrfToken: {
+      name: useSecureCookies ? "__Host-next-auth.csrf-token" : "next-auth.csrf-token",
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: useSecureCookies,
+      },
+    },
+  },
   adapter: {
     ...PrismaAdapter(prisma),
     getUserByEmail: async (email) => {
@@ -55,40 +97,6 @@ export const authOptions: NextAuthOptions = {
     },
   },
   session: { strategy: "jwt" },
-  cookies: {
-    sessionToken: {
-      name: `__Secure-next-auth.session-token`,
-      options: {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-        secure: true,
-        domain: process.env.NODE_ENV === "production"
-          ? `.${process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "newaigent.com"}`
-          : undefined,
-      },
-    },
-    callbackUrl: {
-      name: `__Secure-next-auth.callback-url`,
-      options: {
-        sameSite: "lax",
-        path: "/",
-        secure: true,
-        domain: process.env.NODE_ENV === "production"
-          ? `.${process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "newaigent.com"}`
-          : undefined,
-      },
-    },
-    csrfToken: {
-      name: `__Host-next-auth.csrf-token`,
-      options: {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-        secure: true,
-      },
-    },
-  },
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID ?? "",
@@ -101,7 +109,11 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials: any, req) {
-        if (!credentials?.email || !credentials?.password) return null;
+        console.log("[AUTH] ===== authorize() called =====");
+        if (!credentials?.email || !credentials?.password) {
+          console.log("[AUTH] Missing email or password");
+          return null;
+        }
         const email = credentials.email.trim().toLowerCase();
 
         const headersList = headers();
@@ -118,6 +130,7 @@ export const authOptions: NextAuthOptions = {
         } else {
           tenantIdentifier = host.split(":")[0];
         }
+        console.log("[AUTH] Tenant identifier:", tenantIdentifier);
 
         // 2. Buscar clínica y bloquear si no existe
         let tenant = await prisma.tenant.findFirst({
@@ -125,9 +138,10 @@ export const authOptions: NextAuthOptions = {
         });
 
         if (!tenant) {
-          console.warn(`[AUTH] Intento de login en dominio sin tenant: ${host}`);
+          console.warn(`[AUTH] Tenant NOT found for: ${tenantIdentifier} (host: ${host})`);
           return null;
         }
+        console.log("[AUTH] Tenant found:", tenant.id, tenant.name);
 
         const user = await prisma.user.findFirst({
           where: { email, tenantId: tenant.id },

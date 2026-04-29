@@ -27,19 +27,7 @@ export default function LoginPage() {
       setError("Email o contraseña incorrectos");
       setLoading(false);
     } else {
-      // Verificar rol para redirigir inmediatamente al lugar correcto
-      try {
-        const sessionRes = await fetch("/api/auth/session");
-        const sessionData = await sessionRes.json();
-        
-        if (sessionData?.user?.role === "ADMIN") {
-          window.location.href = "/admin/dashboard";
-        } else {
-          window.location.href = "/";
-        }
-      } catch (err) {
-        window.location.href = "/";
-      }
+      window.location.href = "/admin/dashboard";
     }
   };
 

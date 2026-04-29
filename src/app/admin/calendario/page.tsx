@@ -1,13 +1,12 @@
 // src/app/admin/calendario/page.tsx
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getAppSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import CalendarView from "@/components/crm/CalendarView";
 import Link from "next/link";
 
 export default async function CalendarioPage() {
-  const session = await getServerSession(authOptions);
-  const tenantId = (session!.user as any).tenantId as string;
+  const session = await getAppSession();
+  const tenantId = session!.user.tenantId;
 
   // Check if any calendar provider is connected (connected_apps table)
   const calendarApp = await prisma.connectedApp.findFirst({

@@ -1,18 +1,17 @@
 // src/app/admin/layout.tsx
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import TrialBanner from "@/components/admin/TrialBanner";
 import TrialExpiredGate from "@/components/admin/TrialExpiredGate";
 import { prisma } from "@/lib/db";
+import { getAppSession } from "@/lib/session";
 import { getTrialDaysLeft, isTenantOnTrial, isSubscriptionBlocked } from "@/lib/trial";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const session = await getServerSession(authOptions);
-  if (!session || (session.user as any).role !== "ADMIN") redirect("/login");
+  const session = await getAppSession();
+  if (!session || session.user.role !== "ADMIN") redirect("/login");
 
-  const tenantId = (session.user as any).tenantId;
+  const tenantId = session.user.tenantId;
   const tenant = await prisma.tenant.findUnique({ 
     where: { id: tenantId }, 
     include: { theme: true, connectedApps: true, subscription: true } 

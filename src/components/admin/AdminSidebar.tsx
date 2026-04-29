@@ -18,6 +18,8 @@ import {
   Plug,
   MessageSquare,
   HelpCircle,
+  PanelLeftClose,
+  PanelLeftOpen,
   Facebook,
   Globe
 } from "lucide-react";
@@ -62,6 +64,7 @@ interface Props {
 export default function AdminSidebar({ userName, isAssistantEnabled, connectedApps }: Props) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
 
   // Close sidebar on route change (mobile nav)
   useEffect(() => {
@@ -95,24 +98,22 @@ export default function AdminSidebar({ userName, isAssistantEnabled, connectedAp
     };
   });
 
-  const sidebarContent = (
+  // ── Mobile sidebar content (always full) ──
+  const mobileSidebarContent = (
     <div className="flex flex-col h-full bg-white/70 dark:bg-gray-950/70 backdrop-blur-md border-r border-gray-100 dark:border-transparent">
-      {/* Brand + close button (mobile only) */}
       <div className="px-6 py-6 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
         <div>
           <h1 className="font-bold text-xl text-primary tracking-tight">CRM Nutrición</h1>
           <p className="text-xs text-gray-400 font-medium truncate max-w-[160px] uppercase mt-0.5">{userName}</p>
         </div>
         <button
-          className="md:hidden p-1 rounded-lg text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:text-gray-400 dark:hover:text-gray-300 transition-colors"
+          className="p-1 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
           onClick={() => setOpen(false)}
           aria-label="Cerrar menú"
         >
           <X size={20} />
         </button>
       </div>
-
-      {/* Nav */}
       <nav className="flex-1 px-4 py-6 space-y-6 overflow-y-auto">
         {navCategories.map((category) => (
           <div key={category.title}>
@@ -123,20 +124,72 @@ export default function AdminSidebar({ userName, isAssistantEnabled, connectedAp
               {category.items.map(({ href, label, icon: Icon }) => {
                 const active = pathname === href;
                 return (
-                  <Link
-                    key={href}
-                    href={href}
+                  <Link key={href} href={href}
                     className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group relative
                       ${active
                         ? "bg-gradient-to-r from-green-100/50 dark:from-primary/10 to-transparent text-primary font-semibold shadow-sm"
-                        : "text-gray-600 dark:text-gray-400 hover:bg-gray-100/80 dark:hover:bg-gray-800/80 hover:text-gray-900 dark:text-white dark:hover:text-gray-200"}`}
+                        : "text-gray-600 dark:text-gray-400 hover:bg-gray-100/80 dark:hover:bg-gray-800/80 hover:text-gray-900 dark:hover:text-gray-200"}`}
                   >
                     {active && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full" />}
-                    <Icon
-                      size={18}
-                      className={active ? "text-primary" : "text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:text-gray-400 dark:group-hover:text-gray-300 transition-colors"}
-                    />
+                    <Icon size={18} className={active ? "text-primary" : "text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors"} />
                     {label}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </nav>
+      <div className="px-3 pb-4">
+        <SignOutButton><LogOut size={18} /> Cerrar sesión</SignOutButton>
+      </div>
+    </div>
+  );
+
+  // ── Desktop sidebar content (collapse-aware) ──
+  const desktopSidebarContent = (
+    <div className="flex flex-col h-full bg-white/70 dark:bg-gray-950/70 backdrop-blur-md border-r border-gray-100 dark:border-transparent overflow-hidden">
+      {/* Brand + collapse toggle */}
+      <div className={`py-6 border-b border-gray-100 dark:border-gray-800 flex items-center ${collapsed ? "justify-center px-2" : "justify-between px-6"}`}>
+        {!collapsed && (
+          <div className="min-w-0">
+            <h1 className="font-bold text-xl text-primary tracking-tight">CRM Nutrición</h1>
+            <p className="text-xs text-gray-400 font-medium truncate max-w-[160px] uppercase mt-0.5">{userName}</p>
+          </div>
+        )}
+        <button
+          onClick={() => setCollapsed(c => !c)}
+          aria-label={collapsed ? "Expandir menú" : "Contraer menú"}
+          className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex-shrink-0"
+        >
+          {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+        </button>
+      </div>
+
+      {/* Nav */}
+      <nav className="flex-1 px-2 py-6 space-y-6 overflow-y-auto">
+        {navCategories.map((category) => (
+          <div key={category.title}>
+            {!collapsed && (
+              <h3 className="px-2 text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">
+                {category.title}
+              </h3>
+            )}
+            {collapsed && <div className="mb-2 border-t border-gray-100 dark:border-gray-800" />}
+            <div className="space-y-1">
+              {category.items.map(({ href, label, icon: Icon }) => {
+                const active = pathname === href;
+                return (
+                  <Link key={href} href={href} title={collapsed ? label : undefined}
+                    className={`flex items-center rounded-xl text-sm font-medium transition-all duration-200 group relative
+                      ${collapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2.5"}
+                      ${active
+                        ? "bg-gradient-to-r from-green-100/50 dark:from-primary/10 to-transparent text-primary font-semibold shadow-sm"
+                        : "text-gray-600 dark:text-gray-400 hover:bg-gray-100/80 dark:hover:bg-gray-800/80 hover:text-gray-900 dark:hover:text-gray-200"}`}
+                  >
+                    {active && !collapsed && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full" />}
+                    <Icon size={18} className={active ? "text-primary" : "text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors"} />
+                    {!collapsed && label}
                   </Link>
                 );
               })}
@@ -146,10 +199,12 @@ export default function AdminSidebar({ userName, isAssistantEnabled, connectedAp
       </nav>
 
       {/* Sign out */}
-      <div className="px-3 pb-4">
-        <SignOutButton>
-          <LogOut size={18} /> Cerrar sesión
-        </SignOutButton>
+      <div className={`pb-4 ${collapsed ? "px-2" : "px-3"}`}>
+        {collapsed ? (
+          <SignOutButton iconOnly><LogOut size={18} /></SignOutButton>
+        ) : (
+          <SignOutButton><LogOut size={18} /> Cerrar sesión</SignOutButton>
+        )}
       </div>
     </div>
   );
@@ -181,12 +236,14 @@ export default function AdminSidebar({ userName, isAssistantEnabled, connectedAp
           ${open ? "translate-x-0" : "-translate-x-full"}
         `}
       >
-        {sidebarContent}
+        {mobileSidebarContent}
       </aside>
 
-      {/* ── Desktop: static sidebar ── */}
-      <aside className="hidden md:flex md:flex-col w-64 border-r border-white/60 shadow-[4px_0_24px_rgba(0,0,0,0.02)] flex-shrink-0 z-10 relative">
-        {sidebarContent}
+      {/* ── Desktop: collapsible static sidebar ── */}
+      <aside
+        className={`hidden md:flex md:flex-col flex-shrink-0 z-10 relative border-r border-white/60 shadow-[4px_0_24px_rgba(0,0,0,0.02)] transition-all duration-300 ease-in-out ${collapsed ? "w-16" : "w-64"}`}
+      >
+        {desktopSidebarContent}
       </aside>
     </>
   );

@@ -114,7 +114,21 @@ export default function SocialCampaignPage() {
   // Notification
   const [notif, setNotif] = useState<{ msg: string; ok: boolean } | null>(null);
 
+  // Delete confirmation modal
+  const [confirmDelete, setConfirmDelete] = useState<SocialCampaign | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
   useEffect(() => { loadAll(); }, []);
+
+  // ESC key closes the delete modal (when not in flight)
+  useEffect(() => {
+    if (!confirmDelete) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !deleting) setConfirmDelete(null);
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [confirmDelete, deleting]);
 
   const loadAll = async () => {
     setLoading(true);
@@ -200,10 +214,26 @@ export default function SocialCampaignPage() {
   };
 
   // ── Delete ────────────────────────────────────────────────────────────────
-  const deleteCampaign = async (id: string) => {
-    if (!confirm("¿Eliminar esta campaña?")) return;
-    await fetch(`/api/campaigns/social/${id}`, { method: "DELETE" });
-    loadAll();
+  const requestDeleteCampaign = (campaign: SocialCampaign) => {
+    setConfirmDelete(campaign);
+  };
+
+  const confirmDeleteCampaign = async () => {
+    if (!confirmDelete) return;
+    const campaign = confirmDelete;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/campaigns/social/${campaign.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete");
+      setConfirmDelete(null);
+      setNotif({ msg: "Campaña eliminada", ok: true });
+      loadAll();
+    } catch {
+      setConfirmDelete(null);
+      setNotif({ msg: "Error al eliminar la campaña", ok: false });
+    } finally {
+      setDeleting(false);
+    }
   };
 
   // ── Edit ──────────────────────────────────────────────────────────────────
@@ -357,7 +387,7 @@ export default function SocialCampaignPage() {
                     className="p-2 text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-all">
                     {c.isActive ? <Pause size={15} /> : <Play size={15} />}
                   </button>
-                  <button onClick={() => deleteCampaign(c.id)} title="Eliminar"
+                  <button onClick={() => requestDeleteCampaign(c)} title="Eliminar"
                     className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all">
                     <Trash2 size={15} />
                   </button>
@@ -645,6 +675,65 @@ export default function SocialCampaignPage() {
             className="btn-primary w-full py-4 text-base flex justify-center items-center gap-2 disabled:opacity-50">
             {saving ? <><Loader2 size={18} className="animate-spin" /> Guardando...</> : <><Zap size={18} /> {editId ? "Guardar cambios" : "Crear campaña"}</>}
           </button>
+        </div>
+      )}
+
+      {/* ── DELETE CONFIRMATION MODAL ────────────────────────────────────── */}
+      {confirmDelete && (
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => { if (!deleting) setConfirmDelete(null); }}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-campaign-title"
+        >
+          <div
+            className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-sm p-7 text-center border border-gray-100 dark:border-gray-800 animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mx-auto w-14 h-14 rounded-full flex items-center justify-center mb-5 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 ring-4 ring-red-50 dark:ring-red-900/10">
+              <Trash2 size={24} />
+            </div>
+            <h3 id="delete-campaign-title" className="text-lg font-bold text-gray-900 dark:text-white mb-2">
+              ¿Eliminar campaña?
+            </h3>
+            <p className="text-gray-500 dark:text-gray-400 text-sm mb-2 leading-relaxed">
+              Estás a punto de eliminar la campaña{" "}
+              <span className="font-semibold text-gray-900 dark:text-white">
+                {confirmDelete.name}
+              </span>
+              .
+            </p>
+            <p className="text-gray-400 dark:text-gray-500 text-xs mb-6 leading-relaxed">
+              Esta acción es permanente. Los posts ya publicados se conservarán en el historial.
+            </p>
+            <div className="flex flex-col-reverse sm:flex-row gap-2.5">
+              <button
+                disabled={deleting}
+                onClick={() => setConfirmDelete(null)}
+                className="flex-1 px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancelar
+              </button>
+              <button
+                disabled={deleting}
+                onClick={confirmDeleteCampaign}
+                className="flex-1 flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-red-600 rounded-xl hover:bg-red-700 transition-all shadow-lg shadow-red-600/20 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {deleting ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    <span>Eliminando…</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={14} />
+                    <span>Eliminar</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
