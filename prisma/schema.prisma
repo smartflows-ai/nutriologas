@@ -31,6 +31,9 @@ model Tenant {
   whatsappChats   WhatsAppChat[]
   whatsappMessages WhatsAppMessage[]
   faqs            FAQ[]
+  socialCampaigns SocialCampaign[]
+  socialPosts     SocialPost[]
+  subscription    Subscription?
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -126,7 +129,6 @@ enum AppProvider {
   MICROSOFT
   WHATSAPP
   FACEBOOK
-  INSTAGRAM
 }
 
 model ConnectedApp {
@@ -312,4 +314,106 @@ model FAQ {
   updatedAt DateTime @updatedAt
 
   @@map("faqs")
+}
+
+// ─── CAMPAÑAS SOCIALES ───────────────────────────────────
+enum CampaignFrequency {
+  DAILY
+  EVERY_3_DAYS
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+}
+
+enum SocialPlatform {
+  FACEBOOK
+  INSTAGRAM
+}
+
+model SocialCampaign {
+  id              String             @id @default(uuid())
+  tenantId        String
+  tenant          Tenant             @relation(fields: [tenantId], references: [id])
+  name            String             @default("Campaña")
+  platforms       SocialPlatform[]   // [FACEBOOK, INSTAGRAM]
+  productIds      String[]           // IDs of selected products
+  campaignGoal    String             // "promocion" | "informativo" | "urgencia" | "testimonio" | "educativo"
+  tone            String             // "profesional" | "cercano" | "motivacional" | "urgente"
+  extraContext    String?            @db.Text
+  frequency       CampaignFrequency  @default(WEEKLY)
+  isActive        Boolean            @default(true)
+  startDate       DateTime           @default(now())
+  endDate         DateTime
+  lastPostedAt    DateTime?
+  nextPostAt      DateTime?          // computed on create/update
+  
+  // Tracking automation (n8n)
+  lastResults     Json?              // Stores { facebook: { postId, success }, instagram: { ... } }
+  lastError       String?            @db.Text
+  lastErrorAt     DateTime?
+  errorNode       String?            // The n8n node where the error occurred
+  
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  posts           SocialPost[]
+
+  @@map("social_campaigns")
+}
+
+model SocialPost {
+  id              String         @id @default(uuid())
+  tenantId        String
+  tenant          Tenant         @relation(fields: [tenantId], references: [id])
+  campaignId      String
+  campaign        SocialCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  
+  content         String         @db.Text   // The AI generated text
+  platforms       String[]       // e.g. ["FACEBOOK", "INSTAGRAM"]
+  frequency       String         // Inherited from the campaign at the time of posting
+  
+  postUrls        Json?          // { facebook: "url", instagram: "url" }
+  postedAt        DateTime       @default(now())
+
+  @@index([tenantId])
+  @@index([campaignId])
+  @@map("social_posts")
+}
+
+// ─── SUSCRIPCIONES (Stripe - Platform Billing) ──────────
+enum PlanId {
+  STARTER
+  PRO
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  UNPAID
+}
+
+model Subscription {
+  id                   String             @id @default(uuid())
+  tenantId             String             @unique
+  tenant               Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  stripeCustomerId     String             @unique
+  stripeSubscriptionId String?            @unique
+  stripePriceId        String?
+
+  plan                 PlanId             @default(STARTER)
+  status               SubscriptionStatus @default(TRIALING)
+
+  trialEndsAt          DateTime
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean            @default(false)
+
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  @@map("subscriptions")
 }

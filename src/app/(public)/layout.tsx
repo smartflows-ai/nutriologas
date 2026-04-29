@@ -21,14 +21,27 @@ async function getTenantPublicData() {
 }
 
 export default async function PublicLayout({ children }: { children: React.ReactNode }) {
+  const slug = getTenantSlug();
+
+  // ── Root domain (no subdomain) ─────────────────────────────────────────────
+  // Marketing page (localhost:3000 / newaigent.com) handles its own layout.
+  // Just wrap in SessionProvider and pass children through.
+  if (!slug) {
+    return (
+      <SessionProviderWrapper>
+        {children}
+      </SessionProviderWrapper>
+    );
+  }
+
+  // ── Tenant subdomain ───────────────────────────────────────────────────────
+  // Full tenant layout with branding, Navbar, WhatsApp button, and footer.
   const { whatsapp, name, theme } = await getTenantPublicData();
   
-  // Dynamic Theme injection
-  const pColor = (theme as any)?.primaryColor || "#16a34a"; // emerald-600 default
+  const pColor = (theme as any)?.primaryColor || "#16a34a";
   const sColor = (theme as any)?.secondaryColor || "#15803d"; 
   const fFamily = (theme as any)?.fontFamily || "Inter, sans-serif";
   
-  // Inline dynamic CSS for global theme overrides
   const dynamicStyles = `
     :root {
       --color-primary: ${pColor};
@@ -39,6 +52,7 @@ export default async function PublicLayout({ children }: { children: React.React
       font-family: var(--font-family-base), system-ui, sans-serif !important;
     }
   `;
+
   return (
     <SessionProviderWrapper>
       <style dangerouslySetInnerHTML={{ __html: dynamicStyles }} />

@@ -26,8 +26,8 @@ export async function GET(req: NextRequest) {
   const accessToken = await getAppToken(tenantId, provider);
   if (!accessToken) {
     return NextResponse.json(
-      { error: "Token expirado o inválido. Reconecta la app desde Apps." },
-      { status: 400 }
+      { error: "Token expirado o inválido. Reconecta la app desde Apps.", errorCode: "TOKEN_EXPIRED" },
+      { status: 401 }
     );
   }
 

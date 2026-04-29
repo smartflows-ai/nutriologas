@@ -44,7 +44,7 @@ const FEATURES: FeatureDef[] = [
     color: "from-blue-500 to-indigo-600",
     providers: [
       { id: "GOOGLE", name: "Google", connectUrl: "/api/apps/oauth/google/start" },
-      { id: "MICROSOFT", name: "Outlook", connectUrl: "/api/apps/oauth/microsoft/start" },
+      // { id: "MICROSOFT", name: "Outlook", connectUrl: "/api/apps/oauth/microsoft/start" },
     ]
   },
   {
@@ -59,22 +59,14 @@ const FEATURES: FeatureDef[] = [
     ]
   },
   {
-    id: "facebook",
-    name: "Facebook",
-    description: "Páginas, Messenger y anuncios.",
-    icon: "📘",
-    color: "from-blue-600 to-blue-700",
-    comingSoon: true,
-    providers: []
-  },
-  {
-    id: "instagram",
-    name: "Instagram",
-    description: "Publicaciones, DMs y métricas.",
-    icon: "📸",
-    color: "from-pink-500 to-purple-600",
-    comingSoon: true,
-    providers: []
+    id: "social",
+    name: "Campañas Sociales",
+    description: "Genera y publica contenido automático con IA en Facebook e Instagram.",
+    icon: "🌐",
+    color: "from-blue-600 via-purple-600 to-pink-600",
+    providers: [
+      { id: "FACEBOOK", name: "Meta (Facebook/Instagram)", connectUrl: "/api/apps/oauth/facebook/start" }
+    ]
   },
 ];
 
@@ -276,6 +268,7 @@ export default function AppsPage() {
     if (providerId === 'GOOGLE') return 'Google Calendar';
     if (providerId === 'MICROSOFT') return 'Outlook';
     if (providerId === 'WHATSAPP') return 'WhatsApp';
+    if (providerId === 'FACEBOOK') return 'Facebook';
     return providerId;
   };
 

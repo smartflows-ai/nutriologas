@@ -17,10 +17,10 @@ export default function HeroCarousel({ images }: { images: CarouselImage[] }) {
   if (!images.length) return null;
 
   return (
-    <div className="relative overflow-hidden bg-gray-100" ref={emblaRef}>
+    <div className="relative overflow-hidden bg-gray-900 group" ref={emblaRef}>
       <div className="flex">
         {images.map((img) => (
-          <div key={img.id} className="relative flex-[0_0_100%] h-[420px]">
+          <div key={img.id} className="relative flex-[0_0_100%] h-[60vh] lg:h-[75vh]">
             <Image
               src={img.url}
               alt={img.alt ?? "Banner"}
@@ -28,16 +28,24 @@ export default function HeroCarousel({ images }: { images: CarouselImage[] }) {
               className="object-cover"
               priority
             />
+            {/* Subtle gradient overlay to make things feel premium */}
+            <div className="absolute inset-0 bg-gradient-to-t from-gray-900/80 via-gray-900/20 to-transparent pointer-events-none" />
           </div>
         ))}
       </div>
       {images.length > 1 && (
         <>
-          <button onClick={prev} className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white rounded-full p-2 transition-colors">
-            <ChevronLeft size={24} />
+          <button 
+            onClick={prev} 
+            className="absolute left-6 top-1/2 -translate-y-1/2 bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/20 hover:scale-110 text-white rounded-full p-3 transition-all duration-300 opacity-0 group-hover:opacity-100"
+          >
+            <ChevronLeft size={28} />
           </button>
-          <button onClick={next} className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white rounded-full p-2 transition-colors">
-            <ChevronRight size={24} />
+          <button 
+            onClick={next} 
+            className="absolute right-6 top-1/2 -translate-y-1/2 bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/20 hover:scale-110 text-white rounded-full p-3 transition-all duration-300 opacity-0 group-hover:opacity-100"
+          >
+            <ChevronRight size={28} />
           </button>
         </>
       )}
