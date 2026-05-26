@@ -29,13 +29,13 @@ export default function MarketingPage() {
       }}
     >
       {/* Nav — Sign In opens the modal */}
-      <MarketingNav onSignIn={() => setShowSignIn(true)} />
+      <MarketingNav onSignIn={() => setShowSignIn(true)} onGetStarted={() => document.getElementById("pricing")?.scrollIntoView({ behavior: "smooth" })} />
 
       {/* Page sections */}
       <main>
         <HeroSection
           onWatchDemo={() => setShowDemo(true)}
-          onGetStarted={() => setShowOnboarding(true)}
+          onGetStarted={() => document.getElementById("pricing")?.scrollIntoView({ behavior: "smooth" })}
         />
         <FeaturesSection />
         <HowItWorksSection />

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 
-export default function MarketingNav({ onSignIn }: { onSignIn?: () => void }) {
+export default function MarketingNav({ onSignIn, onGetStarted }: { onSignIn?: () => void; onGetStarted?: () => void }) {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -69,8 +69,9 @@ export default function MarketingNav({ onSignIn }: { onSignIn?: () => void }) {
             >
               Sign In
             </button>
-            <a
-              href="#pricing"
+            <button
+              id="nav-get-started"
+              onClick={onGetStarted}
               className="group relative inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white overflow-hidden transition-all duration-300 hover:shadow-[0_0_20px_rgba(124,58,237,0.4)]"
               style={{
                 background: "linear-gradient(135deg, #7C3AED 0%, #4F46E5 100%)",
@@ -79,7 +80,7 @@ export default function MarketingNav({ onSignIn }: { onSignIn?: () => void }) {
               <span className="relative z-10">Get Started Free</span>
               <span className="relative z-10 transition-transform duration-200 group-hover:translate-x-0.5">→</span>
               <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-            </a>
+            </button>
           </div>
 
           {/* Mobile menu button */}
@@ -123,14 +124,14 @@ export default function MarketingNav({ onSignIn }: { onSignIn?: () => void }) {
               >
                 Sign In
               </button>
-              <a
-                href="#pricing"
-                onClick={() => setMobileOpen(false)}
+              <button
+                id="mobile-get-started"
+                onClick={() => { setMobileOpen(false); onGetStarted && onGetStarted(); }}
                 className="w-full text-center px-5 py-3 rounded-xl text-sm font-semibold text-white shadow-[0_4px_14px_rgba(124,58,237,0.3)] hover:shadow-[0_6px_20px_rgba(124,58,237,0.4)] transition-all"
                 style={{ background: "linear-gradient(135deg, #7C3AED 0%, #4F46E5 100%)" }}
               >
                 Get Started Free
-              </a>
+              </button>
             </div>
           </nav>
         </div>

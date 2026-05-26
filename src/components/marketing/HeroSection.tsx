@@ -4,12 +4,12 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 
 const agentTypes = [
-  "Social Media Manager",
-  "Sales Assistant",
-  "Customer Support",
-  "Content Creator",
-  "Marketing Strategist",
-  "Appointment Scheduler",
+  "Never miss a customer",
+  "Post while you sleep",
+  "Close deals on autopilot",
+  "Fill your calendar automatically",
+  "Grow on social — hands-free",
+  "Handle support 24/7",
 ];
 
 export default function HeroSection({ onWatchDemo, onGetStarted }: { onWatchDemo: () => void; onGetStarted: () => void }) {
@@ -91,13 +91,13 @@ export default function HeroSection({ onWatchDemo, onGetStarted }: { onWatchDemo
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-violet-500/30 bg-violet-500/10 backdrop-blur-sm mb-8">
               <span className="w-2 h-2 rounded-full bg-violet-400 animate-pulse" />
               <span className="text-xs font-semibold text-violet-300 uppercase tracking-widest">
-                AI-Powered Business Automation
+                Your business, running itself
               </span>
             </div>
 
             {/* Headline */}
             <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black text-white leading-[1.05] tracking-tight mb-6">
-              Your World of{" "}
+              Stop doing it all.{" "}
               <span
                 className="block"
                 style={{
@@ -107,16 +107,16 @@ export default function HeroSection({ onWatchDemo, onGetStarted }: { onWatchDemo
                   backgroundClip: "text",
                 }}
               >
-                AI Agents
+                Start growing.
               </span>
             </h1>
 
             {/* Typing agent */}
             <div className="flex items-center justify-center lg:justify-start gap-3 mb-8">
-              <span className="text-gray-500 text-lg font-medium">Meet your AI</span>
+              <span className="text-gray-500 text-lg font-medium">Your AI can</span>
               <div
                 className="px-4 py-1.5 rounded-lg border border-cyan-500/30 bg-cyan-500/10"
-                style={{ minWidth: "220px" }}
+                style={{ minWidth: "260px" }}
               >
                 <span
                   className="text-cyan-300 font-bold text-lg transition-all duration-300"
@@ -129,10 +129,11 @@ export default function HeroSection({ onWatchDemo, onGetStarted }: { onWatchDemo
 
             {/* Subtitle */}
             <p className="text-lg sm:text-xl text-gray-400 leading-relaxed mb-10 max-w-xl mx-auto lg:mx-0">
-              NeoAigent gives your business a{" "}
-              <span className="text-white font-semibold">personal army of AI agents</span> — automating tasks,
-              growing revenue, and freeing your team to focus on what{" "}
-              <span className="text-violet-300 font-semibold">humans do best</span>.
+              While you're working{" "}
+              <span className="text-white font-semibold">in</span> your business, NeoAigent works{" "}
+              <span className="text-white font-semibold">on</span> it — posting content, answering customers,
+              booking appointments, and closing sales.{" "}
+              <span className="text-violet-300 font-semibold">Around the clock.</span>
             </p>
 
             {/* CTAs */}
@@ -167,9 +168,9 @@ export default function HeroSection({ onWatchDemo, onGetStarted }: { onWatchDemo
             {/* Trust badges */}
             <div className="flex items-center justify-center lg:justify-start gap-6 mt-10">
               {[
-                { icon: "⚡", label: "Setup in 2 min" },
-                { icon: "🔒", label: "SOC2 Secure" },
-                { icon: "🤖", label: "10+ AI Agents" },
+                { icon: "⚡", label: "Live in 2 minutes" },
+                { icon: "🛠️", label: "No engineers needed" },
+                { icon: "🌙", label: "Works while you sleep" },
               ].map((badge) => (
                 <div key={badge.label} className="flex items-center gap-2">
                   <span className="text-base">{badge.icon}</span>
@@ -207,29 +208,115 @@ export default function HeroSection({ onWatchDemo, onGetStarted }: { onWatchDemo
                 }}
               />
             </div>
-            {/* Floating agent cards */}
+            {/* Floating notification cards */}
+
+            {/* Top-left: Appointments */}
             <div
-              className="absolute top-4 -left-4 z-20 bg-transparent backdrop-blur-xl border border-white/10 rounded-2xl px-4 py-3 shadow-xl"
-              style={{ animation: "float 3s ease-in-out infinite" }}
+              className="absolute top-2 -left-6 z-20 backdrop-blur-xl border border-white/10 rounded-2xl px-4 py-3 shadow-2xl"
+              style={{
+                background: "rgba(13,13,26,0.85)",
+                animation: "float 3.2s ease-in-out infinite, pulseIn 0.6s ease-out both",
+                animationDelay: "0s, 0.1s",
+                minWidth: "210px",
+              }}
             >
-              <div className="flex items-center gap-2">
-                <span className="text-green-400 text-lg">✓</span>
-                <div>
-                  <p className="text-white text-xs font-semibold">Post published!</p>
-                  <p className="text-gray-500 text-[10px]">AI Social Agent</p>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(124,58,237,0.2)", border: "1px solid rgba(124,58,237,0.3)" }}>
+                  <span className="text-sm">📅</span>
                 </div>
+                <div>
+                  <p className="text-white text-xs font-bold leading-tight">5 appointments booked</p>
+                  <p className="text-gray-500 text-[10px] mt-0.5">While you were seeing clients</p>
+                </div>
+                <span className="w-2 h-2 rounded-full bg-green-400 flex-shrink-0 animate-pulse" />
               </div>
             </div>
+
+            {/* Top-right: Instagram post */}
             <div
-              className="absolute bottom-8 -right-4 z-20 bg-transparent backdrop-blur-xl border border-white/10 rounded-2xl px-4 py-3 shadow-xl"
-              style={{ animation: "float 4s ease-in-out infinite 1.5s" }}
+              className="absolute top-16 -right-6 z-20 backdrop-blur-xl border border-white/10 rounded-2xl px-4 py-3 shadow-2xl"
+              style={{
+                background: "rgba(13,13,26,0.85)",
+                animation: "float 4s ease-in-out infinite, pulseIn 0.6s ease-out both",
+                animationDelay: "0.8s, 0.3s",
+                minWidth: "200px",
+              }}
             >
-              <div className="flex items-center gap-2">
-                <span className="text-cyan-400 text-lg">📈</span>
-                <div>
-                  <p className="text-white text-xs font-semibold">+34% revenue</p>
-                  <p className="text-gray-500 text-[10px]">This month</p>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(124,58,237,0.2)", border: "1px solid rgba(124,58,237,0.3)" }}>
+                  <span className="text-sm">📣</span>
                 </div>
+                <div>
+                  <p className="text-white text-xs font-bold leading-tight">Post published on IG</p>
+                  <p className="text-gray-500 text-[10px] mt-0.5">+312 reach · AI wrote it</p>
+                </div>
+                <span className="w-2 h-2 rounded-full bg-violet-400 flex-shrink-0 animate-pulse" />
+              </div>
+            </div>
+
+            {/* Middle-left: Revenue */}
+            <div
+              className="absolute top-1/2 -translate-y-1/2 -left-8 z-20 backdrop-blur-xl border border-white/10 rounded-2xl px-4 py-3 shadow-2xl"
+              style={{
+                background: "rgba(13,13,26,0.85)",
+                animation: "float 3.6s ease-in-out infinite, pulseIn 0.6s ease-out both",
+                animationDelay: "1.6s, 0.5s",
+                minWidth: "200px",
+              }}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(6,182,212,0.2)", border: "1px solid rgba(6,182,212,0.3)" }}>
+                  <span className="text-sm">📈</span>
+                </div>
+                <div>
+                  <p className="text-white text-xs font-bold leading-tight">+$1,240 this week</p>
+                  <p className="text-gray-500 text-[10px] mt-0.5">WhatsApp agent closed 8 deals</p>
+                </div>
+                <span className="w-2 h-2 rounded-full bg-cyan-400 flex-shrink-0 animate-pulse" />
+              </div>
+            </div>
+
+            {/* Bottom-right: Sale closed */}
+            <div
+              className="absolute bottom-16 -right-6 z-20 backdrop-blur-xl border border-white/10 rounded-2xl px-4 py-3 shadow-2xl"
+              style={{
+                background: "rgba(13,13,26,0.85)",
+                animation: "float 4.4s ease-in-out infinite, pulseIn 0.6s ease-out both",
+                animationDelay: "1.2s, 0.7s",
+                minWidth: "210px",
+              }}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(37,211,102,0.15)", border: "1px solid rgba(37,211,102,0.3)" }}>
+                  <span className="text-sm">💬</span>
+                </div>
+                <div>
+                  <p className="text-white text-xs font-bold leading-tight">WhatsApp closed the sale</p>
+                  <p className="text-gray-500 text-[10px] mt-0.5">2:47 AM — you were asleep</p>
+                </div>
+                <span className="w-2 h-2 rounded-full bg-green-400 flex-shrink-0 animate-pulse" />
+              </div>
+            </div>
+
+            {/* Bottom-left: Review */}
+            <div
+              className="absolute bottom-4 -left-4 z-20 backdrop-blur-xl border border-white/10 rounded-2xl px-4 py-3 shadow-2xl"
+              style={{
+                background: "rgba(13,13,26,0.85)",
+                animation: "float 3s ease-in-out infinite, pulseIn 0.6s ease-out both",
+                animationDelay: "2s, 0.9s",
+                minWidth: "200px",
+              }}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.3)" }}>
+                  <span className="text-sm">⭐</span>
+                </div>
+                <div>
+                  <p className="text-white text-xs font-bold leading-tight">New 5-star review</p>
+                  <p className="text-gray-500 text-[10px] mt-0.5">“Best decision for my clinic”</p>
+                </div>
+                <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0 animate-pulse" />
               </div>
             </div>
           </div>
@@ -245,11 +332,15 @@ export default function HeroSection({ onWatchDemo, onGetStarted }: { onWatchDemo
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes float {
           0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-12px); }
+          50% { transform: translateY(-10px); }
         }
         @keyframes mascotFloat {
           0%, 100% { transform: translateY(0px) rotate(-1deg); }
           50% { transform: translateY(-16px) rotate(1deg); }
+        }
+        @keyframes pulseIn {
+          0% { opacity: 0; transform: translateY(8px) scale(0.95); }
+          100% { opacity: 1; transform: translateY(0px) scale(1); }
         }
       ` }} />
     </section>

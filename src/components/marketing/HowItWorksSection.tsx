@@ -2,25 +2,25 @@
 const steps = [
   {
     number: "01",
-    title: "Sign up & get your subdomain",
+    title: "Create your account — 2 minutes",
     description:
-      "Create your NeoAigent account in under 2 minutes. You instantly get a branded subdomain (yourbiz.newaigent.com) and your own private AI workspace.",
+      "You get a branded subdomain (yourbiz.newaigent.com), a private dashboard, and your AI workspace ready to configure. No card needed to start.",
     icon: "🚀",
     color: "#7C3AED",
   },
   {
     number: "02",
-    title: "Pick & configure your AI agents",
+    title: "Turn on your agents",
     description:
-      "Browse our agent marketplace. Connect social media, WhatsApp, your product catalog, and Google Calendar. Each agent learns your brand voice and business rules.",
+      "Connect your social media, WhatsApp, calendar, and product catalog. Each agent learns your brand voice and starts working the moment you activate it.",
     icon: "🤖",
     color: "#06B6D4",
   },
   {
     number: "03",
-    title: "Watch them work. 24/7.",
+    title: "Walk away. They've got it.",
     description:
-      "Your AI agents start automating immediately — posting content, answering customers, scheduling appointments, and sending you analytics reports. You focus on growth.",
+      "Posts go live. Customers get answered. Appointments fill up. Sales close. You get a daily summary. That's it.",
     icon: "⚡",
     color: "#4F46E5",
   },
@@ -47,10 +47,10 @@ export default function HowItWorksSection() {
         {/* Header */}
         <div className="text-center mb-20">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 mb-6">
-            <span className="text-xs font-bold text-cyan-300 uppercase tracking-widest">Simple Setup</span>
+            <span className="text-xs font-bold text-cyan-300 uppercase tracking-widest">Up and running today</span>
           </div>
           <h2 className="text-4xl sm:text-5xl font-black text-white mb-6 tracking-tight">
-            From zero to{" "}
+            Three steps.{" "}
             <span
               style={{
                 background: "linear-gradient(135deg, #06B6D4 0%, #7C3AED 100%)",
@@ -59,11 +59,11 @@ export default function HowItWorksSection() {
                 backgroundClip: "text",
               }}
             >
-              fully automated
+              Then hands off.
             </span>
           </h2>
           <p className="text-gray-400 text-lg max-w-xl mx-auto">
-            Three steps — no engineers required.
+            Most businesses go live in under 10 minutes.
           </p>
         </div>
 
@@ -130,7 +130,7 @@ export default function HowItWorksSection() {
             href="#pricing"
             className="inline-flex items-center gap-2 text-violet-400 font-semibold text-base hover:text-violet-300 transition-colors group"
           >
-            Ready to automate your business?
+            See what it costs
             <span className="transition-transform duration-200 group-hover:translate-x-1">→</span>
           </a>
         </div>

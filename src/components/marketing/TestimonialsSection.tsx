@@ -83,11 +83,11 @@ export default function TestimonialsSection() {
         <div className="text-center mb-16">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-amber-500/30 bg-amber-500/10 mb-6">
             <span className="text-xs font-bold text-amber-300 uppercase tracking-widest">
-              Real Results
+              What they stopped doing manually
             </span>
           </div>
           <h2 className="text-4xl sm:text-5xl font-black text-white mb-6 tracking-tight">
-            Businesses love{" "}
+            They handed it off.{" "}
             <span
               style={{
                 background: "linear-gradient(135deg, #A78BFA 0%, #06B6D4 100%)",
@@ -96,11 +96,11 @@ export default function TestimonialsSection() {
                 backgroundClip: "text",
               }}
             >
-              their agents
+              They didn’t look back.
             </span>
           </h2>
           <p className="text-gray-400 text-lg max-w-xl mx-auto">
-            Join hundreds of businesses already running on NeoAigent.
+            Real businesses. Real time saved. Real revenue generated.
           </p>
         </div>
 
@@ -136,10 +136,10 @@ export default function TestimonialsSection() {
         {/* Social proof numbers */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-20 p-8 rounded-3xl border border-white/6" style={{ background: "#0d0d1a" }}>
           {[
-            { value: "500+", label: "Active Businesses" },
-            { value: "10M+", label: "AI Tasks Executed" },
+            { value: "500+", label: "Businesses Running" },
+            { value: "10M+", label: "Tasks Automated" },
             { value: "99.9%", label: "Uptime" },
-            { value: "4.9★", label: "Average Rating" },
+            { value: "4.9★", label: "Rated" },
           ].map((stat) => (
             <div key={stat.label} className="text-center">
               <p

@@ -8,7 +8,7 @@ const features = [
     icon: "📣",
     title: "Social Media AI Agent",
     description:
-      "Automatically creates, schedules, and publishes posts to Facebook & Instagram with AI-generated copy and images tailored to your brand.",
+      "Posts to Facebook & Instagram daily — copy, image, caption — all generated in your brand voice. Your followers grow while you're with clients.",
     color: "#7C3AED",
     glow: "rgba(124,58,237,0.2)",
     tag: "Most Popular",
@@ -18,7 +18,7 @@ const features = [
     icon: "💬",
     title: "WhatsApp Sales Agent",
     description:
-      "Converts leads into buyers automatically via WhatsApp. Answers questions, shares products, and closes deals while you sleep.",
+      "Responds instantly, sends product photos, answers objections, and takes orders. You get the sale notification. The agent did the work.",
     color: "#25D366",
     glow: "rgba(37,211,102,0.2)",
     tag: null,
@@ -28,7 +28,7 @@ const features = [
     icon: "📦",
     title: "Smart Product Catalog",
     description:
-      "AI-powered storefront that learns what sells. Dynamic pricing suggestions, inventory alerts, and SEO-optimized product descriptions.",
+      "Your store stays current, SEO-optimized, and conversion-ready. The AI flags what's trending and what needs a push.",
     color: "#06B6D4",
     glow: "rgba(6,182,212,0.2)",
     tag: null,
@@ -38,7 +38,7 @@ const features = [
     icon: "📊",
     title: "Business Analytics",
     description:
-      "Real-time dashboards with AI insights. Know which campaigns work, which products fly off the shelf, and where to invest next.",
+      "Stop guessing. Know exactly what's working — which posts drove sales, which agents converted most, where to invest next week.",
     color: "#F59E0B",
     glow: "rgba(245,158,11,0.2)",
     tag: null,
@@ -48,7 +48,7 @@ const features = [
     icon: "🏢",
     title: "White-Label Multi-Tenant",
     description:
-      "Each business gets their own branded subdomain with custom colors, fonts, and identity. Your brand, powered by NeoAigent.",
+      "Your clients get their own branded store, their own agents, their own domain. You deliver the whole package under your name.",
     color: "#4F46E5",
     glow: "rgba(79,70,229,0.2)",
     tag: "Enterprise",
@@ -58,7 +58,7 @@ const features = [
     icon: "📅",
     title: "Appointment Scheduler",
     description:
-      "AI agent that manages your calendar, sends reminders, and reduces no-shows. Sync with Google Calendar automatically.",
+      "Patients book themselves. Reminders go out automatically. No-shows drop. You just show up.",
     color: "#EC4899",
     glow: "rgba(236,72,153,0.2)",
     tag: null,
@@ -84,10 +84,10 @@ export default function FeaturesSection() {
         {/* Header */}
         <div className="text-center mb-20">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-violet-500/30 bg-violet-500/10 mb-6">
-            <span className="text-xs font-bold text-violet-300 uppercase tracking-widest">Supercharger Features</span>
+            <span className="text-xs font-bold text-violet-300 uppercase tracking-widest">What your agents do for you</span>
           </div>
           <h2 className="text-4xl sm:text-5xl font-black text-white mb-6 tracking-tight">
-            Every agent you need,{" "}
+            Six agents. One platform.{" "}
             <span
               style={{
                 background: "linear-gradient(135deg, #A78BFA 0%, #06B6D4 100%)",
@@ -96,12 +96,11 @@ export default function FeaturesSection() {
                 backgroundClip: "text",
               }}
             >
-              ready to work
+              Zero excuses.
             </span>
           </h2>
           <p className="text-gray-400 text-lg max-w-2xl mx-auto leading-relaxed">
-            NeoAigent brings enterprise-grade AI automation to every business — no coding, no complexity,
-            just results from day one.
+            Each agent is trained on your business, speaks in your voice, and works while you focus on what only you can do.
           </p>
         </div>
 

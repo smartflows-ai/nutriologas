@@ -43,7 +43,7 @@ export default function CTASection() {
           </div>
 
           <h2 className="text-4xl sm:text-6xl font-black text-white mb-6 leading-tight tracking-tight">
-            Your AI agents are{" "}
+            Your competitors are{" "}
             <span
               style={{
                 background: "linear-gradient(135deg, #A78BFA 0%, #06B6D4 100%)",
@@ -52,13 +52,13 @@ export default function CTASection() {
                 backgroundClip: "text",
               }}
             >
-              waiting for you
+              already automating.
             </span>
           </h2>
 
           <p className="text-gray-400 text-lg mb-12 max-w-xl mx-auto leading-relaxed">
-            Start your 14-day free trial. No credit card. No engineers.
-            Your business, automated.
+            Every day you do it manually is a day they’re ahead.{" "}
+            Start free — be live in 10 minutes.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -68,7 +68,7 @@ export default function CTASection() {
               className="px-10 py-5 rounded-2xl font-black text-lg text-white transition-all duration-300 hover:shadow-[0_0_40px_rgba(124,58,237,0.5)] hover:-translate-y-1 active:translate-y-0"
               style={{ background: "linear-gradient(135deg, #7C3AED 0%, #4F46E5 100%)" }}
             >
-              Launch My AI Agents →
+              Start Free — No Card Needed →
             </button>
             <a
               href="mailto:info@newaigent.com"
