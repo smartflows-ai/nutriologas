@@ -4,8 +4,10 @@
 // Redirects user to their correct subdomain login page.
 import { useState, useEffect } from "react";
 import Image from "next/image";
+import { useTranslation } from "@/i18n";
 
 export default function SignInModal({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation();
   const [slug, setSlug] = useState("");
   const [error, setError] = useState("");
 
@@ -65,16 +67,16 @@ export default function SignInModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <h3 className="text-white text-xl font-black text-center mb-1">
-          Sign in to your workspace
+          {t.modals.signin.title}
         </h3>
         <p className="text-gray-500 text-sm text-center mb-8">
-          Enter your subdomain to go to your dashboard
+          {t.modals.signin.desc}
         </p>
 
         <form id="signin-subdomain-form" onSubmit={handleGo} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wider">
-              Your Subdomain
+              {t.modals.signin.subdomainLabel}
             </label>
             <div className="flex items-center bg-[#12121e] border border-white/10 rounded-xl overflow-hidden focus-within:border-violet-500 focus-within:ring-2 focus-within:ring-violet-500/20 transition-all">
               <input
@@ -86,7 +88,7 @@ export default function SignInModal({ onClose }: { onClose: () => void }) {
                   setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""));
                   setError("");
                 }}
-                placeholder="yourbusiness"
+                placeholder={t.modals.signin.phSubdomain}
                 className="flex-1 min-w-0 bg-transparent px-4 py-3 text-white placeholder-gray-600 text-sm focus:outline-none"
               />
               <span className="shrink-0 px-3 text-gray-600 text-xs font-medium border-l border-white/10 bg-[#0d0d1a] py-3 whitespace-nowrap text-center">
@@ -102,14 +104,14 @@ export default function SignInModal({ onClose }: { onClose: () => void }) {
             className="w-full py-3 rounded-xl font-bold text-sm text-white transition-all duration-300 hover:shadow-[0_0_20px_rgba(124,58,237,0.4)] hover:-translate-y-0.5"
             style={{ background: "linear-gradient(135deg, #7C3AED 0%, #4F46E5 100%)" }}
           >
-            Go to my dashboard →
+            {t.modals.signin.btnGo}
           </button>
         </form>
 
         <p className="text-center text-gray-600 text-xs mt-6">
-          Don't have a workspace yet?{" "}
+          {t.modals.signin.noWorkspace}{" "}
           <a href="#contact" onClick={onClose} className="text-violet-400 hover:text-violet-300 font-semibold">
-            Sign up free
+            {t.modals.signin.signUp}
           </a>
         </p>
       </div>

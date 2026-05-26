@@ -1,6 +1,7 @@
 "use client";
 // src/components/marketing/FeaturesSection.tsx
 import { useState } from "react";
+import { useTranslation } from "@/i18n";
 
 const features = [
   {
@@ -67,6 +68,64 @@ const features = [
 
 export default function FeaturesSection() {
   const [hovered, setHovered] = useState<string | null>(null);
+  const { t } = useTranslation();
+
+  const features = [
+    {
+      id: "social",
+      icon: "📣",
+      title: t.features.social.title,
+      description: t.features.social.description,
+      color: "#7C3AED",
+      glow: "rgba(124,58,237,0.2)",
+      tag: t.features.social.tag,
+    },
+    {
+      id: "sales",
+      icon: "💬",
+      title: t.features.sales.title,
+      description: t.features.sales.description,
+      color: "#25D366",
+      glow: "rgba(37,211,102,0.2)",
+      tag: null,
+    },
+    {
+      id: "catalog",
+      icon: "📦",
+      title: t.features.catalog.title,
+      description: t.features.catalog.description,
+      color: "#06B6D4",
+      glow: "rgba(6,182,212,0.2)",
+      tag: null,
+    },
+    {
+      id: "crm",
+      icon: "📊",
+      title: t.features.analytics.title,
+      description: t.features.analytics.description,
+      color: "#F59E0B",
+      glow: "rgba(245,158,11,0.2)",
+      tag: null,
+    },
+    {
+      id: "multitenant",
+      icon: "🏢",
+      title: t.features.whiteLabel.title,
+      description: t.features.whiteLabel.description,
+      color: "#4F46E5",
+      glow: "rgba(79,70,229,0.2)",
+      tag: t.features.whiteLabel.tag,
+    },
+    {
+      id: "appointments",
+      icon: "📅",
+      title: t.features.appointments.title,
+      description: t.features.appointments.description,
+      color: "#EC4899",
+      glow: "rgba(236,72,153,0.2)",
+      tag: null,
+    },
+  ];
 
   return (
     <section
@@ -84,10 +143,10 @@ export default function FeaturesSection() {
         {/* Header */}
         <div className="text-center mb-20">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-violet-500/30 bg-violet-500/10 mb-6">
-            <span className="text-xs font-bold text-violet-300 uppercase tracking-widest">What your agents do for you</span>
+            <span className="text-xs font-bold text-violet-300 uppercase tracking-widest">{t.features.badge}</span>
           </div>
           <h2 className="text-4xl sm:text-5xl font-black text-white mb-6 tracking-tight">
-            Six agents. One platform.{" "}
+            {t.features.headline1}{" "}
             <span
               style={{
                 background: "linear-gradient(135deg, #A78BFA 0%, #06B6D4 100%)",
@@ -96,11 +155,11 @@ export default function FeaturesSection() {
                 backgroundClip: "text",
               }}
             >
-              Zero excuses.
+              {t.features.headline2}
             </span>
           </h2>
           <p className="text-gray-400 text-lg max-w-2xl mx-auto leading-relaxed">
-            Each agent is trained on your business, speaks in your voice, and works while you focus on what only you can do.
+            {t.features.subtitle}
           </p>
         </div>
 
@@ -163,7 +222,7 @@ export default function FeaturesSection() {
                   transform: hovered === feature.id ? "translateX(0)" : "translateX(-8px)",
                 }}
               >
-                Learn more <span>→</span>
+                {t.features.learnMore} <span>→</span>
               </div>
             </div>
           ))}

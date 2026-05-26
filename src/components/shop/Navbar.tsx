@@ -5,8 +5,10 @@ import { ShoppingCart, User, Menu, X, LogOut, ClipboardList } from "lucide-react
 import { useCartStore } from "@/store/cart";
 import { useEffect, useState } from "react";
 import { useSession, signOut } from "next-auth/react";
+import { useTranslation } from "@/i18n";
 
 export default function Navbar({ storeName }: { storeName: string }) {
+  const { t } = useTranslation();
   const itemCount = useCartStore((s) => s.itemCount());
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -26,10 +28,10 @@ export default function Navbar({ storeName }: { storeName: string }) {
 
         {/* Desktop links */}
         <div className="hidden md:flex items-center gap-8 text-sm font-semibold text-gray-600 dark:text-gray-300">
-          <Link href="/#nosotros" className="hover:text-primary dark:hover:text-primary transition-colors">Nosotros</Link>
-          <Link href="/#servicios" className="hover:text-primary dark:hover:text-primary transition-colors">Servicios</Link>
-          <Link href="/#faq" className="hover:text-primary dark:hover:text-primary transition-colors">FAQ</Link>
-          <Link href="/productos" className="hover:text-primary dark:hover:text-primary transition-colors">Tienda</Link>
+          <Link href="/#nosotros" className="hover:text-primary dark:hover:text-primary transition-colors">{t.shop.about}</Link>
+          <Link href="/#servicios" className="hover:text-primary dark:hover:text-primary transition-colors">{t.shop.services}</Link>
+          <Link href="/#faq" className="hover:text-primary dark:hover:text-primary transition-colors">{t.shop.faq}</Link>
+          <Link href="/productos" className="hover:text-primary dark:hover:text-primary transition-colors">{t.shop.store}</Link>
           
           <div className="h-6 w-px bg-gray-200 dark:bg-gray-700 mx-2"></div>
           
@@ -41,21 +43,21 @@ export default function Navbar({ storeName }: { storeName: string }) {
           </Link>
           {isLoggedIn ? (
             <div className="flex items-center gap-3">
-              <Link href="/mis-pedidos" className="hover:text-primary transition-colors" title="Mis pedidos">
+              <Link href="/mis-pedidos" className="hover:text-primary transition-colors" title={t.shop.myOrders}>
                 <ClipboardList size={20} />
               </Link>
               <span className="text-gray-500 text-xs truncate max-w-[120px]">{userName}</span>
               <button
                 onClick={async () => { await signOut({ redirect: false }); window.location.href = "/"; }}
                 className="text-gray-400 hover:text-red-500 transition-colors"
-                title="Cerrar sesión"
+                title={t.shop.signOut}
               >
                 <LogOut size={18} />
               </button>
             </div>
           ) : (
             <Link href="/login" className="btn-primary text-sm px-3 py-1.5">
-              <User size={16} className="inline mr-1" /> Entrar
+              <User size={16} className="inline mr-1" /> {t.shop.enter}
             </Link>
           )}
         </div>
@@ -67,32 +69,32 @@ export default function Navbar({ storeName }: { storeName: string }) {
       </nav>
       {open && (
         <div className="md:hidden bg-white/95 dark:bg-gray-950/95 backdrop-blur-xl border-t border-gray-100 dark:border-gray-800 px-6 py-6 flex flex-col gap-5 shadow-lg absolute w-full rounded-b-3xl">
-          <Link href="/#nosotros" onClick={() => setOpen(false)} className="text-gray-700 dark:text-gray-200 font-medium hover:text-primary">Nosotros</Link>
-          <Link href="/#servicios" onClick={() => setOpen(false)} className="text-gray-700 dark:text-gray-200 font-medium hover:text-primary">Servicios</Link>
-          <Link href="/#faq" onClick={() => setOpen(false)} className="text-gray-700 dark:text-gray-200 font-medium hover:text-primary">FAQ</Link>
-          <Link href="/productos" onClick={() => setOpen(false)} className="text-gray-700 dark:text-gray-200 font-medium hover:text-primary">Tienda</Link>
+          <Link href="/#nosotros" onClick={() => setOpen(false)} className="text-gray-700 dark:text-gray-200 font-medium hover:text-primary">{t.shop.about}</Link>
+          <Link href="/#servicios" onClick={() => setOpen(false)} className="text-gray-700 dark:text-gray-200 font-medium hover:text-primary">{t.shop.services}</Link>
+          <Link href="/#faq" onClick={() => setOpen(false)} className="text-gray-700 dark:text-gray-200 font-medium hover:text-primary">{t.shop.faq}</Link>
+          <Link href="/productos" onClick={() => setOpen(false)} className="text-gray-700 dark:text-gray-200 font-medium hover:text-primary">{t.shop.store}</Link>
           
           <div className="h-px w-full bg-gray-100 dark:bg-gray-800 my-2"></div>
           
           <Link href="/carrito" onClick={() => setOpen(false)} className="text-gray-700 dark:text-gray-200 font-medium flex items-center justify-between">
-            <span>Carrito de compras</span>
-            {mounted && itemCount > 0 && <span className="bg-primary text-white text-xs px-2 py-1 rounded-full font-bold">{itemCount} items</span>}
+            <span>{t.shop.cart}</span>
+            {mounted && itemCount > 0 && <span className="bg-primary text-white text-xs px-2 py-1 rounded-full font-bold">{itemCount} {t.shop.cartItems}</span>}
           </Link>
           {isLoggedIn ? (
             <>
-              <Link href="/mis-pedidos" onClick={() => setOpen(false)} className="text-gray-700 font-medium">Mis pedidos</Link>
+              <Link href="/mis-pedidos" onClick={() => setOpen(false)} className="text-gray-700 font-medium">{t.shop.myOrders}</Link>
               <div className="flex items-center justify-between">
                 <span className="text-gray-500 text-sm truncate">{userName}</span>
                 <button
                   onClick={async () => { setOpen(false); await signOut({ redirect: false }); window.location.href = "/"; }}
                   className="text-sm text-red-500 font-medium"
                 >
-                  Cerrar sesión
+                  {t.shop.closeSession}
                 </button>
               </div>
             </>
           ) : (
-            <Link href="/login" onClick={() => setOpen(false)} className="btn-primary text-center">Entrar</Link>
+            <Link href="/login" onClick={() => setOpen(false)} className="btn-primary text-center">{t.shop.enter}</Link>
           )}
         </div>
       )}

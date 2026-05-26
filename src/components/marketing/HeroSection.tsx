@@ -2,17 +2,12 @@
 // src/components/marketing/HeroSection.tsx
 import { useState, useEffect } from "react";
 import Image from "next/image";
-
-const agentTypes = [
-  "Never miss a customer",
-  "Post while you sleep",
-  "Close deals on autopilot",
-  "Fill your calendar automatically",
-  "Grow on social — hands-free",
-  "Handle support 24/7",
-];
+import { useTranslation } from "@/i18n";
 
 export default function HeroSection({ onWatchDemo, onGetStarted }: { onWatchDemo: () => void; onGetStarted: () => void }) {
+  const { t } = useTranslation();
+  const agentTypes = t.hero.agentTypes;
+  
   const [currentAgent, setCurrentAgent] = useState(0);
   const [visible, setVisible] = useState(true);
 
@@ -25,7 +20,7 @@ export default function HeroSection({ onWatchDemo, onGetStarted }: { onWatchDemo
       }, 400);
     }, 2800);
     return () => clearInterval(interval);
-  }, []);
+  }, [agentTypes.length]);
 
   return (
     <section
@@ -91,13 +86,13 @@ export default function HeroSection({ onWatchDemo, onGetStarted }: { onWatchDemo
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-violet-500/30 bg-violet-500/10 backdrop-blur-sm mb-8">
               <span className="w-2 h-2 rounded-full bg-violet-400 animate-pulse" />
               <span className="text-xs font-semibold text-violet-300 uppercase tracking-widest">
-                Your business, running itself
+                {t.hero.badge}
               </span>
             </div>
 
             {/* Headline */}
             <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black text-white leading-[1.05] tracking-tight mb-6">
-              Stop doing it all.{" "}
+              {t.hero.headline1}{" "}
               <span
                 className="block"
                 style={{
@@ -107,13 +102,13 @@ export default function HeroSection({ onWatchDemo, onGetStarted }: { onWatchDemo
                   backgroundClip: "text",
                 }}
               >
-                Start growing.
+                {t.hero.headline2}
               </span>
             </h1>
 
             {/* Typing agent */}
             <div className="flex items-center justify-center lg:justify-start gap-3 mb-8">
-              <span className="text-gray-500 text-lg font-medium">Your AI can</span>
+              <span className="text-gray-500 text-lg font-medium">{t.hero.agentLabel}</span>
               <div
                 className="px-4 py-1.5 rounded-lg border border-cyan-500/30 bg-cyan-500/10"
                 style={{ minWidth: "260px" }}
@@ -128,13 +123,9 @@ export default function HeroSection({ onWatchDemo, onGetStarted }: { onWatchDemo
             </div>
 
             {/* Subtitle */}
-            <p className="text-lg sm:text-xl text-gray-400 leading-relaxed mb-10 max-w-xl mx-auto lg:mx-0">
-              While you're working{" "}
-              <span className="text-white font-semibold">in</span> your business, NeoAigent works{" "}
-              <span className="text-white font-semibold">on</span> it — posting content, answering customers,
-              booking appointments, and closing sales.{" "}
-              <span className="text-violet-300 font-semibold">Around the clock.</span>
-            </p>
+            <p className="text-lg sm:text-xl text-gray-400 leading-relaxed mb-10 max-w-xl mx-auto lg:mx-0"
+               dangerouslySetInnerHTML={{ __html: t.hero.subtitle.replace(/\*\*(.*?)\*\*/g, '<span class="text-white font-semibold">$1</span>') }} 
+            />
 
             {/* CTAs */}
             <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4">
@@ -146,7 +137,7 @@ export default function HeroSection({ onWatchDemo, onGetStarted }: { onWatchDemo
                   background: "linear-gradient(135deg, #7C3AED 0%, #4F46E5 100%)",
                 }}
               >
-                <span className="relative z-10">Get Started Free</span>
+                <span className="relative z-10">{t.hero.cta}</span>
                 <span className="relative z-10 transition-transform duration-200 group-hover:translate-x-1">→</span>
                 <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               </button>
@@ -161,16 +152,16 @@ export default function HeroSection({ onWatchDemo, onGetStarted }: { onWatchDemo
                     <path d="M1 1l10 6L1 13V1z" />
                   </svg>
                 </span>
-                Watch Demo
+                {t.hero.watchDemo}
               </button>
             </div>
 
             {/* Trust badges */}
             <div className="flex items-center justify-center lg:justify-start gap-6 mt-10">
               {[
-                { icon: "⚡", label: "Live in 2 minutes" },
-                { icon: "🛠️", label: "No engineers needed" },
-                { icon: "🌙", label: "Works while you sleep" },
+                { icon: "⚡", label: t.hero.trust1 },
+                { icon: "🛠️", label: t.hero.trust2 },
+                { icon: "🌙", label: t.hero.trust3 },
               ].map((badge) => (
                 <div key={badge.label} className="flex items-center gap-2">
                   <span className="text-base">{badge.icon}</span>
@@ -225,8 +216,8 @@ export default function HeroSection({ onWatchDemo, onGetStarted }: { onWatchDemo
                   <span className="text-sm">📅</span>
                 </div>
                 <div>
-                  <p className="text-white text-xs font-bold leading-tight">5 appointments booked</p>
-                  <p className="text-gray-500 text-[10px] mt-0.5">While you were seeing clients</p>
+                  <p className="text-white text-xs font-bold leading-tight">{t.hero.card1Title}</p>
+                  <p className="text-gray-500 text-[10px] mt-0.5">{t.hero.card1Sub}</p>
                 </div>
                 <span className="w-2 h-2 rounded-full bg-green-400 flex-shrink-0 animate-pulse" />
               </div>
@@ -247,8 +238,8 @@ export default function HeroSection({ onWatchDemo, onGetStarted }: { onWatchDemo
                   <span className="text-sm">📣</span>
                 </div>
                 <div>
-                  <p className="text-white text-xs font-bold leading-tight">Post published on IG</p>
-                  <p className="text-gray-500 text-[10px] mt-0.5">+312 reach · AI wrote it</p>
+                  <p className="text-white text-xs font-bold leading-tight">{t.hero.card2Title}</p>
+                  <p className="text-gray-500 text-[10px] mt-0.5">{t.hero.card2Sub}</p>
                 </div>
                 <span className="w-2 h-2 rounded-full bg-violet-400 flex-shrink-0 animate-pulse" />
               </div>
@@ -269,8 +260,8 @@ export default function HeroSection({ onWatchDemo, onGetStarted }: { onWatchDemo
                   <span className="text-sm">📈</span>
                 </div>
                 <div>
-                  <p className="text-white text-xs font-bold leading-tight">+$1,240 this week</p>
-                  <p className="text-gray-500 text-[10px] mt-0.5">WhatsApp agent closed 8 deals</p>
+                  <p className="text-white text-xs font-bold leading-tight">{t.hero.card3Title}</p>
+                  <p className="text-gray-500 text-[10px] mt-0.5">{t.hero.card3Sub}</p>
                 </div>
                 <span className="w-2 h-2 rounded-full bg-cyan-400 flex-shrink-0 animate-pulse" />
               </div>
@@ -291,8 +282,8 @@ export default function HeroSection({ onWatchDemo, onGetStarted }: { onWatchDemo
                   <span className="text-sm">💬</span>
                 </div>
                 <div>
-                  <p className="text-white text-xs font-bold leading-tight">WhatsApp closed the sale</p>
-                  <p className="text-gray-500 text-[10px] mt-0.5">2:47 AM — you were asleep</p>
+                  <p className="text-white text-xs font-bold leading-tight">{t.hero.card4Title}</p>
+                  <p className="text-gray-500 text-[10px] mt-0.5">{t.hero.card4Sub}</p>
                 </div>
                 <span className="w-2 h-2 rounded-full bg-green-400 flex-shrink-0 animate-pulse" />
               </div>
@@ -313,10 +304,54 @@ export default function HeroSection({ onWatchDemo, onGetStarted }: { onWatchDemo
                   <span className="text-sm">⭐</span>
                 </div>
                 <div>
-                  <p className="text-white text-xs font-bold leading-tight">New 5-star review</p>
-                  <p className="text-gray-500 text-[10px] mt-0.5">“Best decision for my clinic”</p>
+                  <p className="text-white text-xs font-bold leading-tight">{t.hero.card5Title}</p>
+                  <p className="text-gray-500 text-[10px] mt-0.5">{t.hero.card5Sub}</p>
                 </div>
                 <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0 animate-pulse" />
+              </div>
+            </div>
+
+            {/* Middle-right: FAQ / Support */}
+            <div
+              className="absolute top-1/2 -translate-y-1/2 -right-8 z-20 backdrop-blur-xl border border-white/10 rounded-2xl px-4 py-3 shadow-2xl hidden md:block"
+              style={{
+                background: "rgba(13,13,26,0.85)",
+                animation: "float 4.2s ease-in-out infinite, pulseIn 0.6s ease-out both",
+                animationDelay: "1.8s, 1.1s",
+                minWidth: "210px",
+              }}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(236,72,153,0.15)", border: "1px solid rgba(236,72,153,0.3)" }}>
+                  <span className="text-sm">🤖</span>
+                </div>
+                <div>
+                  <p className="text-white text-xs font-bold leading-tight">{t.hero.card6Title}</p>
+                  <p className="text-gray-500 text-[10px] mt-0.5">{t.hero.card6Sub}</p>
+                </div>
+                <span className="w-2 h-2 rounded-full bg-pink-400 flex-shrink-0 animate-pulse" />
+              </div>
+            </div>
+
+            {/* Top-center: Re-engagement */}
+            <div
+              className="absolute -top-12 left-1/2 -translate-x-1/2 z-20 backdrop-blur-xl border border-white/10 rounded-2xl px-4 py-3 shadow-2xl hidden md:block"
+              style={{
+                background: "rgba(13,13,26,0.85)",
+                animation: "float 3.8s ease-in-out infinite, pulseIn 0.6s ease-out both",
+                animationDelay: "0.5s, 1.3s",
+                minWidth: "220px",
+              }}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)" }}>
+                  <span className="text-sm">🔄</span>
+                </div>
+                <div>
+                  <p className="text-white text-xs font-bold leading-tight">{t.hero.card7Title}</p>
+                  <p className="text-gray-500 text-[10px] mt-0.5">{t.hero.card7Sub}</p>
+                </div>
+                <span className="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0 animate-pulse" />
               </div>
             </div>
           </div>
@@ -329,7 +364,8 @@ export default function HeroSection({ onWatchDemo, onGetStarted }: { onWatchDemo
         </div>
       </div>
 
-      <style dangerouslySetInnerHTML={{ __html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         @keyframes float {
           0%, 100% { transform: translateY(0px); }
           50% { transform: translateY(-10px); }

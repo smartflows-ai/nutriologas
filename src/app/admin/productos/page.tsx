@@ -8,10 +8,12 @@ import { formatPrice } from "@/lib/utils";
 import { Plus, Pencil, Trash2, X, Check, Package, UploadCloud, ImageIcon } from "lucide-react";
 import ImageCropperModal from "@/components/admin/ImageCropperModal";
 import Pagination from "@/components/admin/Pagination";
+import { useTranslation } from "@/i18n";
 
 interface Product { id: string; name: string; price: number; stock: number; category: string | null; isActive: boolean; images: string[]; description: string | null; }
 
 export default function ProductosPage() {
+  const { t } = useTranslation();
   const [products, setProducts] = useState<Product[]>([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
@@ -89,7 +91,7 @@ export default function ProductosPage() {
   };
 
   const deleteProduct = async (id: string) => {
-    if (!confirm("¿Eliminar este producto?")) return;
+    if (!confirm(t.crm.products.modal.deleteConfirm)) return;
     await fetch(`/api/products/${id}`, { method: "DELETE" });
     fetchProducts(page);
   };
@@ -98,16 +100,16 @@ export default function ProductosPage() {
     <div>
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Productos</h1>
-          <p className="text-gray-500 text-sm">{totalCount} productos en total</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t.crm.products.title}</h1>
+          <p className="text-gray-500 text-sm">{totalCount} {t.crm.products.totalProducts}</p>
         </div>
-        <button onClick={openCreate} className="btn-primary flex items-center gap-2"><Plus size={18} /> Nuevo producto</button>
+        <button onClick={openCreate} className="btn-primary flex items-center gap-2"><Plus size={18} /> {t.crm.products.newProduct}</button>
       </div>
 
       {loadingProducts ? (
         <div className="flex flex-col items-center justify-center py-20 gap-3">
           <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-gray-500 animate-pulse">Cargando productos...</p>
+          <p className="text-sm text-gray-500 animate-pulse">{t.crm.products.loading}</p>
         </div>
       ) : (
         <>
@@ -122,8 +124,8 @@ export default function ProductosPage() {
                   <p className="font-semibold text-gray-900 dark:text-white text-sm truncate">{p.name}</p>
                   <p className="text-primary font-bold text-sm">{formatPrice(p.price)}</p>
                   <div className="flex gap-2 mt-1">
-                    <span className={`badge text-xs ${p.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>{p.isActive ? "Activo" : "Inactivo"}</span>
-                    <span className={`badge text-xs ${p.stock <= 5 ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-700 dark:text-gray-200"}`}>Stock: {p.stock}</span>
+                    <span className={`badge text-xs ${p.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>{p.isActive ? t.crm.products.active : t.crm.products.inactive}</span>
+                    <span className={`badge text-xs ${p.stock <= 5 ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-700 dark:text-gray-200"}`}>{t.crm.products.stock} {p.stock}</span>
                   </div>
                 </div>
                 <div className="flex flex-col gap-1 flex-shrink-0">
@@ -132,7 +134,7 @@ export default function ProductosPage() {
                 </div>
               </div>
             ))}
-            {products.length === 0 && <p className="text-center text-gray-400 py-10 text-sm">Sin productos. Crea el primero.</p>}
+            {products.length === 0 && <p className="text-center text-gray-400 py-10 text-sm">{t.crm.products.noProducts}</p>}
           </div>
 
           {/* Desktop: table */}
@@ -140,7 +142,7 @@ export default function ProductosPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-800">
                 <tr>
-                  {["Producto", "Precio", "Stock", "Categoría", "Estado", ""].map((h) => (
+                  {[t.crm.products.columns.product, t.crm.products.columns.price, t.crm.products.columns.stock, t.crm.products.columns.category, t.crm.products.columns.status, ""].map((h) => (
                     <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
                   ))}
                 </tr>
@@ -159,7 +161,7 @@ export default function ProductosPage() {
                     <td className="px-4 py-3 font-semibold text-primary">{formatPrice(p.price)}</td>
                     <td className="px-4 py-3"><span className={`badge ${p.stock <= 5 ? "bg-red-100 text-red-700" : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200"}`}>{p.stock}</span></td>
                     <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{p.category ?? "—"}</td>
-                    <td className="px-4 py-3"><span className={`badge ${p.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"}`}>{p.isActive ? "Activo" : "Inactivo"}</span></td>
+                    <td className="px-4 py-3"><span className={`badge ${p.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"}`}>{p.isActive ? t.crm.products.active : t.crm.products.inactive}</span></td>
                     <td className="px-4 py-3">
                       <div className="flex gap-2 justify-end">
                         <button onClick={() => openEdit(p)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 hover:text-primary transition-colors"><Pencil size={16} /></button>
@@ -168,7 +170,7 @@ export default function ProductosPage() {
                     </td>
                   </tr>
                 ))}
-                {products.length === 0 && (<tr><td colSpan={6} className="px-4 py-10 text-center text-gray-400">Sin productos. Crea el primero.</td></tr>)}
+                {products.length === 0 && (<tr><td colSpan={6} className="px-4 py-10 text-center text-gray-400">{t.crm.products.noProducts}</td></tr>)}
               </tbody>
             </table>
           </div>
@@ -187,8 +189,8 @@ export default function ProductosPage() {
           <div className="bg-white dark:bg-gray-950 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col border border-gray-200 dark:border-gray-800">
             <div className="flex items-center justify-between p-6 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50">
               <div>
-                <h2 className="font-bold text-xl text-gray-900 dark:text-white">{editing ? "Editar producto" : "Nuevo producto"}</h2>
-                <p className="text-xs text-gray-500 mt-1">Completa la información detallada del producto.</p>
+                <h2 className="font-bold text-xl text-gray-900 dark:text-white">{editing ? t.crm.products.modal.editTitle : t.crm.products.modal.newTitle}</h2>
+                <p className="text-xs text-gray-500 mt-1">{t.crm.products.modal.subtitle}</p>
               </div>
               <button onClick={() => setOpen(false)} className="p-2 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-full transition-colors"><X size={22} /></button>
             </div>
@@ -198,7 +200,7 @@ export default function ProductosPage() {
                 {/* Columna Izquierda: Imágenes y Multimedia */}
                 <div className="space-y-4">
                   <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2 flex items-center gap-2">
-                    <ImageIcon size={16} className="text-primary" /> Imágenes del Producto
+                    <ImageIcon size={16} className="text-primary" /> {t.crm.products.modal.imagesTitle}
                   </label>
                   
                   <div className="grid grid-cols-2 gap-4">
@@ -210,7 +212,7 @@ export default function ProductosPage() {
                             type="button"
                             onClick={() => setImages((prev) => prev.filter((_, i) => i !== idx))}
                             className="w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-lg"
-                            aria-label="Quitar imagen"
+                            aria-label={t.crm.products.modal.removePhoto}
                           >
                             <Trash2 size={14} />
                           </button>
@@ -238,14 +240,14 @@ export default function ProductosPage() {
                         {uploading ? (
                           <div className="flex flex-col items-center gap-2">
                             <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                            <span className="text-[10px] font-medium text-primary animate-pulse">Subiendo...</span>
+                            <span className="text-[10px] font-medium text-primary animate-pulse">{t.crm.products.modal.uploading}</span>
                           </div>
                         ) : (
                           <>
                             <div className="w-10 h-10 rounded-full bg-gray-50 dark:bg-gray-900 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
                               <UploadCloud size={20} className="text-gray-400 group-hover:text-primary" />
                             </div>
-                            <span className="text-xs font-semibold text-gray-500 group-hover:text-primary">Añadir foto</span>
+                            <span className="text-xs font-semibold text-gray-500 group-hover:text-primary">{t.crm.products.modal.addPhoto}</span>
                           </>
                         )}
                       </label>
@@ -260,26 +262,26 @@ export default function ProductosPage() {
                   )}
                   
                   <p className="text-[10px] text-gray-400 italic">
-                    Tip: Sube imágenes cuadradas (1:1) de alta calidad para lucir mejor en la tienda.
+                    {t.crm.products.modal.imageTip}
                   </p>
                 </div>
 
                 {/* Columna Derecha: Detalles Base */}
                 <div className="space-y-5">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1.5">Nombre del Producto</label>
-                    <input {...register("name")} className="input bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800 focus:bg-white transition-all" placeholder="Ej: Whey Protein 1kg" />
+                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1.5">{t.crm.products.modal.name}</label>
+                    <input {...register("name")} className="input bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800 focus:bg-white transition-all" />
                     {errors.name && <p className="text-red-500 text-[10px] mt-1 font-medium">{errors.name.message}</p>}
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1.5">Descripción</label>
-                    <textarea {...register("description")} rows={4} className="input bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800 focus:bg-white transition-all resize-none text-sm" placeholder="Describe los beneficios y características..." />
+                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1.5">{t.crm.products.modal.description}</label>
+                    <textarea {...register("description")} rows={4} className="input bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800 focus:bg-white transition-all resize-none text-sm" />
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1.5">Precio (MXN)</label>
+                      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1.5">{t.crm.products.modal.price}</label>
                       <div className="relative">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
                         <input {...register("price", { valueAsNumber: true })} type="number" step="0.01" className="input bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800 pl-7" placeholder="0.00" />
@@ -287,35 +289,35 @@ export default function ProductosPage() {
                       {errors.price && <p className="text-red-500 text-[10px] mt-1 font-medium">{errors.price.message}</p>}
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1.5">Stock</label>
-                      <input {...register("stock", { valueAsNumber: true })} type="number" className="input bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800" placeholder="Cant." />
+                      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1.5">{t.crm.products.modal.stock}</label>
+                      <input {...register("stock", { valueAsNumber: true })} type="number" className="input bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800" />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1.5">Categoría</label>
-                    <input {...register("category")} className="input bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800" placeholder="ej: Suplementos, Planes, etc." />
+                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1.5">{t.crm.products.modal.category}</label>
+                    <input {...register("category")} className="input bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800" />
                   </div>
 
                   <div className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 select-none cursor-pointer" onClick={() => (document.getElementById('isActive') as HTMLInputElement).click()}>
                     <input {...register("isActive")} type="checkbox" id="isActive" className="w-5 h-5 accent-primary rounded-md cursor-pointer" />
                     <div>
-                      <label htmlFor="isActive" className="text-sm font-semibold text-gray-900 dark:text-gray-200 block cursor-pointer">Producto visible</label>
-                      <p className="text-[10px] text-gray-500">¿Debería aparecer en la tienda pública?</p>
+                      <label htmlFor="isActive" className="text-sm font-semibold text-gray-900 dark:text-gray-200 block cursor-pointer">{t.crm.products.modal.visible}</label>
+                      <p className="text-[10px] text-gray-500">{t.crm.products.modal.visibleDesc}</p>
                     </div>
                   </div>
                 </div>
               </div>
 
               <div className="flex gap-4 pt-6 border-t border-gray-100 dark:border-gray-800">
-                <button type="button" onClick={() => setOpen(false)} className="btn-ghost flex-1 py-3 font-semibold text-gray-600">Cancelar</button>
+                <button type="button" onClick={() => setOpen(false)} className="btn-ghost flex-1 py-3 font-semibold text-gray-600">{t.crm.products.modal.cancel}</button>
                 <button type="submit" disabled={loading} className="btn-primary flex-[2] py-3 flex items-center justify-center gap-2 font-bold shadow-lg shadow-primary/20">
                   {loading ? (
                     <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   ) : (
                     <>
                       <Check size={18} />
-                      {editing ? "Actualizar Producto" : "Crear Producto"}
+                      {editing ? t.crm.products.modal.updateBtn : t.crm.products.modal.createBtn}
                     </>
                   )}
                 </button>
@@ -328,7 +330,7 @@ export default function ProductosPage() {
       {pendingFile && (
         <ImageCropperModal
           file={pendingFile}
-          title="Ajustar foto del producto"
+          title={t.crm.products.modal.cropTitle}
           aspect={1}
           onCancel={() => setPendingFile(null)}
           onConfirm={(cropped) => {

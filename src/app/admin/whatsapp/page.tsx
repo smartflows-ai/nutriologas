@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { MessageSquare, Settings, Send, User, Bot, RefreshCw, ChevronLeft, X, Check, PanelLeftClose, PanelLeftOpen, Trash2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { useTranslation } from "@/i18n";
 
 // WhatsApp text formatting normalizer to Standard Markdown
 const parseWhatsAppToMarkdown = (text: string) => {
@@ -19,6 +20,7 @@ const parseWhatsAppToMarkdown = (text: string) => {
 };
 
 export default function WhatsAppPage() {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<"chats" | "settings">("chats");
   const [selectedChat, setSelectedChat] = useState<any>(null);
   const [chats, setChats] = useState<any[]>([]);
@@ -133,14 +135,14 @@ export default function WhatsAppPage() {
       setConfirmDelete(null);
       setNotificationState({
         title: "Conversación eliminada",
-        message: "La conversación y todos sus mensajes han sido borrados.",
+        message: t.crm.whatsapp.modalDeleteDesc2,
         type: "success",
       });
     } catch (error) {
       setConfirmDelete(null);
       setNotificationState({
-        title: "Error al eliminar",
-        message: "No se pudo borrar la conversación. Intenta de nuevo.",
+        title: "Error",
+        message: "Error al borrar la conversación. Intenta de nuevo.",
         type: "error",
       });
     } finally {
@@ -185,10 +187,10 @@ export default function WhatsAppPage() {
       <div className="p-8 max-w-2xl mx-auto text-center">
         <div className="bg-white dark:bg-gray-900 rounded-xl p-12 shadow-sm border border-gray-100">
           <MessageSquare className="w-16 h-16 text-green-500 mx-auto mb-6 opacity-20" />
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">WhatsApp no conectado</h1>
-          <p className="text-gray-600 dark:text-gray-400 mb-8">Debes conectar tu cuenta de WhatsApp desde la sección de Apps antes de poder gestionarlo aquí.</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">{t.crm.whatsapp.notConnected}</h1>
+          <p className="text-gray-600 dark:text-gray-400 mb-8">{t.crm.whatsapp.notConnectedDesc}</p>
           <a href="/admin/apps" className="inline-flex items-center gap-2 bg-green-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-green-700 transition-colors">
-            Ir a Apps
+            {t.crm.whatsapp.goToApps}
           </a>
         </div>
       </div>
@@ -204,17 +206,17 @@ export default function WhatsAppPage() {
             <MessageSquare className="w-5 h-5 text-green-600" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white leading-none">Gestión de WhatsApp</h1>
-            <p className="text-sm text-green-600 font-medium mt-1">● Conectado: {config.waPhoneNumber}</p>
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white leading-none">{t.crm.whatsapp.title}</h1>
+            <p className="text-sm text-green-600 font-medium mt-1">● {t.crm.whatsapp.connected} {config.waPhoneNumber}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           {activeTab === "chats" && (
             <button
               onClick={() => setChatListCollapsed(c => !c)}
-              aria-label={chatListCollapsed ? "Mostrar lista" : "Ocultar lista"}
+              aria-label={chatListCollapsed ? t.crm.whatsapp.showList : t.crm.whatsapp.hideList}
               className="p-2 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-              title={chatListCollapsed ? "Mostrar conversaciones" : "Ocultar conversaciones"}
+              title={chatListCollapsed ? t.crm.whatsapp.showList : t.crm.whatsapp.hideList}
             >
               {chatListCollapsed ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
             </button>
@@ -223,13 +225,13 @@ export default function WhatsAppPage() {
             onClick={() => { setActiveTab("chats"); setSelectedChat(null); }}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'chats' ? 'bg-green-50 text-green-700' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100'}`}
           >
-            <MessageSquare className="w-4 h-4" /> Conversaciones
+            <MessageSquare className="w-4 h-4" /> {t.crm.whatsapp.tabChats}
           </button>
           <button
             onClick={() => setActiveTab("settings")}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'settings' ? 'bg-green-50 text-green-700' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100'}`}
           >
-            <Settings className="w-4 h-4" /> Configuración IA
+            <Settings className="w-4 h-4" /> {t.crm.whatsapp.tabSettings}
           </button>
         </div>
       </div>
@@ -242,12 +244,12 @@ export default function WhatsAppPage() {
           `}>
             <div className="p-4 border-b border-gray-100">
               <button onClick={fetchData} className="w-full flex items-center justify-center gap-2 text-xs text-gray-400 hover:text-green-600 transition-colors">
-                <RefreshCw className="w-3 h-3" /> Actualizar lista
+                <RefreshCw className="w-3 h-3" /> {t.crm.whatsapp.updateList}
               </button>
             </div>
             <div className="flex-1 overflow-y-auto">
               {chats.length === 0 ? (
-                <div className="p-8 text-center text-gray-400 text-sm">No hay conversaciones registradas</div>
+                <div className="p-8 text-center text-gray-400 text-sm">{t.crm.whatsapp.noChats}</div>
               ) : (
                 chats.map(chat => (
                   <div key={chat.id} className="relative group border-b border-gray-50">
@@ -278,8 +280,8 @@ export default function WhatsAppPage() {
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); requestDeleteChat(chat); }}
-                      aria-label="Eliminar conversación"
-                      title="Eliminar conversación"
+                      aria-label={t.crm.whatsapp.deleteChat}
+                      title={t.crm.whatsapp.deleteChat}
                       className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -348,13 +350,13 @@ export default function WhatsAppPage() {
                 
                 {/* Info Footer */}
                 <div className="p-3 bg-gray-50 dark:bg-gray-950 border-t border-gray-100 text-center">
-                  <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Respondiendo automáticamente con IA de Smart Flows</p>
+                  <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">{t.crm.whatsapp.autoReplyInfo}</p>
                 </div>
               </>
             ) : (
               <div className="text-center p-12">
                 <MessageSquare className="w-16 h-16 text-gray-100 mx-auto mb-4" />
-                <p className="text-gray-400 text-sm italic">Selecciona una conversación para ver los mensajes</p>
+                <p className="text-gray-400 text-sm italic">{t.crm.whatsapp.selectChat}</p>
               </div>
             )}
           </div>
@@ -368,13 +370,13 @@ export default function WhatsAppPage() {
               <div className="space-y-8">
                 <div>
                   <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-2">
-                    <RefreshCw className="w-5 h-5 text-green-500" /> Parámetros de la IA
+                    <RefreshCw className="w-5 h-5 text-green-500" /> {t.crm.whatsapp.settingsTitle}
                   </h3>
-                  <p className="text-sm text-gray-500 mb-8 font-medium">Define qué tan creativa o estrictamente técnica debe ser la Inteligencia Artificial.</p>
+                  <p className="text-sm text-gray-500 mb-8 font-medium">{t.crm.whatsapp.settingsDesc}</p>
                   
                   <div className="bg-gray-50 dark:bg-gray-900 p-6 rounded-2xl border border-gray-100 dark:border-gray-800">
                     <div className="flex items-center justify-between mb-6">
-                      <label className="text-sm font-bold text-gray-700 dark:text-gray-300">Temperatura (Creatividad)</label>
+                      <label className="text-sm font-bold text-gray-700 dark:text-gray-300">{t.crm.whatsapp.tempLabel}</label>
                       <span className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-3 py-1 rounded-full text-xs font-bold ring-1 ring-green-200 dark:ring-green-800">
                         {config.waTemperature}
                       </span>
@@ -386,18 +388,18 @@ export default function WhatsAppPage() {
                       className="w-full h-2 bg-gray-200 dark:bg-gray-800 rounded-lg appearance-none cursor-pointer accent-green-600 mb-2"
                     />
                     <div className="flex justify-between text-[10px] text-gray-400 font-bold uppercase tracking-wider">
-                      <span>Conservadora</span>
-                      <span>Creativa</span>
+                      <span>{t.crm.whatsapp.conservative}</span>
+                      <span>{t.crm.whatsapp.creative}</span>
                     </div>
                   </div>
                 </div>
 
                 <div className="p-6 bg-green-50 dark:bg-green-900/10 rounded-2xl border border-green-100 dark:border-green-900/20">
                   <h4 className="text-sm font-bold text-green-800 dark:text-green-400 flex items-center gap-2 mb-2">
-                     💡 Tip de Configuración
+                     💡 {t.crm.whatsapp.tipTitle}
                   </h4>
                   <p className="text-xs text-green-700 dark:text-green-500 leading-relaxed">
-                    Para una clínica, recomendamos una temperatura de **0.3 a 0.5**. Esto asegura respuestas profesionales y precisas sin inventar información médica.
+                    {t.crm.whatsapp.tipDesc}
                   </p>
                 </div>
               </div>
@@ -406,18 +408,18 @@ export default function WhatsAppPage() {
               <div className="space-y-6">
                 <div>
                   <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-2">
-                    <Bot className="w-5 h-5 text-green-500" /> Identidad y Contexto
+                    <Bot className="w-5 h-5 text-green-500" /> {t.crm.whatsapp.identityTitle}
                   </h3>
-                  <p className="text-sm text-gray-500 mb-4 font-medium">Dale instrucciones específicas al agente sobre cómo debe hablar y comportarse.</p>
+                  <p className="text-sm text-gray-500 mb-4 font-medium">{t.crm.whatsapp.identityDesc}</p>
                   
                   <textarea 
                     className="w-full h-64 p-5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl focus:ring-4 focus:ring-green-500/10 focus:border-green-500 outline-none text-gray-700 dark:text-gray-200 font-mono text-sm shadow-inner transition-all"
-                    placeholder="Ej: Eres la asistente de la Dra. Ana. Sé amable, usa emojis de nutrición y siempre sugiere agendar una cita de valoración..."
+                    placeholder={t.crm.whatsapp.identityPlaceholder}
                     value={config.waContext || ""}
                     onChange={(e) => setConfig({ ...config, waContext: e.target.value })}
                   />
                   <div className="mt-2 flex items-center gap-2 text-[10px] text-gray-400">
-                    <Check className="w-3 h-3 text-green-500" /> Los cambios se aplican a todos los chats nuevos.
+                    <Check className="w-3 h-3 text-green-500" /> {t.crm.whatsapp.identityNote}
                   </div>
                 </div>
               </div>
@@ -433,7 +435,7 @@ export default function WhatsAppPage() {
                 ) : (
                   <>
                     <Send className="w-5 h-5" />
-                    <span>Guardar Configuración Especializada</span>
+                    <span>{t.crm.whatsapp.saveBtn}</span>
                   </>
                 )}
               </button>
@@ -459,17 +461,16 @@ export default function WhatsAppPage() {
               <Trash2 size={28} />
             </div>
             <h3 id="delete-chat-title" className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-              ¿Eliminar conversación?
+              {t.crm.whatsapp.modalDeleteTitle}
             </h3>
             <p className="text-gray-500 dark:text-gray-400 text-sm mb-2 leading-relaxed">
-              Estás a punto de eliminar la conversación con{" "}
+              {t.crm.whatsapp.modalDeleteDesc1}{" "}
               <span className="font-semibold text-gray-900 dark:text-white">
                 {confirmDelete.chat.pushName || confirmDelete.chat.remoteJid?.split('@')[0]}
               </span>
-              .
             </p>
             <p className="text-gray-400 dark:text-gray-500 text-xs mb-8 leading-relaxed">
-              Esta acción es permanente. Se borrarán todos los mensajes guardados.
+              {t.crm.whatsapp.modalDeleteDesc2}
             </p>
             <div className="flex flex-col-reverse sm:flex-row gap-3">
               <button
@@ -477,7 +478,7 @@ export default function WhatsAppPage() {
                 onClick={() => setConfirmDelete(null)}
                 className="flex-1 px-6 py-3 text-sm font-bold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 rounded-2xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Cancelar
+                {t.crm.whatsapp.cancel}
               </button>
               <button
                 disabled={deleting}
@@ -487,12 +488,12 @@ export default function WhatsAppPage() {
                 {deleting ? (
                   <>
                     <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>Eliminando…</span>
+                    <span>{t.crm.whatsapp.deleting}</span>
                   </>
                 ) : (
                   <>
                     <Trash2 className="w-4 h-4" />
-                    <span>Eliminar</span>
+                    <span>{t.crm.whatsapp.delete}</span>
                   </>
                 )}
               </button>

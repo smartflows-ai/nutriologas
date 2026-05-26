@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { Trash2, Plus, GripVertical, Check, Pencil, Eye, EyeOff, X } from "lucide-react";
+import { useTranslation } from "@/i18n";
 
 interface FAQ {
   id: string;
@@ -11,6 +12,7 @@ interface FAQ {
 }
 
 export default function FAQPage() {
+  const { t } = useTranslation();
   const [faqs, setFaqs] = useState<FAQ[]>([]);
   const [newQuestion, setNewQuestion] = useState("");
   const [newAnswer, setNewAnswer] = useState("");
@@ -52,7 +54,7 @@ export default function FAQPage() {
   };
 
   const deleteFaq = async (id: string) => {
-    if (!confirm("¿Eliminar esta pregunta frecuente?")) return;
+    if (!confirm(t.crm.faq.deleteConfirm)) return;
     await fetch(`/api/faqs/${id}`, { method: "DELETE" });
     fetchFaqs();
   };
@@ -118,15 +120,15 @@ export default function FAQPage() {
     <div>
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Preguntas Frecuentes (FAQ)</h1>
-          <p className="text-gray-500 text-sm">Administra las respuestas rápidas que aparecen en el centro de ayuda.</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t.crm.faq.title}</h1>
+          <p className="text-gray-500 text-sm">{t.crm.faq.subtitle}</p>
         </div>
         {!showAddForm && (
           <button 
             onClick={() => setShowAddForm(true)}
             className="btn-primary flex items-center gap-2 shadow-lg shadow-primary/20"
           >
-            <Plus size={18} /> Nueva Pregunta
+            <Plus size={18} /> {t.crm.faq.newQuestionBtn}
           </button>
         )}
       </div>
@@ -139,7 +141,7 @@ export default function FAQPage() {
               <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
                 <Plus size={18} className="text-primary" />
               </div> 
-              Agregar nueva pregunta
+              {t.crm.faq.addTitle}
             </h2>
             <button 
               onClick={() => setShowAddForm(false)}
@@ -151,21 +153,21 @@ export default function FAQPage() {
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <div className="space-y-1.5">
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200">Pregunta *</label>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200">{t.crm.faq.questionLabel}</label>
               <textarea
                 value={newQuestion}
                 onChange={(e) => setNewQuestion(e.target.value)}
                 className="input min-h-[120px] resize-none bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 focus:ring-2 focus:ring-primary/20 transition-all text-sm"
-                placeholder="Ej: ¿Cuáles son las formas de pago?"
+                placeholder={t.crm.faq.questionPlaceholder}
               />
             </div>
             <div className="space-y-1.5">
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200">Respuesta *</label>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200">{t.crm.faq.answerLabel}</label>
               <textarea
                 value={newAnswer}
                 onChange={(e) => setNewAnswer(e.target.value)}
                 className="input min-h-[120px] resize-none bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 focus:ring-2 focus:ring-primary/20 transition-all text-sm"
-                placeholder="Ej: Aceptamos tarjetas de crédito, débito y transferencias bancarias..."
+                placeholder={t.crm.faq.answerPlaceholder}
               />
             </div>
           </div>
@@ -179,13 +181,13 @@ export default function FAQPage() {
               {adding ? (
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
               ) : <Check size={18} />}
-              {adding ? "Guardando..." : "Guardar Pregunta"}
+              {adding ? t.crm.faq.savingBtn : t.crm.faq.saveBtn}
             </button>
             <button
               onClick={() => setShowAddForm(false)}
               className="btn-ghost px-6 h-11 font-semibold text-gray-500"
             >
-              Cancelar
+              {t.crm.faq.cancelBtn}
             </button>
           </div>
         </div>
@@ -197,15 +199,15 @@ export default function FAQPage() {
           <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
             <Check size={18} className="text-gray-500" />
           </div>
-          Preguntas actuales ({faqs.length})
+          {t.crm.faq.listTitle} ({faqs.length})
           <span className="text-[10px] font-bold text-primary uppercase tracking-wider bg-primary/10 px-2.5 py-1 rounded-full border border-primary/20">
-            Click & Arrastra para reordenar
+            {t.crm.faq.dragReorder}
           </span>
         </h2>
 
         {faqs.length === 0 ? (
           <div className="card text-center py-10 text-gray-400">
-            <p className="text-sm">No hay preguntas frecuentes aún.</p>
+            <p className="text-sm">{t.crm.faq.empty}</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -233,21 +235,19 @@ export default function FAQPage() {
                           value={editQuestion}
                           onChange={(e) => setEditQuestion(e.target.value)}
                           className="input text-sm font-medium mb-2 min-h-[80px] resize-none"
-                          placeholder="Pregunta"
                         />
                         <textarea
                           value={editAnswer}
                           onChange={(e) => setEditAnswer(e.target.value)}
                           className="input text-sm min-h-[80px] resize-none"
-                          placeholder="Respuesta"
                         />
                       </div>
                       <div className="flex gap-2">
                         <button onClick={saveEdit} disabled={savingEdit} className="btn-primary py-1.5 px-3 text-xs flex items-center gap-1 w-max">
-                          <Check size={14} /> Guardar
+                          <Check size={14} /> {t.crm.faq.editSave}
                         </button>
                         <button onClick={() => setEditingId(null)} className="btn-ghost py-1.5 px-3 text-xs w-max">
-                          Cancelar
+                          {t.crm.faq.cancelBtn}
                         </button>
                       </div>
                     </div>
@@ -258,7 +258,7 @@ export default function FAQPage() {
                           {faq.question}
                         </p>
                         <span className={`badge text-[10px] ${faq.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
-                          {faq.isActive ? "Visible" : "Oculto"}
+                          {faq.isActive ? t.crm.faq.visible : t.crm.faq.hidden}
                         </span>
                       </div>
                       <p className={`text-sm whitespace-pre-wrap ${!faq.isActive ? "text-gray-400" : "text-gray-600 dark:text-gray-400"}`}>

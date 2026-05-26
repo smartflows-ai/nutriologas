@@ -7,14 +7,7 @@ import remarkGfm from "remark-gfm";
 
 interface Message { role: "user" | "assistant"; content: string; }
 
-const SUGGESTIONS = [
-  "¿Cómo van mis ventas este mes?",
-  "¿Cuáles son mis productos más vendidos?",
-  "¿Tengo reviews negativos recientes?",
-  "¿Cuántos clientes nuevos tuve este mes?",
-  "¿Qué producto me recomiendas promocionar más?",
-  "¿Cuántas citas tuve esta semana?",
-];
+// Removed hardcoded SUGGESTIONS
 
 function MessageBubble({ message }: { message: Message }) {
   const isUser = message.role === "user";
@@ -88,7 +81,10 @@ function MessageBubble({ message }: { message: Message }) {
   );
 }
 
+import { useTranslation } from "@/i18n";
+
 export default function ChatAssistant() {
+  const { t } = useTranslation();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -120,7 +116,7 @@ export default function ChatAssistant() {
       const data = await res.json();
       setMessages((prev) => [...prev, { role: "assistant", content: data.reply }]);
     } catch {
-      setMessages((prev) => [...prev, { role: "assistant", content: "Ocurrió un error. Por favor intenta de nuevo." }]);
+      setMessages((prev) => [...prev, { role: "assistant", content: t.crm.assistant.chat.error }]);
     } finally {
       setLoading(false);
     }
@@ -140,13 +136,13 @@ export default function ChatAssistant() {
             <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-4">
               <Sparkles size={32} className="text-primary" />
             </div>
-            <h2 className="font-bold text-gray-900 dark:text-white text-lg mb-2">Asistente de negocios</h2>
+            <h2 className="font-bold text-gray-900 dark:text-white text-lg mb-2">{t.crm.assistant.chat.welcomeTitle}</h2>
             <p className="text-gray-500 text-sm mb-8 max-w-sm">
-              Pregúntame sobre tus ventas, clientes, productos o citas. Analizo tus datos en tiempo real y te doy recomendaciones.
+              {t.crm.assistant.chat.welcomeDesc}
             </p>
             {/* Suggestion chips */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-lg">
-              {SUGGESTIONS.map((s) => (
+              {t.crm.assistant.chat.suggestions.map((s) => (
                 <button
                   key={s}
                   onClick={() => sendMessage(s)}
@@ -170,7 +166,7 @@ export default function ChatAssistant() {
             </div>
             <div className="bg-white dark:bg-gray-900 border border-gray-200 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm flex items-center gap-2">
               <Loader2 size={16} className="animate-spin text-primary" />
-              <span className="text-sm text-gray-500">Analizando tus datos...</span>
+              <span className="text-sm text-gray-500">{t.crm.assistant.chat.loading}</span>
             </div>
           </div>
         )}
@@ -181,7 +177,7 @@ export default function ChatAssistant() {
       <div className="border-t border-gray-100 p-4 flex-shrink-0">
         {messages.length > 0 && (
           <div className="flex gap-2 mb-3 overflow-x-auto pb-1 scrollbar-hide">
-            {SUGGESTIONS.slice(0, 3).map((s) => (
+            {t.crm.assistant.chat.suggestions.slice(0, 3).map((s) => (
               <button key={s} onClick={() => sendMessage(s)} className="flex-shrink-0 text-xs px-3 py-1.5 rounded-full bg-gray-100 hover:bg-primary/10 hover:text-primary text-gray-600 dark:text-gray-400 transition-colors whitespace-nowrap">
                 {s}
               </button>
@@ -193,7 +189,7 @@ export default function ChatAssistant() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Escribe tu pregunta... (Enter para enviar)"
+            placeholder={t.crm.assistant.chat.placeholder}
             rows={1}
             disabled={loading}
             className="input flex-1 resize-none min-h-[44px] max-h-32 py-2.5 disabled:opacity-50"
@@ -212,7 +208,7 @@ export default function ChatAssistant() {
             <Send size={18} />
           </button>
         </div>
-        <p className="text-xs text-gray-400 mt-2 text-center">Impulsado por Claude · Los datos son de tu clínica en tiempo real</p>
+        <p className="text-xs text-gray-400 mt-2 text-center">{t.crm.assistant.chat.footerText}</p>
       </div>
     </div>
   );

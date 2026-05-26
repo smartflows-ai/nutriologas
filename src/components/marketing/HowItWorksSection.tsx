@@ -1,32 +1,36 @@
+"use client";
 // src/components/marketing/HowItWorksSection.tsx
-const steps = [
-  {
-    number: "01",
-    title: "Create your account — 2 minutes",
-    description:
-      "You get a branded subdomain (yourbiz.newaigent.com), a private dashboard, and your AI workspace ready to configure. No card needed to start.",
-    icon: "🚀",
-    color: "#7C3AED",
-  },
-  {
-    number: "02",
-    title: "Turn on your agents",
-    description:
-      "Connect your social media, WhatsApp, calendar, and product catalog. Each agent learns your brand voice and starts working the moment you activate it.",
-    icon: "🤖",
-    color: "#06B6D4",
-  },
-  {
-    number: "03",
-    title: "Walk away. They've got it.",
-    description:
-      "Posts go live. Customers get answered. Appointments fill up. Sales close. You get a daily summary. That's it.",
-    icon: "⚡",
-    color: "#4F46E5",
-  },
-];
+import { useState } from "react";
+import { useTranslation } from "@/i18n";
 
 export default function HowItWorksSection() {
+  const [activeStep, setActiveStep] = useState(0);
+  const { t } = useTranslation();
+
+  const steps = [
+    {
+      number: "01",
+      title: t.howItWorks.step1Title,
+      description: t.howItWorks.step1Desc,
+      icon: "🚀",
+      color: "#7C3AED",
+    },
+    {
+      number: "02",
+      title: t.howItWorks.step2Title,
+      description: t.howItWorks.step2Desc,
+      icon: "🤖",
+      color: "#06B6D4",
+    },
+    {
+      number: "03",
+      title: t.howItWorks.step3Title,
+      description: t.howItWorks.step3Desc,
+      icon: "⚡",
+      color: "#4F46E5",
+    },
+  ];
+
   return (
     <section
       id="how-it-works"
@@ -47,10 +51,10 @@ export default function HowItWorksSection() {
         {/* Header */}
         <div className="text-center mb-20">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 mb-6">
-            <span className="text-xs font-bold text-cyan-300 uppercase tracking-widest">Up and running today</span>
+            <span className="text-xs font-bold text-cyan-300 uppercase tracking-widest">{t.howItWorks.badge}</span>
           </div>
           <h2 className="text-4xl sm:text-5xl font-black text-white mb-6 tracking-tight">
-            Three steps.{" "}
+            {t.howItWorks.headline1}{" "}
             <span
               style={{
                 background: "linear-gradient(135deg, #06B6D4 0%, #7C3AED 100%)",
@@ -59,11 +63,11 @@ export default function HowItWorksSection() {
                 backgroundClip: "text",
               }}
             >
-              Then hands off.
+              {t.howItWorks.headline2}
             </span>
           </h2>
           <p className="text-gray-400 text-lg max-w-xl mx-auto">
-            Most businesses go live in under 10 minutes.
+            {t.howItWorks.subtitle}
           </p>
         </div>
 
@@ -130,7 +134,7 @@ export default function HowItWorksSection() {
             href="#pricing"
             className="inline-flex items-center gap-2 text-violet-400 font-semibold text-base hover:text-violet-300 transition-colors group"
           >
-            See what it costs
+            {t.howItWorks.bottomCta}
             <span className="transition-transform duration-200 group-hover:translate-x-1">→</span>
           </a>
         </div>

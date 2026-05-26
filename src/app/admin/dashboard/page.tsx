@@ -96,23 +96,26 @@ async function getDashboardData(tenantId: string, rangeStr: string) {
   return { revenue, orderCount: allOrders.length, totalCustomers, newCustomers, avgRating, reviewCount: reviews.length, recentOrders, salesChartData, topProducts, ratingsDist, days };
 }
 
+import { getTranslationServer } from "@/i18n/server";
+
 export default async function DashboardPage({ searchParams }: { searchParams: { range?: string } }) {
   const session = await getAppSession();
   const tenantId = session!.user.tenantId;
   const range = searchParams.range || "7d";
   const data = await getDashboardData(tenantId, range);
+  const t = getTranslationServer();
 
   const metrics = [
-    { label: "Ingresos", value: formatPrice(data.revenue), sub: `${data.orderCount} pedidos`, icon: TrendingUp, color: "bg-green-50 text-green-600" },
-    { label: "Clientes totales", value: data.totalCustomers.toString(), sub: `+${data.newCustomers} en período`, icon: Users, color: "bg-blue-50 text-blue-600" },
-    { label: "Pedidos pagados", value: data.orderCount.toString(), sub: "exitosos", icon: ShoppingBag, color: "bg-purple-50 text-purple-600" },
-    { label: "Promedio reseñas", value: data.avgRating ? data.avgRating.toFixed(1) + " ⭐" : "—", sub: `${data.reviewCount} reseñas`, icon: Star, color: "bg-yellow-50 text-yellow-600" },
+    { label: t.crm.dashboard.revenue, value: formatPrice(data.revenue), sub: `${data.orderCount} ${t.crm.dashboard.ordersLabel}`, icon: TrendingUp, color: "bg-green-50 text-green-600" },
+    { label: t.crm.dashboard.totalCustomers, value: data.totalCustomers.toString(), sub: `+${data.newCustomers} ${t.crm.dashboard.inPeriod}`, icon: Users, color: "bg-blue-50 text-blue-600" },
+    { label: t.crm.dashboard.paidOrders, value: data.orderCount.toString(), sub: t.crm.dashboard.successful, icon: ShoppingBag, color: "bg-purple-50 text-purple-600" },
+    { label: t.crm.dashboard.avgReviews, value: data.avgRating ? data.avgRating.toFixed(1) + " ⭐" : "—", sub: `${data.reviewCount} ${t.crm.dashboard.reviewsLabel}`, icon: Star, color: "bg-yellow-50 text-yellow-600" },
   ];
 
   return (
     <div>
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard Analítico</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t.crm.dashboard.title}</h1>
         <DashboardFilters />
       </div>
 
@@ -131,37 +134,37 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <div className="card">
-          <h2 className="font-semibold text-gray-900 dark:text-white mb-4">Ventas en el período</h2>
+          <h2 className="font-semibold text-gray-900 dark:text-white mb-4">{t.crm.dashboard.salesPeriod}</h2>
           <SalesChart data={data.salesChartData} />
         </div>
         <div className="card">
-          <h2 className="font-semibold text-gray-900 dark:text-white mb-4">Volumen de Citas</h2>
+          <h2 className="font-semibold text-gray-900 dark:text-white mb-4">{t.crm.dashboard.appointmentsVol}</h2>
           <AppointmentsChart days={data.days} />
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
         <div className="card">
-          <h2 className="font-semibold text-gray-900 dark:text-white mb-4">Top 5 Productos</h2>
+          <h2 className="font-semibold text-gray-900 dark:text-white mb-4">{t.crm.dashboard.top5Products}</h2>
           <ProductsChart data={data.topProducts} />
         </div>
         <div className="card">
-          <h2 className="font-semibold text-gray-900 dark:text-white mb-4">Distribución de Reseñas</h2>
+          <h2 className="font-semibold text-gray-900 dark:text-white mb-4">{t.crm.dashboard.reviewsDist}</h2>
           <RatingsChart data={data.ratingsDist} />
         </div>
         <div className="card">
-          <h2 className="font-semibold text-gray-900 dark:text-white mb-4">Pedidos recientes</h2>
+          <h2 className="font-semibold text-gray-900 dark:text-white mb-4">{t.crm.dashboard.recentOrders}</h2>
           <div className="space-y-4 max-h-[220px] overflow-y-auto pr-2">
             {data.recentOrders.map((order) => (
               <div key={order.id} className="flex items-center justify-between text-sm border-b border-gray-50 dark:border-gray-800 pb-2 last:border-0 last:pb-0">
                 <div className="min-w-0 flex-1 mr-2">
                   <p className="font-medium text-gray-900 dark:text-white truncate">{order.user.name ?? order.user.email}</p>
-                  <p className="text-gray-400 text-xs">{order.items.length} producto(s)</p>
+                  <p className="text-gray-400 text-xs">{order.items.length} {t.crm.dashboard.productsLabel}</p>
                 </div>
                 <span className="font-semibold text-primary flex-shrink-0">{formatPrice(order.total)}</span>
               </div>
             ))}
-            {data.recentOrders.length === 0 && <p className="text-sm text-gray-400 text-center py-8">Sin pedidos aún</p>}
+            {data.recentOrders.length === 0 && <p className="text-sm text-gray-400 text-center py-8">{t.crm.dashboard.noOrdersYet}</p>}
           </div>
         </div>
       </div>

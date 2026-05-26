@@ -7,8 +7,11 @@ interface Props {
   daysLeft: number;
 }
 
+import { useTranslation } from "@/i18n";
+
 export default function TrialBanner({ daysLeft }: Props) {
   const [dismissed, setDismissed] = useState(false);
+  const { t } = useTranslation();
   if (dismissed) return null;
 
   const isUrgent = daysLeft <= 3;
@@ -38,15 +41,15 @@ export default function TrialBanner({ daysLeft }: Props) {
         <Zap size={15} className="shrink-0" />
         <span>
           {daysLeft > 0
-            ? `Your free trial ends in ${daysLeft} day${daysLeft !== 1 ? "s" : ""}.`
-            : "Your free trial has ended."}
+            ? `${t.admin.trialEndsIn} ${daysLeft} ${daysLeft !== 1 ? t.admin.trialDays : t.admin.trialDay}.`
+            : t.admin.trialEnded}
           {" "}
         </span>
         <button
           onClick={handleUpgrade}
           className="underline underline-offset-2 font-bold hover:no-underline transition-all"
         >
-          Upgrade now →
+          {t.admin.upgradeNow}
         </button>
       </div>
       <button

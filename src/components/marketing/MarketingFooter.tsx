@@ -1,7 +1,9 @@
 // src/components/marketing/MarketingFooter.tsx
 import Image from "next/image";
+import { useTranslation } from "@/i18n";
 
 export default function MarketingFooter() {
+  const { t } = useTranslation();
   const year = new Date().getFullYear();
 
   return (
@@ -37,7 +39,7 @@ export default function MarketingFooter() {
               </span>
             </div>
             <p className="text-gray-600 text-sm leading-relaxed max-w-[220px]">
-              Your world of AI agents. Automate everything. Grow faster.
+              {t.footer.tagline}
             </p>
             <div className="flex gap-3 mt-5">
               {/* Twitter/X */}
@@ -58,16 +60,16 @@ export default function MarketingFooter() {
           {/* Links */}
           {[
             {
-              title: "Product",
-              links: ["Features", "How It Works", "Pricing", "Roadmap"],
+              title: t.footer.product,
+              links: t.footer.productLinks,
             },
             {
-              title: "Company",
-              links: ["About", "Blog", "Careers", "Press"],
+              title: t.footer.company,
+              links: t.footer.companyLinks,
             },
             {
-              title: "Support",
-              links: ["Documentation", "API Reference", "Status", "Contact Us"],
+              title: t.footer.support,
+              links: t.footer.supportLinks,
             },
           ].map((col) => (
             <div key={col.title}>
@@ -93,10 +95,10 @@ export default function MarketingFooter() {
         {/* Bottom row */}
         <div className="pt-8 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-gray-700 text-xs">
-            © {year} NeoAigent. All rights reserved.
+            © {year} NeoAigent. {t.footer.rights}
           </p>
           <div className="flex items-center gap-6">
-            {["Privacy Policy", "Terms of Service", "Cookie Policy"].map((item) => (
+            {[t.footer.privacy, t.footer.terms, t.footer.cookies].map((item) => (
               <a key={item} href="#" className="text-gray-700 text-xs hover:text-gray-400 transition-colors">
                 {item}
               </a>

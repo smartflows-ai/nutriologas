@@ -2,9 +2,11 @@
 import { useEffect, useState } from "react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useSearchParams } from "next/navigation";
+import { useTranslation } from "@/i18n";
 
 // days is an array of "YYYY-MM-DD" chronologically ordered
 export default function AppointmentsChart({ days }: { days: string[] }) {
+  const { t, lang } = useTranslation();
   const [data, setData] = useState<{ date: string; count: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -24,7 +26,7 @@ export default function AppointmentsChart({ days }: { days: string[] }) {
         const res = await fetch(`/api/calendar/events?start=${start}&end=${end}`);
         if (!res.ok) {
            const err = await res.json();
-           throw new Error(err.error || "Error cargando citas");
+           throw new Error(err.error || t.crm.charts.error);
         }
         const json = await res.json();
         
@@ -35,7 +37,7 @@ export default function AppointmentsChart({ days }: { days: string[] }) {
         });
 
         const chartData = days.map(d => ({
-          date: new Date(d + "T12:00:00").toLocaleDateString("es-MX", { month: "short", day: "numeric" }),
+          date: new Date(d + "T12:00:00").toLocaleDateString(lang === "es" ? "es-MX" : "en-US", { month: "short", day: "numeric" }),
           count: counts[d] || 0,
         }));
         
@@ -47,11 +49,11 @@ export default function AppointmentsChart({ days }: { days: string[] }) {
       }
     }
     fetchEvents();
-  }, [range, days]);
+  }, [range, days, t]);
 
-  if (loading) return <p className="text-sm text-gray-400 py-8 text-center animate-pulse">Cargando calendario...</p>;
+  if (loading) return <p className="text-sm text-gray-400 py-8 text-center animate-pulse">{t.crm.charts.loading}</p>;
   if (error) return <p className="text-sm text-gray-400 py-8 text-center">{error}</p>;
-  if (data.every(d => d.count === 0)) return <p className="text-sm text-gray-400 py-8 text-center">Sin citas programadas</p>;
+  if (data.every(d => d.count === 0)) return <p className="text-sm text-gray-400 py-8 text-center">{t.crm.charts.noAppointments}</p>;
 
   return (
     <ResponsiveContainer width="100%" height={220}>
@@ -65,7 +67,7 @@ export default function AppointmentsChart({ days }: { days: string[] }) {
         <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
         <XAxis dataKey="date" tick={{ fontSize: 12 }} />
         <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
-        <Tooltip formatter={(v: number) => [v, "Citas"]} />
+        <Tooltip formatter={(v: number) => [v, t.crm.charts.appointments]} />
         <Area type="monotone" dataKey="count" stroke="#8b5cf6" strokeWidth={2} fill="url(#colorCount)" />
       </AreaChart>
     </ResponsiveContainer>

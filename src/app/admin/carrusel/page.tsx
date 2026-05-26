@@ -4,10 +4,12 @@ import { useState, useEffect } from "react";
 import { Trash2, Plus, GripVertical, ImageIcon, UploadCloud, X, Check } from "lucide-react";
 import Image from "next/image";
 import ImageCropperModal from "@/components/admin/ImageCropperModal";
+import { useTranslation } from "@/i18n";
 
 interface CarouselImage { id: string; url: string; alt: string | null; sortOrder: number; }
 
 export default function CarruselPage() {
+  const { t } = useTranslation();
   const [images, setImages] = useState<CarouselImage[]>([]);
   const [newUrl, setNewUrl] = useState("");
   const [newAlt, setNewAlt] = useState("");
@@ -35,10 +37,10 @@ export default function CarruselPage() {
       const res = await fetch("/api/upload/cloudinary", { method: "POST", body: form });
       const text = await res.text();
       const data = text ? JSON.parse(text) : null;
-      if (!res.ok) throw new Error(data?.error ?? "Error subiendo imagen");
+      if (!res.ok) throw new Error(data?.error ?? t.crm.carousel.uploadError);
       setNewUrl(data.url);
     } catch (e: any) {
-      setUploadError(e?.message ?? "Error subiendo imagen");
+      setUploadError(e?.message ?? t.crm.carousel.uploadError);
     } finally {
       setUploading(false);
     }
@@ -67,7 +69,7 @@ export default function CarruselPage() {
   };
 
   const deleteImage = async (id: string) => {
-    if (!confirm("¿Eliminar esta imagen del carrusel?")) return;
+    if (!confirm(t.crm.carousel.deleteConfirm)) return;
     await fetch(`/api/carousel/${id}`, { method: "DELETE" });
     fetchImages();
   };
@@ -97,15 +99,15 @@ export default function CarruselPage() {
     <>
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Carrusel</h1>
-          <p className="text-gray-500 text-sm">Gestiona el escaparate principal de tu tienda con banners impactantes.</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t.crm.carousel.title}</h1>
+          <p className="text-gray-500 text-sm">{t.crm.carousel.subtitle}</p>
         </div>
         {!showAddForm && (
           <button 
             onClick={() => setShowAddForm(true)}
             className="btn-primary flex items-center gap-2 shadow-lg shadow-primary/20"
           >
-            <Plus size={18} /> Nuevo Banner
+            <Plus size={18} /> {t.crm.carousel.newBanner}
           </button>
         )}
       </div>
@@ -118,7 +120,7 @@ export default function CarruselPage() {
               <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
                 <Plus size={18} className="text-primary" />
               </div> 
-              Añadir imagen al carrusel
+              {t.crm.carousel.addTitle}
             </h2>
             <button 
               onClick={() => setShowAddForm(false)}
@@ -132,7 +134,7 @@ export default function CarruselPage() {
              {/* Left: Dropzone */}
              <div className="space-y-4">
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200">
-                  Archivo de Imagen
+                  {t.crm.carousel.fileLabel}
                 </label>
                 
                 <label className={`aspect-[12/5] flex flex-col items-center justify-center border-2 border-dashed rounded-2xl cursor-pointer transition-all group overflow-hidden relative ${
@@ -157,22 +159,22 @@ export default function CarruselPage() {
                       <img src={newUrl} alt="Preview" className="w-full h-full object-cover" />
                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                         <div className="text-white text-xs font-bold flex items-center gap-2 px-3 py-1.5 bg-black/50 rounded-full border border-white/20">
-                           <UploadCloud size={14} /> Reemplazar imagen
+                           <UploadCloud size={14} /> {t.crm.carousel.replace}
                         </div>
                       </div>
                     </>
                   ) : uploading ? (
                     <div className="flex flex-col items-center gap-3">
                       <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-                      <span className="text-xs font-bold text-primary animate-pulse">Subiendo imagen...</span>
+                      <span className="text-xs font-bold text-primary animate-pulse">{t.crm.carousel.uploading}</span>
                     </div>
                   ) : (
                     <>
                       <div className="w-14 h-14 rounded-full bg-gray-50 dark:bg-gray-900 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
                         <UploadCloud size={24} className="text-gray-400 group-hover:text-primary" />
                       </div>
-                      <span className="text-sm font-bold text-gray-500 group-hover:text-primary">Click para subir banner</span>
-                      <p className="text-[10px] text-gray-400 mt-1 uppercase tracking-wider font-bold">1200 x 500 px recomendado</p>
+                      <span className="text-sm font-bold text-gray-500 group-hover:text-primary">{t.crm.carousel.clickUpload}</span>
+                      <p className="text-[10px] text-gray-400 mt-1 uppercase tracking-wider font-bold">{t.crm.carousel.tip}</p>
                     </>
                   )}
                 </label>
@@ -188,25 +190,24 @@ export default function CarruselPage() {
              {/* Right: Metadata */}
              <div className="space-y-6">
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200">URL del Banner (Opcional)</label>
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200">{t.crm.carousel.urlLabel}</label>
                   <input
                     value={newUrl}
                     onChange={(e) => setNewUrl(e.target.value)}
                     className="input bg-white dark:bg-gray-900 border-gray-200 transition-all font-mono text-xs"
                     placeholder="https://..."
                   />
-                  <p className="text-[10px] text-gray-400">Si lo subes arriba la URL se autocompletará.</p>
+                  <p className="text-[10px] text-gray-400">{t.crm.carousel.urlHint}</p>
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200">Texto Alternativo (Alt)</label>
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200">{t.crm.carousel.altLabel}</label>
                   <input
                     value={newAlt}
                     onChange={(e) => setNewAlt(e.target.value)}
                     className="input bg-white dark:bg-gray-900 border-gray-200 transition-all"
-                    placeholder="Ej: Promo de Suplementos Primavera"
                   />
-                  <p className="text-[10px] text-gray-400">Ayuda al SEO y accesibilidad.</p>
+                  <p className="text-[10px] text-gray-400">{t.crm.carousel.altHint}</p>
                 </div>
 
                 <div className="pt-4 flex gap-3">
@@ -218,13 +219,13 @@ export default function CarruselPage() {
                     {adding ? (
                       <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                     ) : <Check size={18} />}
-                    {adding ? "Agregando..." : "Confirmar y Publicar"}
+                    {adding ? t.crm.carousel.addingBtn : t.crm.carousel.confirmBtn}
                   </button>
                   <button 
                     onClick={() => setShowAddForm(false)}
                     className="btn-ghost flex-1 h-12 text-gray-500 font-semibold"
                   >
-                    Cancelar
+                    {t.crm.carousel.cancelBtn}
                   </button>
                 </div>
              </div>
@@ -239,11 +240,11 @@ export default function CarruselPage() {
             <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">
               <ImageIcon size={18} className="text-gray-500" />
             </div>
-            Banners Actuales ({images.length})
+            {t.crm.carousel.listTitle} ({images.length})
           </h2>
           {images.length > 0 && (
             <span className="text-[10px] font-bold text-primary uppercase tracking-wider bg-primary/10 px-3 py-1 rounded-full border border-primary/20">
-              Arrastra para reordenar
+              {t.crm.carousel.dragReorder}
             </span>
           )}
         </div>
@@ -251,7 +252,7 @@ export default function CarruselPage() {
         {images.length === 0 ? (
           <div className="card text-center py-10 text-gray-400">
             <ImageIcon size={40} className="mx-auto mb-3 opacity-40" />
-            <p>No hay imágenes en el carrusel aún.</p>
+            <p>{t.crm.carousel.empty}</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -270,7 +271,7 @@ export default function CarruselPage() {
                   <Image src={img.url} alt={img.alt ?? ""} fill sizes="128px" className="object-cover" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{img.alt ?? "Banner sin descripción"}</p>
+                  <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{img.alt ?? t.crm.carousel.noAlt}</p>
                   <p className="text-[10px] text-gray-400 truncate font-mono mt-0.5">{img.url}</p>
                 </div>
                 <button
@@ -288,7 +289,7 @@ export default function CarruselPage() {
       {pendingFile && (
         <ImageCropperModal
           file={pendingFile}
-          title="Ajustar imagen del carrusel"
+          title={t.crm.carousel.cropTitle}
           aspect={1200 / 500}
           onCancel={() => setPendingFile(null)}
           onConfirm={(cropped) => {

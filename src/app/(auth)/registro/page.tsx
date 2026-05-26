@@ -7,8 +7,10 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
+import { useTranslation } from "@/i18n";
 
 export default function RegistroPage() {
+  const { t } = useTranslation();
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") ?? "/";
@@ -58,8 +60,8 @@ export default function RegistroPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 px-4">
       <div className="card w-full max-w-sm">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2 text-center">Crear cuenta</h1>
-        <p className="text-gray-500 text-sm text-center mb-6">Únete para comprar y hacer seguimiento de tus pedidos</p>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2 text-center">{t.auth.registerTitle}</h1>
+        <p className="text-gray-500 text-sm text-center mb-6">{t.auth.registerSubtitle}</p>
 
         <button
           onClick={() => signIn("google", { callbackUrl })}
@@ -71,43 +73,43 @@ export default function RegistroPage() {
             <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
             <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
           </svg>
-          Continuar con Google
+          {t.auth.continueGoogle}
         </button>
 
         <div className="relative mb-4">
           <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200" /></div>
-          <div className="relative text-center"><span className="bg-white dark:bg-gray-900 px-3 text-xs text-gray-400">o con email</span></div>
+          <div className="relative text-center"><span className="bg-white dark:bg-gray-900 px-3 text-xs text-gray-400">{t.auth.orEmail}</span></div>
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Nombre completo</label>
-            <input {...register("name")} className="input" placeholder="Tu nombre" />
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{t.auth.nameLabel}</label>
+            <input {...register("name")} className="input" placeholder={t.auth.phName} />
             {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Email</label>
-            <input {...register("email")} type="email" className="input" placeholder="tu@email.com" />
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{t.auth.emailLabel}</label>
+            <input {...register("email")} type="email" className="input" placeholder={t.auth.phEmail} />
             {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Contraseña</label>
-            <input {...register("password")} type="password" className="input" placeholder="Mínimo 6 caracteres" />
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{t.auth.passwordLabel}</label>
+            <input {...register("password")} type="password" className="input" placeholder={t.auth.phPassword} />
             {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Confirmar contraseña</label>
-            <input {...register("confirmPassword")} type="password" className="input" placeholder="Repite tu contraseña" />
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{t.auth.confirmPassword}</label>
+            <input {...register("confirmPassword")} type="password" className="input" placeholder={t.auth.phConfirmPwd} />
             {errors.confirmPassword && <p className="text-red-500 text-xs mt-1">{errors.confirmPassword.message}</p>}
           </div>
           {error && <p className="text-red-500 text-sm">{error}</p>}
           <button type="submit" disabled={loading} className="btn-primary w-full py-3">
-            {loading ? "Creando cuenta..." : "Crear cuenta"}
+            {loading ? t.auth.registering : t.auth.registerButton}
           </button>
         </form>
 
         <p className="text-center text-sm text-gray-500 mt-4">
-          ¿Ya tienes cuenta? <Link href={`/login${callbackUrl !== "/" ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ""}`} className="text-primary hover:underline">Inicia sesión</Link>
+          {t.auth.alreadyAccount} <Link href={`/login${callbackUrl !== "/" ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ""}`} className="text-primary hover:underline">{t.auth.login}</Link>
         </p>
       </div>
     </div>

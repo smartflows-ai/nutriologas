@@ -3,9 +3,11 @@ import ChatAssistant from "@/components/chat/ChatAssistant";
 import { getAppSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import Link from "next/link";
-import { Bot } from "lucide-react";
+import { Bot, Loader2, Zap } from "lucide-react";
+import { getTranslationServer } from "@/i18n/server";
 
 export default async function AsistentePage() {
+  const t = getTranslationServer();
   const session = await getAppSession();
   const tenant = await prisma.tenant.findUnique({
     where: { id: session?.user.tenantId },
@@ -15,13 +17,16 @@ export default async function AsistentePage() {
   if (!tenant?.isAssistantEnabled) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center p-8 bg-white dark:bg-gray-950 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm mt-4">
-        <Bot size={64} className="text-gray-300 dark:text-gray-700 mb-4" />
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Asistente IA Desactivado</h2>
-        <p className="text-gray-500 mb-6 max-w-sm">
-          Has apagado el asistente inteligente para tu clínica. Sus respuestas automáticas están pausadas.
+        <div className="bg-red-50 dark:bg-red-900/10 rounded-full p-3 w-16 h-16 flex items-center justify-center mx-auto mb-4 border-2 border-red-100 dark:border-red-900/30">
+          <Bot size={32} className="text-red-500" />
+        </div>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{t.crm.assistant.disabledTitle}</h2>
+        <p className="text-gray-500 max-w-md mx-auto mb-8">
+          {t.crm.assistant.disabledDesc}
         </p>
-        <Link href="/admin/apps" className="btn-primary px-6 py-2.5 rounded-xl font-medium inline-flex items-center gap-2">
-          <Bot size={18} /> Re-activar Asistente
+        <Link href="/admin/apps" className="btn-primary inline-flex items-center gap-2 px-8 py-3">
+          <Zap size={20} />
+          {t.crm.assistant.reactivateBtn}
         </Link>
       </div>
     );
@@ -29,9 +34,12 @@ export default async function AsistentePage() {
 
   return (
     <div className="h-[calc(100vh-8rem)] flex flex-col">
-      <div className="mb-6 flex-shrink-0">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Asistente IA</h1>
-        <p className="text-gray-500 text-sm">Pregúntame sobre tus ventas, clientes, reviews o citas</p>
+      <div className="mb-4 shrink-0">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+          <Bot className="text-primary" size={24} />
+          {t.crm.assistant.title}
+        </h1>
+        <p className="text-gray-500 text-sm">{t.crm.assistant.subtitle}</p>
       </div>
       <ChatAssistant />
     </div>

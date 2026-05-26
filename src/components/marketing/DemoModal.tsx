@@ -1,8 +1,10 @@
 "use client";
 // src/components/marketing/DemoModal.tsx
 import { useEffect } from "react";
+import { useTranslation } from "@/i18n";
 
 export default function DemoModal({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation();
   // Close on Escape key
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -37,10 +39,10 @@ export default function DemoModal({ onClose }: { onClose: () => void }) {
         <div className="px-8 pt-8 pb-4 border-b border-white/6">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-violet-500/30 bg-violet-500/10 mb-3">
             <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-            <span className="text-xs font-bold text-violet-300 uppercase tracking-widest">Live Demo</span>
+            <span className="text-xs font-bold text-violet-300 uppercase tracking-widest">{t.modals.demo.badge}</span>
           </div>
-          <h3 className="text-white text-2xl font-black">See NeoAigent in Action</h3>
-          <p className="text-gray-500 text-sm mt-1">Watch how an AI agent creates, publishes, and reports on a social media campaign in under 60 seconds.</p>
+          <h3 className="text-white text-2xl font-black">{t.modals.demo.title}</h3>
+          <p className="text-gray-500 text-sm mt-1">{t.modals.demo.desc}</p>
         </div>
 
         {/* Video embed */}
@@ -73,10 +75,10 @@ export default function DemoModal({ onClose }: { onClose: () => void }) {
                 </svg>
               </div>
               <p className="text-gray-400 text-sm font-medium">
-                Demo video coming soon
+                {t.modals.demo.comingSoon}
               </p>
               <p className="text-gray-600 text-xs max-w-sm text-center">
-                In the meantime, sign up for a free trial and experience the magic yourself!
+                {t.modals.demo.meanwhile}
               </p>
 
               <a
@@ -85,16 +87,16 @@ export default function DemoModal({ onClose }: { onClose: () => void }) {
                 className="mt-4 px-8 py-3 rounded-xl font-bold text-sm text-white transition-all duration-300 hover:shadow-[0_0_20px_rgba(124,58,237,0.4)] hover:-translate-y-0.5"
                 style={{ background: "linear-gradient(135deg, #7C3AED, #4F46E5)" }}
               >
-                Start Free Trial Instead →
+                {t.modals.demo.btnTrial}
               </a>
             </div>
 
             {/* Feature highlights row */}
             <div className="relative z-10 flex flex-wrap justify-center gap-3 mt-4">
               {[
-                "🤖 AI writes your content",
-                "📣 Auto-publishes to social",
-                "📊 Reports back instantly",
+                t.modals.demo.feature1,
+                t.modals.demo.feature2,
+                t.modals.demo.feature3,
               ].map((item) => (
                 <span
                   key={item}

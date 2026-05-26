@@ -6,8 +6,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { themeSchema, type ThemeInput } from "@/lib/validations";
 import { Check, Palette, Moon, Sun, Monitor } from "lucide-react";
 import { useTheme } from "next-themes";
+import { useTranslation } from "@/i18n";
 
 export default function AparienciaPage() {
+  const { t } = useTranslation();
   const [saved, setSaved] = useState(false);
   const { theme, setTheme, systemTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
@@ -41,21 +43,21 @@ export default function AparienciaPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Apariencia</h1>
-      <p className="text-gray-500 text-sm mb-8">Personaliza los colores de tu tienda</p>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{t.crm.appearance.title}</h1>
+      <p className="text-gray-500 text-sm mb-8">{t.crm.appearance.subtitle}</p>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Color form */}
         <form onSubmit={handleSubmit(onSubmit)} className="card space-y-6">
           <div className="flex items-center gap-3 mb-2">
             <Palette size={22} className="text-primary" />
-            <h2 className="font-semibold text-gray-900 dark:text-white">Colores del tema</h2>
+            <h2 className="font-semibold text-gray-900 dark:text-white">{t.crm.appearance.themeColors}</h2>
           </div>
 
           {[
-            { name: "primaryColor" as const, label: "Color primario", hint: "Botones, precios, links principales" },
-            { name: "secondaryColor" as const, label: "Color secundario", hint: "Hover, fondos de énfasis" },
-            { name: "accentColor" as const, label: "Color de acento", hint: "Detalles, badges, highlights" },
+            { name: "primaryColor" as const, label: t.crm.appearance.primary, hint: t.crm.appearance.primaryHint },
+            { name: "secondaryColor" as const, label: t.crm.appearance.secondary, hint: t.crm.appearance.secondaryHint },
+            { name: "accentColor" as const, label: t.crm.appearance.accent, hint: t.crm.appearance.accentHint },
           ].map((field) => (
             <div key={field.name} className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-2xl border border-gray-100 dark:border-gray-800 transition-all hover:border-primary/20 hover:shadow-lg hover:shadow-gray-200/20 group">
               <div className="flex items-center justify-between mb-4">
@@ -98,9 +100,9 @@ export default function AparienciaPage() {
 
           <div className="p-5 bg-gray-50 dark:bg-gray-900/50 rounded-2xl border border-gray-100 dark:border-gray-800">
             <label className="block text-sm font-bold text-gray-900 dark:text-white mb-1.5 flex items-center gap-2">
-              <div className="w-1.5 h-4 bg-primary rounded-full" /> Tipografía Principal
+              <div className="w-1.5 h-4 bg-primary rounded-full" /> {t.crm.appearance.typography}
             </label>
-            <p className="text-[10px] text-gray-400 mb-4 font-medium italic">Define el carácter visual de todo tu sitio y paneles</p>
+            <p className="text-[10px] text-gray-400 mb-4 font-medium italic">{t.crm.appearance.typographyHint}</p>
             <select 
               {...register("fontFamily")} 
               className="input w-full bg-white dark:bg-gray-950 border-gray-200 dark:border-gray-800 cursor-pointer text-sm font-medium"
@@ -114,7 +116,7 @@ export default function AparienciaPage() {
           </div>
 
           <button type="submit" className="btn-primary w-full flex items-center justify-center gap-2 py-4 mt-4 font-bold rounded-2xl shadow-lg shadow-primary/20 transition-all active:scale-[0.98]">
-            {saved ? <><Check size={20} /> ¡Cambios Guardados!</> : "Aplicar diseño a la tienda"}
+            {saved ? <><Check size={20} /> {t.crm.appearance.savedBtn}</> : t.crm.appearance.applyBtn}
           </button>
         </form>
 
@@ -123,15 +125,15 @@ export default function AparienciaPage() {
           {/* Dark Mode Toggle */}
           <div className="card border-gray-100 dark:border-gray-800 shadow-xl shadow-gray-200/20">
             <h2 className="font-bold text-gray-900 dark:text-gray-100 mb-1 flex items-center gap-2">
-              <Sun size={18} className="text-amber-500" /> Esquema de Color
+              <Sun size={18} className="text-amber-500" /> {t.crm.appearance.colorScheme}
             </h2>
-            <p className="text-[10px] text-gray-500 font-medium mb-6">Elige el ambiente para tus clientes (Modo)</p>
+            <p className="text-[10px] text-gray-500 font-medium mb-6">{t.crm.appearance.schemeHint}</p>
             {mounted && (
               <div className="grid grid-cols-3 gap-4">
                 {[
-                  { id: "light", label: "Claro", icon: Sun },
-                  { id: "dark", label: "Oscuro", icon: Moon },
-                  { id: "system", label: "Sistema", icon: Monitor },
+                  { id: "light", label: t.crm.appearance.modes.light, icon: Sun },
+                  { id: "dark", label: t.crm.appearance.modes.dark, icon: Moon },
+                  { id: "system", label: t.crm.appearance.modes.system, icon: Monitor },
                 ].map((mode) => {
                   const Icon = mode.icon;
                   return (
@@ -151,17 +153,17 @@ export default function AparienciaPage() {
 
           {/* Preview */}
           <div className="card">
-            <h2 className="font-semibold text-gray-900 dark:text-gray-100 mb-4">Vista previa en tiempo real</h2>
+            <h2 className="font-semibold text-gray-900 dark:text-gray-100 mb-4">{t.crm.appearance.previewTitle}</h2>
             <div className="space-y-4 p-4 border border-gray-100 dark:border-gray-800 rounded-xl bg-gray-50 dark:bg-gray-900/50">
             {/* Simulated navbar */}
             <div 
               className="bg-white dark:bg-gray-900 border-b border-gray-200 rounded-xl px-4 py-3 flex items-center justify-between shadow-sm"
               style={{ fontFamily: values.fontFamily }}
             >
-              <span className="font-bold text-sm" style={{ color: values.primaryColor }}>Mi Clínica</span>
+              <span className="font-bold text-sm" style={{ color: values.primaryColor }}>{t.crm.appearance.preview.clinic}</span>
               <div className="flex gap-3 text-xs">
-                <span className="text-gray-600 dark:text-gray-400">Productos</span>
-                <span className="px-3 py-1 rounded-full text-white text-xs" style={{ background: values.primaryColor }}>Entrar</span>
+                <span className="text-gray-600 dark:text-gray-400">{t.crm.appearance.preview.products}</span>
+                <span className="px-3 py-1 rounded-full text-white text-xs" style={{ background: values.primaryColor }}>{t.crm.appearance.preview.enter}</span>
               </div>
             </div>
 
@@ -172,10 +174,10 @@ export default function AparienciaPage() {
             >
               <div className="h-24 rounded-t-xl" style={{ background: values.accentColor + "40" }} />
               <div className="p-3">
-                <p className="font-semibold text-sm text-gray-900 dark:text-white">Plan Detox 7 días</p>
+                <p className="font-semibold text-sm text-gray-900 dark:text-white">{t.crm.appearance.preview.plan}</p>
                 <p className="font-bold mt-1 text-lg" style={{ color: values.primaryColor }}>$1,200</p>
                 <button className="mt-2 w-full text-white text-xs py-2 rounded-lg font-medium transition-all hover:scale-[1.02]" style={{ background: values.primaryColor, boxShadow: `0 4px 14px 0 ${values.primaryColor}50` }}>
-                  Agregar al carrito
+                  {t.crm.appearance.preview.addCart}
                 </button>
               </div>
             </div>

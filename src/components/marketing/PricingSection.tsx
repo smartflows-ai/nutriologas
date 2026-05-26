@@ -2,80 +2,57 @@
 // src/components/marketing/PricingSection.tsx
 import { useState } from "react";
 import OnboardingModal from "./OnboardingModal";
+import { useTranslation } from "@/i18n";
 
 type PlanKey = "STARTER" | "PRO";
-
-const plans = [
-  {
-    id: "starter" as PlanKey,
-    name: "Starter",
-    tagline: "For solo entrepreneurs",
-    monthlyPrice: 29,
-    annualPrice: 19,
-    color: "#06B6D4",
-    glow: "rgba(6,182,212,0.15)",
-    popular: false,
-    features: [
-      "1 AI-powered subdomain",
-      "Social Media Agent (Facebook & IG)",
-      "Product catalog (up to 50 products)",
-      "WhatsApp integration",
-      "Basic analytics dashboard",
-      "Email support",
-    ],
-    cta: "Start Free Trial",
-    planKey: "STARTER" as PlanKey,
-  },
-  {
-    id: "pro" as PlanKey,
-    name: "Pro",
-    tagline: "For growing businesses",
-    monthlyPrice: 79,
-    annualPrice: 59,
-    color: "#7C3AED",
-    glow: "rgba(124,58,237,0.2)",
-    popular: true,
-    features: [
-      "Everything in Starter",
-      "Unlimited products",
-      "Appointment Scheduler Agent",
-      "Advanced analytics + AI insights",
-      "Custom branding (colors & fonts)",
-      "Priority support",
-      "n8n workflow automation",
-      "Google Calendar sync",
-    ],
-    cta: "Start Free Trial",
-    planKey: "PRO" as PlanKey,
-  },
-  {
-    id: "enterprise",
-    name: "Enterprise",
-    tagline: "For agencies & large teams",
-    monthlyPrice: 199,
-    annualPrice: 149,
-    color: "#4F46E5",
-    glow: "rgba(79,70,229,0.15)",
-    popular: false,
-    features: [
-      "Everything in Pro",
-      "Unlimited subdomains / tenants",
-      "Custom AI agent development",
-      "White-label (remove NeoAigent branding)",
-      "Dedicated account manager",
-      "SLA uptime guarantee",
-      "SSO & advanced permissions",
-      "On-premise deployment option",
-    ],
-    cta: "Contact Sales",
-    planKey: null,
-  },
-];
 
 export default function PricingSection() {
   const [annual, setAnnual] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<PlanKey>("STARTER");
+  const { t } = useTranslation();
+
+  const plans = [
+    {
+      id: "starter" as PlanKey,
+      name: "Starter",
+      tagline: t.pricing.starterTagline,
+      monthlyPrice: 29,
+      annualPrice: 19,
+      color: "#06B6D4",
+      glow: "rgba(6,182,212,0.15)",
+      popular: false,
+      features: t.pricing.starterFeatures,
+      cta: t.pricing.startTrial,
+      planKey: "STARTER" as PlanKey,
+    },
+    {
+      id: "pro" as PlanKey,
+      name: "Pro",
+      tagline: t.pricing.proTagline,
+      monthlyPrice: 79,
+      annualPrice: 59,
+      color: "#7C3AED",
+      glow: "rgba(124,58,237,0.2)",
+      popular: true,
+      features: t.pricing.proFeatures,
+      cta: t.pricing.startTrial,
+      planKey: "PRO" as PlanKey,
+    },
+    {
+      id: "enterprise",
+      name: "Enterprise",
+      tagline: t.pricing.enterpriseTagline,
+      monthlyPrice: 199,
+      annualPrice: 149,
+      color: "#4F46E5",
+      glow: "rgba(79,70,229,0.15)",
+      popular: false,
+      features: t.pricing.enterpriseFeatures,
+      cta: t.pricing.contactSales,
+      planKey: null,
+    },
+  ];
 
   const handlePlanClick = (plan: typeof plans[number]) => {
     if (!plan.planKey) {
@@ -109,11 +86,11 @@ export default function PricingSection() {
           <div className="text-center mb-16">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-violet-500/30 bg-violet-500/10 mb-6">
               <span className="text-xs font-bold text-violet-300 uppercase tracking-widest">
-                Simple Pricing
+                {t.pricing.badge}
               </span>
             </div>
             <h2 className="text-4xl sm:text-5xl font-black text-white mb-6 tracking-tight">
-              Invest in AI,{" "}
+              {t.pricing.headline1}{" "}
               <span
                 style={{
                   background: "linear-gradient(135deg, #A78BFA 0%, #06B6D4 100%)",
@@ -122,11 +99,11 @@ export default function PricingSection() {
                   backgroundClip: "text",
                 }}
               >
-                get back time
+                {t.pricing.headline2}
               </span>
             </h2>
             <p className="text-gray-400 text-lg max-w-xl mx-auto mb-10">
-              14-day free trial on all plans. No credit card required.
+              {t.pricing.subtitle}
             </p>
 
             {/* Billing toggle */}
@@ -140,7 +117,7 @@ export default function PricingSection() {
                     : "text-gray-400 hover:text-white"
                 }`}
               >
-                Monthly
+                {t.pricing.monthly}
               </button>
               <button
                 id="billing-annual"
@@ -151,9 +128,9 @@ export default function PricingSection() {
                     : "text-gray-400 hover:text-white"
                 }`}
               >
-                Annual
+                {t.pricing.annual}
                 <span className="ml-2 text-[10px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full border border-green-500/30">
-                  Save 25%
+                  {t.pricing.save}
                 </span>
               </button>
             </div>
@@ -180,7 +157,7 @@ export default function PricingSection() {
                     className="absolute -top-4 left-1/2 -translate-x-1/2 px-5 py-1.5 rounded-full text-xs font-black uppercase tracking-wider text-white"
                     style={{ background: `linear-gradient(135deg, ${plan.color}, #4F46E5)` }}
                   >
-                    ⭐ Most Popular
+                    {t.pricing.mostPopular}
                   </div>
                 )}
 
@@ -198,11 +175,11 @@ export default function PricingSection() {
                     <span className="text-5xl font-black text-white transition-all duration-300">
                       ${annual ? plan.annualPrice : plan.monthlyPrice}
                     </span>
-                    <span className="text-gray-500 mb-2 text-sm">/mo</span>
+                    <span className="text-gray-500 mb-2 text-sm">{t.pricing.perMonth}</span>
                   </div>
                   {annual && (
                     <p className="text-green-400 text-xs font-semibold mt-1">
-                      Billed annually — save ${(plan.monthlyPrice - plan.annualPrice) * 12}/yr
+                      {t.pricing.billedAnnually}{(plan.monthlyPrice - plan.annualPrice) * 12}{t.pricing.savePerYear}
                     </p>
                   )}
                 </div>
@@ -247,9 +224,8 @@ export default function PricingSection() {
             ))}
           </div>
 
-          {/* Fine print */}
           <p className="text-center text-gray-600 text-sm mt-10">
-            All plans include 14-day free trial · Cancel anytime · No hidden fees
+            {t.pricing.finePrint}
           </p>
         </div>
       </section>

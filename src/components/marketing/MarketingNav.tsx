@@ -3,10 +3,12 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useTranslation } from "@/i18n";
 
 export default function MarketingNav({ onSignIn, onGetStarted }: { onSignIn?: () => void; onGetStarted?: () => void }) {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { t } = useTranslation();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -15,10 +17,10 @@ export default function MarketingNav({ onSignIn, onGetStarted }: { onSignIn?: ()
   }, []);
 
   const links = [
-    { href: "#features", label: "Features" },
-    { href: "#how-it-works", label: "How It Works" },
-    { href: "#pricing", label: "Pricing" },
-    { href: "#testimonials", label: "Testimonials" },
+    { href: "#features", label: t.nav.features },
+    { href: "#how-it-works", label: t.nav.howItWorks },
+    { href: "#pricing", label: t.nav.pricing },
+    { href: "#testimonials", label: t.nav.testimonials },
   ];
 
   return (
@@ -67,7 +69,7 @@ export default function MarketingNav({ onSignIn, onGetStarted }: { onSignIn?: ()
               onClick={onSignIn}
               className="text-sm text-gray-400 hover:text-white transition-colors duration-200 font-medium px-3 py-2"
             >
-              Sign In
+              {t.nav.signIn}
             </button>
             <button
               id="nav-get-started"
@@ -77,7 +79,7 @@ export default function MarketingNav({ onSignIn, onGetStarted }: { onSignIn?: ()
                 background: "linear-gradient(135deg, #7C3AED 0%, #4F46E5 100%)",
               }}
             >
-              <span className="relative z-10">Get Started Free</span>
+              <span className="relative z-10">{t.nav.getStarted}</span>
               <span className="relative z-10 transition-transform duration-200 group-hover:translate-x-0.5">→</span>
               <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
             </button>
@@ -122,7 +124,7 @@ export default function MarketingNav({ onSignIn, onGetStarted }: { onSignIn?: ()
                 }}
                 className="w-full text-center px-5 py-3 text-sm font-semibold text-gray-300 hover:text-white rounded-xl border border-white/10 bg-white/5 transition-all"
               >
-                Sign In
+                {t.nav.signIn}
               </button>
               <button
                 id="mobile-get-started"
@@ -130,7 +132,7 @@ export default function MarketingNav({ onSignIn, onGetStarted }: { onSignIn?: ()
                 className="w-full text-center px-5 py-3 rounded-xl text-sm font-semibold text-white shadow-[0_4px_14px_rgba(124,58,237,0.3)] hover:shadow-[0_6px_20px_rgba(124,58,237,0.4)] transition-all"
                 style={{ background: "linear-gradient(135deg, #7C3AED 0%, #4F46E5 100%)" }}
               >
-                Get Started Free
+                {t.nav.getStarted}
               </button>
             </div>
           </nav>

@@ -25,46 +25,49 @@ import {
 } from "lucide-react";
 import SignOutButton from "@/components/admin/SignOutButton";
 
-const baseCategories = [
-  {
-    title: "General",
-    items: [
-      { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/admin/pedidos", label: "Pedidos", icon: ShoppingBag },
-      { href: "/admin/productos", label: "Productos", icon: Package },
-      { href: "/admin/reviews", label: "Reviews", icon: Star },
-    ],
-  },
-  {
-    title: "Sitio Web",
-    items: [
-      { href: "/admin/carrusel", label: "Carrusel", icon: Image },
-      { href: "/admin/apariencia", label: "Apariencia", icon: Palette },
-      { href: "/admin/faq", label: "FAQ", icon: HelpCircle },
-    ],
-  },
-  {
-    title: "Apps & Automatización",
-    items: [
-      { href: "/admin/apps", label: "Tienda", icon: Plug },
-      { href: "/admin/asistente", label: "Asistente IA", icon: Bot, isAssistant: true },
-      { href: "/admin/calendario", label: "Calendario", icon: Calendar, providersReq: ["GOOGLE", "MICROSOFT"] },
-      { href: "/admin/whatsapp", label: "WhatsApp", icon: MessageSquare, providersReq: ["WHATSAPP"] },
-      { href: "/admin/social-campaign", label: "Campañas Sociales", icon: Globe, providersReq: ["FACEBOOK"] },
-    ],
-  },
-];
-
 interface Props {
   userName?: string | null;
   isAssistantEnabled: boolean;
   connectedApps: string[];
 }
 
+import { useTranslation } from "@/i18n";
+
 export default function AdminSidebar({ userName, isAssistantEnabled, connectedApps }: Props) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const { t } = useTranslation();
+
+  const baseCategories = [
+    {
+      title: t.admin.generalSection,
+      items: [
+        { href: "/admin/dashboard", label: t.admin.dashboard, icon: LayoutDashboard },
+        { href: "/admin/pedidos", label: t.admin.orders, icon: ShoppingBag },
+        { href: "/admin/productos", label: t.admin.products, icon: Package },
+        { href: "/admin/reviews", label: t.admin.reviews, icon: Star },
+      ],
+    },
+    {
+      title: t.admin.websiteSection,
+      items: [
+        { href: "/admin/carrusel", label: t.admin.carousel, icon: Image },
+        { href: "/admin/apariencia", label: t.admin.appearance, icon: Palette },
+        { href: "/admin/faq", label: t.admin.faq, icon: HelpCircle },
+      ],
+    },
+    {
+      title: t.admin.appsSection,
+      items: [
+        { href: "/admin/apps", label: t.admin.store, icon: Plug },
+        { href: "/admin/asistente", label: t.admin.aiAssistant, icon: Bot, isAssistant: true },
+        { href: "/admin/calendario", label: t.admin.calendar, icon: Calendar, providersReq: ["GOOGLE", "MICROSOFT"] },
+        { href: "/admin/whatsapp", label: t.admin.whatsapp, icon: MessageSquare, providersReq: ["WHATSAPP"] },
+        { href: "/admin/social-campaign", label: t.admin.socialCampaigns, icon: Globe, providersReq: ["FACEBOOK"] },
+      ],
+    },
+  ];
 
   // Close sidebar on route change (mobile nav)
   useEffect(() => {
@@ -109,7 +112,7 @@ export default function AdminSidebar({ userName, isAssistantEnabled, connectedAp
         <button
           className="p-1 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
           onClick={() => setOpen(false)}
-          aria-label="Cerrar menú"
+          aria-label={t.admin.closeMenu}
         >
           <X size={20} />
         </button>
@@ -141,7 +144,7 @@ export default function AdminSidebar({ userName, isAssistantEnabled, connectedAp
         ))}
       </nav>
       <div className="px-3 pb-4">
-        <SignOutButton><LogOut size={18} /> Cerrar sesión</SignOutButton>
+        <SignOutButton><LogOut size={18} /> {t.admin.signOut}</SignOutButton>
       </div>
     </div>
   );
@@ -159,7 +162,7 @@ export default function AdminSidebar({ userName, isAssistantEnabled, connectedAp
         )}
         <button
           onClick={() => setCollapsed(c => !c)}
-          aria-label={collapsed ? "Expandir menú" : "Contraer menú"}
+          aria-label={collapsed ? t.admin.expandMenu : t.admin.collapseMenu}
           className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex-shrink-0"
         >
           {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
@@ -203,7 +206,7 @@ export default function AdminSidebar({ userName, isAssistantEnabled, connectedAp
         {collapsed ? (
           <SignOutButton iconOnly><LogOut size={18} /></SignOutButton>
         ) : (
-          <SignOutButton><LogOut size={18} /> Cerrar sesión</SignOutButton>
+          <SignOutButton><LogOut size={18} /> {t.admin.signOut}</SignOutButton>
         )}
       </div>
     </div>
@@ -215,7 +218,7 @@ export default function AdminSidebar({ userName, isAssistantEnabled, connectedAp
       <button
         className="md:hidden fixed top-4 left-4 z-40 p-2.5 bg-white dark:bg-gray-900 rounded-xl shadow-md border border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-200"
         onClick={() => setOpen(true)}
-        aria-label="Abrir menú"
+        aria-label={t.admin.openMenu}
       >
         <Menu size={20} />
       </button>

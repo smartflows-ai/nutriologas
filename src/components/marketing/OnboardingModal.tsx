@@ -6,6 +6,7 @@ import {
   Building2, Globe, MessageCircle, Mail, Lock, Upload,
   AtSign, CheckCircle2, XCircle, Loader2, ChevronRight, ChevronLeft, X, ChevronDown, Search
 } from "lucide-react";
+import { useTranslation } from "@/i18n";
 
 interface Props {
   onClose: () => void;
@@ -19,81 +20,82 @@ const labelCls = "block text-xs font-semibold text-gray-400 mb-2 uppercase track
 
 // ── Country + dial-code data ──────────────────────────────────────────────────
 const COUNTRIES = [
-  { name: "México",            code: "MX", dial: "+52",  flag: "🇲🇽" },
-  { name: "United States",     code: "US", dial: "+1",   flag: "🇺🇸" },
-  { name: "Canada",            code: "CA", dial: "+1",   flag: "🇨🇦" },
-  { name: "Argentina",         code: "AR", dial: "+54",  flag: "🇦🇷" },
-  { name: "Brasil",            code: "BR", dial: "+55",  flag: "🇧🇷" },
-  { name: "Chile",             code: "CL", dial: "+56",  flag: "🇨🇱" },
-  { name: "Colombia",          code: "CO", dial: "+57",  flag: "🇨🇴" },
-  { name: "Perú",              code: "PE", dial: "+51",  flag: "🇵🇪" },
-  { name: "Venezuela",         code: "VE", dial: "+58",  flag: "🇻🇪" },
-  { name: "Ecuador",           code: "EC", dial: "+593", flag: "🇪🇨" },
-  { name: "Bolivia",           code: "BO", dial: "+591", flag: "🇧🇴" },
-  { name: "Paraguay",          code: "PY", dial: "+595", flag: "🇵🇾" },
-  { name: "Uruguay",           code: "UY", dial: "+598", flag: "🇺🇾" },
-  { name: "Costa Rica",        code: "CR", dial: "+506", flag: "🇨🇷" },
-  { name: "Guatemala",         code: "GT", dial: "+502", flag: "🇬🇹" },
-  { name: "Honduras",          code: "HN", dial: "+504", flag: "🇭🇳" },
-  { name: "El Salvador",       code: "SV", dial: "+503", flag: "🇸🇻" },
-  { name: "Nicaragua",         code: "NI", dial: "+505", flag: "🇳🇮" },
-  { name: "Panamá",            code: "PA", dial: "+507", flag: "🇵🇦" },
-  { name: "Cuba",              code: "CU", dial: "+53",  flag: "🇨🇺" },
+  { name: "México", code: "MX", dial: "+52", flag: "🇲🇽" },
+  { name: "United States", code: "US", dial: "+1", flag: "🇺🇸" },
+  { name: "Canada", code: "CA", dial: "+1", flag: "🇨🇦" },
+  { name: "Argentina", code: "AR", dial: "+54", flag: "🇦🇷" },
+  { name: "Brasil", code: "BR", dial: "+55", flag: "🇧🇷" },
+  { name: "Chile", code: "CL", dial: "+56", flag: "🇨🇱" },
+  { name: "Colombia", code: "CO", dial: "+57", flag: "🇨🇴" },
+  { name: "Perú", code: "PE", dial: "+51", flag: "🇵🇪" },
+  { name: "Venezuela", code: "VE", dial: "+58", flag: "🇻🇪" },
+  { name: "Ecuador", code: "EC", dial: "+593", flag: "🇪🇨" },
+  { name: "Bolivia", code: "BO", dial: "+591", flag: "🇧🇴" },
+  { name: "Paraguay", code: "PY", dial: "+595", flag: "🇵🇾" },
+  { name: "Uruguay", code: "UY", dial: "+598", flag: "🇺🇾" },
+  { name: "Costa Rica", code: "CR", dial: "+506", flag: "🇨🇷" },
+  { name: "Guatemala", code: "GT", dial: "+502", flag: "🇬🇹" },
+  { name: "Honduras", code: "HN", dial: "+504", flag: "🇭🇳" },
+  { name: "El Salvador", code: "SV", dial: "+503", flag: "🇸🇻" },
+  { name: "Nicaragua", code: "NI", dial: "+505", flag: "🇳🇮" },
+  { name: "Panamá", code: "PA", dial: "+507", flag: "🇵🇦" },
+  { name: "Cuba", code: "CU", dial: "+53", flag: "🇨🇺" },
   { name: "República Dominicana", code: "DO", dial: "+1", flag: "🇩🇴" },
-  { name: "Puerto Rico",       code: "PR", dial: "+1",   flag: "🇵🇷" },
-  { name: "Spain",             code: "ES", dial: "+34",  flag: "🇪🇸" },
-  { name: "Germany",           code: "DE", dial: "+49",  flag: "🇩🇪" },
-  { name: "France",            code: "FR", dial: "+33",  flag: "🇫🇷" },
-  { name: "Italy",             code: "IT", dial: "+39",  flag: "🇮🇹" },
-  { name: "United Kingdom",    code: "GB", dial: "+44",  flag: "🇬🇧" },
-  { name: "Portugal",          code: "PT", dial: "+351", flag: "🇵🇹" },
-  { name: "Netherlands",       code: "NL", dial: "+31",  flag: "🇳🇱" },
-  { name: "China",             code: "CN", dial: "+86",  flag: "🇨🇳" },
-  { name: "Japan",             code: "JP", dial: "+81",  flag: "🇯🇵" },
-  { name: "India",             code: "IN", dial: "+91",  flag: "🇮🇳" },
-  { name: "Australia",         code: "AU", dial: "+61",  flag: "🇦🇺" },
-  { name: "South Africa",      code: "ZA", dial: "+27",  flag: "🇿🇦" },
-  { name: "Nigeria",           code: "NG", dial: "+234", flag: "🇳🇬" },
-  { name: "Kenya",             code: "KE", dial: "+254", flag: "🇰🇪" },
-  { name: "Saudi Arabia",      code: "SA", dial: "+966", flag: "🇸🇦" },
-  { name: "UAE",               code: "AE", dial: "+971", flag: "🇦🇪" },
-  { name: "Turkey",            code: "TR", dial: "+90",  flag: "🇹🇷" },
-  { name: "Israel",            code: "IL", dial: "+972", flag: "🇮🇱" },
+  { name: "Puerto Rico", code: "PR", dial: "+1", flag: "🇵🇷" },
+  { name: "Spain", code: "ES", dial: "+34", flag: "🇪🇸" },
+  { name: "Germany", code: "DE", dial: "+49", flag: "🇩🇪" },
+  { name: "France", code: "FR", dial: "+33", flag: "🇫🇷" },
+  { name: "Italy", code: "IT", dial: "+39", flag: "🇮🇹" },
+  { name: "United Kingdom", code: "GB", dial: "+44", flag: "🇬🇧" },
+  { name: "Portugal", code: "PT", dial: "+351", flag: "🇵🇹" },
+  { name: "Netherlands", code: "NL", dial: "+31", flag: "🇳🇱" },
+  { name: "China", code: "CN", dial: "+86", flag: "🇨🇳" },
+  { name: "Japan", code: "JP", dial: "+81", flag: "🇯🇵" },
+  { name: "India", code: "IN", dial: "+91", flag: "🇮🇳" },
+  { name: "Australia", code: "AU", dial: "+61", flag: "🇦🇺" },
+  { name: "South Africa", code: "ZA", dial: "+27", flag: "🇿🇦" },
+  { name: "Nigeria", code: "NG", dial: "+234", flag: "🇳🇬" },
+  { name: "Kenya", code: "KE", dial: "+254", flag: "🇰🇪" },
+  { name: "Saudi Arabia", code: "SA", dial: "+966", flag: "🇸🇦" },
+  { name: "UAE", code: "AE", dial: "+971", flag: "🇦🇪" },
+  { name: "Turkey", code: "TR", dial: "+90", flag: "🇹🇷" },
+  { name: "Israel", code: "IL", dial: "+972", flag: "🇮🇱" },
 ];
 
 export default function OnboardingModal({ onClose, initialPlan = "STARTER" }: Props) {
+  const { t } = useTranslation();
   // Step state
-  const [step, setStep]       = useState<Step>(1);
+  const [step, setStep] = useState<Step>(1);
   const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState("");
+  const [error, setError] = useState("");
 
   // Step 1 — Business
-  const [name,         setName]         = useState("");
+  const [name, setName] = useState("");
   const [businessInfo, setBusinessInfo] = useState("");
-  const [city,         setCity]         = useState("");
+  const [city, setCity] = useState("");
   // Location combobox
-  const [countryQuery,   setCountryQuery]   = useState("");
+  const [countryQuery, setCountryQuery] = useState("");
   const [selectedCountry, setSelectedCountry] = useState(COUNTRIES[0]); // México default
-  const [countryOpen,    setCountryOpen]    = useState(false);
+  const [countryOpen, setCountryOpen] = useState(false);
   // Phone lada selector
-  const [dialCountry,    setDialCountry]    = useState(COUNTRIES[0]);
-  const [dialOpen,       setDialOpen]       = useState(false);
-  const [dialQuery,      setDialQuery]      = useState("");
-  const [phoneNumber,    setPhoneNumber]    = useState("");
+  const [dialCountry, setDialCountry] = useState(COUNTRIES[0]);
+  const [dialOpen, setDialOpen] = useState(false);
+  const [dialQuery, setDialQuery] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
 
   // Step 2 — Account
-  const [email,       setEmail]       = useState("");
-  const [password,    setPassword]    = useState("");
-  const [confirmPwd,  setConfirmPwd]  = useState("");
-  const [logoUrl,     setLogoUrl]     = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPwd, setConfirmPwd] = useState("");
+  const [logoUrl, setLogoUrl] = useState("");
   const [logoPreview, setLogoPreview] = useState("");
 
   // Step 3 — Subdomain
-  const [slug,       setSlug]       = useState("");
-  const [slugStatus, setSlugStatus] = useState<"idle"|"checking"|"available"|"taken">("idle");
+  const [slug, setSlug] = useState("");
+  const [slugStatus, setSlugStatus] = useState<"idle" | "checking" | "available" | "taken">("idle");
 
   const [plan] = useState(initialPlan);
-  const fileRef  = useRef<HTMLInputElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const slugTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // Filtered country lists
@@ -114,7 +116,7 @@ export default function OnboardingModal({ onClose, initialPlan = "STARTER" }: Pr
     setLogoPreview(URL.createObjectURL(file));
     const fd = new FormData();
     fd.set("file", file);
-    const res  = await fetch("/api/upload/public", { method: "POST", body: fd });
+    const res = await fetch("/api/upload/public", { method: "POST", body: fd });
     const data = await res.json();
     if (data.url) setLogoUrl(data.url);
   };
@@ -127,7 +129,7 @@ export default function OnboardingModal({ onClose, initialPlan = "STARTER" }: Pr
     if (clean.length < 3) { setSlugStatus("idle"); return; }
     setSlugStatus("checking");
     slugTimer.current = setTimeout(async () => {
-      const res  = await fetch(`/api/tenants/check-slug?slug=${clean}`);
+      const res = await fetch(`/api/tenants/check-slug?slug=${clean}`);
       const data = await res.json();
       setSlugStatus(data.available ? "available" : "taken");
     }, 500);
@@ -174,8 +176,8 @@ export default function OnboardingModal({ onClose, initialPlan = "STARTER" }: Pr
     } finally { setLoading(false); }
   };
 
-  const isLocalhost  = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
-  const port         = typeof window !== "undefined" && window.location.port ? `:${window.location.port}` : "";
+  const isLocalhost = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+  const port = typeof window !== "undefined" && window.location.port ? `:${window.location.port}` : "";
   const workspaceUrl = isLocalhost ? `http://${slug}.localhost${port}` : `https://${slug}.newaigent.com`;
 
   // ── Reusable dropdown ──────────────────────────────────────────
@@ -216,7 +218,7 @@ export default function OnboardingModal({ onClose, initialPlan = "STARTER" }: Pr
                 style={{ width: `${(step / 3) * 100}%`, background: "linear-gradient(90deg, #7C3AED, #4F46E5)" }}
               />
             </div>
-            <p className="text-gray-600 text-xs mt-2">Step {step} of 3</p>
+            <p className="text-gray-600 text-xs mt-2">{t.modals.onboarding.stepOf} {step} / 3</p>
           </div>
         )}
 
@@ -227,24 +229,24 @@ export default function OnboardingModal({ onClose, initialPlan = "STARTER" }: Pr
           {step === 1 && (
             <div className="space-y-5">
               <div>
-                <h2 className="text-2xl font-black text-white mb-1">Your Business</h2>
-                <p className="text-gray-500 text-sm">Tell us about your business so we can set everything up.</p>
+                <h2 className="text-2xl font-black text-white mb-1">{t.modals.onboarding.step1Title}</h2>
+                <p className="text-gray-500 text-sm">{t.modals.onboarding.step1Desc}</p>
               </div>
 
               {/* Business Name */}
               <div>
-                <label className={labelCls}><Building2 size={12} className="inline mr-1" />Business Name *</label>
-                <input className={inputCls} value={name} onChange={e => setName(e.target.value)} placeholder="Dr. García Nutrition Clinic" />
+                <label className={labelCls}><Building2 size={12} className="inline mr-1" />{t.modals.onboarding.bizName}</label>
+                <input className={inputCls} value={name} onChange={e => setName(e.target.value)} placeholder={t.modals.onboarding.phBizName} />
               </div>
 
               {/* Business Description */}
               <div>
-                <label className={labelCls}>About your business *</label>
+                <label className={labelCls}>{t.modals.onboarding.bizAbout}</label>
                 <textarea
                   className={`${inputCls} h-24 resize-none`}
                   value={businessInfo}
                   onChange={e => setBusinessInfo(e.target.value)}
-                  placeholder="We are a nutrition clinic helping people reach their health goals..."
+                  placeholder={t.modals.onboarding.phBizAbout}
                 />
               </div>
 
@@ -252,18 +254,18 @@ export default function OnboardingModal({ onClose, initialPlan = "STARTER" }: Pr
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* City */}
                 <div>
-                  <label className={labelCls}>City</label>
+                  <label className={labelCls}>{t.modals.onboarding.city}</label>
                   <input
                     className={inputCls}
                     value={city}
                     onChange={e => setCity(e.target.value)}
-                    placeholder="Mexico City"
+                    placeholder={t.modals.onboarding.phCity}
                   />
                 </div>
 
                 {/* Country combobox */}
                 <div className="relative">
-                  <label className={labelCls}><Globe size={12} className="inline mr-1" />Country</label>
+                  <label className={labelCls}><Globe size={12} className="inline mr-1" />{t.modals.onboarding.country}</label>
                   <button
                     type="button"
                     className={selectCls}
@@ -281,7 +283,7 @@ export default function OnboardingModal({ onClose, initialPlan = "STARTER" }: Pr
                         <input
                           autoFocus
                           className="flex-1 bg-transparent text-white text-sm placeholder-gray-600 focus:outline-none"
-                          placeholder="Search country…"
+                          placeholder={t.modals.onboarding.phSearchCountry}
                           value={countryQuery}
                           onChange={e => setCountryQuery(e.target.value)}
                         />
@@ -290,11 +292,10 @@ export default function OnboardingModal({ onClose, initialPlan = "STARTER" }: Pr
                         {filteredCountries.map(c => (
                           <li
                             key={c.code}
-                            className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer text-sm transition-colors ${
-                              selectedCountry.code === c.code
+                            className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer text-sm transition-colors ${selectedCountry.code === c.code
                                 ? "bg-violet-600/20 text-violet-300"
                                 : "text-gray-300 hover:bg-white/5"
-                            }`}
+                              }`}
                             onClick={() => { setSelectedCountry(c); setCountryOpen(false); setCountryQuery(""); }}
                           >
                             <span className="text-lg">{c.flag}</span>
@@ -312,7 +313,7 @@ export default function OnboardingModal({ onClose, initialPlan = "STARTER" }: Pr
 
               {/* WhatsApp with lada selector */}
               <div>
-                <label className={labelCls}><MessageCircle size={12} className="inline mr-1" />WhatsApp Number</label>
+                <label className={labelCls}><MessageCircle size={12} className="inline mr-1" />{t.modals.onboarding.whatsapp}</label>
                 <div className="flex flex-col sm:flex-row gap-2">
                   {/* Lada picker */}
                   <div className="relative">
@@ -333,7 +334,7 @@ export default function OnboardingModal({ onClose, initialPlan = "STARTER" }: Pr
                           <input
                             autoFocus
                             className="flex-1 bg-transparent text-white text-sm placeholder-gray-600 focus:outline-none"
-                            placeholder="Country or +code…"
+                            placeholder={t.modals.onboarding.phSearchDial}
                             value={dialQuery}
                             onChange={e => setDialQuery(e.target.value)}
                           />
@@ -342,11 +343,10 @@ export default function OnboardingModal({ onClose, initialPlan = "STARTER" }: Pr
                           {filteredDials.map(c => (
                             <li
                               key={c.code}
-                              className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer text-sm transition-colors ${
-                                dialCountry.code === c.code
+                              className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer text-sm transition-colors ${dialCountry.code === c.code
                                   ? "bg-violet-600/20 text-violet-300"
                                   : "text-gray-300 hover:bg-white/5"
-                              }`}
+                                }`}
                               onClick={() => { setDialCountry(c); setDialOpen(false); setDialQuery(""); }}
                             >
                               <span className="text-lg">{c.flag}</span>
@@ -368,7 +368,7 @@ export default function OnboardingModal({ onClose, initialPlan = "STARTER" }: Pr
                     type="tel"
                     value={phoneNumber}
                     onChange={e => setPhoneNumber(e.target.value.replace(/[^\d\s\-()]/g, ""))}
-                    placeholder="55 1234 5678"
+                    placeholder={t.modals.onboarding.phPhone}
                   />
                 </div>
               </div>
@@ -379,25 +379,25 @@ export default function OnboardingModal({ onClose, initialPlan = "STARTER" }: Pr
           {step === 2 && (
             <div className="space-y-5">
               <div>
-                <h2 className="text-2xl font-black text-white mb-1">Your Account</h2>
-                <p className="text-gray-500 text-sm">These are your admin login credentials.</p>
+                <h2 className="text-2xl font-black text-white mb-1">{t.modals.onboarding.step2Title}</h2>
+                <p className="text-gray-500 text-sm">{t.modals.onboarding.step2Desc}</p>
               </div>
               <div>
-                <label className={labelCls}><Mail size={12} className="inline mr-1" />Email *</label>
-                <input className={inputCls} type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="doctor@yourclinic.com" />
+                <label className={labelCls}><Mail size={12} className="inline mr-1" />{t.modals.onboarding.email}</label>
+                <input className={inputCls} type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder={t.modals.onboarding.phEmail} />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className={labelCls}><Lock size={12} className="inline mr-1" />Password *</label>
-                  <input className={inputCls} type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Min 8 chars" />
+                  <label className={labelCls}><Lock size={12} className="inline mr-1" />{t.modals.onboarding.password}</label>
+                  <input className={inputCls} type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder={t.modals.onboarding.phPassword} />
                 </div>
                 <div>
-                  <label className={labelCls}>Confirm *</label>
-                  <input className={inputCls} type="password" value={confirmPwd} onChange={e => setConfirmPwd(e.target.value)} placeholder="Repeat password" />
+                  <label className={labelCls}>{t.modals.onboarding.confirmPwd}</label>
+                  <input className={inputCls} type="password" value={confirmPwd} onChange={e => setConfirmPwd(e.target.value)} placeholder={t.modals.onboarding.phConfirmPwd} />
                 </div>
               </div>
               <div>
-                <label className={labelCls}><Upload size={12} className="inline mr-1" />Logo (optional)</label>
+                <label className={labelCls}><Upload size={12} className="inline mr-1" />{t.modals.onboarding.logoLabel}</label>
                 <div
                   className="border-2 border-dashed border-white/10 rounded-xl p-6 flex flex-col items-center gap-3 cursor-pointer hover:border-violet-500/40 transition-colors"
                   onClick={() => fileRef.current?.click()}
@@ -409,9 +409,8 @@ export default function OnboardingModal({ onClose, initialPlan = "STARTER" }: Pr
                   ) : (
                     <>
                       <Upload size={28} className="text-gray-600" />
-                      <p className="text-gray-500 text-sm text-center">
-                        Drag & drop or click to upload<br />
-                        <span className="text-gray-700 text-xs">PNG, JPG, SVG — max 5MB</span>
+                      <p className="text-gray-500 text-sm text-center whitespace-pre-wrap">
+                        {t.modals.onboarding.logoUpload}
                       </p>
                     </>
                   )}
@@ -425,33 +424,33 @@ export default function OnboardingModal({ onClose, initialPlan = "STARTER" }: Pr
           {step === 3 && (
             <div className="space-y-5">
               <div>
-                <h2 className="text-2xl font-black text-white mb-1">Choose your Subdomain</h2>
-                <p className="text-gray-500 text-sm">This will be your business's permanent web address.</p>
+                <h2 className="text-2xl font-black text-white mb-1">{t.modals.onboarding.step3Title}</h2>
+                <p className="text-gray-500 text-sm">{t.modals.onboarding.step3Desc}</p>
               </div>
               <div>
-                <label className={labelCls}><AtSign size={12} className="inline mr-1" />Subdomain *</label>
+                <label className={labelCls}><AtSign size={12} className="inline mr-1" />{t.modals.onboarding.subdomain}</label>
                 <div className="flex items-center bg-[#12121e] border border-white/10 rounded-xl overflow-hidden focus-within:border-violet-500 focus-within:ring-2 focus-within:ring-violet-500/20 transition-all">
                   <input
                     className="flex-1 min-w-0 bg-transparent px-4 py-3 text-white placeholder-gray-600 text-sm focus:outline-none"
                     value={slug}
                     onChange={e => checkSlug(e.target.value)}
-                    placeholder="yourclinic"
+                    placeholder={t.modals.onboarding.phSubdomain}
                   />
                   <span className="shrink-0 px-3 text-gray-600 text-xs font-medium border-l border-white/10 bg-[#0d0d1a] py-3 whitespace-nowrap">
                     .newaigent.com
                   </span>
                 </div>
                 <div className="mt-2 h-5 flex items-center gap-2">
-                  {slugStatus === "checking"  && <><Loader2 size={14} className="animate-spin text-gray-500" /><span className="text-gray-500 text-xs">Checking availability…</span></>}
-                  {slugStatus === "available" && <><CheckCircle2 size={14} className="text-green-400" /><span className="text-green-400 text-xs font-semibold">{slug}.newaigent.com is available!</span></>}
-                  {slugStatus === "taken"     && <><XCircle size={14} className="text-red-400" /><span className="text-red-400 text-xs font-semibold">This subdomain is already taken.</span></>}
+                  {slugStatus === "checking" && <><Loader2 size={14} className="animate-spin text-gray-500" /><span className="text-gray-500 text-xs">{t.modals.onboarding.checking}</span></>}
+                  {slugStatus === "available" && <><CheckCircle2 size={14} className="text-green-400" /><span className="text-green-400 text-xs font-semibold">{slug}.newaigent.com {t.modals.onboarding.available}</span></>}
+                  {slugStatus === "taken" && <><XCircle size={14} className="text-red-400" /><span className="text-red-400 text-xs font-semibold">{t.modals.onboarding.taken}</span></>}
                 </div>
               </div>
               <div className="bg-white/3 border border-white/5 rounded-xl p-4 text-sm text-gray-500 leading-relaxed">
-                Your workspace will be at:<br />
-                <span className="text-violet-400 font-bold">{slug || "yourclinic"}.newaigent.com</span>
+                {t.modals.onboarding.workspaceAt}<br />
+                <span className="text-violet-400 font-bold">{slug || t.modals.onboarding.phSubdomain}.newaigent.com</span>
                 <br /><br />
-                🎁 <span className="text-gray-400">14-day free trial</span> — no credit card required
+                🎁 <span className="text-gray-400">{t.modals.onboarding.trialNote}</span>
               </div>
             </div>
           )}
@@ -460,19 +459,23 @@ export default function OnboardingModal({ onClose, initialPlan = "STARTER" }: Pr
           {step === 4 && (
             <div className="text-center py-4">
               <div className="text-6xl mb-6">🎉</div>
-              <h2 className="text-3xl font-black text-white mb-3 tracking-tight">You're all set!</h2>
+              <h2 className="text-3xl font-black text-white mb-3 tracking-tight">{t.modals.onboarding.step4Title}</h2>
               <p className="text-gray-400 text-base mb-2">
-                Your workspace <span className="text-violet-400 font-bold">{slug}.newaigent.com</span> is ready.
+                {t.modals.onboarding.step4Desc.replace('Your workspace is ready.', `Your workspace `)}
+                {t.modals.onboarding.step4Desc.includes('Your workspace is ready.') && <span className="text-violet-400 font-bold">{slug}.newaigent.com</span>}
+                {t.modals.onboarding.step4Desc.includes('Tu espacio de trabajo está listo.') && t.modals.onboarding.step4Desc.replace('Tu espacio de trabajo está listo.', 'Tu espacio de trabajo ')}
+                {!t.modals.onboarding.step4Desc.includes('Your workspace is ready.') && <span className="text-violet-400 font-bold">{slug}.newaigent.com</span>}
+                {!t.modals.onboarding.step4Desc.includes('Your workspace is ready.') && " está listo."}
               </p>
-              <p className="text-gray-600 text-sm mb-8">Log in with <span className="text-white">{email}</span></p>
+              <p className="text-gray-600 text-sm mb-8">{t.modals.onboarding.loginWith} <span className="text-white">{email}</span></p>
               <a
                 href={`${workspaceUrl}/login`}
                 className="block w-full py-4 rounded-xl font-black text-white text-base transition-all duration-300 hover:shadow-[0_0_30px_rgba(124,58,237,0.5)] hover:-translate-y-0.5"
                 style={{ background: "linear-gradient(135deg, #7C3AED 0%, #4F46E5 100%)" }}
               >
-                Go to my dashboard →
+                {t.modals.onboarding.goDashboard}
               </a>
-              <p className="text-gray-700 text-xs mt-4">14-day free trial · No credit card · Cancel anytime</p>
+              <p className="text-gray-700 text-xs mt-4">{t.modals.onboarding.footerNote}</p>
             </div>
           )}
 
@@ -492,7 +495,7 @@ export default function OnboardingModal({ onClose, initialPlan = "STARTER" }: Pr
                   onClick={prev}
                   className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl border border-white/10 text-gray-400 hover:text-white hover:border-white/20 text-sm font-semibold transition-all"
                 >
-                  <ChevronLeft size={16} /> Back
+                  <ChevronLeft size={16} /> {t.modals.onboarding.btnBack}
                 </button>
               )}
               {step < 3 ? (
@@ -501,7 +504,7 @@ export default function OnboardingModal({ onClose, initialPlan = "STARTER" }: Pr
                   className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-sm text-white transition-all duration-300 hover:shadow-[0_0_20px_rgba(124,58,237,0.4)] hover:-translate-y-0.5"
                   style={{ background: "linear-gradient(135deg, #7C3AED 0%, #4F46E5 100%)" }}
                 >
-                  Continue <ChevronRight size={16} />
+                  {t.modals.onboarding.btnContinue} <ChevronRight size={16} />
                 </button>
               ) : (
                 <button
@@ -510,7 +513,7 @@ export default function OnboardingModal({ onClose, initialPlan = "STARTER" }: Pr
                   className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-sm text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-300 hover:shadow-[0_0_20px_rgba(124,58,237,0.4)] hover:-translate-y-0.5"
                   style={{ background: "linear-gradient(135deg, #7C3AED 0%, #4F46E5 100%)" }}
                 >
-                  {loading ? <><Loader2 size={16} className="animate-spin" /> Creating…</> : <>Launch my workspace →</>}
+                  {loading ? <><Loader2 size={16} className="animate-spin" /> {t.modals.onboarding.btnCreating}</> : <>{t.modals.onboarding.btnLaunch}</>}
                 </button>
               )}
             </div>

@@ -4,6 +4,9 @@ import "./globals.css";
 import { prisma } from "@/lib/db";
 import { getTenantSlug } from "@/lib/tenant";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { LanguageProvider } from "@/i18n";
+import { cookies } from "next/headers";
+import { Lang } from "@/i18n/types";
 
 // El tenant se resuelve en v1 con el slug por defecto.
 // En v2 se resolverá desde el subdominio via middleware.
@@ -57,10 +60,14 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const { name, theme } = await getTenantTheme();
+  
+  const cookieStore = cookies();
+  const localeCookie = cookieStore.get("NEXT_LOCALE")?.value;
+  const initialLang = (localeCookie === "es" || localeCookie === "en") ? localeCookie : "en";
 
   return (
     <html
-      lang="es"
+      lang={initialLang}
       suppressHydrationWarning
       style={{
         "--color-primary": theme.primaryColor,
@@ -78,7 +85,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </head>
       <body className="bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors duration-300">
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
-          {children}
+          <LanguageProvider initialLang={initialLang as Lang}>
+            {children}
+          </LanguageProvider>
         </ThemeProvider>
       </body>
     </html>

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Star, Eye, EyeOff } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import Pagination from "@/components/admin/Pagination";
+import { useTranslation } from "@/i18n";
 
 interface Review {
   id: string; rating: number; comment: string | null; isVisible: boolean; createdAt: string;
@@ -11,6 +12,7 @@ interface Review {
 }
 
 export default function ReviewsPage() {
+  const { t } = useTranslation();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [filter, setFilter] = useState<"all" | "1" | "2" | "3" | "4" | "5">("all");
   const [page, setPage] = useState(1);
@@ -49,8 +51,8 @@ export default function ReviewsPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Reseñas</h1>
-      <p className="text-gray-500 text-sm mb-8">{totalCount} reseñas en total</p>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{t.crm.reviews.title}</h1>
+      <p className="text-gray-500 text-sm mb-8">{totalCount} {t.crm.reviews.totalReviews}</p>
 
       {/* Filter */}
       <div className="flex gap-2 mb-6 flex-wrap">
@@ -60,7 +62,7 @@ export default function ReviewsPage() {
             onClick={() => handleFilterChange(f)} 
             className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${filter === f ? "bg-primary text-white border-primary" : "border-gray-300 text-gray-600 dark:text-gray-400 hover:border-primary"}`}
           >
-            {f === "all" ? "Todos" : `${"⭐".repeat(parseInt(f))}`}
+            {f === "all" ? t.crm.reviews.all : `${"⭐".repeat(parseInt(f))}`}
           </button>
         ))}
       </div>
@@ -68,11 +70,11 @@ export default function ReviewsPage() {
       <div className="space-y-3 relative">
         {loading && (
           <div className="absolute inset-x-0 -top-4 flex justify-center z-10">
-             <div className="bg-white dark:bg-gray-800 shadow-md rounded-full px-4 py-1 flex items-center gap-2 border border-gray-100 dark:border-gray-700">
-               <div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-               <span className="text-xs font-medium text-gray-500">Cargando...</span>
-             </div>
-          </div>
+              <div className="bg-white dark:bg-gray-800 shadow-md rounded-full px-4 py-1 flex items-center gap-2 border border-gray-100 dark:border-gray-700">
+                <div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                <span className="text-xs font-medium text-gray-500">{t.crm.reviews.loading}</span>
+              </div>
+           </div>
         )}
         
         {reviews.map((review) => (
@@ -81,7 +83,7 @@ export default function ReviewsPage() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-3 mb-1 flex-wrap">
                   <span className="font-semibold text-gray-900 dark:text-white text-sm">{review.user.name ?? "Usuario"}</span>
-                  <span className="text-xs text-gray-400">en</span>
+                  <span className="text-xs text-gray-400">{t.crm.reviews.inProduct}</span>
                   <span className="text-sm text-primary font-medium truncate">{review.product.name}</span>
                   <span className="text-xs text-gray-400">{formatDate(review.createdAt)}</span>
                 </div>
@@ -91,13 +93,13 @@ export default function ReviewsPage() {
                 {review.comment && <p className="text-gray-600 dark:text-gray-400 text-sm">{review.comment}</p>}
               </div>
               <button onClick={() => toggleVisibility(review.id, review.isVisible)} className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors flex-shrink-0 ${review.isVisible ? "border-green-200 text-green-700 hover:bg-green-50" : "border-gray-200 text-gray-500 hover:bg-gray-50 dark:bg-gray-950"}`}>
-                {review.isVisible ? <><Eye size={14} /> Visible</> : <><EyeOff size={14} /> Oculto</>}
+                {review.isVisible ? <><Eye size={14} /> {t.crm.reviews.visible}</> : <><EyeOff size={14} /> {t.crm.reviews.hidden}</>}
               </button>
             </div>
           </div>
         ))}
         {reviews.length === 0 && !loading && (
-          <p className="text-gray-400 text-sm py-6 text-center">No hay reseñas con este filtro.</p>
+          <p className="text-gray-400 text-sm py-6 text-center">{t.crm.reviews.noReviews}</p>
         )}
       </div>
 

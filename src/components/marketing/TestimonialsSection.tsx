@@ -1,4 +1,8 @@
+"use client";
 // src/components/marketing/TestimonialsSection.tsx
+import { useTranslation } from "@/i18n";
+import { useState, useRef } from "react";
+
 const testimonials = [
   {
     id: 1,
@@ -7,7 +11,7 @@ const testimonials = [
     avatar: "SR",
     color: "#7C3AED",
     quote:
-      "NeoAigent's social media agent posts daily content for my clinic while I'm seeing patients. My Instagram following grew 3x in just 2 months!",
+      "NeoAigent's social media agent posts daily content for my business while I'm seeing patients. My Instagram following grew 3x in just 2 months!",
   },
   {
     id: 2,
@@ -69,6 +73,8 @@ function StarRating() {
 }
 
 export default function TestimonialsSection() {
+  const { t } = useTranslation();
+
   return (
     <section
       id="testimonials"
@@ -83,11 +89,11 @@ export default function TestimonialsSection() {
         <div className="text-center mb-16">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-amber-500/30 bg-amber-500/10 mb-6">
             <span className="text-xs font-bold text-amber-300 uppercase tracking-widest">
-              What they stopped doing manually
+              {t.testimonials.badge}
             </span>
           </div>
           <h2 className="text-4xl sm:text-5xl font-black text-white mb-6 tracking-tight">
-            They handed it off.{" "}
+            {t.testimonials.headline1}{" "}
             <span
               style={{
                 background: "linear-gradient(135deg, #A78BFA 0%, #06B6D4 100%)",
@@ -96,11 +102,11 @@ export default function TestimonialsSection() {
                 backgroundClip: "text",
               }}
             >
-              They didn’t look back.
+              {t.testimonials.headline2}
             </span>
           </h2>
           <p className="text-gray-400 text-lg max-w-xl mx-auto">
-            Real businesses. Real time saved. Real revenue generated.
+            {t.testimonials.subtitle}
           </p>
         </div>
 
@@ -136,10 +142,10 @@ export default function TestimonialsSection() {
         {/* Social proof numbers */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-20 p-8 rounded-3xl border border-white/6" style={{ background: "#0d0d1a" }}>
           {[
-            { value: "500+", label: "Businesses Running" },
-            { value: "10M+", label: "Tasks Automated" },
-            { value: "99.9%", label: "Uptime" },
-            { value: "4.9★", label: "Rated" },
+            { value: "500+", label: t.testimonials.stats.businesses },
+            { value: "10M+", label: t.testimonials.stats.tasks },
+            { value: "99.9%", label: t.testimonials.stats.uptime },
+            { value: "4.9★", label: t.testimonials.stats.rated },
           ].map((stat) => (
             <div key={stat.label} className="text-center">
               <p
