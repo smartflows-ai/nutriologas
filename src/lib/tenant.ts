@@ -8,7 +8,7 @@ import { headers } from "next/headers";
 /**
  * The root domain for this SaaS platform — read from env.
  * Set NEXT_PUBLIC_ROOT_DOMAIN=newaigent.com in your .env / hosting config.
- * Visits to the root domain return "" → NeoAigent marketing page.
+ * Visits to the root domain return "" → NewAigent marketing page.
  * Tenant subdomains are: <slug>.<ROOT_DOMAIN>
  */
 const ROOT_DOMAIN = (process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "newaigent.com").toLowerCase();

@@ -28,7 +28,7 @@ export default function CTASection() {
           <div className="flex justify-center mb-8">
             <Image
               src="/newaigent-mascot.png"
-              alt="NeoAigent"
+              alt="NewAigent"
               width={100}
               height={100}
               className="drop-shadow-[0_0_40px_rgba(124,58,237,0.5)] animate-bounce"

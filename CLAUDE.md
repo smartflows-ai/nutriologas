@@ -1,4 +1,4 @@
-# CLAUDE.md — NeoAigent Multi-Tenant SaaS Platform
+# CLAUDE.md — NewAigent Multi-Tenant SaaS Platform
 
 > This file provides full context for AI assistants working on this codebase.
 
@@ -6,7 +6,7 @@
 
 ## ¿Qué es esta aplicación?
 
-**NeoAigent** es una plataforma SaaS multi-tenant que permite a negocios (clínicas, restaurantes, tiendas, etc.) tener su propia tienda en línea, CRM e integraciones de IA — todo en un mismo sistema compartido pero completamente aislado.
+**NewAigent** es una plataforma SaaS multi-tenant que permite a negocios (clínicas, restaurantes, tiendas, etc.) tener su propia tienda en línea, CRM e integraciones de IA — todo en un mismo sistema compartido pero completamente aislado.
 
 Cada negocio (llamado **tenant**) opera en su propio subdominio:
 - `doctor.newaigent.com` → Clínica Doctor
@@ -106,7 +106,7 @@ src/
   components/
     shop/               ← Componentes del storefront público
     admin/              ← Componentes del CRM
-    marketing/          ← Componentes de la landing page de NeoAigent
+    marketing/          ← Componentes de la landing page de NewAigent
     ui/                 ← Componentes UI reutilizables
   lib/
     ai/                 ← Tools de Claude, system prompt dinámico

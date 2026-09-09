@@ -44,7 +44,7 @@ export default function DemoSection() {
               WebkitBackgroundClip: "text",
               WebkitTextFillColor: "transparent",
               backgroundClip: "text",
-            }}>NeoAigent</span> en Acción
+            }}>NewAigent</span> en Acción
           </h2>
 
           <p className="text-gray-400 text-base sm:text-lg max-w-2xl mx-auto">

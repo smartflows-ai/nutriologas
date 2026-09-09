@@ -28,14 +28,14 @@ export default function MarketingFooter() {
               <div className="relative w-8 h-8">
                 <Image
                   src="/newaigent-mascot.png"
-                  alt="NeoAigent"
+                  alt="NewAigent"
                   fill
                   className="object-contain"
                   style={{ filter: "brightness(0) invert(1)" }}
                 />
               </div>
               <span className="text-white font-bold text-lg">
-                Neo<span className="text-violet-400">Aigent</span>
+                New<span className="text-violet-400">Aigent</span>
               </span>
             </div>
             <p className="text-gray-600 text-sm leading-relaxed max-w-[220px]">
@@ -95,7 +95,7 @@ export default function MarketingFooter() {
         {/* Bottom row */}
         <div className="pt-8 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-gray-700 text-xs">
-            © {year} NeoAigent. {t.footer.rights}
+            © {year} NewAigent. {t.footer.rights}
           </p>
           <div className="flex items-center gap-6">
             {[t.footer.privacy, t.footer.terms, t.footer.cookies].map((item) => (

@@ -10,11 +10,11 @@ export async function middleware(req: NextRequest) {
 
   let tenantIdentifier = "";
 
-  // Lógica de detección de dominios
-  if (hostname === `localhost:3000` || hostname === rootDomain || hostname === `www.${rootDomain}`) {
-    tenantIdentifier = ""; // Root domain -> NeoAigent Marketing Page
-  } else if (hostname.endsWith(".localhost:3000")) {
-    tenantIdentifier = hostname.replace(".localhost:3000", "");
+  const hostWithoutPort = hostname.replace(/:\d+$/, "");
+  if (hostWithoutPort === "localhost" || hostWithoutPort === "127.0.0.1" || hostname === rootDomain || hostname === `www.${rootDomain}`) {
+    tenantIdentifier = ""; // Root domain -> NewAigent Marketing Page
+  } else if (hostWithoutPort.endsWith(".localhost")) {
+    tenantIdentifier = hostWithoutPort.replace(".localhost", "");
   } else if (hostname.endsWith(`.${rootDomain}`)) {
     tenantIdentifier = hostname.replace(`.${rootDomain}`, "");
   } else {

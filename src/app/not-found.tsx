@@ -3,7 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 export const metadata = {
-  title: "404 — Page Not Found | NeoAigent",
+  title: "404 — Page Not Found | NewAigent",
   description: "This page doesn't exist. Let our AI agents guide you back.",
 };
 
@@ -70,7 +70,7 @@ export default function NotFound() {
           />
           <Image
             src="/newaigent-mascot.png"
-            alt="NeoAigent mascot"
+            alt="NewAigent mascot"
             width={140}
             height={140}
             priority
@@ -132,13 +132,13 @@ export default function NotFound() {
         <div className="mt-16 flex items-center gap-3 opacity-40">
           <Image
             src="/newaigent-logo.png"
-            alt="NeoAigent"
+            alt="NewAigent"
             width={24}
             height={24}
             style={{ filter: "brightness(0) invert(1)" }}
           />
           <span className="text-white text-xs font-semibold tracking-widest uppercase">
-            NeoAigent
+            NewAigent
           </span>
         </div>
       </div>

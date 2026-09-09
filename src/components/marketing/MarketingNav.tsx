@@ -38,14 +38,14 @@ export default function MarketingNav({ onSignIn, onGetStarted }: { onSignIn?: ()
             <div className="relative w-9 h-9 transition-transform duration-300 group-hover:scale-110">
               <Image
                 src="/newaigent-mascot.png"
-                alt="NeoAigent mascot"
+                alt="NewAigent mascot"
                 fill
                 className="object-contain relative z-10 drop-shadow-[0_0_20px_rgba(124,58,237,0.4)]"
                 style={{ filter: "brightness(0) invert(1) drop-shadow(0 0 10px rgba(124,58,237,0.6))" }}
               />
             </div>
             <span className="text-xl font-bold text-white tracking-tight">
-              Neo<span className="text-violet-400">Aigent</span>
+              New<span className="text-violet-400">Aigent</span>
             </span>
           </Link>
 

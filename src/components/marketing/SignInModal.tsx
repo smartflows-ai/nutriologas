@@ -59,7 +59,7 @@ export default function SignInModal({ onClose }: { onClose: () => void }) {
         <div className="flex justify-center mb-6">
           <Image
             src="/newaigent-mascot.png"
-            alt="NeoAigent"
+            alt="NewAigent"
             width={60}
             height={60}
             style={{ filter: "brightness(0) invert(1) drop-shadow(0 0 10px rgba(124,58,237,0.5))" }}

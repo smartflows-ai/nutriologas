@@ -41,7 +41,7 @@ export default async function TenantPage() {
   const t = getTranslationServer();
 
   // ── Root domain (localhost:3000 / newaigent.com) ───────────────────────────
-  // Show the NeoAigent marketing / sales landing page.
+  // Show the NewAigent marketing / sales landing page.
   if (!slug) {
     return <MarketingPage />;
   }

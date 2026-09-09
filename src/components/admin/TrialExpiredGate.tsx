@@ -38,7 +38,7 @@ export default function TrialExpiredGate({ status }: { status: string }) {
         <div className="flex justify-center mb-8">
           <Image
             src="/newaigent-mascot.png"
-            alt="NeoAigent"
+            alt="NewAigent"
             width={80} height={80}
             style={{ filter: "brightness(0) invert(1) drop-shadow(0 0 20px rgba(124,58,237,0.5))" }}
           />

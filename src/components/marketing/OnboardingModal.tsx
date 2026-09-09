@@ -225,11 +225,11 @@ export default function OnboardingModal({ onClose, initialPlan = "STARTER" }: Pr
         <div className="flex items-center justify-between px-5 sm:px-8 pt-6 sm:pt-8 pb-4 shrink-0">
           <div className="flex items-center gap-3">
             <Image
-              src="/newaigent-mascot.png" alt="NeoAigent" width={32} height={32}
+              src="/newaigent-mascot.png" alt="NewAigent" width={32} height={32}
               style={{ filter: "brightness(0) invert(1) drop-shadow(0 0 8px rgba(124,58,237,0.7))" }}
             />
             <span className="text-white font-black text-lg tracking-tight">
-              Neo<span className="text-violet-400">Aigent</span>
+              New<span className="text-violet-400">Aigent</span>
             </span>
           </div>
           <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors p-1">

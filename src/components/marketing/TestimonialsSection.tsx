@@ -11,7 +11,7 @@ const testimonials = [
     avatar: "SR",
     color: "#7C3AED",
     quote:
-      "NeoAigent's social media agent posts daily content for my business while I'm seeing patients. My Instagram following grew 3x in just 2 months!",
+      "NewAigent's social media agent posts daily content for my business while I'm seeing patients. My Instagram following grew 3x in just 2 months!",
   },
   {
     id: 2,
@@ -38,7 +38,7 @@ const testimonials = [
     avatar: "MF",
     color: "#F59E0B",
     quote:
-      "I run 3 different online stores on the same NeoAigent platform. Each has its own subdomain, brand, and AI agents. Insanely powerful for the price.",
+      "I run 3 different online stores on the same NewAigent platform. Each has its own subdomain, brand, and AI agents. Insanely powerful for the price.",
   },
   {
     id: 5,
@@ -47,7 +47,7 @@ const testimonials = [
     avatar: "LC",
     color: "#4F46E5",
     quote:
-      "We resell NeoAigent to our clients under our own brand. The multi-tenant white-label feature is the reason we chose this over everything else.",
+      "We resell NewAigent to our clients under our own brand. The multi-tenant white-label feature is the reason we chose this over everything else.",
   },
   {
     id: 6,

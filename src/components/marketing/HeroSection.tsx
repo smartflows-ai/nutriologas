@@ -189,7 +189,7 @@ export default function HeroSection({ onWatchDemo, onGetStarted }: { onWatchDemo
             >
               <Image
                 src="/newaigent-mascot.png"
-                alt="NeoAigent AI mascot"
+                alt="NewAigent AI mascot"
                 width={380}
                 height={380}
                 className="drop-shadow-[0_0_60px_rgba(124,58,237,0.4)]"
