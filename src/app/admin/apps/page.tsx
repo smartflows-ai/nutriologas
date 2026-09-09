@@ -7,8 +7,9 @@ import {
   Plug, Check, X, ExternalLink, Loader2, Calendar as CalendarIcon, CheckCircle2
 } from "lucide-react";
 import { useRef } from "react";
-import { toggleAssistant, disconnectApp, refreshSidebar } from "./actions";
+import { toggleAssistant, toggleTriage, disconnectApp, refreshSidebar } from "./actions";
 import { useTranslation } from "@/i18n";
+import { toast } from "@/hooks/useToast";
 
 // ── Feature definitions ─────────────────────────────────────────
 interface FeatureDef {
@@ -37,6 +38,7 @@ const FEATURES: FeatureDef[] = [
     isInternalToggle: true,
     providers: []
   },
+
   {
     id: "calendar",
     name: "Calendario",
@@ -68,6 +70,15 @@ const FEATURES: FeatureDef[] = [
     providers: [
       { id: "FACEBOOK", name: "Meta (Facebook/Instagram)", connectUrl: "/api/apps/oauth/facebook/start" }
     ]
+  },
+  {
+    id: "triage",
+    name: "Triage & Onboarding IA",
+    description: "Recolecta el historial médico de pacientes automáticamente por WhatsApp.",
+    icon: "📋",
+    color: "from-blue-400 to-cyan-500",
+    isInternalToggle: true,
+    providers: []
   },
 ];
 
@@ -113,7 +124,22 @@ function WhatsAppConnectModal({
     setStep("loading");
     setLoadingMsgIdx(0);
     const res = await fetch("/api/apps/connect/whatsapp", { method: "POST" });
-    const data = await res.json();
+    
+    let data;
+    try {
+      data = await res.json();
+    } catch (err) {
+      toast("Error del servidor: Respuesta no es JSON válido.");
+      setStep("idle");
+      return;
+    }
+
+    // Si la respuesta es error JSON
+    if (!res.ok) {
+      toast(data.error || "Error al conectar con el servidor.");
+      setStep("idle");
+      return;
+    }
 
     // Si ya esta conectado, saltamos al exito
     if (data.status === "connected") {
@@ -127,7 +153,7 @@ function WhatsAppConnectModal({
       setStep("qr");
       // Polling cada 3 segundos para detectar cuando escanea el QR
       pollRef.current = setInterval(async () => {
-        const s = await fetch("/api/apps/whatsapp/status").then(r => r.json());
+        const s = await fetch("/api/apps/whatsapp/status", { cache: "no-store" }).then(r => r.json());
         if (s.status === "connected") {
           clearInterval(pollRef.current!);
           setPhone(s.phoneNumber);
@@ -139,7 +165,7 @@ function WhatsAppConnectModal({
       }, 3000);
     } else {
       // Handle error scenario gracefully
-      alert(data.error || "Algo salió mal al conectar con Evolution API");
+      toast(data.error || "Algo salió mal al conectar con Evolution API");
       setStep("idle");
     }
   };
@@ -213,6 +239,8 @@ export default function AppsPage() {
   const [apps, setApps] = useState<ConnectedAppInfo[]>([]);
   const [isAssistantEnabled, setIsAssistantEnabled] = useState(false);
   const [togglingAssistant, setTogglingAssistant] = useState(false);
+  const [isTriageEnabled, setIsTriageEnabled] = useState(false);
+  const [togglingTriage, setTogglingTriage] = useState(false);
   const [loading, setLoading] = useState(true);
   const [disconnecting, setDisconnecting] = useState<string | null>(null);
   const [whatsappModalOpen, setWhatsappModalOpen] = useState(false);
@@ -224,11 +252,12 @@ export default function AppsPage() {
   const fetchApps = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/apps");
+      const res = await fetch("/api/apps", { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
         setApps(data.apps ?? []);
         setIsAssistantEnabled(data.isAssistantEnabled ?? false);
+        setIsTriageEnabled(data.isTriageEnabled ?? false);
       }
     } catch (e) {
       console.error("Error loading apps:", e);
@@ -304,7 +333,7 @@ export default function AppsPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {FEATURES.map((feat) => {
             const activeConn = getActiveConnectionForFeature(feat);
-            const isConnected = feat.isInternalToggle ? isAssistantEnabled : !!activeConn;
+            const isConnected = feat.isInternalToggle ? (feat.id === "assistant" ? isAssistantEnabled : isTriageEnabled) : !!activeConn;
             const isDisconnecting = activeConn ? disconnecting === activeConn.provider : false;
 
             return (
@@ -322,7 +351,7 @@ export default function AppsPage() {
                     <div className="flex items-center gap-3">
                       <span className="text-2xl">{feat.icon}</span>
                       <div>
-                        <h3 className="font-semibold text-gray-900 dark:text-white text-sm">{t.crm.apps.features[feat.id as keyof typeof t.crm.apps.features].name}</h3>
+                        <h3 className="font-semibold text-gray-900 dark:text-white text-sm">{(t.crm.apps.features as any)[feat.id]?.name || feat.name}</h3>
                         {feat.comingSoon && (
                           <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full">
                             {t.crm.apps.comingSoon}
@@ -339,7 +368,7 @@ export default function AppsPage() {
                   </div>
 
                   {/* Description */}
-                  <p className="text-xs text-gray-500 mb-4 leading-relaxed flex-1">{t.crm.apps.features[feat.id as keyof typeof t.crm.apps.features].desc}</p>
+                  <p className="text-xs text-gray-500 mb-4 leading-relaxed flex-1">{(t.crm.apps.features as any)[feat.id]?.desc || feat.description}</p>
 
                   {/* Connected info */}
                   {isConnected && activeConn && (
@@ -363,29 +392,41 @@ export default function AppsPage() {
                     ) : feat.isInternalToggle ? (
                       <button
                         onClick={async () => {
-                          setTogglingAssistant(true);
-                          try {
-                            await toggleAssistant(!isAssistantEnabled);
-                            setIsAssistantEnabled(!isAssistantEnabled);
-                            if (!isAssistantEnabled) {
-                              await refreshSidebar();
-                              router.push("/admin/asistente");
+                          if (feat.id === "assistant") {
+                            setTogglingAssistant(true);
+                            try {
+                              await toggleAssistant(!isAssistantEnabled);
+                              setIsAssistantEnabled(!isAssistantEnabled);
+                              if (!isAssistantEnabled) {
+                                await refreshSidebar();
+                                router.push("/admin/asistente");
+                              }
+                            } catch (e) {
+                              toast("No se pudo actualizar el estado del asistente.");
+                            } finally {
+                              setTogglingAssistant(false);
                             }
-                          } catch (e) {
-                            setNotificationState({
-                              title: "Error",
-                              message: "No se pudo actualizar el estado del asistente.",
-                              type: "error"
-                            });
-                          } finally {
-                            setTogglingAssistant(false);
+                          } else if (feat.id === "triage") {
+                            setTogglingTriage(true);
+                            try {
+                              await toggleTriage(!isTriageEnabled);
+                              setIsTriageEnabled(!isTriageEnabled);
+                              if (!isTriageEnabled) {
+                                await refreshSidebar();
+                                router.push("/admin/pacientes");
+                              }
+                            } catch (e) {
+                              toast("No se pudo actualizar el estado de Triage IA.");
+                            } finally {
+                              setTogglingTriage(false);
+                            }
                           }
                         }}
-                        disabled={togglingAssistant}
-                        className={`w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg transition-colors disabled:opacity-50 ${isAssistantEnabled ? "bg-red-50 text-red-600 hover:bg-red-100" : "bg-primary text-white hover:bg-primary/90"}`}
+                        disabled={feat.id === "assistant" ? togglingAssistant : togglingTriage}
+                        className={`w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg transition-colors disabled:opacity-50 ${(feat.id === "assistant" ? isAssistantEnabled : isTriageEnabled) ? "bg-red-50 text-red-600 hover:bg-red-100" : "bg-primary text-white hover:bg-primary/90"}`}
                       >
-                        {togglingAssistant ? <Loader2 size={14} className="animate-spin" /> : (isAssistantEnabled ? <X size={14} /> : <Check size={14} />)}
-                        {isAssistantEnabled ? t.crm.apps.disableAssistant : t.crm.apps.enableAssistant}
+                        {(feat.id === "assistant" ? togglingAssistant : togglingTriage) ? <Loader2 size={14} className="animate-spin" /> : ((feat.id === "assistant" ? isAssistantEnabled : isTriageEnabled) ? <X size={14} /> : <Check size={14} />)}
+                        {(feat.id === "assistant" ? isAssistantEnabled : isTriageEnabled) ? "Desactivar" : "Activar"}
                       </button>
                     ) : isConnected && activeConn ? (
                       <button

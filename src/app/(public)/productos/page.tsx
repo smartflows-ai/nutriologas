@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import ProductCard from "@/components/shop/ProductCard";
 import ProductSort from "@/components/shop/ProductSort";
 import { getTenantSlug } from "@/lib/tenant";
+import { getTranslationServer } from "@/i18n/server";
 import Link from "next/link";
 import { Search, SlidersHorizontal, PackageX, ChevronRight, Home } from "lucide-react";
 
@@ -44,6 +45,7 @@ async function getProducts(category?: string, sort?: string) {
 export default async function ProductosPage({ searchParams }: { searchParams: { category?: string; sort?: string } }) {
   const { products, categories, tenantName } = await getProducts(searchParams.category, searchParams.sort);
   const activeCategory = searchParams.category || null;
+  const t = getTranslationServer();
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#07070f]">
@@ -55,9 +57,9 @@ export default async function ProductosPage({ searchParams }: { searchParams: { 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 flex flex-col items-start">
           {/* Breadcrumbs */}
           <nav className="flex items-center space-x-2 text-sm text-gray-500 mb-6 font-medium">
-            <Link href="/" className="hover:text-[var(--color-primary)] transition-colors flex items-center gap-1.5"><Home size={14}/> Inicio</Link>
+            <Link href="/" className="hover:text-[var(--color-primary)] transition-colors flex items-center gap-1.5"><Home size={14}/> {t.storefront.catalog.home}</Link>
             <ChevronRight size={14} className="text-gray-400" />
-            <span className="text-gray-900 dark:text-white font-semibold">Productos</span>
+            <span className="text-gray-900 dark:text-white font-semibold">{t.storefront.catalog.products}</span>
             {activeCategory && (
               <>
                 <ChevronRight size={14} className="text-gray-400" />
@@ -67,10 +69,10 @@ export default async function ProductosPage({ searchParams }: { searchParams: { 
           </nav>
 
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-gray-900 dark:text-white tracking-tight leading-[1.1] mb-4">
-            {activeCategory ? activeCategory : "Todos los Productos"}
+            {activeCategory ? activeCategory : t.storefront.catalog.allProducts}
           </h1>
           <p className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl">
-            Explora nuestro catálogo completo de servicios y productos diseñados especialmente para potenciar tu experiencia con <span className="font-bold text-[var(--color-primary)]">{tenantName}</span>.
+            {t.storefront.catalog.exploreCatalog} <span className="font-bold text-[var(--color-primary)]">{tenantName}</span>.
           </p>
         </div>
       </div>
@@ -87,7 +89,7 @@ export default async function ProductosPage({ searchParams }: { searchParams: { 
                   <div className="bg-[var(--color-primary)]/10 p-2 rounded-lg text-[var(--color-primary)]">
                     <SlidersHorizontal size={18} />
                   </div>
-                  <h2 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">Categorías</h2>
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">{t.storefront.catalog.categories}</h2>
                 </div>
                 
                 <div className="flex flex-col gap-1.5">
@@ -95,7 +97,7 @@ export default async function ProductosPage({ searchParams }: { searchParams: { 
                     href="/productos" 
                     className={`block px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${!activeCategory ? "bg-[var(--color-primary)] text-white shadow-md shadow-[var(--color-primary)]/20 translate-x-1" : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-[var(--color-primary)]"}`}
                   >
-                    Todos los departamentos
+                    {t.storefront.catalog.allDepartments}
                   </Link>
                   {categories.map((cat) => (
                     <Link 
@@ -116,7 +118,7 @@ export default async function ProductosPage({ searchParams }: { searchParams: { 
             {/* Meta Utility Bar */}
             <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/50 dark:bg-gray-900/50 p-4 rounded-2xl border border-gray-200/50 dark:border-gray-800/50">
               <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Mostrando <span className="font-bold text-gray-900 dark:text-white">{products.length}</span> {products.length === 1 ? 'resultado' : 'resultados'}
+                {t.storefront.catalog.showing} <span className="font-bold text-gray-900 dark:text-white">{products.length}</span> {products.length === 1 ? t.storefront.catalog.result : t.storefront.catalog.results}
               </p>
               
               <ProductSort />
@@ -128,12 +130,12 @@ export default async function ProductosPage({ searchParams }: { searchParams: { 
                 <div className="bg-gray-50 dark:bg-gray-800 p-6 rounded-full mb-6">
                   <PackageX size={48} className="text-gray-400 dark:text-gray-500" />
                 </div>
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2 tracking-tight">No encontramos productos</h3>
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2 tracking-tight">{t.storefront.catalog.noProducts}</h3>
                 <p className="text-gray-500 max-w-sm mb-6 font-medium">
-                  Intenta buscar en otra categoría o vuelve más tarde para ver nuestras novedades.
+                  {t.storefront.catalog.tryAnotherCategory}
                 </p>
                 <a href="/productos" className="bg-[var(--color-primary)] text-white hover:brightness-110 px-8 py-3.5 rounded-xl font-bold shadow-lg shadow-[var(--color-primary)]/20 transition-all active:scale-95">
-                  Ver todo el catálogo
+                  {t.storefront.catalog.viewAllCatalog}
                 </a>
               </div>
             ) : (

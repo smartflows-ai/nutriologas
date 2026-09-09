@@ -45,68 +45,46 @@ export default function DemoModal({ onClose }: { onClose: () => void }) {
           <p className="text-gray-500 text-sm mt-1">{t.modals.demo.desc}</p>
         </div>
 
-        {/* Video embed */}
-        <div className="relative w-full" style={{ paddingTop: "56.25%" }}>
-          {/* Placeholder — replace the src with real video URL */}
-          <div
-            className="absolute inset-0 flex flex-col items-center justify-center gap-6"
-            style={{ background: "linear-gradient(135deg, #0d0d1a 0%, #1a0a2e 100%)" }}
+        {/* Video player */}
+        <div className="relative w-full bg-black flex items-center justify-center overflow-hidden" style={{ minHeight: "360px" }}>
+          <video
+            controls
+            autoPlay
+            playsInline
+            className="w-full h-auto max-h-[72vh] object-contain"
+            src="/demo-video.mp4"
           >
-            {/* Aurora glow */}
-            <div
-              className="absolute inset-0 opacity-20"
-              style={{
-                background:
-                  "radial-gradient(ellipse at 50% 50%, #7C3AED, transparent 70%)",
-              }}
-            />
+            <source src="/demo-video.mp4" type="video/mp4" />
+            <source src="/demo%20video/NewAigent%20video%20espa%C3%B1ol.mp4" type="video/mp4" />
+            Tu navegador no soporta la reproducción de video HTML5.
+          </video>
+        </div>
 
-            {/* Play button placeholder */}
-            <div className="relative z-10 flex flex-col items-center gap-4">
-              <div
-                className="w-20 h-20 rounded-full flex items-center justify-center cursor-pointer group transition-all duration-300 hover:scale-110"
-                style={{
-                  background: "linear-gradient(135deg, #7C3AED, #4F46E5)",
-                  boxShadow: "0 0 40px rgba(124,58,237,0.5)",
-                }}
+        {/* Modal Footer with quick actions */}
+        <div className="px-8 py-5 border-t border-white/6 flex flex-col sm:flex-row items-center justify-between gap-4 bg-[#0a0a14]">
+          <div className="flex flex-wrap items-center gap-2">
+            {[
+              t.modals.demo.feature1,
+              t.modals.demo.feature2,
+              t.modals.demo.feature3,
+            ].map((item) => (
+              <span
+                key={item}
+                className="px-3 py-1 rounded-full text-xs font-semibold text-gray-300 border border-white/10 bg-white/5"
               >
-                <svg className="w-8 h-8 fill-white ml-1" viewBox="0 0 24 24">
-                  <path d="M8 5v14l11-7z" />
-                </svg>
-              </div>
-              <p className="text-gray-400 text-sm font-medium">
-                {t.modals.demo.comingSoon}
-              </p>
-              <p className="text-gray-600 text-xs max-w-sm text-center">
-                {t.modals.demo.meanwhile}
-              </p>
-
-              <a
-                href="#contact"
-                onClick={onClose}
-                className="mt-4 px-8 py-3 rounded-xl font-bold text-sm text-white transition-all duration-300 hover:shadow-[0_0_20px_rgba(124,58,237,0.4)] hover:-translate-y-0.5"
-                style={{ background: "linear-gradient(135deg, #7C3AED, #4F46E5)" }}
-              >
-                {t.modals.demo.btnTrial}
-              </a>
-            </div>
-
-            {/* Feature highlights row */}
-            <div className="relative z-10 flex flex-wrap justify-center gap-3 mt-4">
-              {[
-                t.modals.demo.feature1,
-                t.modals.demo.feature2,
-                t.modals.demo.feature3,
-              ].map((item) => (
-                <span
-                  key={item}
-                  className="px-3 py-1.5 rounded-full text-xs font-semibold text-gray-300 border border-white/10 bg-white/5"
-                >
-                  {item}
-                </span>
-              ))}
-            </div>
+                ✓ {item}
+              </span>
+            ))}
           </div>
+
+          <a
+            href="#pricing"
+            onClick={onClose}
+            className="w-full sm:w-auto px-6 py-2.5 rounded-xl font-bold text-sm text-white text-center transition-all duration-300 hover:shadow-[0_0_20px_rgba(124,58,237,0.4)] hover:-translate-y-0.5"
+            style={{ background: "linear-gradient(135deg, #7C3AED, #4F46E5)" }}
+          >
+            {t.modals.demo.btnTrial} →
+          </a>
         </div>
       </div>
     </div>

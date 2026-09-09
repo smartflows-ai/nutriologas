@@ -4,6 +4,7 @@
 import { useState } from "react";
 import MarketingNav from "./MarketingNav";
 import HeroSection from "./HeroSection";
+import DemoSection from "./DemoSection";
 import FeaturesSection from "./FeaturesSection";
 import HowItWorksSection from "./HowItWorksSection";
 import PricingSection from "./PricingSection";
@@ -37,6 +38,7 @@ export default function MarketingPage() {
           onWatchDemo={() => setShowDemo(true)}
           onGetStarted={() => document.getElementById("pricing")?.scrollIntoView({ behavior: "smooth" })}
         />
+        <DemoSection />
         <FeaturesSection />
         <HowItWorksSection />
         <PricingSection />

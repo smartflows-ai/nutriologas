@@ -187,6 +187,7 @@ export interface Translations {
       phPassword: string;
       phConfirmPwd: string;
       phSubdomain: string;
+      useCustomCity: string;
     };
     signin: {
       title: string;
@@ -214,6 +215,7 @@ export interface Translations {
     websiteSection: string;
     appsSection: string;
     dashboard: string;
+    patients: string;
     orders: string;
     products: string;
     reviews: string;
@@ -462,6 +464,7 @@ export interface Translations {
         calendar: { name: string; desc: string };
         whatsapp: { name: string; desc: string };
         social: { name: string; desc: string };
+        triage: { name: string; desc: string };
       };
     };
     assistant: {
@@ -584,6 +587,102 @@ export interface Translations {
       noAppointments: string;
       loading: string;
       error: string;
+    };
+    triage: {
+      title: string;
+      desc: string;
+      noPatientsTitle: string;
+      noPatientsDesc: string;
+      loading: string;
+      complete: string;
+      age: string;
+      weight: string;
+      height: string;
+      years: string;
+      goals: string;
+      allergies: string;
+      medicalHistory: string;
+      medications: string;
+      updated: string;
+    };
+  };
+  storefront: {
+    home: {
+      aboutUs: string;
+      welcomeTo: string;
+      ourProducts: string;
+      discoverProducts: string;
+      viewCatalog: string;
+      help: string;
+      faq: string;
+      faqDesc: string;
+    };
+    catalog: {
+      home: string;
+      products: string;
+      allProducts: string;
+      exploreCatalog: string;
+      categories: string;
+      allDepartments: string;
+      showing: string;
+      result: string;
+      results: string;
+      noProducts: string;
+      tryAnotherCategory: string;
+      viewAllCatalog: string;
+    };
+    cart: {
+      emptyTitle: string;
+      emptyDesc: string;
+      viewProducts: string;
+      title: string;
+      clearCart: string;
+      summary: string;
+      subtotal: string;
+      items: string;
+      total: string;
+      proceedToPayment: string;
+      continueShopping: string;
+    };
+    checkout: {
+      title: string;
+      payment: string;
+      processingPayment: string;
+      back: string;
+      paymentError: string;
+      paymentMethod: string;
+      creditCard: string;
+      oxxo: string;
+      preparingPayment: string;
+      pay: string;
+      summary: string;
+      total: string;
+    };
+    orders: {
+      title: string;
+      orderHash: string;
+      products: string;
+      paymentInfo: string;
+      method: string;
+      reference: string;
+      viewMyOrders: string;
+      emptyState: string;
+      more: string;
+      successPayment: string;
+      processingOrder: string;
+      oxxoInstructions: string;
+      printTicket: string;
+      payAtOxxo: string;
+      cashPayment: string;
+      activateAfterPayment: string;
+      expireWarning: string;
+      status: {
+        pending: string;
+        paid: string;
+        shipped: string;
+        delivered: string;
+        cancelled: string;
+      };
     };
   };
 }

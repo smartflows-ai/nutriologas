@@ -6,13 +6,16 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Package } from "lucide-react";
 
-const STATUS_LABELS: Record<string, { label: string; class: string }> = {
-  PENDING:   { label: "Pendiente",  class: "bg-yellow-100 text-yellow-700" },
-  PAID:      { label: "Pagado",     class: "bg-green-100 text-green-700" },
-  SHIPPED:   { label: "Enviado",    class: "bg-blue-100 text-blue-700" },
-  DELIVERED: { label: "Entregado",  class: "bg-purple-100 text-purple-700" },
-  CANCELLED: { label: "Cancelado",  class: "bg-red-100 text-red-700" },
-};
+import { getTranslationServer } from "@/i18n/server";
+import { Translations } from "@/i18n/types";
+
+const getStatusLabels = (t: Translations) => ({
+  PENDING:   { label: t.storefront.orders.status.pending,  class: "bg-yellow-100 text-yellow-700" },
+  PAID:      { label: t.storefront.orders.status.paid,     class: "bg-green-100 text-green-700" },
+  SHIPPED:   { label: t.storefront.orders.status.shipped,    class: "bg-blue-100 text-blue-700" },
+  DELIVERED: { label: t.storefront.orders.status.delivered,  class: "bg-purple-100 text-purple-700" },
+  CANCELLED: { label: t.storefront.orders.status.cancelled,  class: "bg-red-100 text-red-700" },
+});
 
 export default async function MisPedidosPage() {
   const session = await getAppSession();
@@ -28,20 +31,23 @@ export default async function MisPedidosPage() {
     orderBy: { createdAt: "desc" },
   });
 
+  const t = getTranslationServer();
+  const statusLabels = getStatusLabels(t);
+
   return (
     <div className="max-w-3xl mx-auto px-4 py-10">
-      <h1 className="text-2xl font-bold text-gray-900 mb-8">Mis pedidos</h1>
+      <h1 className="text-2xl font-bold text-gray-900 mb-8">{t.storefront.orders.title}</h1>
 
       {orders.length === 0 ? (
         <div className="text-center py-20">
           <Package size={48} className="mx-auto text-gray-300 mb-4" />
-          <p className="text-gray-500 mb-6">Aún no tienes pedidos</p>
-          <Link href="/productos" className="btn-primary">Ver productos</Link>
+          <p className="text-gray-500 mb-6">{t.storefront.orders.emptyState}</p>
+          <Link href="/productos" className="btn-primary">{t.storefront.cart.viewProducts}</Link>
         </div>
       ) : (
         <div className="space-y-4">
           {orders.map((order) => {
-            const s = STATUS_LABELS[order.status] ?? { label: order.status, class: "bg-gray-100 text-gray-600" };
+            const s = statusLabels[order.status as keyof typeof statusLabels] ?? { label: order.status, class: "bg-gray-100 text-gray-600" };
             return (
               <Link key={order.id} href={`/pedido/${order.id}`} className="card block hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between mb-2">
@@ -61,7 +67,7 @@ export default async function MisPedidosPage() {
                     </div>
                   ))}
                   {order.items.length > 3 && (
-                    <span className="text-xs text-gray-400">+{order.items.length - 3} más</span>
+                    <span className="text-xs text-gray-400">+{order.items.length - 3} {t.storefront.orders.more}</span>
                   )}
                 </div>
                 <div className="flex items-center justify-between">

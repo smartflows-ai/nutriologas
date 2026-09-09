@@ -21,19 +21,21 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Facebook,
-  Globe
+  Globe,
+  Users
 } from "lucide-react";
 import SignOutButton from "@/components/admin/SignOutButton";
 
 interface Props {
   userName?: string | null;
   isAssistantEnabled: boolean;
+  isTriageEnabled?: boolean;
   connectedApps: string[];
 }
 
 import { useTranslation } from "@/i18n";
 
-export default function AdminSidebar({ userName, isAssistantEnabled, connectedApps }: Props) {
+export default function AdminSidebar({ userName, isAssistantEnabled, isTriageEnabled = false, connectedApps }: Props) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -61,6 +63,7 @@ export default function AdminSidebar({ userName, isAssistantEnabled, connectedAp
       title: t.admin.appsSection,
       items: [
         { href: "/admin/apps", label: t.admin.store, icon: Plug },
+        { href: "/admin/pacientes", label: t.admin.patients || "Pacientes", icon: Users, isTriage: true },
         { href: "/admin/asistente", label: t.admin.aiAssistant, icon: Bot, isAssistant: true },
         { href: "/admin/calendario", label: t.admin.calendar, icon: Calendar, providersReq: ["GOOGLE", "MICROSOFT"] },
         { href: "/admin/whatsapp", label: t.admin.whatsapp, icon: MessageSquare, providersReq: ["WHATSAPP"] },
@@ -89,6 +92,7 @@ export default function AdminSidebar({ userName, isAssistantEnabled, connectedAp
       items: category.items.filter(item => {
         // Evaluate AI Assistant requirement
         if (item.isAssistant && !isAssistantEnabled) return false;
+        if ((item as any).isTriage && !isTriageEnabled) return false;
 
         // Evaluate Integrations requirement (if requires at least one of providersReq)
         if (item.providersReq) {

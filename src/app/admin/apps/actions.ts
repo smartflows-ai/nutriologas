@@ -20,6 +20,22 @@ export async function toggleAssistant(enabled: boolean) {
   revalidatePath("/admin"); // Revalidate layout
 }
 
+export async function toggleTriage(enabled: boolean) {
+  const session = await getAppSession();
+  if (!session?.user || session.user.role !== "ADMIN") {
+    throw new Error("No autorizado");
+  }
+
+  await prisma.tenant.update({
+    where: { id: session.user.tenantId },
+    data: { isTriageEnabled: enabled }
+  });
+
+  revalidatePath("/admin/apps");
+  revalidatePath("/admin/pacientes");
+  revalidatePath("/admin"); // Revalidate layout
+}
+
 export async function disconnectApp(provider: string) {
   const session = await getAppSession();
   if (!session?.user || session.user.role !== "ADMIN") {

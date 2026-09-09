@@ -62,6 +62,27 @@ const COUNTRIES = [
   { name: "Israel", code: "IL", dial: "+972", flag: "🇮🇱" },
 ];
 
+const MAJOR_CITIES = [
+  "Ciudad de México",
+  "Guadalajara",
+  "Monterrey",
+  "Puebla",
+  "Tijuana",
+  "Toluca",
+  "León",
+  "Querétaro",
+  "Mérida",
+  "San Luis Potosí",
+  "Aguascalientes",
+  "Cancún",
+  "Saltillo",
+  "Hermosillo",
+  "Mexicali",
+  "Culiacán",
+  "Chihuahua",
+  "Morelia",
+];
+
 export default function OnboardingModal({ onClose, initialPlan = "STARTER" }: Props) {
   const { t } = useTranslation();
   // Step state
@@ -73,6 +94,8 @@ export default function OnboardingModal({ onClose, initialPlan = "STARTER" }: Pr
   const [name, setName] = useState("");
   const [businessInfo, setBusinessInfo] = useState("");
   const [city, setCity] = useState("");
+  const [cityQuery, setCityQuery] = useState("");
+  const [cityOpen, setCityOpen] = useState(false);
   // Location combobox
   const [countryQuery, setCountryQuery] = useState("");
   const [selectedCountry, setSelectedCountry] = useState(COUNTRIES[0]); // México default
@@ -110,6 +133,11 @@ export default function OnboardingModal({ onClose, initialPlan = "STARTER" }: Pr
       c.name.toLowerCase().includes(dialQuery.toLowerCase()) ||
       c.dial.includes(dialQuery)
     ), [dialQuery]);
+
+  const filteredCities = useMemo(() =>
+    MAJOR_CITIES.filter(c =>
+      c.toLowerCase().includes(cityQuery.toLowerCase())
+    ), [cityQuery]);
 
   // ── Logo upload ────────────────────────────────────────────────
   const handleLogoChange = async (file: File) => {
@@ -252,15 +280,59 @@ export default function OnboardingModal({ onClose, initialPlan = "STARTER" }: Pr
 
               {/* City + Country row */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* City */}
-                <div>
+                {/* City combobox */}
+                <div className="relative">
                   <label className={labelCls}>{t.modals.onboarding.city}</label>
-                  <input
-                    className={inputCls}
-                    value={city}
-                    onChange={e => setCity(e.target.value)}
-                    placeholder={t.modals.onboarding.phCity}
-                  />
+                  <button
+                    type="button"
+                    className={selectCls}
+                    onClick={() => { setCityOpen(o => !o); setCountryOpen(false); setDialOpen(false); setCityQuery(""); }}
+                  >
+                    <span className={`flex-1 text-left truncate ${!city ? "text-gray-600" : "text-white"}`}>
+                      {city || t.modals.onboarding.phCity}
+                    </span>
+                    <ChevronDown size={14} className={`text-gray-500 transition-transform ${cityOpen ? "rotate-180" : ""}`} />
+                  </button>
+
+                  {cityOpen && (
+                    <div className="absolute z-50 mt-2 w-full bg-[#12121e] border border-white/10 rounded-xl shadow-xl overflow-hidden">
+                      <div className="flex items-center gap-2 px-3 py-2 border-b border-white/5">
+                        <Search size={14} className="text-gray-500" />
+                        <input
+                          autoFocus
+                          className="flex-1 bg-transparent text-white text-sm placeholder-gray-600 focus:outline-none"
+                          placeholder={t.modals.onboarding.useCustomCity.replace(":", "") + "..."}
+                          value={cityQuery}
+                          onChange={e => setCityQuery(e.target.value)}
+                        />
+                      </div>
+                      <ul className="max-h-44 overflow-y-auto">
+                        {filteredCities.map(c => (
+                          <li
+                            key={c}
+                            className={`px-4 py-2.5 cursor-pointer text-sm transition-colors ${city === c
+                                ? "bg-violet-600/20 text-violet-300"
+                                : "text-gray-300 hover:bg-white/5"
+                              }`}
+                            onClick={() => { setCity(c); setCityOpen(false); }}
+                          >
+                            {c}
+                          </li>
+                        ))}
+                        {filteredCities.length === 0 && cityQuery && (
+                          <li 
+                            className="px-4 py-3 text-gray-400 text-sm italic cursor-pointer hover:bg-white/5 transition-colors"
+                            onClick={() => { setCity(cityQuery); setCityOpen(false); }}
+                          >
+                            {t.modals.onboarding.useCustomCity} "{cityQuery}"
+                          </li>
+                        )}
+                        {filteredCities.length === 0 && !cityQuery && (
+                          <li className="px-4 py-3 text-gray-600 text-sm">No results</li>
+                        )}
+                      </ul>
+                    </div>
+                  )}
                 </div>
 
                 {/* Country combobox */}
@@ -271,7 +343,7 @@ export default function OnboardingModal({ onClose, initialPlan = "STARTER" }: Pr
                     className={selectCls}
                     onClick={() => { setCountryOpen(o => !o); setDialOpen(false); }}
                   >
-                    <span className="text-xl">{selectedCountry.flag}</span>
+                    <span className="text-xl leading-none">{selectedCountry.flag}</span>
                     <span className="flex-1 text-left truncate">{selectedCountry.name}</span>
                     <ChevronDown size={14} className={`text-gray-500 transition-transform ${countryOpen ? "rotate-180" : ""}`} />
                   </button>
@@ -298,7 +370,7 @@ export default function OnboardingModal({ onClose, initialPlan = "STARTER" }: Pr
                               }`}
                             onClick={() => { setSelectedCountry(c); setCountryOpen(false); setCountryQuery(""); }}
                           >
-                            <span className="text-lg">{c.flag}</span>
+                            <span className="text-lg leading-none">{c.flag}</span>
                             <span>{c.name}</span>
                           </li>
                         ))}
@@ -322,7 +394,7 @@ export default function OnboardingModal({ onClose, initialPlan = "STARTER" }: Pr
                       className="flex items-center justify-center gap-1.5 w-full sm:w-auto bg-[#12121e] border border-white/10 rounded-xl px-4 py-3 text-white text-sm hover:border-violet-500/40 transition-all cursor-pointer whitespace-nowrap"
                       onClick={() => { setDialOpen(o => !o); setCountryOpen(false); }}
                     >
-                      <span className="text-lg">{dialCountry.flag}</span>
+                      <span className="text-lg leading-none">{dialCountry.flag}</span>
                       <span className="text-gray-400 font-mono">{dialCountry.dial}</span>
                       <ChevronDown size={13} className={`text-gray-500 transition-transform ${dialOpen ? "rotate-180" : ""}`} />
                     </button>
@@ -349,7 +421,7 @@ export default function OnboardingModal({ onClose, initialPlan = "STARTER" }: Pr
                                 }`}
                               onClick={() => { setDialCountry(c); setDialOpen(false); setDialQuery(""); }}
                             >
-                              <span className="text-lg">{c.flag}</span>
+                              <span className="text-lg leading-none">{c.flag}</span>
                               <span className="flex-1">{c.name}</span>
                               <span className="text-gray-500 font-mono text-xs">{c.dial}</span>
                             </li>

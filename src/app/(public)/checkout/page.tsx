@@ -5,6 +5,7 @@ import { formatPrice } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { useTranslation } from "@/i18n";
 import { PayPalButtons, PayPalScriptProvider } from "@paypal/react-paypal-js";
 import {
   CreditCard,
@@ -24,6 +25,7 @@ const STORAGE_KEY = "conekta_checkout_pending";
 export default function CheckoutPage() {
   const { items, total, clearCart } = useCartStore();
   const router = useRouter();
+  const { t } = useTranslation();
 
   const [method, setMethod] = useState<Method>("card");
   const [stage, setStage] = useState<Stage>("select");
@@ -105,7 +107,7 @@ export default function CheckoutPage() {
     return (
       <div className="max-w-md mx-auto px-4 py-20 text-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
-        <p className="text-gray-500">Procesando pago...</p>
+        <p className="text-gray-500">{t.storefront.checkout.processingPayment}</p>
       </div>
     );
   }
@@ -186,7 +188,7 @@ export default function CheckoutPage() {
           disabled={stage === "iframe" && !!pendingOrderId}
           className="text-sm text-gray-500 hover:text-gray-700 mb-6 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          ← Volver
+          ← {t.storefront.checkout.back}
         </button>
         <ConektaCheckout
           checkoutRequestId={checkoutRequestId}
@@ -200,7 +202,7 @@ export default function CheckoutPage() {
             }, 1000);
           }}
           onError={() => {
-            setError("Hubo un error con el pago. Intenta de nuevo.");
+            setError(t.storefront.checkout.paymentError);
             setStage("select");
           }}
           onExit={handleConektaExit}
@@ -214,7 +216,7 @@ export default function CheckoutPage() {
     return (
       <div className="max-w-md mx-auto px-4 py-20 text-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
-        <p className="text-gray-500">Procesando pago...</p>
+        <p className="text-gray-500">{t.storefront.checkout.processingPayment}</p>
       </div>
     );
   }
@@ -222,21 +224,21 @@ export default function CheckoutPage() {
   // ── Method selector ─────────────────────────────────────
   return (
     <div className="max-w-3xl mx-auto px-4 py-10">
-      <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">Checkout</h1>
+      <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">{t.storefront.checkout.title}</h1>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Payment methods */}
         <div>
-          <h2 className="font-semibold text-gray-900 dark:text-white mb-4">Método de pago</h2>
+          <h2 className="font-semibold text-gray-900 dark:text-white mb-4">{t.storefront.checkout.paymentMethod}</h2>
           <div className="space-y-3 mb-6">
             {[
               {
                 id: "card" as Method,
-                label: "Tarjeta de crédito/débito",
+                label: t.storefront.checkout.creditCard,
                 icon: <CreditCard size={18} />,
               },
               {
                 id: "oxxo" as Method,
-                label: "OXXO Pay",
+                label: t.storefront.checkout.oxxo,
                 icon: <Building2 size={18} />,
               },
               {
@@ -270,7 +272,7 @@ export default function CheckoutPage() {
               disabled={loading}
               className="btn-primary w-full py-3"
             >
-              {loading ? "Preparando pago…" : `Pagar ${formatPrice(total())}`}
+              {loading ? t.storefront.checkout.preparingPayment : `${t.storefront.checkout.pay} ${formatPrice(total())}`}
             </button>
           ) : (
             <PayPalScriptProvider
@@ -316,7 +318,7 @@ export default function CheckoutPage() {
 
         {/* Order summary */}
         <div className="card h-fit">
-          <h2 className="font-semibold text-gray-900 dark:text-white mb-4">Resumen</h2>
+          <h2 className="font-semibold text-gray-900 dark:text-white mb-4">{t.storefront.checkout.summary}</h2>
           <div className="space-y-2 text-sm">
             {items.map((item) => (
               <div key={item.id} className="flex justify-between text-gray-600 dark:text-gray-400">
@@ -326,7 +328,7 @@ export default function CheckoutPage() {
             ))}
           </div>
           <div className="border-t mt-4 pt-4 flex justify-between font-bold">
-            <span>Total</span>
+            <span>{t.storefront.checkout.total}</span>
             <span className="text-primary">{formatPrice(total())}</span>
           </div>
         </div>

@@ -7,11 +7,13 @@ import Link from "next/link";
 import Image from "next/image";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { useTranslation } from "@/i18n";
 
 export default function CarritoPage() {
   const { items, removeItem, updateQuantity, total, clearCart } = useCartStore();
   const { status } = useSession();
   const router = useRouter();
+  const { t } = useTranslation();
 
   const handleCheckout = () => {
     if (status === "authenticated") {
@@ -25,16 +27,16 @@ export default function CarritoPage() {
     return (
       <div className="max-w-2xl mx-auto px-4 py-20 text-center">
         <ShoppingBag size={64} className="mx-auto text-gray-300 mb-4" />
-        <h1 className="text-2xl font-bold text-gray-700 dark:text-gray-200 mb-2">Tu carrito está vacío</h1>
-        <p className="text-gray-500 mb-8">Agrega productos para continuar</p>
-        <Link href="/productos" className="btn-primary">Ver productos</Link>
+        <h1 className="text-2xl font-bold text-gray-700 dark:text-gray-200 mb-2">{t.storefront.cart.emptyTitle}</h1>
+        <p className="text-gray-500 mb-8">{t.storefront.cart.emptyDesc}</p>
+        <Link href="/productos" className="btn-primary">{t.storefront.cart.viewProducts}</Link>
       </div>
     );
   }
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-10">
-      <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">Tu carrito</h1>
+      <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">{t.storefront.cart.title}</h1>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Items */}
         <div className="lg:col-span-2 space-y-4">
@@ -58,24 +60,24 @@ export default function CarritoPage() {
               </div>
             </div>
           ))}
-          <button onClick={clearCart} className="text-sm text-gray-400 hover:text-red-500 transition-colors">Vaciar carrito</button>
+          <button onClick={clearCart} className="text-sm text-gray-400 hover:text-red-500 transition-colors">{t.storefront.cart.clearCart}</button>
         </div>
 
         {/* Resumen */}
         <div className="card h-fit sticky top-24">
-          <h2 className="font-bold text-lg text-gray-900 dark:text-white mb-4">Resumen del pedido</h2>
+          <h2 className="font-bold text-lg text-gray-900 dark:text-white mb-4">{t.storefront.cart.summary}</h2>
           <div className="space-y-2 text-sm mb-4">
             <div className="flex justify-between text-gray-600 dark:text-gray-400">
-              <span>Subtotal ({items.reduce((s, i) => s + i.quantity, 0)} productos)</span>
+              <span>{t.storefront.cart.subtotal} ({items.reduce((s, i) => s + i.quantity, 0)} {t.storefront.cart.items})</span>
               <span>{formatPrice(total())}</span>
             </div>
             <div className="border-t pt-2 flex justify-between font-bold text-base">
-              <span>Total</span>
+              <span>{t.storefront.cart.total}</span>
               <span className="text-primary">{formatPrice(total())}</span>
             </div>
           </div>
-          <button onClick={handleCheckout} className="btn-primary block text-center w-full py-3">Proceder al pago</button>
-          <Link href="/productos" className="btn-ghost block text-center w-full py-2 mt-2 text-sm">Seguir comprando</Link>
+          <button onClick={handleCheckout} className="btn-primary block text-center w-full py-3">{t.storefront.cart.proceedToPayment}</button>
+          <Link href="/productos" className="btn-ghost block text-center w-full py-2 mt-2 text-sm">{t.storefront.cart.continueShopping}</Link>
         </div>
       </div>
     </div>

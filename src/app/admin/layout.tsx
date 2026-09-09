@@ -53,6 +53,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <AdminSidebar 
           userName={session.user?.name ?? session.user?.email} 
           isAssistantEnabled={tenant?.isAssistantEnabled ?? false}
+          isTriageEnabled={tenant?.isTriageEnabled ?? false}
           connectedApps={tenant?.connectedApps.map(a => a.provider) ?? []}
         />
 

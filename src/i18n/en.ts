@@ -238,7 +238,8 @@ export const en: Translations = {
       phEmail: "doctor@yourdomain.com",
       phPassword: "Min 8 chars",
       phConfirmPwd: "Repeat password",
-      phSubdomain: "yourbusiness"
+      phSubdomain: "yourbusiness",
+      useCustomCity: "Use custom city:"
     },
     signin: {
       title: "Sign in to your workspace",
@@ -255,7 +256,7 @@ export const en: Translations = {
       desc: "Watch how an AI agent creates, publishes, and reports on a social media campaign in under 60 seconds.",
       comingSoon: "Demo video coming soon",
       meanwhile: "In the meantime, sign up for a free trial and experience the magic yourself!",
-      btnTrial: "Start Free Trial Instead →",
+      btnTrial: "Start Free Trial Instead",
       feature1: "🤖 AI writes your content",
       feature2: "📣 Auto-publishes to social",
       feature3: "📊 Reports back instantly"
@@ -266,6 +267,7 @@ export const en: Translations = {
     websiteSection: "Website",
     appsSection: "Apps & Automation",
     dashboard: "Dashboard",
+    patients: "Patients",
     orders: "Orders",
     products: "Products",
     reviews: "Reviews",
@@ -514,6 +516,7 @@ export const en: Translations = {
         calendar: { name: "Calendar", desc: "Appointment sync, event reading, and agenda." },
         whatsapp: { name: "WhatsApp", desc: "Messaging with clients via Evolution API." },
         social: { name: "Social Campaigns", desc: "Generate and publish content automatically with AI on Facebook and Instagram." },
+        triage: { name: "AI Triage & Onboarding", desc: "Collect medical history and patient goals automatically via WhatsApp." },
       },
     },
     assistant: {
@@ -644,5 +647,101 @@ export const en: Translations = {
       loading: "Loading calendar...",
       error: "Error loading appointments",
     },
+    triage: {
+      title: "Patients & Triage",
+      desc: "Clinical records automatically collected by AI.",
+      noPatientsTitle: "No patients yet",
+      noPatientsDesc: "When the AI Assistant collects triage data, they will appear here.",
+      loading: "Loading patients...",
+      complete: "Complete Triage",
+      age: "Age",
+      weight: "Weight",
+      height: "Height",
+      years: "years",
+      goals: "Goals",
+      allergies: "Allergies",
+      medicalHistory: "Medical History",
+      medications: "Current Medications",
+      updated: "Updated",
+    }
   },
+  storefront: {
+    home: {
+      aboutUs: "About Us",
+      welcomeTo: "Welcome to",
+      ourProducts: "Our Products",
+      discoverProducts: "Discover our featured products selected especially for you.",
+      viewCatalog: "View full catalog",
+      help: "Help",
+      faq: "Frequently Asked Questions",
+      faqDesc: "Quick answers to common questions."
+    },
+    catalog: {
+      home: "Home",
+      products: "Products",
+      allProducts: "All Products",
+      exploreCatalog: "Explore our full catalog of services and products designed especially to enhance your experience with",
+      categories: "Categories",
+      allDepartments: "All departments",
+      showing: "Showing",
+      result: "result",
+      results: "results",
+      noProducts: "We couldn't find any products",
+      tryAnotherCategory: "Try searching in another category or come back later to see what's new.",
+      viewAllCatalog: "View all catalog"
+    },
+    cart: {
+      emptyTitle: "Your cart is empty",
+      emptyDesc: "Add products to continue",
+      viewProducts: "View products",
+      title: "Your cart",
+      clearCart: "Empty cart",
+      summary: "Order summary",
+      subtotal: "Subtotal",
+      items: "products",
+      total: "Total",
+      proceedToPayment: "Proceed to checkout",
+      continueShopping: "Continue shopping"
+    },
+    checkout: {
+      title: "Checkout",
+      payment: "Payment",
+      processingPayment: "Processing payment...",
+      back: "Back",
+      paymentError: "There was an error with the payment. Please try again.",
+      paymentMethod: "Payment Method",
+      creditCard: "Credit / Debit Card",
+      oxxo: "OXXO Pay",
+      preparingPayment: "Preparing payment...",
+      pay: "Pay",
+      summary: "Summary",
+      total: "Total"
+    },
+    orders: {
+      title: "My Orders",
+      orderHash: "Order #",
+      products: "Products",
+      paymentInfo: "Payment Information",
+      method: "Method",
+      reference: "Reference",
+      viewMyOrders: "View my orders",
+      emptyState: "You don't have any orders yet",
+      more: "more",
+      successPayment: "Payment received successfully!",
+      processingOrder: "Your order is being processed.",
+      oxxoInstructions: "Instructions to pay at OXXO",
+      printTicket: "Print or save this ticket",
+      payAtOxxo: "Present it at any OXXO store",
+      cashPayment: "Make the payment in cash",
+      activateAfterPayment: "Your order will be activated once payment is confirmed",
+      expireWarning: "⏱️ You have 24 hours to make the payment before it expires",
+      status: {
+        pending: "Pending payment",
+        paid: "Paid",
+        shipped: "Shipped",
+        delivered: "Delivered",
+        cancelled: "Cancelled"
+      }
+    }
+  }
 };

@@ -4,9 +4,15 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
+import https from "https";
 
 const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL!;
 const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY!;
+
+const insecureAgent = new https.Agent({ rejectUnauthorized: false });
+function evoFetch(url: string, init?: RequestInit) {
+  return fetch(url, { ...(init ?? {}), ...(({ agent: insecureAgent }) as any) });
+}
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -23,7 +29,7 @@ export async function GET(req: NextRequest) {
     return Response.json({ status: "disconnected" });
 
   // Consultar estado real en Evolution API
-  const statusRes = await fetch(
+  const statusRes = await evoFetch(
     `${EVOLUTION_API_URL}/instance/connectionState/${app.waInstanceId}`,
     { headers: { apikey: EVOLUTION_API_KEY } }
   );
@@ -35,7 +41,7 @@ export async function GET(req: NextRequest) {
 
   // Si ya conectó, obtener el número y limpiar el QR
   if (isConnected && app.waStatus !== "connected") {
-    const infoRes = await fetch(
+    const infoRes = await evoFetch(
       `${EVOLUTION_API_URL}/instance/fetchInstances?instanceName=${app.waInstanceId}`,
       { headers: { apikey: EVOLUTION_API_KEY } }
     );
@@ -58,7 +64,7 @@ export async function GET(req: NextRequest) {
 
   // Si sigue pendiente de QR, refrescar el QR
   if (!isConnected && app.waStatus === "qr_pending") {
-    const qrRes = await fetch(
+    const qrRes = await evoFetch(
       `${EVOLUTION_API_URL}/instance/connect/${app.waInstanceId}`,
       { headers: { apikey: EVOLUTION_API_KEY } }
     );

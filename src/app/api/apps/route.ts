@@ -5,6 +5,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session?.user || (session.user as any).role !== "ADMIN") {
@@ -15,7 +17,7 @@ export async function GET() {
 
   const tenant = await prisma.tenant.findUnique({
     where: { id: tenantId },
-    select: { isAssistantEnabled: true }
+    select: { isAssistantEnabled: true, isTriageEnabled: true }
   });
 
   const apps = await prisma.connectedApp.findMany({
@@ -28,5 +30,5 @@ export async function GET() {
     },
   });
 
-  return NextResponse.json({ apps, isAssistantEnabled: tenant?.isAssistantEnabled ?? false });
+  return NextResponse.json({ apps, isAssistantEnabled: tenant?.isAssistantEnabled ?? false, isTriageEnabled: tenant?.isTriageEnabled ?? false });
 }

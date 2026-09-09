@@ -17,6 +17,7 @@ model Tenant {
   whatsappNumber String?
   businessInfo   String?  // descripcion del negocio para la homepage
   isAssistantEnabled Boolean @default(true)
+  isTriageEnabled    Boolean @default(false)
 
   // Configuracion de colores (1:1)
   theme       ThemeConfig?
@@ -34,6 +35,7 @@ model Tenant {
   socialCampaigns SocialCampaign[]
   socialPosts     SocialPost[]
   subscription    Subscription?
+  patientProfiles PatientProfile[]
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -76,6 +78,7 @@ model User {
   reviews Review[]
   accounts Account[]
   sessions Session[]
+  patientProfile PatientProfile?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -192,6 +195,31 @@ model WhatsAppMessage {
   @@index([tenantId])
   @@index([chatId])
   @@map("whatsapp_messages")
+}
+
+// ─── PACIENTES (Triage) ──────────────────────────────────
+model PatientProfile {
+  id             String   @id @default(uuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenantId       String
+  tenant         Tenant   @relation(fields: [tenantId], references: [id])
+  remoteJid      String?  // WhatsApp identifier
+  
+  // Triage Data collected by AI
+  age            Int?
+  heightCm       Float?
+  weightKg       Float?
+  goals          String?  @db.Text
+  allergies      String?  @db.Text
+  medicalHistory String?  @db.Text
+  medications    String?  @db.Text
+  
+  isTriageComplete Boolean @default(false)
+  updatedAt      DateTime @updatedAt
+
+  @@index([tenantId])
+  @@map("patient_profiles")
 }
 
 // ─── PRODUCTOS ───────────────────────────────────────────

@@ -20,50 +20,56 @@ const ROOT_DOMAINS = [
   "localhost",
 ];
 
-export function getTenantSlug(): string {
-  const host = (headers().get("host") || "").toLowerCase();
+export function resolveTenantSlug(host: string): string {
+  const h = (host || "").toLowerCase().trim();
+  if (!h) return "";
 
-  // Local dev: nutri.localhost:3000 → "nutri"
-  if (host.endsWith(".localhost:3000") || host.endsWith(".localhost")) {
-    return host.split(".")[0];
-  }
+  const rootDomain = (process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "newaigent.com").toLowerCase();
+  const hostWithoutPort = h.split(":")[0];
 
-  // Exact root domain match → no tenant (show marketing page)
-  if (ROOT_DOMAINS.includes(host)) {
+  // 1. Localhost / Loopback / Local IP without subdomain
+  // e.g. "localhost", "localhost:3000", "localhost:3001", "127.0.0.1", "192.168.x.x"
+  if (
+    hostWithoutPort === "localhost" ||
+    hostWithoutPort === "127.0.0.1" ||
+    hostWithoutPort.startsWith("192.168.") ||
+    hostWithoutPort.startsWith("10.") ||
+    hostWithoutPort.endsWith(".local")
+  ) {
     return "";
   }
 
-  // Production subdomain: doctor.newaigent.com → "doctor"
-  if (host.endsWith(".newaigent.com")) {
-    return host.replace(".newaigent.com", "");
+  // 2. Subdomain on localhost: e.g. "doctor.localhost:3000" or "nutri.localhost"
+  if (hostWithoutPort.endsWith(".localhost")) {
+    const sub = hostWithoutPort.replace(".localhost", "");
+    return sub === "www" ? "" : sub;
   }
 
-  // Custom domain (e.g. myclinic.com) — use full host as tenant identifier
-  // Strip port if any
-  return host.split(":")[0];
+  // 3. Exact root domain match (with or without www)
+  if (
+    hostWithoutPort === rootDomain ||
+    hostWithoutPort === `www.${rootDomain}` ||
+    hostWithoutPort === "newaigent.com" ||
+    hostWithoutPort === "www.newaigent.com"
+  ) {
+    return "";
+  }
+
+  // 4. Subdomain on root domain: e.g. "doctor.newaigent.com"
+  if (hostWithoutPort.endsWith(`.${rootDomain}`)) {
+    const sub = hostWithoutPort.replace(`.${rootDomain}`, "");
+    return sub === "www" ? "" : sub;
+  }
+  if (hostWithoutPort.endsWith(".newaigent.com")) {
+    const sub = hostWithoutPort.replace(".newaigent.com", "");
+    return sub === "www" ? "" : sub;
+  }
+
+  // 5. Custom domain (e.g. "myclinic.com" or "nutrifit.mx")
+  return hostWithoutPort;
 }
 
-/**
- * API-route variant — takes an explicit host string instead of reading headers.
- * Use this in route.ts files where you already have: req.headers.get("host")
- *
- * doctor.newaigent.com → "doctor"
- * doctor.localhost:3000 → "doctor"
- * myclinic.com         → "myclinic.com"  (custom domain, looked up by customDomain field)
- */
-export function resolveTenantSlug(host: string): string {
-  const h = host.toLowerCase();
-  const rootDomain = (process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "newaigent.com").toLowerCase();
-
-  if (h.endsWith(".localhost:3000") || h.endsWith(".localhost")) {
-    return h.split(".")[0];
-  }
-  if (h === rootDomain || h === `www.${rootDomain}` || h.startsWith("localhost")) {
-    return "";
-  }
-  if (h.endsWith(`.${rootDomain}`)) {
-    return h.replace(`.${rootDomain}`, "");
-  }
-  // Custom domain — strip port
-  return h.split(":")[0];
+export function getTenantSlug(): string {
+  const rawHost = (headers().get("host") || "").toLowerCase();
+  return resolveTenantSlug(rawHost);
 }
