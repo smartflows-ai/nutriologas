@@ -2,6 +2,7 @@
 // Handles Stripe webhook events to keep subscription status in sync.
 import { stripe } from "@/lib/stripe";
 import { prisma } from "@/lib/db";
+import { rechargeCredits } from "@/lib/credits";
 import { headers } from "next/headers";
 import type Stripe from "stripe";
 
@@ -23,6 +24,18 @@ export async function POST(req: Request) {
 
   try {
     switch (event.type) {
+      case "checkout.session.completed": {
+        const cs = event.data.object as Stripe.Checkout.Session;
+        // Handle AI credit recharge payments
+        if (cs.metadata?.type === "ai_credit_recharge" && cs.metadata?.tenantId) {
+          const { tenantId, amountUsd } = cs.metadata;
+          const amount = parseFloat(amountUsd ?? "15");
+          if (!isNaN(amount) && amount > 0) {
+            await rechargeCredits(tenantId, amount);
+          }
+        }
+        break;
+      }
       case "customer.subscription.updated":
       case "customer.subscription.created": {
         const sub = event.data.object as Stripe.Subscription;
@@ -64,6 +77,7 @@ export async function POST(req: Request) {
     return new Response("Handler error", { status: 500 });
   }
 }
+
 
 async function syncSubscription(sub: Stripe.Subscription) {
   const statusMap: Record<string, string> = {

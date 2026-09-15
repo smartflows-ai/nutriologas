@@ -89,44 +89,60 @@ export default function PacientesPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-4 mb-6">
-                  <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-xl text-center">
-                    <span className="block text-xs text-gray-500 uppercase font-semibold mb-1">{t.crm.triage.age}</span>
-                    <span className="font-bold text-gray-900 dark:text-white">{patient.age ? `${patient.age} ${t.crm.triage.years}` : "--"}</span>
+                {(patient.age || patient.weightKg || patient.heightCm) ? (
+                  <div className="grid grid-cols-3 gap-3 mb-6">
+                    {patient.age ? (
+                      <div className="bg-gray-50 dark:bg-gray-800/60 p-3 rounded-xl text-center border border-gray-100 dark:border-gray-800">
+                        <span className="block text-xs text-gray-500 uppercase font-semibold mb-1">{t.crm.triage.age}</span>
+                        <span className="font-bold text-gray-900 dark:text-white">{patient.age} {t.crm.triage.years}</span>
+                      </div>
+                    ) : null}
+                    {patient.weightKg ? (
+                      <div className="bg-gray-50 dark:bg-gray-800/60 p-3 rounded-xl text-center border border-gray-100 dark:border-gray-800">
+                        <span className="block text-xs text-gray-500 uppercase font-semibold mb-1">{t.crm.triage.weight}</span>
+                        <span className="font-bold text-gray-900 dark:text-white">{patient.weightKg}</span>
+                      </div>
+                    ) : null}
+                    {patient.heightCm ? (
+                      <div className="bg-gray-50 dark:bg-gray-800/60 p-3 rounded-xl text-center border border-gray-100 dark:border-gray-800">
+                        <span className="block text-xs text-gray-500 uppercase font-semibold mb-1">{t.crm.triage.height}</span>
+                        <span className="font-bold text-gray-900 dark:text-white">{patient.heightCm}</span>
+                      </div>
+                    ) : null}
                   </div>
-                  <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-xl text-center">
-                    <span className="block text-xs text-gray-500 uppercase font-semibold mb-1">{t.crm.triage.weight}</span>
-                    <span className="font-bold text-gray-900 dark:text-white">{patient.weightKg ? `${patient.weightKg} kg` : "--"}</span>
-                  </div>
-                  <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-xl text-center">
-                    <span className="block text-xs text-gray-500 uppercase font-semibold mb-1">{t.crm.triage.height}</span>
-                    <span className="font-bold text-gray-900 dark:text-white">{patient.heightCm ? `${patient.heightCm} cm` : "--"}</span>
-                  </div>
-                </div>
+                ) : null}
 
-                <div className="space-y-4 text-sm">
+                <div className="space-y-3 text-sm">
                   {patient.goals && (
-                    <div>
-                      <h4 className="flex items-center gap-2 font-semibold text-gray-900 dark:text-white mb-1"><Target size={14} className="text-blue-500"/> {t.crm.triage.goals}</h4>
-                      <p className="text-gray-600 dark:text-gray-400 bg-blue-50 dark:bg-blue-900/20 p-3 rounded-xl border border-blue-100 dark:border-blue-800/50">{patient.goals}</p>
+                    <div className="bg-violet-50/50 dark:bg-violet-950/20 p-3.5 rounded-xl border border-violet-100/80 dark:border-violet-900/30">
+                      <h4 className="flex items-center gap-2 font-semibold text-violet-900 dark:text-violet-300 mb-1">
+                        <Target size={15} className="text-violet-500"/> {t.crm.triage.goals}
+                      </h4>
+                      <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed">{patient.goals}</p>
                     </div>
                   )}
                   {patient.allergies && (
-                    <div>
-                      <h4 className="flex items-center gap-2 font-semibold text-gray-900 dark:text-white mb-1"><AlertTriangle size={14} className="text-orange-500"/> {t.crm.triage.allergies}</h4>
-                      <p className="text-gray-600 dark:text-gray-400">{patient.allergies}</p>
+                    <div className="bg-amber-50/50 dark:bg-amber-950/20 p-3.5 rounded-xl border border-amber-100/80 dark:border-amber-900/30">
+                      <h4 className="flex items-center gap-2 font-semibold text-amber-900 dark:text-amber-300 mb-1">
+                        <AlertTriangle size={15} className="text-amber-500"/> {t.crm.triage.allergies}
+                      </h4>
+                      <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed">{patient.allergies}</p>
                     </div>
                   )}
                   {patient.medicalHistory && (
-                    <div>
-                      <h4 className="flex items-center gap-2 font-semibold text-gray-900 dark:text-white mb-1"><Activity size={14} className="text-red-500"/> {t.crm.triage.medicalHistory}</h4>
-                      <p className="text-gray-600 dark:text-gray-400">{patient.medicalHistory}</p>
+                    <div className="bg-blue-50/50 dark:bg-blue-950/20 p-3.5 rounded-xl border border-blue-100/80 dark:border-blue-900/30">
+                      <h4 className="flex items-center gap-2 font-semibold text-blue-900 dark:text-blue-300 mb-1">
+                        <Activity size={15} className="text-blue-500"/> {t.crm.triage.medicalHistory}
+                      </h4>
+                      <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed">{patient.medicalHistory}</p>
                     </div>
                   )}
                   {patient.medications && (
-                    <div>
-                      <h4 className="flex items-center gap-2 font-semibold text-gray-900 dark:text-white mb-1"><Pill size={14} className="text-purple-500"/> {t.crm.triage.medications}</h4>
-                      <p className="text-gray-600 dark:text-gray-400">{patient.medications}</p>
+                    <div className="bg-emerald-50/50 dark:bg-emerald-950/20 p-3.5 rounded-xl border border-emerald-100/80 dark:border-emerald-900/30">
+                      <h4 className="flex items-center gap-2 font-semibold text-emerald-900 dark:text-emerald-300 mb-1">
+                        <Pill size={15} className="text-emerald-500"/> {t.crm.triage.medications}
+                      </h4>
+                      <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed">{patient.medications}</p>
                     </div>
                   )}
                 </div>

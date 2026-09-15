@@ -1,0 +1,24 @@
+{
+  "tools": [
+    {
+      "name": "read_file",
+      "description": "Read any file in the workspace to understand context."
+    },
+    {
+      "name": "write_file",
+      "description": "Write task nodes and status updates to .agents/shared/."
+    },
+    {
+      "name": "list_dir",
+      "description": "List directory contents to discover existing artifacts."
+    },
+    {
+      "name": "search",
+      "description": "Grep/ripgrep search across the codebase."
+    },
+    {
+      "name": "invoke_agent",
+      "description": "Spawn a sub-agent (ba, architect, designer, dev, code_reviewer, tester, security, devops, sre, docs) with a task payload."
+    }
+  ]
+}

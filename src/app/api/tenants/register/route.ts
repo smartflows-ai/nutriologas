@@ -1,6 +1,6 @@
 // src/app/api/tenants/register/route.ts
 import { prisma } from "@/lib/db";
-import { stripe } from "@/lib/stripe";
+import { stripe, getStripePriceId, PlanKey, BillingInterval } from "@/lib/stripe";
 import { trialEndsAtDate } from "@/lib/trial";
 import bcrypt from "bcryptjs";
 
@@ -21,7 +21,10 @@ function slugValid(slug: string): string | null {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { email, password, name, slug, businessInfo, whatsappNumber, location, logoUrl, plan = "STARTER" } = body;
+    const {
+      email, password, name, slug, businessInfo, whatsappNumber,
+      location, logoUrl, plan = "STARTER", billingInterval = "monthly", lang = "es"
+    } = body;
 
     // ── Validation ────────────────────────────────────────────────
     if (!email || !password || !name || !slug)
@@ -41,6 +44,10 @@ export async function POST(req: Request) {
     const passwordHash = await bcrypt.hash(password, 12);
     const trialEndsAt  = trialEndsAtDate();
 
+    const validatedPlan: PlanKey = plan === "PRO" ? "PRO" : "STARTER";
+    const validatedInterval: BillingInterval = billingInterval === "annual" ? "annual" : "monthly";
+    const priceId = getStripePriceId(validatedPlan, validatedInterval, lang);
+
     // ── Create Stripe customer ────────────────────────────────────
     let stripeCustomerId = `local_${Date.now()}`;
     let stripeSubscriptionId: string | undefined;
@@ -51,7 +58,7 @@ export async function POST(req: Request) {
       const customer = await stripe.customers.create({
         email,
         name,
-        metadata: { slug: cleanSlug, plan },
+        metadata: { slug: cleanSlug, plan: validatedPlan, billingInterval: validatedInterval, lang },
       });
       stripeCustomerId = customer.id;
 
@@ -60,7 +67,7 @@ export async function POST(req: Request) {
         customer: stripeCustomerId,
         trial_period_days: 14,
         trial_settings: { end_behavior: { missing_payment_method: "pause" } },
-        items: [{ price: process.env.STRIPE_PRICE_STARTER_MONTHLY ?? "" }],
+        items: priceId ? [{ price: priceId }] : [{ price: process.env.STRIPE_PRICE_STARTER_MONTHLY ?? "" }],
         payment_settings: { save_default_payment_method: "on_subscription" },
         expand: ["latest_invoice.payment_intent"],
       });
@@ -103,7 +110,8 @@ export async function POST(req: Request) {
           tenantId:            tenant.id,
           stripeCustomerId,
           stripeSubscriptionId: stripeSubscriptionId ?? null,
-          plan:                (["STARTER","PRO","ENTERPRISE"].includes(plan) ? plan : "STARTER") as any,
+          stripePriceId:       priceId || null,
+          plan:                validatedPlan,
           status:              "TRIALING",
           trialEndsAt,
         },

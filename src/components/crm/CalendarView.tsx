@@ -7,7 +7,8 @@ import interactionPlugin from "@fullcalendar/interaction";
 import esLocale from "@fullcalendar/core/locales/es";
 import { useState, useCallback, useEffect, useRef } from "react";
 import type FullCalendarType from "@fullcalendar/react";
-import { X, MapPin, FileText, ExternalLink, CalendarDays, ClipboardList } from "lucide-react";
+import { X, MapPin, FileText, ExternalLink, CalendarDays, ClipboardList, AlertCircle } from "lucide-react";
+import { useTranslation } from "@/i18n";
 
 interface CalStats { total: number; attended: number; cancelled: number; }
 
@@ -25,6 +26,7 @@ interface CalEvent {
 type FilterStatus = "all" | "attended" | "pending" | "cancelled";
 
 export default function CalendarView() {
+  const { lang, t } = useTranslation();
   const [stats, setStats] = useState<CalStats>({ total: 0, attended: 0, cancelled: 0 });
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<CalEvent | null>(null);
@@ -91,24 +93,24 @@ export default function CalendarView() {
       applyFilter(allEventsRef.current, filter, successCallback);
     } catch (e) {
       failureCallback(e as Error);
-      setError("No se pudo conectar con Google Calendar");
+      setError(t.crm.calendar.errorGoogle);
     }
   }, [filter, applyFilter]);
 
   const attendanceRate = stats.total > 0 ? Math.round((stats.attended / stats.total) * 100) : 0;
 
   const statCards = [
-    { label: "Total citas", value: stats.total, from: "from-blue-500", to: "to-blue-600" },
-    { label: "Atendidas", value: stats.attended, from: "from-green-500", to: "to-green-600" },
-    { label: "Canceladas", value: stats.cancelled, from: "from-red-500", to: "to-red-600" },
-    { label: "Asistencia", value: `${attendanceRate}%`, from: "from-purple-500", to: "to-purple-600" },
+    { label: t.crm.calendar.stats.totalAppointments, value: stats.total, from: "from-blue-500", to: "to-blue-600" },
+    { label: t.crm.calendar.stats.attended, value: stats.attended, from: "from-green-500", to: "to-green-600" },
+    { label: t.crm.calendar.stats.cancelled, value: stats.cancelled, from: "from-red-500", to: "to-red-600" },
+    { label: t.crm.calendar.stats.attendance, value: `${attendanceRate}%`, from: "from-purple-500", to: "to-purple-600" },
   ];
 
   const filterButtons: { status: FilterStatus; label: string; dot: string; ring: string }[] = [
-    { status: "all", label: "Todas", dot: "bg-gray-400", ring: "ring-gray-400" },
-    { status: "attended", label: "Atendidas", dot: "bg-green-500", ring: "ring-green-500" },
-    { status: "pending", label: "Pendientes", dot: "bg-amber-400", ring: "ring-amber-400" },
-    { status: "cancelled", label: "Canceladas", dot: "bg-red-500", ring: "ring-red-500" },
+    { status: "all", label: t.crm.calendar.filters.all, dot: "bg-gray-400", ring: "ring-gray-400" },
+    { status: "attended", label: t.crm.calendar.filters.attended, dot: "bg-green-500", ring: "ring-green-500" },
+    { status: "pending", label: t.crm.calendar.filters.pending, dot: "bg-amber-400", ring: "ring-amber-400" },
+    { status: "cancelled", label: t.crm.calendar.filters.cancelled, dot: "bg-red-500", ring: "ring-red-500" },
   ];
 
   const ep = selected ? (selected as any).extendedProps : null;
@@ -118,8 +120,9 @@ export default function CalendarView() {
 
       {/* Error */}
       {error && (
-        <div className="rounded-xl bg-red-50 border border-red-200 p-4 text-sm text-red-700">
-          ⚠️ {error}
+        <div className="rounded-xl bg-red-50 border border-red-200 p-4 text-sm text-red-700 flex items-center gap-2">
+          <AlertCircle size={18} className="shrink-0 text-red-500" />
+          <span>{error}</span>
         </div>
       )}
 
@@ -189,7 +192,7 @@ export default function CalendarView() {
               ref={calendarRef}
               plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
               initialView={isMobile ? "timeGridDay" : "dayGridMonth"}
-              locale={esLocale}
+              locale={lang === "es" ? esLocale : undefined}
               events={fetchEvents}
               headerToolbar={isMobile
                 ? { left: "prev,next", center: "title", right: "timeGridDay,dayGridMonth" }
@@ -228,7 +231,11 @@ export default function CalendarView() {
                           ep?.status === "cancelled" ? "bg-red-100 text-red-700" :
                             "bg-amber-100 text-amber-700"
                           }`}>
-                          {{ attended: "Atendida", cancelled: "Cancelada", pending: "Pendiente" }[ep?.status as string] ?? ep?.status}
+                          {({
+                            attended: t.crm.calendar.status.attended,
+                            cancelled: t.crm.calendar.status.cancelled,
+                            pending: t.crm.calendar.status.pending,
+                          } as Record<string, string>)[ep?.status as string] ?? ep?.status}
                         </span>
                       </div>
                     </div>
@@ -247,12 +254,12 @@ export default function CalendarView() {
                   <div className="flex gap-3 text-sm items-start">
                     <CalendarDays size={18} className="flex-shrink-0 mt-0.5" style={{ color: "var(--color-primary)" }} />
                     <p className="text-gray-700 dark:text-gray-200 capitalize">
-                      {new Date((selected as any).start).toLocaleDateString("es-MX", {
+                      {new Date((selected as any).start).toLocaleDateString(lang === "es" ? "es-MX" : "en-US", {
                         weekday: "long", year: "numeric", month: "long", day: "numeric",
                         ...((selected as any).allDay ? {} : { hour: "2-digit", minute: "2-digit" }),
                       })}
                       {!(selected as any).allDay && (selected as any).end &&
-                        ` — ${new Date((selected as any).end).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}`
+                        ` — ${new Date((selected as any).end).toLocaleTimeString(lang === "es" ? "es-MX" : "en-US", { hour: "2-digit", minute: "2-digit" })}`
                       }
                     </p>
                   </div>

@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
         data: {
           tenantId,
           email: `${remoteJid.replace("@s.whatsapp.net", "")}@wa.guest.local`, // Dummy email for guest
-          name: name || "Paciente WhatsApp",
+          name: name || "Cliente WhatsApp",
           role: "CUSTOMER",
         }
       });

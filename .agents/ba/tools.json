@@ -1,0 +1,7 @@
+{
+  "tools": [
+    { "name": "read_file", "description": "Read spec.md, CLAUDE.md, project_context.md, and any existing feature files." },
+    { "name": "write_file", "description": "Write user stories and acceptance criteria to .agents/ba/." },
+    { "name": "search", "description": "Search the codebase to check if a feature already exists." }
+  ]
+}

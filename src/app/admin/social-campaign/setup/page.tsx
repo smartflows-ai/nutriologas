@@ -24,15 +24,15 @@ export default function SocialCampaignSetupPage() {
       const data = await res.json();
       if (res.ok) {
         setStatus("ok");
-        setMsg(`✅ Token guardado para la página "${data.pageName}" (${data.pageId})`);
+        setMsg(`Token guardado para la página "${data.pageName}" (${data.pageId})`);
         setTimeout(() => router.push("/admin/social-campaign"), 2000);
       } else {
         setStatus("error");
-        setMsg(`❌ Error: ${data.error}`);
+        setMsg(`Error: ${data.error}`);
       }
     } catch (err) {
       setStatus("error");
-      setMsg("❌ Error de conexión");
+      setMsg("Error de conexión");
     }
   };
 

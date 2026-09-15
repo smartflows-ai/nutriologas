@@ -62,7 +62,14 @@ export default function ReviewsPage() {
             onClick={() => handleFilterChange(f)} 
             className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${filter === f ? "bg-primary text-white border-primary" : "border-gray-300 text-gray-600 dark:text-gray-400 hover:border-primary"}`}
           >
-            {f === "all" ? t.crm.reviews.all : `${"⭐".repeat(parseInt(f))}`}
+            {f === "all" ? (
+              t.crm.reviews.all
+            ) : (
+              <span className="inline-flex items-center gap-1">
+                <span>{f}</span>
+                <Star size={13} className={filter === f ? "fill-white text-white" : "fill-amber-400 text-amber-400"} />
+              </span>
+            )}
           </button>
         ))}
       </div>

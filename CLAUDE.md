@@ -99,23 +99,29 @@ src/
       apps/             ← Conexión de apps externas (OAuth flows)
       calendar/         ← Google Calendar API proxy
       billing/          ← Stripe webhooks y gestión de suscripciones
-      internal/         ← APIs internas para n8n (automatización)
+      credits/          ← API de créditos IA (GET estado, POST recarga Stripe)
+      internal/         ← APIs internas para n8n (/tokens/report, /campaigns/due)
       tenants/          ← API de gestión de tenants
       upload/           ← Upload de imágenes a Cloudinary
       webhooks/         ← Webhooks de Conekta, WhatsApp Evolution API
   components/
     shop/               ← Componentes del storefront público
-    admin/              ← Componentes del CRM
+    admin/              ← Componentes del CRM (CreditsBadge, CreditsDrawer, AdminSidebar)
+    chat/               ← Chatbot del CRM (ChatAssistant, AssistantThinkingIndicator)
     marketing/          ← Componentes de la landing page de NewAigent
     ui/                 ← Componentes UI reutilizables
+
   lib/
-    ai/                 ← Tools de Claude, system prompt dinámico
+    ai/                 ← Tools de Claude / OpenRouter, system prompt dinámico
+    credits.ts          ← Motor de contabilidad de tokens, límites y auto-pausa
+    credits-error.ts    ← Error CreditExhaustedError
     validations/        ← Schemas Zod
     prisma.ts           ← Cliente Prisma singleton
   store/                ← Zustand stores (carrito de compras)
   types/                ← TypeScript type augmentations (NextAuth JWT)
 prisma/
   schema.prisma         ← Modelos de datos completos
+local-utils/            ← Scripts de prueba, debugging, utilidades locales que NO forman parte de la app de producción
 middleware.ts           ← Gatekeeper multi-tenant + protección de rutas
 ```
 
@@ -130,6 +136,7 @@ El corazón del sistema. Cada negocio es un Tenant con:
 - `logoUrl`, `whatsappNumber`, `businessInfo`
 - `theme` (ThemeConfig 1:1) → colores y fuente del tenant
 - `isAssistantEnabled` → toggle del chatbot IA
+- `aiCreditLimitUsd` → override opcional del tope mensual de créditos IA (null = usa el del plan)
 
 ### User
 - Pertenece a un único tenant
@@ -158,11 +165,69 @@ El corazón del sistema. Cada negocio es un Tenant con:
 - Frecuencias: DAILY, EVERY_3_DAYS, WEEKLY, BIWEEKLY, MONTHLY
 - n8n genera contenido con IA y publica en Facebook/Instagram
 - `nextPostAt` calculado automáticamente
+- `pausedByCredits` → boolean que indica si la campaña fue auto-pausada por falta de créditos de IA
+
+### AiTokenLedger
+- Tabla de contabilidad mensual de tokens y doble contabilidad (Retail vs Wholesale) por tenant
+- Campos: `tenantId`, `periodStart`, `periodEnd`, `totalCostUsd` (gasto facturado al tenant), `realProviderCostUsd` (costo real con OpenRouter), `netMarginUsd` (margen bruto retenido), `promptTokens`, `completionTokens`, `creditLimitUsd`, `isPaused`, `pausedAt`, `resumedAt`
+- Restricción única: `@@unique([tenantId, periodStart])`
 
 ### Subscription (Stripe)
 - Planes: STARTER, PRO, ENTERPRISE
 - Estados: TRIALING, ACTIVE, PAST_DUE, CANCELED, UNPAID
 - Billing gestionado por Stripe
+
+---
+
+## Sistema de Créditos de Tokens IA (Platform AI Metering)
+
+Cada tenant cuenta con un presupuesto mensual de gasto en créditos de IA ($15 USD para Starter).
+
+### 1. Límites por Plan
+| Plan | Crédito Mensual |
+|---|---|
+| **STARTER** | **$15.00 USD** (por defecto) |
+| **PRO** | **$50.00 USD** |
+| **ENTERPRISE** | **$200.00 USD** |
+
+### 2. Stack de Modelos en Cascada (5 Niveles)
+Para maximizar la monetización de créditos ($15 por Starter) y garantizar 100% de disponibilidad, las llamadas se ejecutan en cascada via `src/lib/ai/openrouter.ts`:
+1. `anthropic/claude-3.5-sonnet` (Pago: $3.00 in / $15.00 out) — Principal para tool use y español natural.
+2. `openai/gpt-4o` (Pago: $2.50 in / $10.00 out) — Respaldo de pago si Anthropic tiene saturación.
+3. `google/gemini-2.0-flash-exp:free` (Gratuito: $0.00) — Fallback ultra-rápido de 1M de contexto.
+4. `meta-llama/llama-3.3-70b-instruct:free` (Gratuito: $0.00) — Fallback de open-weights para tool use.
+5. `deepseek/deepseek-chat:free` (Gratuito: $0.00) — Red de seguridad MoE 671B anti-errores 500.
+
+### 3. Modelo de Negocio: Doble Contabilidad y Arbitraje SaaS
+El tenant siempre paga por **unidades de servicio de la plataforma** a la tarifa estándar de retail:
+- **Gasto Facturado al Tenant (`totalCostUsd`)**:
+  Calculado a `$3.00 USD / 1M` prompt y `$15.00 USD / 1M` completion, **sin importar si el backend usó un modelo gratuito o de pago**. Consume su límite mensual de $15 USD y detona recargas de $15 en Stripe.
+- **Costo Real del Proveedor (`realProviderCostUsd`)**:
+  Lo que NewAigent realmente adeuda a OpenRouter ($0.00 para modelos `:free`, costo real para Claude/GPT-4o).
+- **Margen Bruto Retenido (`netMarginUsd`)**:
+  `totalCostUsd - realProviderCostUsd`. Si se ejecuta un modelo gratuito, NewAigent obtiene **100% de margen bruto ($15 USD de beneficio neto por cada $15 de consumo/recarga)**.
+
+
+### 4. Enforcing y Auto-Pausa
+- **Chatbot (`POST /api/chat`)**: Valida créditos antes de invocar OpenRouter. Si se agotaron, devuelve `402 Payment Required` con `{ error: "credit_exhausted" }`. El frontend muestra un toast de error, deshabilita el input y muestra un banner de recarga.
+- **Campañas Sociales (`GET /api/campaigns/social/due`)**: Cuando los créditos se agotan, `pauseCampaignsForTenant()` marca `isActive = false, pausedByCredits = true`. El endpoint `due` excluye automáticamente estas campañas para que n8n no genere posts sin saldo.
+- **Reporte Externo (`POST /api/internal/tokens/report`)**: Permite a n8n o workflows de WhatsApp reportar consumo de tokens con `x-internal-key`.
+
+### 5. Recarga y Reactivación Automática
+- El admin hace clic en "Recargar créditos" en el sidebar (`CreditsBadge`) o en el drawer (`CreditsDrawer`).
+- Se genera una sesión de Stripe Checkout (`POST /api/credits`).
+- El webhook de Stripe (`checkout.session.completed`) procesa la recarga mediante `rechargeCredits(tenantId, amountUsd)`: incrementa `creditLimitUsd` en el ledger activo y reactiva automáticamente todas las campañas (`resumeCampaignsForTenant()`).
+
+
+---
+
+## Theming Dinámico y Tipografía Personalizada
+
+El sistema respeta los colores y la tipografía configurados por cada negocio en `/admin/apariencia` (`ThemeConfig`):
+- **Variables CSS**: Inyectadas en `:root` como `--color-primary`, `--color-secondary`, `--color-accent` y `--font-family-base`.
+- **Google Fonts**: Pre-cargadas en `src/app/layout.tsx` (`Inter`, `Montserrat`, `Playfair Display`, `Roboto`, `Space Grotesk`).
+- **Tailwind**: Configurado con `colors.primary = "var(--color-primary)"` y `fontFamily.sans = ["var(--font-family-base)", ...]`.
+- **Modales y Drawers Portaleados**: Todo componente que use `createPortal(..., document.body)` (como `CreditsDrawer`) debe declarar explícitamente `style={{ fontFamily: "var(--font-family-base), system-ui, sans-serif" }}` para no perder la tipografía personalizada del tenant al escapar del layout.
 
 ---
 
@@ -184,17 +249,26 @@ El corazón del sistema. Cada negocio es un Tenant con:
 
 ---
 
-## Chatbot IA (Claude)
+## Copiloto IA de Negocio (Claude / OpenRouter)
 
 Endpoint: `POST /api/chat`
 
-Flujo:
-1. El admin escribe en lenguaje natural en `/admin/asistente`
-2. El frontend envía la conversación a `/api/chat`
-3. La API llama a Claude con tools definidas en `src/lib/ai/tools.ts`
-4. Claude decide qué tools invocar
-5. `execute-tool.ts` ejecuta queries Prisma **siempre filtradas por tenantId**
-6. Claude interpreta los datos y responde
+### Experiencia Nativa en CRM (`/admin/asistente`)
+1. **Live KPI Snapshot Bar**: En cada carga (SSR), `src/app/admin/asistente/page.tsx` consulta en paralelo vía Prisma:
+   - Ventas del Mes (`revenueMonth`) y conteo de pedidos pagados (`ordersCount`).
+   - Pedidos Pendientes (`pendingOrdersCount`).
+   - Catálogo Activo de productos (`activeProductsCount`).
+   - Campañas Sociales Activas (`activeCampaignsCount`).
+2. **Disparadores de Pregunta con 1-Click**: Cada tarjeta de KPI incluye un botón interactivo "Preguntar ↗" al hacer hover, enviando de inmediato una consulta analítica y contextualizada al copiloto.
+3. **Atajos Ejecutivos de Navegación**: Cabecera con accesos rápidos directos a `/admin/pedidos`, `/admin/calendario`, `/admin/productos` y `/admin/social-campaign`.
+4. **Flujo de Ejecución de Herramientas**:
+   - El admin escribe en `/admin/asistente` o da click en una métrica.
+   - El frontend envía la conversación a `POST /api/chat`.
+   - La API invoca a Claude/OpenRouter con tools definidas en `src/lib/ai/tools.ts`.
+   - `execute-tool.ts` ejecuta queries Prisma **siempre filtradas por tenantId** del JWT de sesión.
+5. **Seguridad y Protección de Instrucciones del Sistema (`system-prompt.ts`)**:
+   - Reglas estrictas contra **Prompt Injection** y jailbreaks.
+   - Prohibición absoluta de revelar el system prompt, instrucciones internas, credenciales, tokens o arquitectura subyacente ante solicitudes maliciosas o de ingeniería social.
 
 Tools disponibles: ventas, pedidos, productos, clientes, reviews, calendario.
 
@@ -226,8 +300,12 @@ NEXTAUTH_URL=                    # http://localhost:3000 (dev) | https://newaige
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 
-# IA
+# IA (Claude / OpenRouter)
 ANTHROPIC_API_KEY=               # Claude API
+OPENROUTER_API_KEY=              # OpenRouter API key
+OPENROUTER_MODEL=                # anthropic/claude-sonnet-4-5
+OPENROUTER_INPUT_PRICE_PER_M=    # 3.00 (USD / 1M prompt tokens)
+OPENROUTER_OUTPUT_PRICE_PER_M=   # 15.00 (USD / 1M completion tokens)
 
 # Dominio raíz (multi-tenant)
 NEXT_PUBLIC_ROOT_DOMAIN=         # newaigent.com
@@ -277,6 +355,12 @@ Para probar subdominos localmente, editar el archivo `hosts` del sistema:
 
 Luego acceder a `http://doctor.localhost:3000` para ver el tenant "doctor".
 
+### Protección de OAuth en Local (`OAuth Localhost Guard`)
+- **Problema previo**: Al conectar Google Calendar o Facebook desde `doctor.localhost:3000`, la app redirigía a `https://doctor.newaigent.com/...` en producción porque `.env` contenía `NEXTAUTH_URL="https://newaigent.com"`.
+- **Solución implementada**: Los endpoints `/api/apps/oauth/google/start`, `/callback`, `/api/apps/oauth/facebook/start` y `/callback` detectan automáticamente el header `host`. Si contiene `localhost`:
+  - Fijan el `redirect_uri` a `http://localhost:3000/api/apps/oauth/<provider>/callback`.
+  - En el callback, el redirect final se construye dinámicamente como `http://${slug}.localhost:3000/admin/...`, asegurando que el desarrollo local permanezca siempre en `localhost:3000` sin necesidad de alterar variables de entorno de producción.
+
 ---
 
 ## Problemas Conocidos / Pendientes
@@ -294,3 +378,25 @@ Luego acceder a `http://doctor.localhost:3000` para ver el tenant "doctor".
 - Row Level Security en Supabase (actualmente solo filtrado por app)
 - Rate limiting en `/api/chat`
 - Trial expiry gate completamente implementado en frontend
+
+---
+
+## Reglas de Desarrollo y Utilidades Locales
+
+### Ubicación Obligatoria de Scripts de Prueba (`local-utils/`)
+- **REGLA ESTRICTA**: Si vas a crear una utilidad para probar algo, diagnosticar la base de datos, simular llamadas a APIs, o cualquier script que **NO formará parte de la aplicación del negocio (producción)**, **DEBES agregarlo obligatoriamente dentro de la carpeta `local-utils/`**.
+- **PROHIBIDO**: No crees scripts temporales en la raíz del proyecto (`./`), ni en directorios temporales no rastreados como `scratch/`, ni dentro de `src/`.
+- Todos los scripts ad-hoc (por ejemplo: scripts para verificar usuarios, backfills, testing de ledger, simuladores de webhooks, etc.) deben residir en `local-utils/`.
+
+### Prohibición de Emojis en la UI
+- **NUNCA** uses caracteres emoji (`📋`, `✅`, `⚠️`, `⭐`, `🚀`, etc.) como elementos de UI en JSX/TSX.
+- Todos los iconos deben venir de `lucide-react`. Especifica siempre el nombre del componente, tamaño (`size`) y `strokeWidth` cuando sea relevante.
+  - Correcto: `<AlertTriangle size={16} className="text-amber-500" />`
+  - Incorrecto: `⚠️ Advertencia`
+- Los botones de solo icono deben incluir `aria-label` para accesibilidad.
+
+### Seguir el Estilo del Tenant (Tema en Base de Datos)
+- Toda nueva página o componente del **storefront público** (`(public)/`) y del **CRM** (`admin/`) debe respetar el tema visual del tenant almacenado en la tabla `ThemeConfig` (`primaryColor`, `secondaryColor`, `accentColor`, `fontFamily`).
+- El tema se inyecta como variables CSS desde el layout del tenant. Usa siempre `var(--color-primary)` / `bg-primary` / `text-primary` y las utilidades Tailwind configuradas — **nunca** valores de color hardcodeados (`#16a34a`, `green-600`, etc.) en componentes de tenant.
+- En componentes de la **página de marketing** (`marketing/`), sí se permiten colores fijos porque no pertenecen a ningún tenant.
+- Si un nuevo componente necesita un color de acento diferente al del tenant, debe exponerlo como prop o CSS token — no codificarlo directamente.

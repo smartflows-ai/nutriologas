@@ -13,12 +13,12 @@ export async function GET(req: NextRequest) {
   if (!tenantId) {
     // Public access — resolve from host
     const host = req.headers.get("host") || "";
-    let tenantSlug = "clinica-demo";
+    let tenantSlug = "demo-business";
     if (host.includes(".localhost")) tenantSlug = host.split(".")[0];
     else if (!host.includes("localhost")) tenantSlug = host.split(":")[0];
 
     const tenant = await prisma.tenant.findFirst({
-      where: { OR: [{ slug: tenantSlug }, { customDomain: tenantSlug }] },
+      where: { OR: [{ slug: tenantSlug }, { slug: "clinica-demo" }, { customDomain: tenantSlug }] },
     });
     if (!tenant) return Response.json([]);
     tenantId = tenant.id;

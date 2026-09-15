@@ -13,14 +13,17 @@ export async function GET(req: NextRequest) {
 
   // Get the real host from headers (req.url may not include subdomain)
   const hostHeader = req.headers.get("host") || "localhost:3000";
-  const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
+  const isLocal = hostHeader.includes("localhost") || hostHeader.includes("127.0.0.1");
+  const protocol = isLocal ? "http" : "https";
   const origin = `${protocol}://${hostHeader}`;
   const host = hostHeader;
 
   // Google OAuth requires a FIXED redirect_uri registered in Cloud Console.
-  // We always use the base domain (localhost:3000) as the redirect_uri,
-  // and use the state parameter to bounce back to the correct subdomain.
-  const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+  // In development/localhost, always use http://localhost:3000 to keep the flow local.
+  // In production, use NEXTAUTH_URL.
+  const baseUrl = isLocal
+    ? "http://localhost:3000"
+    : (process.env.NEXTAUTH_URL ?? "https://newaigent.com");
   const redirectUri = `${baseUrl}/api/apps/oauth/google/callback`;
 
   const scopes = [

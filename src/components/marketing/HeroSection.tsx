@@ -2,6 +2,10 @@
 // src/components/marketing/HeroSection.tsx
 import { useState, useEffect } from "react";
 import Image from "next/image";
+import {
+  Zap, Wrench, Moon, Calendar, Megaphone, TrendingUp,
+  MessageSquare, Star, Bot, RefreshCw, ArrowRight
+} from "lucide-react";
 import { useTranslation } from "@/i18n";
 
 export default function HeroSection({ onWatchDemo, onGetStarted }: { onWatchDemo: () => void; onGetStarted: () => void }) {
@@ -138,7 +142,9 @@ export default function HeroSection({ onWatchDemo, onGetStarted }: { onWatchDemo
                 }}
               >
                 <span className="relative z-10">{t.hero.cta}</span>
-                <span className="relative z-10 transition-transform duration-200 group-hover:translate-x-1">→</span>
+                  <span className="relative z-10 transition-transform duration-200 group-hover:translate-x-1">
+                    <ArrowRight size={16} />
+                  </span>
                 <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               </button>
 
@@ -159,12 +165,12 @@ export default function HeroSection({ onWatchDemo, onGetStarted }: { onWatchDemo
             {/* Trust badges */}
             <div className="flex items-center justify-center lg:justify-start gap-6 mt-10">
               {[
-                { icon: "⚡", label: t.hero.trust1 },
-                { icon: "🛠️", label: t.hero.trust2 },
-                { icon: "🌙", label: t.hero.trust3 },
+                { icon: <Zap size={14} />, label: t.hero.trust1 },
+                { icon: <Wrench size={14} />, label: t.hero.trust2 },
+                { icon: <Moon size={14} />, label: t.hero.trust3 },
               ].map((badge) => (
                 <div key={badge.label} className="flex items-center gap-2">
-                  <span className="text-base">{badge.icon}</span>
+                  <span className="text-gray-400">{badge.icon}</span>
                   <span className="text-xs text-gray-500 font-medium">{badge.label}</span>
                 </div>
               ))}
@@ -212,8 +218,8 @@ export default function HeroSection({ onWatchDemo, onGetStarted }: { onWatchDemo
               }}
             >
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(124,58,237,0.2)", border: "1px solid rgba(124,58,237,0.3)" }}>
-                  <span className="text-sm">📅</span>
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 text-violet-400" style={{ background: "rgba(124,58,237,0.2)", border: "1px solid rgba(124,58,237,0.3)" }}>
+                  <Calendar size={15} />
                 </div>
                 <div>
                   <p className="text-white text-xs font-bold leading-tight">{t.hero.card1Title}</p>
@@ -234,8 +240,8 @@ export default function HeroSection({ onWatchDemo, onGetStarted }: { onWatchDemo
               }}
             >
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(124,58,237,0.2)", border: "1px solid rgba(124,58,237,0.3)" }}>
-                  <span className="text-sm">📣</span>
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 text-violet-400" style={{ background: "rgba(124,58,237,0.2)", border: "1px solid rgba(124,58,237,0.3)" }}>
+                  <Megaphone size={15} />
                 </div>
                 <div>
                   <p className="text-white text-xs font-bold leading-tight">{t.hero.card2Title}</p>
@@ -256,8 +262,8 @@ export default function HeroSection({ onWatchDemo, onGetStarted }: { onWatchDemo
               }}
             >
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(6,182,212,0.2)", border: "1px solid rgba(6,182,212,0.3)" }}>
-                  <span className="text-sm">📈</span>
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 text-cyan-400" style={{ background: "rgba(6,182,212,0.2)", border: "1px solid rgba(6,182,212,0.3)" }}>
+                  <TrendingUp size={15} />
                 </div>
                 <div>
                   <p className="text-white text-xs font-bold leading-tight">{t.hero.card3Title}</p>
@@ -278,8 +284,8 @@ export default function HeroSection({ onWatchDemo, onGetStarted }: { onWatchDemo
               }}
             >
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(37,211,102,0.15)", border: "1px solid rgba(37,211,102,0.3)" }}>
-                  <span className="text-sm">💬</span>
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 text-green-400" style={{ background: "rgba(37,211,102,0.15)", border: "1px solid rgba(37,211,102,0.3)" }}>
+                  <MessageSquare size={15} />
                 </div>
                 <div>
                   <p className="text-white text-xs font-bold leading-tight">{t.hero.card4Title}</p>
@@ -300,8 +306,8 @@ export default function HeroSection({ onWatchDemo, onGetStarted }: { onWatchDemo
               }}
             >
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.3)" }}>
-                  <span className="text-sm">⭐</span>
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 text-amber-400" style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.3)" }}>
+                  <Star size={15} />
                 </div>
                 <div>
                   <p className="text-white text-xs font-bold leading-tight">{t.hero.card5Title}</p>
@@ -322,8 +328,8 @@ export default function HeroSection({ onWatchDemo, onGetStarted }: { onWatchDemo
               }}
             >
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(236,72,153,0.15)", border: "1px solid rgba(236,72,153,0.3)" }}>
-                  <span className="text-sm">🤖</span>
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 text-pink-400" style={{ background: "rgba(236,72,153,0.15)", border: "1px solid rgba(236,72,153,0.3)" }}>
+                  <Bot size={15} />
                 </div>
                 <div>
                   <p className="text-white text-xs font-bold leading-tight">{t.hero.card6Title}</p>
@@ -344,8 +350,8 @@ export default function HeroSection({ onWatchDemo, onGetStarted }: { onWatchDemo
               }}
             >
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)" }}>
-                  <span className="text-sm">🔄</span>
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 text-blue-400" style={{ background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)" }}>
+                  <RefreshCw size={15} />
                 </div>
                 <div>
                   <p className="text-white text-xs font-bold leading-tight">{t.hero.card7Title}</p>

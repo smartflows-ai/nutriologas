@@ -4,10 +4,11 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Plug, Check, X, ExternalLink, Loader2, Calendar as CalendarIcon, CheckCircle2
+  Plug, Check, X, ExternalLink, Loader2, Calendar as CalendarIcon, CheckCircle2,
+  Bot, MessageSquare, Globe
 } from "lucide-react";
 import { useRef } from "react";
-import { toggleAssistant, toggleTriage, disconnectApp, refreshSidebar } from "./actions";
+import { toggleAssistant, disconnectApp, refreshSidebar } from "./actions";
 import { useTranslation } from "@/i18n";
 import { toast } from "@/hooks/useToast";
 
@@ -33,7 +34,7 @@ const FEATURES: FeatureDef[] = [
     id: "assistant",
     name: "Asistente IA",
     description: "Responde dudas, atiende citas y explica Faqs automáticamente.",
-    icon: "🤖",
+    icon: <Bot size={22} />,
     color: "from-indigo-500 to-purple-600",
     isInternalToggle: true,
     providers: []
@@ -43,7 +44,7 @@ const FEATURES: FeatureDef[] = [
     id: "calendar",
     name: "Calendario",
     description: "Sincronización de citas, lectura de eventos y agenda.",
-    icon: "📅",
+    icon: <CalendarIcon size={22} />,
     color: "from-blue-500 to-indigo-600",
     providers: [
       { id: "GOOGLE", name: "Google", connectUrl: "/api/apps/oauth/google/start" },
@@ -54,7 +55,7 @@ const FEATURES: FeatureDef[] = [
     id: "whatsapp",
     name: "WhatsApp",
     description: "Mensajería con clientes vía Evolution API.",
-    icon: "💬",
+    icon: <MessageSquare size={22} />,
     color: "from-green-500 to-green-600",
     comingSoon: false,
     providers: [
@@ -65,20 +66,11 @@ const FEATURES: FeatureDef[] = [
     id: "social",
     name: "Campañas Sociales",
     description: "Genera y publica contenido automático con IA en Facebook e Instagram.",
-    icon: "🌐",
+    icon: <Globe size={22} />,
     color: "from-blue-600 via-purple-600 to-pink-600",
     providers: [
       { id: "FACEBOOK", name: "Meta (Facebook/Instagram)", connectUrl: "/api/apps/oauth/facebook/start" }
     ]
-  },
-  {
-    id: "triage",
-    name: "Triage & Onboarding IA",
-    description: "Recolecta el historial médico de pacientes automáticamente por WhatsApp.",
-    icon: "📋",
-    color: "from-blue-400 to-cyan-500",
-    isInternalToggle: true,
-    providers: []
   },
 ];
 
@@ -124,7 +116,7 @@ function WhatsAppConnectModal({
     setStep("loading");
     setLoadingMsgIdx(0);
     const res = await fetch("/api/apps/connect/whatsapp", { method: "POST" });
-    
+
     let data;
     try {
       data = await res.json();
@@ -239,8 +231,6 @@ export default function AppsPage() {
   const [apps, setApps] = useState<ConnectedAppInfo[]>([]);
   const [isAssistantEnabled, setIsAssistantEnabled] = useState(false);
   const [togglingAssistant, setTogglingAssistant] = useState(false);
-  const [isTriageEnabled, setIsTriageEnabled] = useState(false);
-  const [togglingTriage, setTogglingTriage] = useState(false);
   const [loading, setLoading] = useState(true);
   const [disconnecting, setDisconnecting] = useState<string | null>(null);
   const [whatsappModalOpen, setWhatsappModalOpen] = useState(false);
@@ -257,7 +247,6 @@ export default function AppsPage() {
         const data = await res.json();
         setApps(data.apps ?? []);
         setIsAssistantEnabled(data.isAssistantEnabled ?? false);
-        setIsTriageEnabled(data.isTriageEnabled ?? false);
       }
     } catch (e) {
       console.error("Error loading apps:", e);
@@ -333,7 +322,7 @@ export default function AppsPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {FEATURES.map((feat) => {
             const activeConn = getActiveConnectionForFeature(feat);
-            const isConnected = feat.isInternalToggle ? (feat.id === "assistant" ? isAssistantEnabled : isTriageEnabled) : !!activeConn;
+            const isConnected = feat.isInternalToggle ? isAssistantEnabled : !!activeConn;
             const isDisconnecting = activeConn ? disconnecting === activeConn.provider : false;
 
             return (
@@ -349,7 +338,9 @@ export default function AppsPage() {
                   {/* Icon + Name */}
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-3">
-                      <span className="text-2xl">{feat.icon}</span>
+                      <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${feat.color} flex items-center justify-center text-white shrink-0`}>
+                        {feat.icon}
+                      </div>
                       <div>
                         <h3 className="font-semibold text-gray-900 dark:text-white text-sm">{(t.crm.apps.features as any)[feat.id]?.name || feat.name}</h3>
                         {feat.comingSoon && (
@@ -406,27 +397,13 @@ export default function AppsPage() {
                             } finally {
                               setTogglingAssistant(false);
                             }
-                          } else if (feat.id === "triage") {
-                            setTogglingTriage(true);
-                            try {
-                              await toggleTriage(!isTriageEnabled);
-                              setIsTriageEnabled(!isTriageEnabled);
-                              if (!isTriageEnabled) {
-                                await refreshSidebar();
-                                router.push("/admin/pacientes");
-                              }
-                            } catch (e) {
-                              toast("No se pudo actualizar el estado de Triage IA.");
-                            } finally {
-                              setTogglingTriage(false);
-                            }
                           }
                         }}
-                        disabled={feat.id === "assistant" ? togglingAssistant : togglingTriage}
-                        className={`w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg transition-colors disabled:opacity-50 ${(feat.id === "assistant" ? isAssistantEnabled : isTriageEnabled) ? "bg-red-50 text-red-600 hover:bg-red-100" : "bg-primary text-white hover:bg-primary/90"}`}
+                        disabled={togglingAssistant}
+                        className={`w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg transition-colors disabled:opacity-50 ${isAssistantEnabled ? "bg-red-50 text-red-600 hover:bg-red-100" : "bg-primary text-white hover:bg-primary/90"}`}
                       >
-                        {(feat.id === "assistant" ? togglingAssistant : togglingTriage) ? <Loader2 size={14} className="animate-spin" /> : ((feat.id === "assistant" ? isAssistantEnabled : isTriageEnabled) ? <X size={14} /> : <Check size={14} />)}
-                        {(feat.id === "assistant" ? isAssistantEnabled : isTriageEnabled) ? "Desactivar" : "Activar"}
+                        {togglingAssistant ? <Loader2 size={14} className="animate-spin" /> : (isAssistantEnabled ? <X size={14} /> : <Check size={14} />)}
+                        {isAssistantEnabled ? "Desactivar" : "Activar"}
                       </button>
                     ) : isConnected && activeConn ? (
                       <button

@@ -18,6 +18,7 @@ model Tenant {
   businessInfo   String?  // descripcion del negocio para la homepage
   isAssistantEnabled Boolean @default(true)
   isTriageEnabled    Boolean @default(false)
+  aiCreditLimitUsd   Float?  // Override per-tenant AI credit cap (null = use plan default)
 
   // Configuracion de colores (1:1)
   theme       ThemeConfig?
@@ -36,6 +37,7 @@ model Tenant {
   socialPosts     SocialPost[]
   subscription    Subscription?
   patientProfiles PatientProfile[]
+  aiTokenLedger   AiTokenLedger[]
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -370,6 +372,7 @@ model SocialCampaign {
   extraContext    String?            @db.Text
   frequency       CampaignFrequency  @default(WEEKLY)
   isActive        Boolean            @default(true)
+  pausedByCredits Boolean            @default(false) // true when auto-paused due to exhausted AI credits
   startDate       DateTime           @default(now())
   endDate         DateTime
   lastPostedAt    DateTime?
@@ -444,4 +447,42 @@ model Subscription {
   updatedAt            DateTime           @updatedAt
 
   @@map("subscriptions")
+}
+
+// ─── AI TOKEN LEDGER ─────────────────────────────────────────
+// Tracks AI token spending per tenant per billing period
+model AiTokenLedger {
+  id               String   @id @default(uuid())
+  tenantId         String
+  tenant           Tenant   @relation(fields: [tenantId], references: [id])
+
+  periodStart      DateTime // Start of the credit window (month boundary)
+  periodEnd        DateTime // End of the credit window
+
+  // Accumulated costs this period (USD) — retail billed against creditLimitUsd
+  totalCostUsd        Float    @default(0)
+
+  // Wholesale provider cost (actual COGS owed to OpenRouter)
+  realProviderCostUsd Float    @default(0)
+
+  // Net gross margin retained by platform (totalCostUsd - realProviderCostUsd)
+  netMarginUsd        Float    @default(0)
+
+  // Token count breakdown for display
+  promptTokens        Int      @default(0)
+  completionTokens    Int      @default(0)
+
+  // Credit limit for this period (USD) — copied from plan at period creation
+  creditLimitUsd      Float    @default(15.0)
+
+  // State flags
+  isPaused         Boolean  @default(false)
+  pausedAt         DateTime?
+  resumedAt        DateTime?
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([tenantId, periodStart])
+  @@map("ai_token_ledger")
 }

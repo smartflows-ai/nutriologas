@@ -1,0 +1,76 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AgentTaskGraph",
+  "description": "Schema for task nodes passed between agents in the SDLC pipeline.",
+  "type": "object",
+  "required": ["taskId", "status", "stage", "assignedAgent", "createdAt"],
+  "properties": {
+    "taskId": {
+      "type": "string",
+      "description": "UUID v4. Unique identifier for the task."
+    },
+    "parentTaskId": {
+      "type": ["string", "null"],
+      "description": "Parent task this was decomposed from, or null for root tasks."
+    },
+    "title": {
+      "type": "string",
+      "description": "Short human-readable title."
+    },
+    "description": {
+      "type": "string",
+      "description": "Full task description including context."
+    },
+    "stage": {
+      "type": "string",
+      "enum": ["requirements", "architecture", "design", "implementation", "review", "testing", "security", "devops", "monitoring", "docs"],
+      "description": "Which SDLC stage this task belongs to."
+    },
+    "assignedAgent": {
+      "type": "string",
+      "enum": ["orchestrator", "ba", "architect", "designer", "dev", "code_reviewer", "tester", "security", "devops", "sre", "docs"],
+      "description": "Which agent owns this task."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "in_progress", "blocked", "needs_human_review", "done", "rejected"],
+      "description": "Current task status."
+    },
+    "blockedBy": {
+      "type": ["array", "null"],
+      "items": { "type": "string" },
+      "description": "List of taskIds that must complete before this one can proceed."
+    },
+    "inputs": {
+      "type": "object",
+      "description": "Key/value pairs of artifacts or data passed into this task.",
+      "additionalProperties": true
+    },
+    "outputs": {
+      "type": "object",
+      "description": "Key/value pairs of artifacts or data produced by this task.",
+      "additionalProperties": true
+    },
+    "humanGateRequired": {
+      "type": "boolean",
+      "default": false,
+      "description": "If true, a human must approve before the next agent acts."
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "completedAt": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Free-form notes from the assigned agent."
+    }
+  }
+}

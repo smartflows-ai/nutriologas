@@ -5,8 +5,9 @@ import { prisma } from "@/lib/db";
 import { getTenantSlug } from "@/lib/tenant";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { LanguageProvider } from "@/i18n";
-import { cookies } from "next/headers";
+import { headers } from "next/headers";
 import { Lang } from "@/i18n/types";
+import { Toaster } from "sonner";
 
 // El tenant se resuelve en v1 con el slug por defecto.
 // En v2 se resolverá desde el subdominio via middleware.
@@ -20,10 +21,23 @@ async function getTenantTheme() {
     });
     return {
       name: tenant?.name ?? "NewAigent",
-      theme: tenant?.theme ?? { primaryColor: "#16a34a", secondaryColor: "#15803d", accentColor: "#4ade80" },
+      theme: tenant?.theme ?? {
+        primaryColor: "#16a34a",
+        secondaryColor: "#15803d",
+        accentColor: "#4ade80",
+        fontFamily: "Inter, sans-serif",
+      },
     };
   } catch {
-    return { name: "NewAigent", theme: { primaryColor: "#16a34a", secondaryColor: "#15803d", accentColor: "#4ade80" } };
+    return {
+      name: "NewAigent",
+      theme: {
+        primaryColor: "#16a34a",
+        secondaryColor: "#15803d",
+        accentColor: "#4ade80",
+        fontFamily: "Inter, sans-serif",
+      },
+    };
   }
 }
 
@@ -61,9 +75,12 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const { name, theme } = await getTenantTheme();
   
-  const cookieStore = cookies();
-  const localeCookie = cookieStore.get("NEXT_LOCALE")?.value;
-  const initialLang = (localeCookie === "es" || localeCookie === "en") ? localeCookie : "en";
+  const headersList = headers();
+  const acceptLanguage = headersList.get("accept-language")?.toLowerCase() || "";
+  const primaryLang = acceptLanguage.split(",")[0]?.trim() || "";
+  const initialLang: Lang = primaryLang.startsWith("es") ? "es" : "en";
+
+  const fFamily = (theme as any)?.fontFamily || "Inter, sans-serif";
 
   return (
     <html
@@ -73,20 +90,25 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         "--color-primary": theme.primaryColor,
         "--color-secondary": theme.secondaryColor,
         "--color-accent": theme.accentColor,
+        "--font-family-base": fFamily,
       } as React.CSSProperties}
     >
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Montserrat:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Roboto:wght@400;500;700&family=Space+Grotesk:wght@400;500;600;700&display=swap"
           rel="stylesheet"
         />
       </head>
-      <body className="bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors duration-300">
+      <body
+        className="bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors duration-300"
+        style={{ fontFamily: "var(--font-family-base), system-ui, sans-serif" }}
+      >
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
           <LanguageProvider initialLang={initialLang as Lang}>
             {children}
+            <Toaster richColors position="top-right" />
           </LanguageProvider>
         </ThemeProvider>
       </body>

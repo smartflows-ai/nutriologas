@@ -464,7 +464,7 @@ export interface Translations {
         calendar: { name: string; desc: string };
         whatsapp: { name: string; desc: string };
         social: { name: string; desc: string };
-        triage: { name: string; desc: string };
+        triage?: { name: string; desc: string };
       };
     };
     assistant: {
@@ -473,6 +473,20 @@ export interface Translations {
       disabledTitle: string;
       disabledDesc: string;
       reactivateBtn: string;
+      kpis?: {
+        monthlySales: string;
+        paidOrders: string;
+        pendingOrders: string;
+        activeCatalog: string;
+        activeCampaigns: string;
+        askKpi: string;
+      };
+      shortcuts?: {
+        viewOrders: string;
+        viewCalendar: string;
+        viewProducts: string;
+        viewCampaigns: string;
+      };
       chat: {
         welcomeTitle: string;
         welcomeDesc: string;
@@ -574,6 +588,37 @@ export interface Translations {
       modalDeleteDesc2: string;
       cancel: string;
       deleting: string;
+      pausedByCredits: string;
+      creditsBannerTitle: string;
+      creditsBannerDesc: string;
+      rechargeBtn: string;
+    };
+    calendar: {
+      title: string;
+      subtitle: string;
+      connectCalendar: string;
+      emptyTitle: string;
+      emptyDesc: string;
+      goToApps: string;
+      readOnlyBadge: string;
+      stats: {
+        totalAppointments: string;
+        attended: string;
+        cancelled: string;
+        attendance: string;
+      };
+      filters: {
+        all: string;
+        attended: string;
+        pending: string;
+        cancelled: string;
+      };
+      errorGoogle: string;
+      status: {
+        attended: string;
+        cancelled: string;
+        pending: string;
+      };
     };
     charts: {
       sales: string;
@@ -604,6 +649,32 @@ export interface Translations {
       medicalHistory: string;
       medications: string;
       updated: string;
+    };
+    credits: {
+      title: string;
+      badge: string;
+      used: string;
+      limit: string;
+      remaining: string;
+      recharge: string;
+      exhaustedToast: string;
+      warningToast: string;
+      campaignPausedByCredits: string;
+      resumeOnRecharge: string;
+      rechargeSuccess: string;
+      exhaustedTitle: string;
+      exhaustedDesc: string;
+      warningDesc: string;
+      tokenBreakdown: string;
+      inputTokens: string;
+      inputTokensDesc: string;
+      outputTokens: string;
+      outputTokensDesc: string;
+      totalTokens: string;
+      renewalNote: string;
+      secureStripe: string;
+      redirecting: string;
+      rechargeBtn: string;
     };
   };
   storefront: {

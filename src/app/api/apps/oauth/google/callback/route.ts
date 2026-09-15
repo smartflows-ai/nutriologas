@@ -34,8 +34,11 @@ export async function GET(req: NextRequest) {
   }
 
   // 2. Resolve redirect_uri (Google strictly demands the exact string used in step 1)
-  // We always use the base domain for the redirect_uri (what's registered in Google Console)
-  const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+  const hostHeader = req.headers.get("host") || url.host || "";
+  const isLocal = hostHeader.includes("localhost") || hostHeader.includes("127.0.0.1") || Boolean(stateParam && (stateParam.includes("localhost") || stateParam.includes("127.0.0.1")));
+  const baseUrl = isLocal
+    ? "http://localhost:3000"
+    : (process.env.NEXTAUTH_URL ?? "https://newaigent.com");
   const redirectUri = `${baseUrl}/api/apps/oauth/google/callback`;
 
   // 3. Exchange code for tokens FIRST (before session check)
@@ -120,22 +123,23 @@ export async function GET(req: NextRequest) {
     throw err;
   }
 
-  // 8. Redirect back to the correct tenant subdomain using DB info
-  const rootDomain = (process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "newaigent.com").replace(/^https?:\/\//, "");
+  // 8. Redirect back to the correct tenant subdomain
+  const rootDomain = (process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "newaigent.com")
+    .replace(/^https?:\/\//, "")
+    .replace(/^www\./, "");
   const isProduction = process.env.NODE_ENV === "production";
   const protocol = isProduction ? "https" : "http";
 
-  let host: string;
-  if (user.tenant.customDomain) {
-    // Strip protocol if accidentally included
-    host = user.tenant.customDomain.replace(/^https?:\/\//, "");
+  let finalOrigin: string;
+  if (isLocal) {
+    finalOrigin = `http://${user.tenant.slug}.localhost:3000`;
+  } else if (user.tenant.customDomain) {
+    const cleanDomain = user.tenant.customDomain.replace(/^https?:\/\//, "");
+    finalOrigin = `${protocol}://${cleanDomain}`;
   } else {
-    const baseHost = rootDomain.replace(/^www\./, "");
-    host = baseHost.includes("localhost")
-      ? `${user.tenant.slug}.localhost:3000`
-      : `${user.tenant.slug}.${baseHost}`;
+    finalOrigin = `${protocol}://${user.tenant.slug}.${rootDomain}`;
   }
 
-  const finalRedirectUrl = `${protocol}://${host}/admin/calendario?connected=google`;
+  const finalRedirectUrl = `${finalOrigin}/admin/calendario?connected=google`;
   return NextResponse.redirect(finalRedirectUrl);
 }

@@ -15,7 +15,7 @@ const config: Config = {
         accent: "var(--color-accent)",
       },
       fontFamily: {
-        sans: ["var(--font-sans)", "system-ui", "sans-serif"],
+        sans: ["var(--font-family-base)", "var(--font-sans)", "system-ui", "sans-serif"],
       },
     },
   },

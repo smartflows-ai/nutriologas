@@ -2,6 +2,7 @@
 // src/components/marketing/TestimonialsSection.tsx
 import { useTranslation } from "@/i18n";
 import { useState, useRef } from "react";
+import { Star } from "lucide-react";
 
 const testimonials = [
   {
@@ -62,11 +63,9 @@ const testimonials = [
 
 function StarRating() {
   return (
-    <div className="flex gap-0.5">
+    <div className="flex gap-1">
       {[...Array(5)].map((_, i) => (
-        <svg key={i} className="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
-          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-        </svg>
+        <Star key={i} size={14} className="fill-amber-400 text-amber-400" />
       ))}
     </div>
   );
@@ -88,6 +87,7 @@ export default function TestimonialsSection() {
         {/* Header */}
         <div className="text-center mb-16">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-amber-500/30 bg-amber-500/10 mb-6">
+            <Star size={13} className="fill-amber-400 text-amber-400" />
             <span className="text-xs font-bold text-amber-300 uppercase tracking-widest">
               {t.testimonials.badge}
             </span>
@@ -142,14 +142,14 @@ export default function TestimonialsSection() {
         {/* Social proof numbers */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-20 p-8 rounded-3xl border border-white/6" style={{ background: "#0d0d1a" }}>
           {[
-            { value: "500+", label: t.testimonials.stats.businesses },
-            { value: "10M+", label: t.testimonials.stats.tasks },
-            { value: "99.9%", label: t.testimonials.stats.uptime },
-            { value: "4.9★", label: t.testimonials.stats.rated },
+            { value: "500+", hasStar: false, label: t.testimonials.stats.businesses },
+            { value: "10M+", hasStar: false, label: t.testimonials.stats.tasks },
+            { value: "99.9%", hasStar: false, label: t.testimonials.stats.uptime },
+            { value: "4.9", hasStar: true, label: t.testimonials.stats.rated },
           ].map((stat) => (
             <div key={stat.label} className="text-center">
-              <p
-                className="text-3xl sm:text-4xl font-black mb-2"
+              <div
+                className="text-3xl sm:text-4xl font-black mb-2 flex items-center justify-center gap-1.5"
                 style={{
                   background: "linear-gradient(135deg, #A78BFA, #06B6D4)",
                   WebkitBackgroundClip: "text",
@@ -157,8 +157,11 @@ export default function TestimonialsSection() {
                   backgroundClip: "text",
                 }}
               >
-                {stat.value}
-              </p>
+                <span>{stat.value}</span>
+                {stat.hasStar && (
+                  <Star size={24} className="fill-amber-400 text-amber-400 inline-block shrink-0 -mt-1" style={{ WebkitTextFillColor: "initial" }} />
+                )}
+              </div>
               <p className="text-gray-500 text-sm font-medium">{stat.label}</p>
             </div>
           ))}

@@ -11,7 +11,13 @@ export default async function AsistentePage() {
   const session = await getAppSession();
   const tenant = await prisma.tenant.findUnique({
     where: { id: session?.user.tenantId },
-    select: { isAssistantEnabled: true }
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      businessInfo: true,
+      isAssistantEnabled: true,
+    },
   });
 
   if (!tenant?.isAssistantEnabled) {
@@ -32,16 +38,63 @@ export default async function AsistentePage() {
     );
   }
 
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const [
+    monthlyPaidOrders,
+    pendingOrdersCount,
+    activeProductsCount,
+    activeCampaignsCount,
+  ] = await Promise.all([
+    prisma.order.findMany({
+      where: {
+        tenantId: session?.user.tenantId,
+        status: "PAID",
+        createdAt: { gte: startOfMonth },
+      },
+      select: { total: true },
+    }),
+    prisma.order.count({
+      where: {
+        tenantId: session?.user.tenantId,
+        status: "PENDING",
+      },
+    }),
+    prisma.product.count({
+      where: {
+        tenantId: session?.user.tenantId,
+        isActive: true,
+        deletedAt: null,
+      },
+    }),
+    prisma.socialCampaign.count({
+      where: {
+        tenantId: session?.user.tenantId,
+        isActive: true,
+      },
+    }),
+  ]);
+
+  const monthlySales = monthlyPaidOrders.reduce((sum, o) => sum + o.total, 0);
+  const paidOrdersCount = monthlyPaidOrders.length;
+
+  const initialMetrics = {
+    monthlySales,
+    paidOrdersCount,
+    pendingOrdersCount,
+    activeProductsCount,
+    activeCampaignsCount,
+  };
+
   return (
-    <div className="h-[calc(100vh-8rem)] flex flex-col">
-      <div className="mb-4 shrink-0">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-          <Bot className="text-primary" size={24} />
-          {t.crm.assistant.title}
-        </h1>
-        <p className="text-gray-500 text-sm">{t.crm.assistant.subtitle}</p>
-      </div>
-      <ChatAssistant />
+    <div className="h-[calc(100vh-6.5rem)] flex flex-col">
+      <ChatAssistant
+        tenantName={tenant.name}
+        businessInfo={tenant.businessInfo ?? undefined}
+        tenantSlug={tenant.slug}
+        initialMetrics={initialMetrics}
+      />
     </div>
   );
 }

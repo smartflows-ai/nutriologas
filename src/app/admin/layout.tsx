@@ -26,13 +26,18 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   const pColor  = (theme as any)?.primaryColor  || "#16a34a";
   const sColor  = (theme as any)?.secondaryColor || "#15803d";
+  const aColor  = (theme as any)?.accentColor    || "#4ade80";
   const fFamily = (theme as any)?.fontFamily     || "Inter, sans-serif";
 
   const dynamicStyles = `
     :root {
       --color-primary: ${pColor};
       --color-secondary: ${sColor};
+      --color-accent: ${aColor};
       --font-family-base: ${fFamily};
+    }
+    body {
+      font-family: var(--font-family-base), system-ui, sans-serif;
     }
   `;
 

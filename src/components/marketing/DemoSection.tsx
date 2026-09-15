@@ -1,17 +1,18 @@
 "use client";
 // src/components/marketing/DemoSection.tsx
 import { useTranslation } from "@/i18n";
+import { ShoppingBag, MessageSquare, Bot, BarChart2, Calendar, Building2 } from "lucide-react";
 
 export default function DemoSection() {
   const { t } = useTranslation();
 
   const chapters = [
-    { icon: "🛍️", title: "Tienda Online 24/7" },
-    { icon: "💬", title: "WhatsApp CRM con IA" },
-    { icon: "🤖", title: "Generador de Contenido Social" },
-    { icon: "📊", title: "Métricas y Finanzas en Vivo" },
-    { icon: "📅", title: "Agenda y Citas Médicas" },
-    { icon: "🏢", title: "Multi-Tenant y Marca Blanca" },
+    { icon: <ShoppingBag size={16} className="text-violet-400" />, title: "Tienda Online 24/7" },
+    { icon: <MessageSquare size={16} className="text-emerald-400" />, title: "WhatsApp CRM con IA" },
+    { icon: <Bot size={16} className="text-blue-400" />, title: "Generador de Contenido Social" },
+    { icon: <BarChart2 size={16} className="text-amber-400" />, title: "Métricas y Finanzas en Vivo" },
+    { icon: <Calendar size={16} className="text-pink-400" />, title: "Agenda y Citas Médicas" },
+    { icon: <Building2 size={16} className="text-indigo-400" />, title: "Multi-Tenant y Marca Blanca" },
   ];
 
   return (
@@ -76,7 +77,7 @@ export default function DemoSection() {
               key={ch.title}
               className="px-3 py-2.5 rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm flex items-center gap-2.5 text-left shadow-sm"
             >
-              <span className="text-lg flex-shrink-0">{ch.icon}</span>
+              <span className="flex-shrink-0 flex items-center justify-center">{ch.icon}</span>
               <span className="text-xs font-semibold text-gray-200 leading-tight">
                 {ch.title}
               </span>

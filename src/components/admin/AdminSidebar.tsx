@@ -21,10 +21,10 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Facebook,
-  Globe,
-  Users
+  Globe
 } from "lucide-react";
 import SignOutButton from "@/components/admin/SignOutButton";
+import CreditsBadge from "@/components/admin/CreditsBadge";
 
 interface Props {
   userName?: string | null;
@@ -63,7 +63,6 @@ export default function AdminSidebar({ userName, isAssistantEnabled, isTriageEna
       title: t.admin.appsSection,
       items: [
         { href: "/admin/apps", label: t.admin.store, icon: Plug },
-        { href: "/admin/pacientes", label: t.admin.patients || "Pacientes", icon: Users, isTriage: true },
         { href: "/admin/asistente", label: t.admin.aiAssistant, icon: Bot, isAssistant: true },
         { href: "/admin/calendario", label: t.admin.calendar, icon: Calendar, providersReq: ["GOOGLE", "MICROSOFT"] },
         { href: "/admin/whatsapp", label: t.admin.whatsapp, icon: MessageSquare, providersReq: ["WHATSAPP"] },
@@ -147,7 +146,8 @@ export default function AdminSidebar({ userName, isAssistantEnabled, isTriageEna
           </div>
         ))}
       </nav>
-      <div className="px-3 pb-4">
+      <div className="px-3 pb-4 space-y-2">
+        <CreditsBadge />
         <SignOutButton><LogOut size={18} /> {t.admin.signOut}</SignOutButton>
       </div>
     </div>
@@ -205,8 +205,9 @@ export default function AdminSidebar({ userName, isAssistantEnabled, isTriageEna
         ))}
       </nav>
 
-      {/* Sign out */}
+      {/* Credits + Sign out */}
       <div className={`pb-4 ${collapsed ? "px-2" : "px-3"}`}>
+        {!collapsed && <div className="mb-2"><CreditsBadge /></div>}
         {collapsed ? (
           <SignOutButton iconOnly><LogOut size={18} /></SignOutButton>
         ) : (

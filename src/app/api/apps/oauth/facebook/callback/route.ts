@@ -26,8 +26,9 @@ export async function GET(req: NextRequest) {
     return subdomainRedirect(`/admin/social-campaign?error=${encodeURIComponent(msg)}`);
   }
 
-  // redirect_uri MUST exactly match NEXTAUTH_URL-based URI registered in Meta App
-  const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+  const hostHeader = req.headers.get("host") || url.host || "";
+  const isLocal = hostHeader.includes("localhost") || hostHeader.includes("127.0.0.1") || Boolean(stateParam && (stateParam.includes("localhost") || stateParam.includes("127.0.0.1")));
+  const baseUrl = isLocal ? "http://localhost:3000" : (process.env.NEXTAUTH_URL ?? "https://newaigent.com");
   const redirectUri = `${baseUrl}/api/apps/oauth/facebook/callback`;
 
   const appId = process.env.FACEBOOK_APP_ID!;
@@ -155,12 +156,11 @@ export async function GET(req: NextRequest) {
   const protocol = isProduction ? "https" : "http";
 
   let finalOrigin: string;
-  if (user.tenant.customDomain) {
+  if (isLocal) {
+    finalOrigin = `http://${user.tenant.slug}.localhost:3000`;
+  } else if (user.tenant.customDomain) {
     const cleanDomain = user.tenant.customDomain.replace(/^https?:\/\//, "");
     finalOrigin = `${protocol}://${cleanDomain}`;
-  } else if (!isProduction) {
-    // Local dev: build from slug
-    finalOrigin = `http://${user.tenant.slug}.localhost:3000`;
   } else {
     finalOrigin = `${protocol}://${user.tenant.slug}.${rootDomain}`;
   }

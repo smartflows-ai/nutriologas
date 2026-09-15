@@ -169,9 +169,9 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async signIn({ user, account, profile }) {
       if (account?.provider === "google") {
-        let tenant = await prisma.tenant.findUnique({
-          where: { slug: "clinica-demo" },
-        });
+        let tenant = await prisma.tenant.findFirst({
+          where: { OR: [{ slug: "demo-business" }, { slug: "clinica-demo" }] },
+        }) || await prisma.tenant.findFirst();
         if (!tenant) return false;
 
         const existing = await prisma.user.findFirst({

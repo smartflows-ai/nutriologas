@@ -5,7 +5,6 @@ import type { Lang, Translations } from "./types";
 import { en } from "./en";
 import { es } from "./es";
 
-import { useRouter } from "next/navigation";
 
 const dictionaries: Record<Lang, Translations> = { en, es };
 
@@ -21,24 +20,32 @@ const LanguageContext = createContext<LanguageContextValue>({
 
 export function LanguageProvider({ children, initialLang = "en" }: { children: ReactNode; initialLang?: Lang }) {
   const [lang, setLang] = useState<Lang>(initialLang);
-  const router = useRouter();
 
   useEffect(() => {
-    const browserLang = navigator.language || (navigator as any).userLanguage || "en";
-    const detected: Lang = browserLang.toLowerCase().startsWith("es") ? "es" : "en";
-    
+    // Clear any past sticky cookies so they don't interfere
+    try {
+      document.cookie = "NEXT_LOCALE=; path=/; max-age=0";
+      document.cookie = "USER_LOCALE_MANUAL=; path=/; max-age=0";
+      localStorage.removeItem("USER_LOCALE_MANUAL");
+    } catch {}
+
+    // Language is strictly gotten from the browser settings:
+    // navigator.languages[0] reflects the top/primary language in browser settings
+    const primary = (
+      (typeof navigator !== "undefined" && navigator.languages && navigator.languages.length > 0
+        ? navigator.languages[0]
+        : typeof navigator !== "undefined"
+        ? navigator.language
+        : "") || ""
+    ).toLowerCase();
+
+    const detected: Lang = primary.startsWith("es") ? "es" : "en";
+
     if (lang !== detected) {
       setLang(detected);
-      document.documentElement.lang = detected;
     }
-    
-    // Check cookie
-    const currentCookie = document.cookie.split("; ").find(row => row.startsWith("NEXT_LOCALE="))?.split("=")[1];
-    if (currentCookie !== detected) {
-      document.cookie = `NEXT_LOCALE=${detected}; path=/; max-age=31536000; samesite=lax`;
-      router.refresh();
-    }
-  }, [lang, router]);
+    document.documentElement.lang = detected;
+  }, [lang]);
 
   return (
     <LanguageContext.Provider value={{ lang, t: dictionaries[lang] }}>

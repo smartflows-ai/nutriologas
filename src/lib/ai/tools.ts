@@ -187,7 +187,7 @@ export const CHAT_TOOLS: OpenRouterTool[] = [
     type: "function",
     function: {
       name: "get_busiest_slots",
-      description: "Dias y horarios con mas citas agendadas. Para 'cuando estoy mas ocupada', 'que dias tengo mas pacientes'.",
+      description: "Días y horarios con más citas o reservas agendadas. Para preguntas como 'cuándo estoy más ocupado', 'qué días tengo más citas o clientes'.",
       parameters: {
         type: "object",
         properties: {

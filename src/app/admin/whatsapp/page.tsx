@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { MessageSquare, Settings, Send, User, Bot, RefreshCw, ChevronLeft, X, Check, PanelLeftClose, PanelLeftOpen, Trash2 } from "lucide-react";
+import { MessageSquare, Settings, Send, User, Bot, RefreshCw, ChevronLeft, X, Check, PanelLeftClose, PanelLeftOpen, Trash2, Lightbulb } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useTranslation } from "@/i18n";
@@ -396,7 +396,8 @@ export default function WhatsAppPage() {
 
                 <div className="p-6 bg-green-50 dark:bg-green-900/10 rounded-2xl border border-green-100 dark:border-green-900/20">
                   <h4 className="text-sm font-bold text-green-800 dark:text-green-400 flex items-center gap-2 mb-2">
-                     💡 {t.crm.whatsapp.tipTitle}
+                    <Lightbulb size={16} className="text-green-600 dark:text-green-400" />
+                    <span>{t.crm.whatsapp.tipTitle}</span>
                   </h4>
                   <p className="text-xs text-green-700 dark:text-green-500 leading-relaxed">
                     {t.crm.whatsapp.tipDesc}

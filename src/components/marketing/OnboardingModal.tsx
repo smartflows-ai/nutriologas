@@ -4,13 +4,15 @@ import { useState, useRef, useCallback, useMemo } from "react";
 import Image from "next/image";
 import {
   Building2, Globe, MessageCircle, Mail, Lock, Upload,
-  AtSign, CheckCircle2, XCircle, Loader2, ChevronRight, ChevronLeft, X, ChevronDown, Search
+  AtSign, CheckCircle2, XCircle, Loader2, ChevronRight, ChevronLeft, X, ChevronDown, Search,
+  Gift, Sparkles
 } from "lucide-react";
 import { useTranslation } from "@/i18n";
 
 interface Props {
   onClose: () => void;
   initialPlan?: "STARTER" | "PRO";
+  initialBillingInterval?: "monthly" | "annual";
 }
 
 type Step = 1 | 2 | 3 | 4;
@@ -83,8 +85,12 @@ const MAJOR_CITIES = [
   "Morelia",
 ];
 
-export default function OnboardingModal({ onClose, initialPlan = "STARTER" }: Props) {
-  const { t } = useTranslation();
+export default function OnboardingModal({
+  onClose,
+  initialPlan = "STARTER",
+  initialBillingInterval = "monthly"
+}: Props) {
+  const { t, lang } = useTranslation();
   // Step state
   const [step, setStep] = useState<Step>(1);
   const [loading, setLoading] = useState(false);
@@ -118,6 +124,7 @@ export default function OnboardingModal({ onClose, initialPlan = "STARTER" }: Pr
   const [slugStatus, setSlugStatus] = useState<"idle" | "checking" | "available" | "taken">("idle");
 
   const [plan] = useState(initialPlan);
+  const [billingInterval] = useState(initialBillingInterval);
   const fileRef = useRef<HTMLInputElement>(null);
   const slugTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
@@ -193,7 +200,10 @@ export default function OnboardingModal({ onClose, initialPlan = "STARTER" }: Pr
           email, password, name, slug, businessInfo,
           whatsappNumber: whatsappFull,
           location: city ? `${city}, ${selectedCountry.name}` : selectedCountry.name,
-          logoUrl, plan,
+          logoUrl,
+          plan,
+          billingInterval,
+          lang,
         }),
       });
       const data = await res.json();
@@ -521,8 +531,10 @@ export default function OnboardingModal({ onClose, initialPlan = "STARTER" }: Pr
               <div className="bg-white/3 border border-white/5 rounded-xl p-4 text-sm text-gray-500 leading-relaxed">
                 {t.modals.onboarding.workspaceAt}<br />
                 <span className="text-violet-400 font-bold">{slug || t.modals.onboarding.phSubdomain}.newaigent.com</span>
-                <br /><br />
-                🎁 <span className="text-gray-400">{t.modals.onboarding.trialNote}</span>
+                <div className="flex items-center gap-2 mt-4 pt-2 border-t border-white/5">
+                  <Gift size={16} className="text-violet-400 shrink-0" />
+                  <span className="text-gray-400">{t.modals.onboarding.trialNote}</span>
+                </div>
               </div>
             </div>
           )}
@@ -530,7 +542,9 @@ export default function OnboardingModal({ onClose, initialPlan = "STARTER" }: Pr
           {/* ── STEP 4: Success ──────────────────────────────── */}
           {step === 4 && (
             <div className="text-center py-4">
-              <div className="text-6xl mb-6">🎉</div>
+              <div className="w-20 h-20 mx-auto mb-6 rounded-3xl bg-gradient-to-tr from-violet-600 to-cyan-500 flex items-center justify-center shadow-[0_0_40px_rgba(124,58,237,0.4)]">
+                <Sparkles className="w-10 h-10 text-white" />
+              </div>
               <h2 className="text-3xl font-black text-white mb-3 tracking-tight">{t.modals.onboarding.step4Title}</h2>
               <p className="text-gray-400 text-base mb-2">
                 {t.modals.onboarding.step4Desc.replace('Your workspace is ready.', `Your workspace `)}

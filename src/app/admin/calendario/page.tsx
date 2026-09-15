@@ -3,10 +3,13 @@ import { getAppSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import CalendarView from "@/components/crm/CalendarView";
 import Link from "next/link";
+import { Calendar as CalendarIcon } from "lucide-react";
+import { getTranslationServer } from "@/i18n/server";
 
 export default async function CalendarioPage() {
   const session = await getAppSession();
   const tenantId = session!.user.tenantId;
+  const t = getTranslationServer();
 
   // Check if any calendar provider is connected (connected_apps table)
   const calendarApp = await prisma.connectedApp.findFirst({
@@ -21,15 +24,19 @@ export default async function CalendarioPage() {
       {/* Page Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Calendario</h1>
-          <p className="text-gray-500 text-sm mt-0.5">Citas y agenda del negocio</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+            <CalendarIcon className="text-primary" size={24} />
+            {t.crm.calendar.title}
+          </h1>
+          <p className="text-gray-500 text-sm mt-1">{t.crm.calendar.subtitle}</p>
         </div>
         {!isConnected && (
           <Link
             href="/admin/apps"
             className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-white text-sm font-medium rounded-xl hover:bg-primary/90 transition-colors"
           >
-            Conectar calendario
+            <CalendarIcon size={16} />
+            {t.crm.calendar.connectCalendar}
           </Link>
         )}
       </div>
@@ -50,21 +57,21 @@ export default async function CalendarioPage() {
           </div>
 
           <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-            Conecta tu calendario
+            {t.crm.calendar.emptyTitle}
           </h2>
           <p className="text-gray-500 text-sm max-w-sm mb-8 leading-relaxed">
-            Visualiza tus citas, mide la asistencia y detecta patrones de cancelación directamente desde tu agenda de Google o Microsoft Outlook.
+            {t.crm.calendar.emptyDesc}
           </p>
 
           <Link
             href="/admin/apps"
             className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary/90 transition-colors shadow-sm"
           >
-            Ir a Apps
+            {t.crm.calendar.goToApps}
           </Link>
 
           <p className="mt-4 text-xs text-gray-400">
-            Solo lectura • Sin modificaciones a tu agenda
+            {t.crm.calendar.readOnlyBadge}
           </p>
         </div>
       ) : (

@@ -109,7 +109,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
     { label: t.crm.dashboard.revenue, value: formatPrice(data.revenue), sub: `${data.orderCount} ${t.crm.dashboard.ordersLabel}`, icon: TrendingUp, color: "bg-green-50 text-green-600" },
     { label: t.crm.dashboard.totalCustomers, value: data.totalCustomers.toString(), sub: `+${data.newCustomers} ${t.crm.dashboard.inPeriod}`, icon: Users, color: "bg-blue-50 text-blue-600" },
     { label: t.crm.dashboard.paidOrders, value: data.orderCount.toString(), sub: t.crm.dashboard.successful, icon: ShoppingBag, color: "bg-purple-50 text-purple-600" },
-    { label: t.crm.dashboard.avgReviews, value: data.avgRating ? data.avgRating.toFixed(1) + " ⭐" : "—", sub: `${data.reviewCount} ${t.crm.dashboard.reviewsLabel}`, icon: Star, color: "bg-yellow-50 text-yellow-600" },
+    { label: t.crm.dashboard.avgReviews, value: data.avgRating ? data.avgRating.toFixed(1) : "—", sub: `${data.reviewCount} ${t.crm.dashboard.reviewsLabel}`, icon: Star, color: "bg-yellow-50 text-yellow-600" },
   ];
 
   return (

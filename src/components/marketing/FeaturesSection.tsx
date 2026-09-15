@@ -1,12 +1,16 @@
 "use client";
 // src/components/marketing/FeaturesSection.tsx
 import { useState } from "react";
+import {
+  Megaphone, MessageSquare, Package, BarChart2,
+  Building2, Calendar, ArrowRight
+} from "lucide-react";
 import { useTranslation } from "@/i18n";
 
 const features = [
   {
     id: "social",
-    icon: "📣",
+    icon: <Megaphone size={22} />,
     title: "Social Media AI Agent",
     description:
       "Posts to Facebook & Instagram daily — copy, image, caption — all generated in your brand voice. Your followers grow while you're with clients.",
@@ -16,7 +20,7 @@ const features = [
   },
   {
     id: "sales",
-    icon: "💬",
+    icon: <MessageSquare size={22} />,
     title: "WhatsApp Sales Agent",
     description:
       "Responds instantly, sends product photos, answers objections, and takes orders. You get the sale notification. The agent did the work.",
@@ -26,7 +30,7 @@ const features = [
   },
   {
     id: "catalog",
-    icon: "📦",
+    icon: <Package size={22} />,
     title: "Smart Product Catalog",
     description:
       "Your store stays current, SEO-optimized, and conversion-ready. The AI flags what's trending and what needs a push.",
@@ -36,7 +40,7 @@ const features = [
   },
   {
     id: "crm",
-    icon: "📊",
+    icon: <BarChart2 size={22} />,
     title: "Business Analytics",
     description:
       "Stop guessing. Know exactly what's working — which posts drove sales, which agents converted most, where to invest next week.",
@@ -46,7 +50,7 @@ const features = [
   },
   {
     id: "multitenant",
-    icon: "🏢",
+    icon: <Building2 size={22} />,
     title: "White-Label Multi-Tenant",
     description:
       "Your clients get their own branded store, their own agents, their own domain. You deliver the whole package under your name.",
@@ -56,7 +60,7 @@ const features = [
   },
   {
     id: "appointments",
-    icon: "📅",
+    icon: <Calendar size={22} />,
     title: "Appointment Scheduler",
     description:
       "Patients book themselves. Reminders go out automatically. No-shows drop. You just show up.",
@@ -73,7 +77,7 @@ export default function FeaturesSection() {
   const features = [
     {
       id: "social",
-      icon: "📣",
+      icon: <Megaphone size={22} />,
       title: t.features.social.title,
       description: t.features.social.description,
       color: "#7C3AED",
@@ -82,7 +86,7 @@ export default function FeaturesSection() {
     },
     {
       id: "sales",
-      icon: "💬",
+      icon: <MessageSquare size={22} />,
       title: t.features.sales.title,
       description: t.features.sales.description,
       color: "#25D366",
@@ -91,7 +95,7 @@ export default function FeaturesSection() {
     },
     {
       id: "catalog",
-      icon: "📦",
+      icon: <Package size={22} />,
       title: t.features.catalog.title,
       description: t.features.catalog.description,
       color: "#06B6D4",
@@ -100,7 +104,7 @@ export default function FeaturesSection() {
     },
     {
       id: "crm",
-      icon: "📊",
+      icon: <BarChart2 size={22} />,
       title: t.features.analytics.title,
       description: t.features.analytics.description,
       color: "#F59E0B",
@@ -109,7 +113,7 @@ export default function FeaturesSection() {
     },
     {
       id: "multitenant",
-      icon: "🏢",
+      icon: <Building2 size={22} />,
       title: t.features.whiteLabel.title,
       description: t.features.whiteLabel.description,
       color: "#4F46E5",
@@ -118,7 +122,7 @@ export default function FeaturesSection() {
     },
     {
       id: "appointments",
-      icon: "📅",
+      icon: <Calendar size={22} />,
       title: t.features.appointments.title,
       description: t.features.appointments.description,
       color: "#EC4899",
@@ -197,10 +201,11 @@ export default function FeaturesSection() {
 
               {/* Icon */}
               <div
-                className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-5 transition-all duration-300"
+                className="w-12 h-12 rounded-xl flex items-center justify-center mb-5 transition-all duration-300"
                 style={{
                   background: feature.color + "15",
                   border: `1px solid ${feature.color}30`,
+                  color: feature.color,
                   boxShadow: hovered === feature.id ? `0 0 20px ${feature.glow}` : "none",
                 }}
               >
@@ -222,7 +227,7 @@ export default function FeaturesSection() {
                   transform: hovered === feature.id ? "translateX(0)" : "translateX(-8px)",
                 }}
               >
-                {t.features.learnMore} <span>→</span>
+                {t.features.learnMore} <ArrowRight size={14} />
               </div>
             </div>
           ))}

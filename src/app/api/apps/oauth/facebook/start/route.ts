@@ -16,8 +16,8 @@ export async function GET(req: NextRequest) {
   }
 
   const hostHeader = req.headers.get("host") || new URL(req.url).host;
-  const baseUrlFallback = hostHeader.includes("localhost") ? `http://${hostHeader}` : `https://${hostHeader}`;
-  const baseUrl = process.env.NEXTAUTH_URL ?? baseUrlFallback;
+  const isLocal = hostHeader.includes("localhost") || hostHeader.includes("127.0.0.1");
+  const baseUrl = isLocal ? "http://localhost:3000" : (process.env.NEXTAUTH_URL ?? "https://newaigent.com");
   const redirectUri = `${baseUrl}/api/apps/oauth/facebook/callback`;
 
   // ── Capture the subdomain origin from the Host header ──────────────────────

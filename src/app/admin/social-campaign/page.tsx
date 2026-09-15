@@ -14,6 +14,7 @@ import Pagination from "@/components/admin/Pagination";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useTranslation } from "@/i18n";
+import CreditsDrawer from "@/components/admin/CreditsDrawer";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface Product {
@@ -32,6 +33,7 @@ interface SocialCampaign {
   campaignGoal: string;
   tone: string; extraContext: string | null;
   frequency: string; isActive: boolean;
+  pausedByCredits?: boolean;
   startDate: string; endDate: string;
   nextPostAt: string | null; lastPostedAt: string | null;
   createdAt: string;
@@ -39,11 +41,11 @@ interface SocialCampaign {
 
 // ── Constants ──────────────────────────────────────────────────────────────
 const GOALS = [
-  { id: "promocion", label: "🎯 Promoción", desc: "Oferta o precio especial" },
-  { id: "informativo", label: "📋 Informativo", desc: "Presenta el servicio" },
-  { id: "urgencia", label: "⚡ Urgencia", desc: "Cupos / tiempo limitado" },
-  { id: "testimonio", label: "⭐ Testimonio", desc: "Basado en resultados" },
-  { id: "educativo", label: "🎓 Educativo", desc: "Tips de valor" },
+  { id: "promocion", label: "Promoción", desc: "Oferta o precio especial" },
+  { id: "informativo", label: "Informativo", desc: "Presenta el servicio" },
+  { id: "urgencia", label: "Urgencia", desc: "Cupos / tiempo limitado" },
+  { id: "testimonio", label: "Testimonio", desc: "Basado en resultados" },
+  { id: "educativo", label: "Educativo", desc: "Tips de valor" },
 ];
 
 const TONES = [
@@ -90,6 +92,8 @@ export default function SocialCampaignPage() {
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<"list" | "form" | "history">("list");
   const [editId, setEditId] = useState<string | null>(null);
+  const [creditsDrawerOpen, setCreditsDrawerOpen] = useState(false);
+  const [creditStatus, setCreditStatus] = useState<any>(null);
 
   // ── History state ────────────────────────────────────────────────────────
   const [history, setHistory] = useState<any[]>([]);
@@ -135,14 +139,16 @@ export default function SocialCampaignPage() {
   const loadAll = async () => {
     setLoading(true);
     try {
-      const [fbRes, prodRes, campRes] = await Promise.all([
+      const [fbRes, prodRes, campRes, credRes] = await Promise.all([
         fetch("/api/apps/facebook/config"),
         fetch("/api/apps/facebook/products"),
         fetch("/api/campaigns/social"),
+        fetch("/api/credits"),
       ]);
       if (fbRes.ok) setConfig(await fbRes.json());
       if (prodRes.ok) { const d = await prodRes.json(); setProducts(d.products ?? []); }
       if (campRes.ok) { const d = await campRes.json(); setCampaigns(d.campaigns ?? []); }
+      if (credRes.ok) { const d = await credRes.json(); if (d.creditStatus) setCreditStatus(d.creditStatus); }
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   };
@@ -324,6 +330,32 @@ export default function SocialCampaignPage() {
       {/* ── LIST VIEW ──────────────────────────────────────────────────────── */}
       {view === "list" && (
         <div className="space-y-4">
+          {/* Paused by credits alert banner */}
+          {campaigns.some((c) => c.pausedByCredits) && (
+            <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
+                  <Zap size={20} className="fill-amber-500" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-sm text-amber-900 dark:text-amber-200">
+                    {t.crm.social.creditsBannerTitle}
+                  </h4>
+                  <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">
+                    {t.crm.social.creditsBannerDesc}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setCreditsDrawerOpen(true)}
+                className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-colors shrink-0 shadow-sm"
+              >
+                <Zap size={14} className="fill-white" />
+                {t.crm.social.rechargeBtn}
+              </button>
+            </div>
+          )}
+
           {campaigns.length === 0 && (
             <div className="text-center py-16 text-gray-400">
               <Sparkles size={40} className="mx-auto mb-4 opacity-30" />
@@ -339,6 +371,11 @@ export default function SocialCampaignPage() {
                     <h3 className="font-semibold text-gray-900 dark:text-white">{c.name}</h3>
                     {c.isActive ? (
                       <span className="text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-2 py-0.5 rounded-full font-medium">{t.crm.social.active}</span>
+                    ) : c.pausedByCredits ? (
+                      <span className="text-xs bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
+                        <Zap size={10} className="fill-amber-500 text-amber-500" />
+                        {t.crm.social.pausedByCredits}
+                      </span>
                     ) : (
                       <span className="text-xs bg-gray-100 text-gray-500 dark:bg-gray-800 px-2 py-0.5 rounded-full font-medium">{t.crm.social.paused}</span>
                     )}
@@ -665,7 +702,7 @@ export default function SocialCampaignPage() {
 
           {/* WhatMe notice */}
           <div className="p-3 bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-900/30 rounded-xl flex items-start gap-2.5">
-            <span className="text-lg leading-none mt-0.5">💬</span>
+            <MessageSquare size={16} className="text-green-600 dark:text-green-400 mt-0.5 shrink-0" />
             <p className="text-xs text-green-700 dark:text-green-400 leading-relaxed" dangerouslySetInnerHTML={{ __html: t.crm.social.formWhatsappNote.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
           </div>
 
@@ -858,6 +895,15 @@ export default function SocialCampaignPage() {
           {notif.msg}
           <button onClick={() => setNotif(null)} className="ml-2 opacity-70 hover:opacity-100"><X size={14} /></button>
         </div>
+      )}
+
+      {/* Credits Drawer */}
+      {creditsDrawerOpen && creditStatus && (
+        <CreditsDrawer
+          status={creditStatus}
+          onClose={() => setCreditsDrawerOpen(false)}
+          onRefresh={loadAll}
+        />
       )}
     </div>
   );

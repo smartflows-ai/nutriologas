@@ -1,24 +1,70 @@
 "use client";
 // src/components/marketing/PricingSection.tsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import OnboardingModal from "./OnboardingModal";
 import { useTranslation } from "@/i18n";
+import { Check, Star } from "lucide-react";
 
 type PlanKey = "STARTER" | "PRO";
+
+interface DynamicPricing {
+  es: {
+    starter: { monthlyPrice: number; annualPrice: number; currency: string };
+    pro: { monthlyPrice: number; annualPrice: number; currency: string };
+    enterprise: { monthlyPrice: number; annualPrice: number; currency: string };
+  };
+  en: {
+    starter: { monthlyPrice: number; annualPrice: number; currency: string };
+    pro: { monthlyPrice: number; annualPrice: number; currency: string };
+    enterprise: { monthlyPrice: number; annualPrice: number; currency: string };
+  };
+}
 
 export default function PricingSection() {
   const [annual, setAnnual] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<PlanKey>("STARTER");
-  const { t } = useTranslation();
+  const { t, lang } = useTranslation();
+
+  // Language is managed by LanguageProvider
+  const isEs = lang === "es";
+
+  const [prices, setPrices] = useState<DynamicPricing | null>(null);
+
+  useEffect(() => {
+    fetch("/api/billing/prices")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.es && data?.en) {
+          setPrices(data);
+        }
+      })
+      .catch((err) => console.error("Could not fetch prices:", err));
+  }, []);
+
+  const langKey = isEs ? "es" : "en";
+  const currentPrices = prices?.[langKey];
+
+  const starterMonthly = currentPrices?.starter.monthlyPrice ?? (isEs ? 500 : 29);
+  const starterAnnual = currentPrices?.starter.annualPrice ?? (isEs ? 375 : 19);
+  const starterCurrency = currentPrices?.starter.currency ?? (isEs ? "MXN" : "USD");
+
+  const proMonthly = currentPrices?.pro.monthlyPrice ?? (isEs ? 1500 : 79);
+  const proAnnual = currentPrices?.pro.annualPrice ?? (isEs ? 1000 : 59);
+  const proCurrency = currentPrices?.pro.currency ?? (isEs ? "MXN" : "USD");
+
+  const enterpriseMonthly = currentPrices?.enterprise.monthlyPrice ?? (isEs ? 3999 : 199);
+  const enterpriseAnnual = currentPrices?.enterprise.annualPrice ?? (isEs ? 2999 : 149);
+  const enterpriseCurrency = currentPrices?.enterprise.currency ?? (isEs ? "MXN" : "USD");
 
   const plans = [
     {
       id: "starter" as PlanKey,
       name: "Starter",
       tagline: t.pricing.starterTagline,
-      monthlyPrice: 29,
-      annualPrice: 19,
+      monthlyPrice: starterMonthly,
+      annualPrice: starterAnnual,
+      currency: starterCurrency,
       color: "#06B6D4",
       glow: "rgba(6,182,212,0.15)",
       popular: false,
@@ -30,8 +76,9 @@ export default function PricingSection() {
       id: "pro" as PlanKey,
       name: "Pro",
       tagline: t.pricing.proTagline,
-      monthlyPrice: 79,
-      annualPrice: 59,
+      monthlyPrice: proMonthly,
+      annualPrice: proAnnual,
+      currency: proCurrency,
       color: "#7C3AED",
       glow: "rgba(124,58,237,0.2)",
       popular: true,
@@ -43,8 +90,9 @@ export default function PricingSection() {
       id: "enterprise",
       name: "Enterprise",
       tagline: t.pricing.enterpriseTagline,
-      monthlyPrice: 199,
-      annualPrice: 149,
+      monthlyPrice: enterpriseMonthly,
+      annualPrice: enterpriseAnnual,
+      currency: enterpriseCurrency,
       color: "#4F46E5",
       glow: "rgba(79,70,229,0.15)",
       popular: false,
@@ -154,10 +202,11 @@ export default function PricingSection() {
                 {/* Popular badge */}
                 {plan.popular && (
                   <div
-                    className="absolute -top-4 left-1/2 -translate-x-1/2 px-5 py-1.5 rounded-full text-xs font-black uppercase tracking-wider text-white"
+                    className="absolute -top-4 left-1/2 -translate-x-1/2 px-5 py-1.5 rounded-full text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5 shadow-lg shadow-violet-500/20"
                     style={{ background: `linear-gradient(135deg, ${plan.color}, #4F46E5)` }}
                   >
-                    {t.pricing.mostPopular}
+                    <Star size={12} className="fill-white text-white" />
+                    <span>{t.pricing.mostPopular}</span>
                   </div>
                 )}
 
@@ -173,13 +222,15 @@ export default function PricingSection() {
                 <div className="mb-8">
                   <div className="flex items-end gap-1">
                     <span className="text-5xl font-black text-white transition-all duration-300">
-                      ${annual ? plan.annualPrice : plan.monthlyPrice}
+                      ${(annual ? plan.annualPrice : plan.monthlyPrice).toLocaleString()}
                     </span>
-                    <span className="text-gray-500 mb-2 text-sm">{t.pricing.perMonth}</span>
+                    <span className="text-gray-500 mb-2 text-sm">
+                      {plan.currency ? `${plan.currency} ` : (isEs ? "MXN " : "USD ")}{t.pricing.perMonth}
+                    </span>
                   </div>
-                  {annual && (
+                  {annual && plan.monthlyPrice > plan.annualPrice && (
                     <p className="text-green-400 text-xs font-semibold mt-1">
-                      {t.pricing.billedAnnually}{(plan.monthlyPrice - plan.annualPrice) * 12}{t.pricing.savePerYear}
+                      {t.pricing.billedAnnually}{((plan.monthlyPrice - plan.annualPrice) * 12).toLocaleString()} {plan.currency}{t.pricing.savePerYear}
                     </p>
                   )}
                 </div>
@@ -189,10 +240,10 @@ export default function PricingSection() {
                   {plan.features.map((feature) => (
                     <li key={feature} className="flex items-start gap-3">
                       <span
-                        className="mt-0.5 flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center text-[10px]"
+                        className="mt-0.5 flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center"
                         style={{ background: plan.color + "20", color: plan.color }}
                       >
-                        ✓
+                        <Check size={10} strokeWidth={3} />
                       </span>
                       <span className="text-gray-400 text-sm">{feature}</span>
                     </li>
@@ -234,6 +285,7 @@ export default function PricingSection() {
         <OnboardingModal
           onClose={() => setShowModal(false)}
           initialPlan={selectedPlan}
+          initialBillingInterval={annual ? "annual" : "monthly"}
         />
       )}
     </>

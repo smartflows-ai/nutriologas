@@ -2,6 +2,7 @@
 // src/components/marketing/HowItWorksSection.tsx
 import { useState } from "react";
 import { useTranslation } from "@/i18n";
+import { Rocket, Bot, Zap } from "lucide-react";
 
 export default function HowItWorksSection() {
   const [activeStep, setActiveStep] = useState(0);
@@ -12,21 +13,21 @@ export default function HowItWorksSection() {
       number: "01",
       title: t.howItWorks.step1Title,
       description: t.howItWorks.step1Desc,
-      icon: "🚀",
+      icon: <Rocket className="w-8 h-8 text-violet-400" />,
       color: "#7C3AED",
     },
     {
       number: "02",
       title: t.howItWorks.step2Title,
       description: t.howItWorks.step2Desc,
-      icon: "🤖",
+      icon: <Bot className="w-8 h-8 text-cyan-400" />,
       color: "#06B6D4",
     },
     {
       number: "03",
       title: t.howItWorks.step3Title,
       description: t.howItWorks.step3Desc,
-      icon: "⚡",
+      icon: <Zap className="w-8 h-8 text-indigo-400" />,
       color: "#4F46E5",
     },
   ];
