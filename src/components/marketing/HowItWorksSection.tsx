@@ -150,4 +150,6 @@ export default function HowItWorksSection() {
           </a>
         </div>
       </div>
-    </section
+    </section>
+  );
+}
