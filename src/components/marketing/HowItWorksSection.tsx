@@ -1,11 +1,9 @@
 "use client";
 // src/components/marketing/HowItWorksSection.tsx
-import { useState } from "react";
 import { useTranslation } from "@/i18n";
-import { Rocket, Bot, Zap } from "lucide-react";
+import { Rocket, Bot, Zap, ArrowRight } from "lucide-react";
 
 export default function HowItWorksSection() {
-  const [activeStep, setActiveStep] = useState(0);
   const { t } = useTranslation();
 
   const steps = [
@@ -13,21 +11,21 @@ export default function HowItWorksSection() {
       number: "01",
       title: t.howItWorks.step1Title,
       description: t.howItWorks.step1Desc,
-      icon: <Rocket className="w-8 h-8 text-violet-400" />,
+      icon: <Rocket className="w-7 h-7 text-violet-400" />,
       color: "#7C3AED",
     },
     {
       number: "02",
       title: t.howItWorks.step2Title,
       description: t.howItWorks.step2Desc,
-      icon: <Bot className="w-8 h-8 text-cyan-400" />,
+      icon: <Bot className="w-7 h-7 text-cyan-400" />,
       color: "#06B6D4",
     },
     {
       number: "03",
       title: t.howItWorks.step3Title,
       description: t.howItWorks.step3Desc,
-      icon: <Zap className="w-8 h-8 text-indigo-400" />,
+      icon: <Zap className="w-7 h-7 text-indigo-400" />,
       color: "#4F46E5",
     },
   ];
@@ -72,61 +70,73 @@ export default function HowItWorksSection() {
           </p>
         </div>
 
-        {/* Steps */}
-        <div className="relative">
-          {/* Connecting line */}
-          <div
-            className="hidden lg:block absolute top-1/2 left-[16.67%] right-[16.67%] h-px -translate-y-1/2"
-            style={{
-              background: "linear-gradient(90deg, #7C3AED, #06B6D4, #4F46E5)",
-              opacity: 0.3,
-            }}
-          />
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 lg:gap-8">
-            {steps.map((step, i) => (
-              <div
-                key={step.number}
-                id={`step-${step.number}`}
-                className="relative flex flex-col items-center text-center group"
-                style={{ animationDelay: `${i * 150}ms` }}
+        {/* Steps Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {steps.map((step, i) => (
+            <div
+              key={step.number}
+              id={`step-${step.number}`}
+              className="relative overflow-hidden rounded-3xl p-8 sm:p-9 border transition-all duration-300 hover:-translate-y-2 group"
+              style={{
+                background: "linear-gradient(180deg, rgba(17, 17, 34, 0.75) 0%, rgba(9, 9, 20, 0.9) 100%)",
+                borderColor: `${step.color}30`,
+                boxShadow: `0 10px 40px -10px ${step.color}15`,
+              }}
+            >
+              {/* Huge Background Watermark Number */}
+              <span
+                className="absolute -top-3 -right-2 text-8xl sm:text-9xl font-black select-none pointer-events-none tracking-tighter transition-all duration-500 group-hover:scale-105 group-hover:opacity-20"
+                style={{
+                  fontFamily: "'Space Grotesk', system-ui, sans-serif",
+                  color: step.color,
+                  opacity: 0.12,
+                  lineHeight: 0.85,
+                }}
+                aria-hidden="true"
               >
-                {/* Number badge */}
+                {step.number}
+              </span>
+
+              {/* Ambient radial blur at top corner */}
+              <div
+                className="absolute -top-10 -right-10 w-44 h-44 rounded-full blur-[70px] pointer-events-none transition-opacity duration-500 opacity-20 group-hover:opacity-40"
+                style={{ background: step.color }}
+              />
+
+              {/* Top Row: Glowing Icon + Subtle Step Badge */}
+              <div className="relative z-10 flex items-center justify-between mb-8">
                 <div
-                  className="relative w-20 h-20 rounded-2xl flex items-center justify-center text-3xl mb-6 z-10 transition-transform duration-300 group-hover:scale-110"
+                  className="w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 group-hover:scale-110"
                   style={{
-                    background: `radial-gradient(circle at 30% 30%, ${step.color}40, ${step.color}10)`,
-                    border: `2px solid ${step.color}40`,
-                    boxShadow: `0 0 40px ${step.color}20`,
+                    background: `radial-gradient(circle at 30% 30%, ${step.color}35, ${step.color}12)`,
+                    border: `1.5px solid ${step.color}50`,
+                    boxShadow: `0 0 24px ${step.color}25`,
                   }}
                 >
                   {step.icon}
-                  <span
-                    className="absolute -top-3 -right-3 w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black"
-                    style={{ background: step.color, color: "white" }}
-                  >
-                    {step.number}
-                  </span>
                 </div>
 
-                {/* Card */}
-                <div
-                  className="rounded-2xl p-6 border w-full transition-all duration-300 group-hover:-translate-y-2"
-                  style={{
-                    background: "#0d0d1a",
-                    borderColor: `${step.color}20`,
-                  }}
-                >
-                  <h3 className="text-white font-bold text-xl mb-4 leading-tight">
-                    {step.title}
-                  </h3>
-                  <p className="text-gray-500 text-sm leading-relaxed">
-                    {step.description}
-                  </p>
-                </div>
               </div>
-            ))}
-          </div>
+
+              {/* Content */}
+              <div className="relative z-10">
+                <h3 className="text-white font-bold text-xl mb-3 leading-snug">
+                  {step.title}
+                </h3>
+                <p className="text-gray-400 text-sm leading-relaxed">
+                  {step.description}
+                </p>
+              </div>
+
+              {/* Bottom accent glow bar on hover */}
+              <div
+                className="absolute bottom-0 left-0 right-0 h-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                style={{
+                  background: `linear-gradient(90deg, transparent, ${step.color}, transparent)`,
+                }}
+              />
+            </div>
+          ))}
         </div>
 
         {/* Bottom CTA nudge */}
@@ -135,11 +145,9 @@ export default function HowItWorksSection() {
             href="#pricing"
             className="inline-flex items-center gap-2 text-violet-400 font-semibold text-base hover:text-violet-300 transition-colors group"
           >
-            {t.howItWorks.bottomCta}
-            <span className="transition-transform duration-200 group-hover:translate-x-1">→</span>
+            <span>{t.howItWorks.bottomCta}</span>
+            <ArrowRight size={16} className="transition-transform duration-200 group-hover:translate-x-1" />
           </a>
         </div>
       </div>
-    </section>
-  );
-}
+    </section
