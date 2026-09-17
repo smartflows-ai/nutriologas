@@ -627,6 +627,7 @@ export interface Translations {
       creditsBannerDesc: string;
       rechargeBtn: string;
       resumeHint: string;
+      ended: string;
     };
     calendar: {
       title: string;

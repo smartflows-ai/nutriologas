@@ -44,9 +44,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (body.startDate !== undefined) {
     const newStart = new Date(body.startDate);
     updateData.startDate = newStart;
-    // Recalculate nextPostAt when startDate changes (but frequency update
-    // is handled separately below, so avoid double-setting here)
-    if (body.frequency === undefined && !body.markPosted) {
+    if (!body.markPosted) {
       updateData.nextPostAt = newStart > new Date() ? newStart : new Date();
     }
   }
@@ -79,7 +77,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   if (body.frequency !== undefined) {
     updateData.frequency = body.frequency;
-    updateData.nextPostAt = computeNextPostAt(body.frequency as CampaignFrequency);
+    // Only auto-recalculate nextPostAt from frequency if startDate was NOT explicitly provided in this update
+    if (body.startDate === undefined && !body.markPosted) {
+      updateData.nextPostAt = computeNextPostAt(body.frequency as CampaignFrequency);
+    }
   }
 
   const campaign = await prisma.socialCampaign.update({

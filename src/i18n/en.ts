@@ -686,6 +686,7 @@ export const en: Translations = {
       creditsBannerDesc: "Your automated campaigns have been paused because your plan's token limit has been reached this month. Recharge credits to reactivate immediately.",
       rechargeBtn: "Recharge credits",
       resumeHint: "Click to reactivate this campaign",
+      ended: "Ended",
     },
     calendar: {
       title: "Calendar",

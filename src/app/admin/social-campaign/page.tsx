@@ -76,6 +76,14 @@ function formatDate(iso: string | null): string {
   });
 }
 
+function formatDateTime(iso: string | null): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString("es-MX", {
+    day: "2-digit", month: "short", year: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  });
+}
+
 function toDateLocal(iso: string | null): string {
   if (!iso) return "";
   const d = new Date(iso);
@@ -386,69 +394,73 @@ export default function SocialCampaignPage() {
               <p className="text-sm mt-1">{t.crm.social.noCampaignsDesc}</p>
             </div>
           )}
-          {campaigns.map((c) => (
-            <div key={c.id} className={`bg-white dark:bg-gray-900 rounded-2xl border p-5 shadow-sm transition-all ${c.isActive ? "border-gray-200 dark:border-gray-800" : "border-gray-100 dark:border-gray-900 opacity-60"}`}>
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap mb-1">
-                    <h3 className="font-semibold text-gray-900 dark:text-white">{c.name}</h3>
-                    {c.isActive ? (
-                      <span className="text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-2 py-0.5 rounded-full font-medium">{t.crm.social.active}</span>
-                    ) : c.pausedByCredits ? (
-                      <span className="text-xs bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
-                        <Zap size={10} className="fill-amber-500 text-amber-500" />
-                        {t.crm.social.pausedByCredits}
+          {campaigns.map((c) => {
+            const isEnded = !!c.endDate && new Date(c.endDate) < new Date();
+            return (
+              <div key={c.id} className={`bg-white dark:bg-gray-900 rounded-2xl border p-5 shadow-sm transition-all ${c.isActive && !isEnded ? "border-gray-200 dark:border-gray-800" : "border-gray-100 dark:border-gray-900 opacity-60"}`}>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <h3 className="font-semibold text-gray-900 dark:text-white">{c.name}</h3>
+                      {isEnded ? (
+                        <span className="text-xs bg-gray-100 text-gray-500 dark:bg-gray-800 px-2 py-0.5 rounded-full font-medium">{t.crm.social.ended}</span>
+                      ) : c.isActive ? (
+                        <span className="text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-2 py-0.5 rounded-full font-medium">{t.crm.social.active}</span>
+                      ) : c.pausedByCredits ? (
+                        <span className="text-xs bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
+                          <Zap size={10} className="fill-amber-500 text-amber-500" />
+                          {t.crm.social.pausedByCredits}
+                        </span>
+                      ) : (
+                        <span className="text-xs bg-gray-100 text-gray-500 dark:bg-gray-800 px-2 py-0.5 rounded-full font-medium">{t.crm.social.paused}</span>
+                      )}
+                    </div>
+
+                    {/* Platforms */}
+                    <div className="flex items-center gap-2 mb-2">
+                      {c.platforms.includes("FACEBOOK") && (
+                        <span className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400"><Facebook size={12} /> Facebook</span>
+                      )}
+                      {c.platforms.includes("INSTAGRAM") && (
+                        <span className="flex items-center gap-1 text-xs text-pink-600 dark:text-pink-400"><Instagram size={12} /> Instagram</span>
+                      )}
+                      <span className="text-xs text-gray-400">·</span>
+                      <span className="text-xs text-gray-500">{FREQ_LABELS[c.frequency]}</span>
+                      {c.productIds.length > 0 && (
+                        <><span className="text-xs text-gray-400">·</span>
+                          <span className="text-xs text-gray-500">{c.productIds.length} {t.crm.social.productsCount}</span></>
+                      )}
+                    </div>
+
+                    {/* Dates */}
+                    <div className="flex flex-wrap gap-4 text-xs text-gray-500">
+                      <span className="flex items-center gap-1">
+                        <Clock size={11} /> {t.crm.social.start} {formatDateTime(c.startDate)}
                       </span>
-                    ) : (
-                      <span className="text-xs bg-gray-100 text-gray-500 dark:bg-gray-800 px-2 py-0.5 rounded-full font-medium">{t.crm.social.paused}</span>
-                    )}
-                  </div>
+                      <span className="flex items-center gap-1">
+                        <Clock size={11} /> {t.crm.social.end} {formatDate(c.endDate)}
+                      </span>
+                    </div>
+                    <div className="flex gap-4 text-xs text-gray-400 mt-1">
+                      <span className="flex items-center gap-1">
+                        <Clock size={11} /> {t.crm.social.next} {formatDateTime(c.nextPostAt)}
+                      </span>
+                      {c.lastPostedAt && (
+                        <span>{t.crm.social.last} {formatDateTime(c.lastPostedAt)}</span>
+                      )}
+                    </div>
 
-                  {/* Platforms */}
-                  <div className="flex items-center gap-2 mb-2">
-                    {c.platforms.includes("FACEBOOK") && (
-                      <span className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400"><Facebook size={12} /> Facebook</span>
-                    )}
-                    {c.platforms.includes("INSTAGRAM") && (
-                      <span className="flex items-center gap-1 text-xs text-pink-600 dark:text-pink-400"><Instagram size={12} /> Instagram</span>
-                    )}
-                    <span className="text-xs text-gray-400">·</span>
-                    <span className="text-xs text-gray-500">{FREQ_LABELS[c.frequency]}</span>
-                    {c.productIds.length > 0 && (
-                      <><span className="text-xs text-gray-400">·</span>
-                        <span className="text-xs text-gray-500">{c.productIds.length} {t.crm.social.productsCount}</span></>
+                    {/* Inactive hint — only when manually paused (not by credits) and not ended */}
+                    {!c.isActive && !c.pausedByCredits && !isEnded && (
+                      <button
+                        onClick={() => toggleActive(c.id, c.isActive)}
+                        className="mt-3 inline-flex items-center gap-1.5 text-xs text-primary font-medium hover:underline focus:outline-none"
+                      >
+                        <Play size={11} className="fill-primary" />
+                        {t.crm.social.resumeHint}
+                      </button>
                     )}
                   </div>
-
-                  {/* Dates */}
-                  <div className="flex flex-wrap gap-4 text-xs text-gray-500">
-                    <span className="flex items-center gap-1">
-                      <Clock size={11} /> {t.crm.social.start} {formatDate(c.startDate)}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Clock size={11} /> {t.crm.social.end} {formatDate(c.endDate)}
-                    </span>
-                  </div>
-                  <div className="flex gap-4 text-xs text-gray-400 mt-1">
-                    <span className="flex items-center gap-1">
-                      <Clock size={11} /> {t.crm.social.next} {formatDate(c.nextPostAt)}
-                    </span>
-                    {c.lastPostedAt && (
-                      <span>{t.crm.social.last} {formatDate(c.lastPostedAt)}</span>
-                    )}
-                  </div>
-
-                  {/* Inactive hint — only when manually paused (not by credits) */}
-                  {!c.isActive && !c.pausedByCredits && (
-                    <button
-                      onClick={() => toggleActive(c.id, c.isActive)}
-                      className="mt-3 inline-flex items-center gap-1.5 text-xs text-primary font-medium hover:underline focus:outline-none"
-                    >
-                      <Play size={11} className="fill-primary" />
-                      {t.crm.social.resumeHint}
-                    </button>
-                  )}
-                </div>
 
                 {/* Actions */}
                 <div className="flex items-center gap-1 shrink-0">
@@ -467,7 +479,8 @@ export default function SocialCampaignPage() {
                 </div>
               </div>
             </div>
-          ))}
+          );
+        })}
         </div>
       )}
 
