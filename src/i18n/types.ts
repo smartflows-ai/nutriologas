@@ -221,6 +221,7 @@ export interface Translations {
     reviews: string;
     carousel: string;
     appearance: string;
+    business: string;
     faq: string;
     store: string;
     aiAssistant: string;
@@ -437,6 +438,39 @@ export interface Translations {
       hidden: string;
       editSave: string;
     };
+    business: {
+      title: string;
+      subtitle: string;
+      domainCardTitle: string;
+      domainCardDesc: string;
+      domainLockedBadge: string;
+      currentValue: string;
+      visitSite: string;
+      domainLockedNote: string;
+      brandSection: string;
+      brandSectionDesc: string;
+      nameLabel: string;
+      namePlaceholder: string;
+      logoLabel: string;
+      logoHint: string;
+      uploadLogo: string;
+      uploading: string;
+      removeLogo: string;
+      contactSection: string;
+      contactSectionDesc: string;
+      whatsappLabel: string;
+      whatsappPlaceholder: string;
+      whatsappHint: string;
+      infoSection: string;
+      infoSectionDesc: string;
+      infoLabel: string;
+      infoPlaceholder: string;
+      infoHint: string;
+      saveBtn: string;
+      savingBtn: string;
+      savedSuccess: string;
+      saveError: string;
+    };
     apps: {
       title: string;
       subtitle: string;
@@ -592,6 +626,7 @@ export interface Translations {
       creditsBannerTitle: string;
       creditsBannerDesc: string;
       rechargeBtn: string;
+      resumeHint: string;
     };
     calendar: {
       title: string;

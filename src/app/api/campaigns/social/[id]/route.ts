@@ -41,7 +41,15 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (body.tone !== undefined) updateData.tone = body.tone;
   if (body.extraContext !== undefined) updateData.extraContext = body.extraContext;
   if (body.isActive !== undefined) updateData.isActive = body.isActive;
-  if (body.startDate !== undefined) updateData.startDate = new Date(body.startDate);
+  if (body.startDate !== undefined) {
+    const newStart = new Date(body.startDate);
+    updateData.startDate = newStart;
+    // Recalculate nextPostAt when startDate changes (but frequency update
+    // is handled separately below, so avoid double-setting here)
+    if (body.frequency === undefined && !body.markPosted) {
+      updateData.nextPostAt = newStart > new Date() ? newStart : new Date();
+    }
+  }
   if (body.endDate !== undefined && body.endDate !== null) updateData.endDate = new Date(body.endDate);
 
   // After posting: update lastPostedAt and compute nextPostAt

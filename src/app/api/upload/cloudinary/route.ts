@@ -26,7 +26,7 @@ export async function POST(req: Request) {
     const form = await req.formData();
     const file = form.get("file");
     const kind = (form.get("kind")?.toString() ?? "misc").toLowerCase();
-    const allowedKinds = new Set(["carousel", "products", "campaigns", "misc"]);
+    const allowedKinds = new Set(["carousel", "products", "campaigns", "misc", "logo"]);
     const safeKind = allowedKinds.has(kind) ? kind : "misc";
     const folder = `nutriologas/${tenantId}/${safeKind}`;
 

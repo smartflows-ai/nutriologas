@@ -83,6 +83,14 @@ function toDateLocal(iso: string | null): string {
   return d.toISOString().slice(0, 10);
 }
 
+// Returns "YYYY-MM-DDTHH:mm" for datetime-local inputs
+function toDateTimeLocal(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 16);
+}
+
 // ── Main Component ─────────────────────────────────────────────────────────
 export default function SocialCampaignPage() {
   const { t } = useTranslation();
@@ -113,7 +121,7 @@ export default function SocialCampaignPage() {
   const [formTone, setFormTone] = useState("cercano");
   const [formContext, setFormContext] = useState("");
   const [formFrequency, setFormFrequency] = useState("WEEKLY");
-  const [formStartDate, setFormStartDate] = useState("");
+  const [formStartDateTime, setFormStartDateTime] = useState(""); // "YYYY-MM-DDTHH:mm"
   const [formEndDate, setFormEndDate] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -191,8 +199,11 @@ export default function SocialCampaignPage() {
         tone: formTone,
         extraContext: formContext || undefined,
         frequency: formFrequency,
-        startDate: formStartDate || undefined,
-        endDate: formEndDate,
+        // Send full datetime string so backend parses the exact scheduled time
+        startDate: formStartDateTime || undefined,
+        // Append end-of-day time so the campaign isn't expired prematurely
+        // when the server is in a different UTC offset
+        endDate: formEndDate ? `${formEndDate}T23:59:59` : undefined,
       };
       const url = editId ? `/api/campaigns/social/${editId}` : "/api/campaigns/social";
       const method = editId ? "PATCH" : "POST";
@@ -212,13 +223,25 @@ export default function SocialCampaignPage() {
     finally { setSaving(false); }
   };
 
-  // ── Toggle active ─────────────────────────────────────────────────────────
+  // ── Toggle active — optimistic update (no full reload) ────────────────────
   const toggleActive = async (id: string, current: boolean) => {
-    await fetch(`/api/campaigns/social/${id}`, {
-      method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ isActive: !current }),
-    });
-    loadAll();
+    // Flip immediately in local state so the UI responds instantly
+    setCampaigns(prev =>
+      prev.map(c => c.id === id ? { ...c, isActive: !current } : c)
+    );
+    try {
+      const res = await fetch(`/api/campaigns/social/${id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: !current }),
+      });
+      if (!res.ok) throw new Error("Failed to toggle");
+    } catch {
+      // Revert on failure
+      setCampaigns(prev =>
+        prev.map(c => c.id === id ? { ...c, isActive: current } : c)
+      );
+      setNotif({ msg: "Error al cambiar el estado", ok: false });
+    }
   };
 
   // ── Delete ────────────────────────────────────────────────────────────────
@@ -251,7 +274,7 @@ export default function SocialCampaignPage() {
     setFormProductIds(c.productIds);
     setFormGoal(c.campaignGoal); setFormTone(c.tone);
     setFormContext(c.extraContext ?? ""); setFormFrequency(c.frequency);
-    setFormStartDate(toDateLocal(c.startDate));
+    setFormStartDateTime(toDateTimeLocal(c.startDate));
     setFormEndDate(toDateLocal(c.endDate));
     setView("form");
   };
@@ -260,7 +283,7 @@ export default function SocialCampaignPage() {
     setEditId(null); setFormName(""); setFormPlatforms(["FACEBOOK"]);
     setFormProductIds([]); setFormGoal("promocion");
     setFormTone("cercano"); setFormContext(""); setFormFrequency("WEEKLY");
-    setFormStartDate(""); setFormEndDate("");
+    setFormStartDateTime(""); setFormEndDate("");
   };
 
   const togglePlatform = (p: string) =>
@@ -414,6 +437,17 @@ export default function SocialCampaignPage() {
                       <span>{t.crm.social.last} {formatDate(c.lastPostedAt)}</span>
                     )}
                   </div>
+
+                  {/* Inactive hint — only when manually paused (not by credits) */}
+                  {!c.isActive && !c.pausedByCredits && (
+                    <button
+                      onClick={() => toggleActive(c.id, c.isActive)}
+                      className="mt-3 inline-flex items-center gap-1.5 text-xs text-primary font-medium hover:underline focus:outline-none"
+                    >
+                      <Play size={11} className="fill-primary" />
+                      {t.crm.social.resumeHint}
+                    </button>
+                  )}
                 </div>
 
                 {/* Actions */}
@@ -651,8 +685,12 @@ export default function SocialCampaignPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t.crm.social.formStartDate}</label>
-              <input type="date" value={formStartDate} onChange={e => setFormStartDate(e.target.value)}
-                className="w-full border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2.5 bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-100 text-sm focus:ring-2 focus:ring-primary outline-none" />
+              <input
+                type="datetime-local"
+                value={formStartDateTime}
+                onChange={e => setFormStartDateTime(e.target.value)}
+                className="w-full border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2.5 bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-100 text-sm focus:ring-2 focus:ring-primary outline-none"
+              />
               <p className="text-xs text-gray-400 mt-1">{t.crm.social.formStartDateHint}</p>
             </div>
             <div>

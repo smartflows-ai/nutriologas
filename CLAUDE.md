@@ -85,6 +85,7 @@ src/
       social-campaign/  ← Campañas automatizadas para FB/Instagram
       whatsapp/         ← CRM de conversaciones WhatsApp
       apps/             ← Gestión de integraciones (Google, Facebook, WhatsApp)
+      negocio/          ← Perfil del negocio (nombre, logo, WhatsApp, info) — NO incluye slug
     api/
       auth/             ← NextAuth handlers ([...nextauth])
       products/         ← CRUD API de productos
@@ -102,6 +103,7 @@ src/
       credits/          ← API de créditos IA (GET estado, POST recarga Stripe)
       internal/         ← APIs internas para n8n (/tokens/report, /campaigns/due)
       tenants/          ← API de gestión de tenants
+      tenants/business/ ← GET/PUT perfil del negocio (name, logoUrl, whatsappNumber, businessInfo). Slug es read-only.
       upload/           ← Upload de imágenes a Cloudinary
       webhooks/         ← Webhooks de Conekta, WhatsApp Evolution API
   components/
@@ -166,6 +168,7 @@ El corazón del sistema. Cada negocio es un Tenant con:
 - n8n genera contenido con IA y publica en Facebook/Instagram
 - `nextPostAt` calculado automáticamente
 - `pausedByCredits` → boolean que indica si la campaña fue auto-pausada por falta de créditos de IA
+- **Scheduling gotcha**: Las fechas del formulario se envían como `datetime-local` (`YYYY-MM-DDTHH:mm`) para la `startDate` (con hora exacta del primer post) y `YYYY-MM-DDT23:59:59` para `endDate`. NUNCA envíes solo `YYYY-MM-DD` — JavaScript lo parsea como UTC midnight lo que causa que el primer post se dispare en el ciclo incorrecto o que la campaña expire prematuramente en zonas UTC-.
 
 ### AiTokenLedger
 - Tabla de contabilidad mensual de tokens y doble contabilidad (Retail vs Wholesale) por tenant
@@ -378,6 +381,16 @@ Luego acceder a `http://doctor.localhost:3000` para ver el tenant "doctor".
 - Row Level Security en Supabase (actualmente solo filtrado por app)
 - Rate limiting en `/api/chat`
 - Trial expiry gate completamente implementado en frontend
+
+---
+
+## Perfil de Negocio (`/admin/negocio`)
+
+- Ruta: `src/app/admin/negocio/page.tsx`
+- API: `GET/PUT /api/tenants/business`
+- Permite al admin editar: nombre del negocio, logo (Cloudinary upload), número de WhatsApp, descripción del negocio (`businessInfo`).
+- **El `slug` (subdominio) es read-only y NUNCA debe ser editable** — identificador único del tenant, modificarlo rompería las URLs.
+- El formulario muestra los valores actuales como placeholder y etiqueta "Actual" para cada campo.
 
 ---
 

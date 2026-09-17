@@ -21,7 +21,8 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Facebook,
-  Globe
+  Globe,
+  Building2
 } from "lucide-react";
 import SignOutButton from "@/components/admin/SignOutButton";
 import CreditsBadge from "@/components/admin/CreditsBadge";
@@ -54,6 +55,7 @@ export default function AdminSidebar({ userName, isAssistantEnabled, isTriageEna
     {
       title: t.admin.websiteSection,
       items: [
+        { href: "/admin/negocio", label: t.admin.business, icon: Building2 },
         { href: "/admin/carrusel", label: t.admin.carousel, icon: Image },
         { href: "/admin/apariencia", label: t.admin.appearance, icon: Palette },
         { href: "/admin/faq", label: t.admin.faq, icon: HelpCircle },

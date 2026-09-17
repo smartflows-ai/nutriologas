@@ -163,7 +163,7 @@ model AiTokenLedger {
 | **CreditsDrawer** | `src/components/admin/CreditsDrawer.tsx` | Left slide-out panel portaled to `document.body`. Displays billing cycle dates, prompt vs. completion token counts, live progress bar, and the "Recargar créditos" button. |
 | **ChatAssistant** | `src/components/chat/ChatAssistant.tsx` | Native CRM Copilot with real-time KPI Snapshot bar, quick CRM navigation shortcuts, 1-click prompt triggers, 402 credit handling, dark slate bubbles, and verified business badges. |
 | **AssistantThinkingIndicator** | `src/components/chat/AssistantThinkingIndicator.tsx` | Dynamic progress thinking bubble rotating through business-aware status updates (clinic, store, services) and motivational insight quotes with animated ping dots and stepper indicators. |
-| **SocialCampaignPage** | `src/app/admin/social-campaign/page.tsx` | Campaign manager showing warning banner when campaigns are auto-paused and rendering `pausedByCredits` badge. |
+| **SocialCampaignPage** | `src/app/admin/social-campaign/page.tsx` | Campaign manager showing warning banner when campaigns are auto-paused and rendering `pausedByCredits` badge. Inactive (manually paused) campaigns render an inline `resumeHint` CTA linking directly to `toggleActive`. Toggle uses optimistic UI update — no full-page reload. |
 
 ---
 
@@ -241,3 +241,46 @@ In both Google and Facebook OAuth handlers (`start/route.ts` and `callback/route
 - **Prisma Schema**: `prisma db push` and `prisma generate` keep DB models synchronized.
 - **Internationalization**: All UI elements must supply keys in `src/i18n/types.ts`, `src/i18n/es.ts`, and `src/i18n/en.ts`.
 
+---
+
+## 11. Business Profile Management (`/admin/negocio`)
+
+### 11.1 Functional Requirements
+- Admins can update their business identity information from a dedicated CRM page.
+- Editable fields: **Business Name** (`Tenant.name`), **Logo** (`Tenant.logoUrl`), **WhatsApp Number** (`Tenant.whatsappNumber`), **Business Description** (`Tenant.businessInfo`).
+- **`slug` (subdomain) is read-only** — displayed as an informational badge labeled "Dominio (fijo)". It is never sent in PUT requests and never accepted by the API.
+
+### 11.2 API Contract
+```
+GET  /api/tenants/business
+  Response: { name, slug, logoUrl, whatsappNumber, businessInfo }
+
+PUT  /api/tenants/business
+  Body: { name?, logoUrl?, whatsappNumber?, businessInfo? }
+  Auth: NextAuth session, role = ADMIN
+  tenantId: from JWT only
+  Response: { tenant }
+```
+
+### 11.3 UX Spec
+- Form fields show a **"Actual: {value}"** label below each input displaying the current saved value.
+- Logo upload via Cloudinary using the existing `/api/upload` endpoint.
+- On save, the form re-hydrates the "Actual" labels to reflect the newly saved values without requiring a page reload.
+
+---
+
+## 12. Social Campaign Scheduling — Datetime Fix
+
+### 12.1 Root Cause (Fixed)
+Date-only strings (`YYYY-MM-DD`) parsed by `new Date()` are treated as **UTC midnight**, which in UTC-6 timezones represents the previous day at 6:00 PM. This caused:
+1. `nextPostAt` being set to now + 1 frequency cycle instead of the user's intended start time.
+2. `endDate` expiring before midnight local time.
+
+### 12.2 Solution Architecture
+- **Start date input**: Changed from `type="date"` to `type="datetime-local"` (`YYYY-MM-DDTHH:mm`) — user picks the **exact time** the first post should fire.
+- **End date**: Appended `T23:59:59` before sending to the API so campaigns run through end-of-day.
+- **`nextPostAt` logic** (POST route): `parsedStartDate > now ? parsedStartDate : now` — if the start time is in the past or now, the campaign fires on the very next n8n poll; if in the future, it waits until that exact time.
+- **PATCH route**: Recalculates `nextPostAt` whenever `startDate` is edited.
+
+### 12.3 Scheduling Invariant
+> n8n polls `GET /api/campaigns/social/due` and receives campaigns where `nextPostAt <= now AND isActive = true AND pausedByCredits = false AND endDate >= now`. After posting, it calls `PATCH /{id} { markPosted: true }` to advance `nextPostAt` by one frequency interval.

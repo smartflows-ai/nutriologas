@@ -72,10 +72,11 @@ export async function POST(req: NextRequest) {
   const parsedStartDate = startDate ? new Date(startDate) : new Date();
   const parsedEndDate = new Date(endDate);
 
-  // Use startDate as the first post time if it is in the future.
-  // Otherwise compute normally.
   const now = new Date();
-  let nextPostAt = parsedStartDate > now ? parsedStartDate : computeNextPostAt(frequency);
+  // Use startDate as the first post time if it is in the future.
+  // If startDate is now or past, set nextPostAt = now so n8n picks it up
+  // on the very next poll (user wanted to start immediately or overdue).
+  let nextPostAt = parsedStartDate > now ? parsedStartDate : now;
 
   const campaign = await prisma.socialCampaign.create({
     data: {
