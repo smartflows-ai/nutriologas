@@ -214,7 +214,8 @@ El tenant siempre paga por **unidades de servicio de la plataforma** a la tarifa
 ### 4. Enforcing y Auto-Pausa
 - **Chatbot (`POST /api/chat`)**: Valida créditos antes de invocar OpenRouter. Si se agotaron, devuelve `402 Payment Required` con `{ error: "credit_exhausted" }`. El frontend muestra un toast de error, deshabilita el input y muestra un banner de recarga.
 - **Campañas Sociales (`GET /api/campaigns/social/due`)**: Cuando los créditos se agotan, `pauseCampaignsForTenant()` marca `isActive = false, pausedByCredits = true`. El endpoint `due` excluye automáticamente estas campañas para que n8n no genere posts sin saldo.
-- **Reporte Externo (`POST /api/internal/tokens/report`)**: Permite a n8n o workflows de WhatsApp reportar consumo de tokens con `x-internal-key`.
+- **Deducción de Tokens en Webhook Social (`POST /api/webhooks/social-campaign`)**: Cuando n8n publica un post (`social_campaign_posted`), envía `tokenUsage: { promptTokens, completionTokens, model }`. El webhook invoca atómicamente `recordTokenUsage()` debitando créditos a tarifa retail ($3.00/$15.00 por 1M) sin importar si el modelo fue gratuito, y almacena el registro en `SocialPost.postUrls.aiTokens`.
+- **Reporte Externo (`POST /api/internal/tokens/report`)**: Permite a n8n o workflows de WhatsApp reportar consumo de tokens directamente con `x-internal-key`.
 
 ### 5. Recarga y Reactivación Automática
 - El admin hace clic en "Recargar créditos" en el sidebar (`CreditsBadge`) o en el drawer (`CreditsDrawer`).
@@ -252,9 +253,15 @@ El sistema respeta los colores y la tipografía configurados por cada negocio en
 
 ---
 
-## Copiloto IA de Negocio (Claude / OpenRouter)
+## Copiloto IA de Negocio: Newy AI (OpenRouter Cascade)
 
 Endpoint: `POST /api/chat`
+
+### Identidad de Marca y White-Labeling (Regla Absoluta)
+El copiloto inteligente de la plataforma tiene como marca exclusiva **Newy AI** (o *Newy AI Copiloto*).
+- **Prohibición de Vendor Leaks**: Bajo ninguna circunstancia se debe mostrar a clientes o administradores nombres técnicos de proveedores internos (Claude, Anthropic, OpenAI, GPT, OpenRouter, Evolution API, n8n, etc.).
+- **Enmascaramiento de API**: En la respuesta de `POST /api/chat`, el campo `modelUsed` devuelve siempre `"Newy AI"` para proteger la infraestructura interna ante inspecciones de red en el navegador.
+- **Defensa de Identidad en `system-prompt.ts`**: Si un usuario pregunta "¿quién eres?" o intenta hacer jailbreak preguntando qué modelo es, Newy AI responde siempre que es el copiloto inteligente desarrollado por NewAigent.
 
 ### Experiencia Nativa en CRM (`/admin/asistente`)
 1. **Live KPI Snapshot Bar**: En cada carga (SSR), `src/app/admin/asistente/page.tsx` consulta en paralelo vía Prisma:
@@ -262,12 +269,12 @@ Endpoint: `POST /api/chat`
    - Pedidos Pendientes (`pendingOrdersCount`).
    - Catálogo Activo de productos (`activeProductsCount`).
    - Campañas Sociales Activas (`activeCampaignsCount`).
-2. **Disparadores de Pregunta con 1-Click**: Cada tarjeta de KPI incluye un botón interactivo "Preguntar ↗" al hacer hover, enviando de inmediato una consulta analítica y contextualizada al copiloto.
+2. **Disparadores de Pregunta con 1-Click**: Cada tarjeta de KPI incluye un botón interactivo "Preguntar ↗" al hacer hover, enviando de inmediato una consulta analítica y contextualizada a Newy AI.
 3. **Atajos Ejecutivos de Navegación**: Cabecera con accesos rápidos directos a `/admin/pedidos`, `/admin/calendario`, `/admin/productos` y `/admin/social-campaign`.
 4. **Flujo de Ejecución de Herramientas**:
    - El admin escribe en `/admin/asistente` o da click en una métrica.
    - El frontend envía la conversación a `POST /api/chat`.
-   - La API invoca a Claude/OpenRouter con tools definidas en `src/lib/ai/tools.ts`.
+   - La API invoca al cascade stack de Newy AI con tools definidas en `src/lib/ai/tools.ts`.
    - `execute-tool.ts` ejecuta queries Prisma **siempre filtradas por tenantId** del JWT de sesión.
 5. **Seguridad y Protección de Instrucciones del Sistema (`system-prompt.ts`)**:
    - Reglas estrictas contra **Prompt Injection** y jailbreaks.
@@ -277,19 +284,30 @@ Tools disponibles: ventas, pedidos, productos, clientes, reviews, calendario.
 
 ---
 
-## Automatización con n8n
+## Automatización con n8n y Medición de Tokens
 
-Las campañas sociales se automatizan con n8n:
+Las campañas sociales se ejecutan automáticamente en n8n:
 
-1. n8n hace poll a `GET /api/internal/campaigns/due` (campañas con `nextPostAt` vencido)
-2. Genera imágenes y texto con IA
-3. Publica en Facebook e Instagram via Graph API
-4. Llama a `PATCH /api/internal/campaigns/[id]/posted` para actualizar `lastPostedAt` y calcular `nextPostAt`
-5. Guarda el historial en `SocialPost`
-
-Las rutas `/api/internal/*` están excluidas del matcher del middleware.
+1. n8n consulta periódicamente `GET /api/campaigns/social/due` (verifica saldo de créditos antes de despachar).
+2. Genera contenido persuasivo con el nodo `Newy AI - Generate Content` y la imagen con `Build Image Request`.
+3. Publica en Facebook e Instagram vía Graph API.
+4. Actualiza la fecha de próxima publicación vía `PATCH /api/campaigns/social/[id]`.
+5. Notifica a `POST /api/webhooks/social-campaign` con `webhookPayload` conteniendo `tokenUsage: { promptTokens, completionTokens, model }`.
+6. El webhook procesa la deducción de créditos en `AiTokenLedger` mediante `recordTokenUsage()` aplicando el margen de retail y guarda el registro histórico en `SocialPost`.
 
 ---
+
+## Estándares de Vocabulario y White-Labeling
+
+Para mantener la calidad y el valor comercial de la plataforma, aplican las siguientes equivalencias obligatorias en interfaces de usuario y mensajes de error:
+
+| Término Interno / Proveedor | Nombre Comercial Visible al Usuario / Cliente |
+|---|---|
+| Claude / GPT / LLMs | **Newy AI** / Copiloto Newy AI |
+| Evolution API | **WhatsApp** / Conexión Segura de WhatsApp |
+| n8n | **Automatización Inteligente** / Flujos Automatizados |
+| Conekta | **Pasarela de pagos segura** / Tarjeta de crédito o débito |
+| OpenRouter / Prompt tokens | **Créditos Newy AI** / Unidades de Inteligencia |
 
 ## Variables de Entorno Críticas
 

@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
       });
     } catch (err: any) {
       console.error("[whatsapp-connect] Fetch error:", err.message);
-      return Response.json({ error: `Error conectando a Evolution API: ${err.message}` }, { status: 502 });
+      return Response.json({ error: "Error conectando con el servicio de WhatsApp" }, { status: 502 });
     }
 
     let qrCode = null;
@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
         checkData = await checkRes.json();
       } catch (err) {
         console.error("[whatsapp-connect] Failed to parse checkRes JSON");
-        return Response.json({ error: "Respuesta inválida de Evolution API al verificar instancia." }, { status: 502 });
+        return Response.json({ error: "Respuesta inesperada al verificar la conexión de WhatsApp." }, { status: 502 });
       }
 
       console.log("[whatsapp-connect] Instance exists, state:", checkData.instance?.state);
@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
           qrData = await qrRes.json();
         } catch (err) {
           console.error("[whatsapp-connect] Failed to parse qrRes JSON");
-          return Response.json({ error: "Respuesta inválida de Evolution API al pedir QR." }, { status: 502 });
+          return Response.json({ error: "No se pudo generar el código QR de WhatsApp." }, { status: 502 });
         }
         
         // Evolution API a veces devuelve la base64 directamente o en un objeto code
@@ -129,7 +129,7 @@ export async function POST(req: NextRequest) {
           data = await createRes.json();
         } catch (err) {
           console.error("[whatsapp-connect] Failed to parse createRes JSON");
-          return Response.json({ error: "Respuesta inválida de Evolution API al crear instancia." }, { status: 502 });
+          return Response.json({ error: "No se pudo inicializar la conexión de WhatsApp." }, { status: 502 });
         }
         console.log("[whatsapp-connect] Create success, has qr:", !!data.qrcode?.base64);
         qrCode = data.qrcode?.base64 ?? null;

@@ -54,7 +54,7 @@ const FEATURES: FeatureDef[] = [
   {
     id: "whatsapp",
     name: "WhatsApp",
-    description: "Mensajería con clientes vía Evolution API.",
+    description: "Mensajería y atención automatizada a clientes vía WhatsApp.",
     icon: <MessageSquare size={22} />,
     color: "from-green-500 to-green-600",
     comingSoon: false,
@@ -157,7 +157,7 @@ function WhatsAppConnectModal({
       }, 3000);
     } else {
       // Handle error scenario gracefully
-      toast(data.error || "Algo salió mal al conectar con Evolution API");
+      toast(data.error || "Algo salió mal al conectar con WhatsApp");
       setStep("idle");
     }
   };

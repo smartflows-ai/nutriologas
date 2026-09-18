@@ -75,7 +75,7 @@ function MessageBubble({
         {!isUser && (
           <div className="flex items-center justify-between pb-2 mb-2 border-b border-gray-100 dark:border-gray-800 text-xs">
             <div className="flex items-center gap-1.5 font-semibold text-gray-900 dark:text-white">
-              <span>Copiloto</span>
+              <span>Newy AI</span>
               {tenantName && (
                 <span className="text-gray-400 font-normal">· {tenantName}</span>
               )}

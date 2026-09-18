@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
       const n8nData = await n8nRes.json();
 
       if (!n8nRes.ok) {
-        return NextResponse.json({ error: n8nData.error ?? "Error en el agente n8n" }, { status: 500 });
+        return NextResponse.json({ error: n8nData.error ?? "Error en el agente de contenido" }, { status: 500 });
       }
 
       return NextResponse.json({ ok: true, postId: n8nData.postId, message: n8nData.message ?? "El agente publicó el post" });

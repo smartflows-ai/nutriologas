@@ -7,12 +7,12 @@ export default function DemoSection() {
   const { t } = useTranslation();
 
   const chapters = [
-    { icon: <ShoppingBag size={16} className="text-violet-400" />, title: "Tienda Online 24/7" },
-    { icon: <MessageSquare size={16} className="text-emerald-400" />, title: "WhatsApp CRM con IA" },
-    { icon: <Bot size={16} className="text-blue-400" />, title: "Generador de Contenido Social" },
-    { icon: <BarChart2 size={16} className="text-amber-400" />, title: "Métricas y Finanzas en Vivo" },
-    { icon: <Calendar size={16} className="text-pink-400" />, title: "Agenda y Citas Médicas" },
-    { icon: <Building2 size={16} className="text-indigo-400" />, title: "Multi-Tenant y Marca Blanca" },
+    { icon: <ShoppingBag size={16} className="text-violet-400" />, title: t.demoSection.chapters.store },
+    { icon: <MessageSquare size={16} className="text-emerald-400" />, title: t.demoSection.chapters.whatsapp },
+    { icon: <Bot size={16} className="text-blue-400" />, title: t.demoSection.chapters.social },
+    { icon: <BarChart2 size={16} className="text-amber-400" />, title: t.demoSection.chapters.metrics },
+    { icon: <Calendar size={16} className="text-pink-400" />, title: t.demoSection.chapters.calendar },
+    { icon: <Building2 size={16} className="text-indigo-400" />, title: t.demoSection.chapters.whiteLabel },
   ];
 
   return (
@@ -35,21 +35,23 @@ export default function DemoSection() {
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-violet-500/30 bg-violet-500/10 mb-4">
             <span className="w-2 h-2 rounded-full bg-violet-400 animate-pulse" />
             <span className="text-xs font-bold text-violet-300 uppercase tracking-widest">
-              Demo Completo en Español
+              {t.demoSection.badge}
             </span>
           </div>
 
           <h2 className="text-4xl sm:text-5xl font-black text-white tracking-tight mb-4">
-            Mira <span style={{
+            {t.demoSection.headlinePrefix}{" "}
+            <span style={{
               background: "linear-gradient(135deg, #A78BFA 0%, #60A5FA 50%, #06B6D4 100%)",
               WebkitBackgroundClip: "text",
               WebkitTextFillColor: "transparent",
               backgroundClip: "text",
-            }}>NewAigent</span> en Acción
+            }}>NewAigent</span>{" "}
+            {t.demoSection.headlineSuffix}
           </h2>
 
           <p className="text-gray-400 text-base sm:text-lg max-w-2xl mx-auto">
-            Descubre en menos de 2 minutos cómo la plataforma automatiza tus ventas por WhatsApp, tienda digital, publicaciones de redes y citas.
+            {t.demoSection.subtitle}
           </p>
         </div>
 
@@ -65,7 +67,7 @@ export default function DemoSection() {
             >
               <source src="/demo-video.mp4" type="video/mp4" />
               <source src="/demo%20video/NewAigent%20video%20espa%C3%B1ol.mp4" type="video/mp4" />
-              Tu navegador no soporta la reproducción de video HTML5.
+              {t.demoSection.browserNotSupported}
             </video>
           </div>
         </div>

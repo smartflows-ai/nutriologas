@@ -130,7 +130,7 @@ export async function POST(req: Request) {
 
     return Response.json({
       reply,
-      modelUsed: lastModelUsed,
+      modelUsed: "Newy AI",
       creditStatus: updatedCreditStatus,
     });
 

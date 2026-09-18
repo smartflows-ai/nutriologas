@@ -37,6 +37,21 @@ export interface Translations {
     card7Sub: string;
     agentTypes: string[];
   };
+  demoSection: {
+    badge: string;
+    headlinePrefix: string;
+    headlineSuffix: string;
+    subtitle: string;
+    browserNotSupported: string;
+    chapters: {
+      store: string;
+      whatsapp: string;
+      social: string;
+      metrics: string;
+      calendar: string;
+      whiteLabel: string;
+    };
+  };
   features: {
     badge: string;
     headline1: string;

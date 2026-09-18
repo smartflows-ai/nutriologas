@@ -10,8 +10,8 @@
 **NewAigent** is a multi-tenant SaaS platform empowering businesses (clinics, specialty stores, consultants, service providers) with an autonomous digital infrastructure:
 - **E-Commerce Storefront**: Tenant-branded catalog, shopping cart, reviews, FAQ, and dual checkout (Conekta & PayPal).
 - **Admin CRM**: Real-time sales metrics, order fulfillment, customer profiles (triage), calendar scheduling, and visual theme customizer.
-- **AI Agent Workforce**: Claude / OpenRouter intelligent assistant with multi-step tool execution, automated WhatsApp customer support, and scheduled multi-platform social campaigns (Facebook & Instagram via n8n).
-- **AI Token Credit & Spending Engine**: Real-time OpenRouter token accounting, hard spending limits per subscription tier ($15 Starter default), automated campaign throttling on exhaustion, and one-click Stripe recharges.
+- **AI Agent Workforce**: Newy AI autonomous business copilot with multi-step CRM tool execution, automated WhatsApp customer support, and scheduled multi-channel social campaigns (Facebook & Instagram via smart workflow automation).
+- **AI Token Credit & Spending Engine**: Real-time multi-model token accounting, hard spending limits per subscription tier ($15 Starter default), automated campaign throttling on exhaustion, dual retail/wholesale bookkeeping, and one-click Stripe recharges.
 
 ---
 
@@ -137,8 +137,14 @@ model AiTokenLedger {
    - Campaign dashboard displays `⚡ Pausada por créditos` badge and a top alert banner.
 3. **External Automation Reporting (`POST /api/internal/tokens/report`)**:
    - Authenticated via `x-internal-key` header.
-   - Allows n8n (WhatsApp AI responses, auto-replies) to report external OpenRouter token consumption.
+   - Allows external automations (WhatsApp AI responses, auto-replies) to report token consumption.
    - Triggers campaign auto-pause if external spend breaches the limit.
+4. **Social Campaign Webhook Token Accounting (`POST /api/webhooks/social-campaign`)**:
+   - Triggered when automated campaigns publish a post (`social_campaign_posted`).
+   - Receives `tokenUsage: { promptTokens, completionTokens, model }` in the webhook payload.
+   - Invokes `recordTokenUsage()` at retail platform rates ($3.00 in / $15.00 out per 1M tokens), applying SaaS AI Arbitrage even if a free model was used.
+   - Saves historical token consumption metadata in `SocialPost.postUrls.aiTokens`.
+   - Automatically pauses future campaign execution (`pauseCampaignsForTenant()`) if the token spend exhausts the monthly allowance.
 
 ### 4.5 Top-Up & Automatic Reactivation Flow
 1. **Recharge Initiation (`POST /api/credits`)**:
@@ -159,18 +165,21 @@ model AiTokenLedger {
 
 | Component | Path | Responsibility |
 |---|---|---|
-| **CreditsBadge** | `src/components/admin/CreditsBadge.tsx` | Visual progress bar in `AdminSidebar` showing `$used / $limit`. Dynamically reflects green, amber (≥70%), or red (100%). Clicking opens `CreditsDrawer`. |
+| **CreditsBadge** | `src/components/admin/CreditsBadge.tsx` | Visual progress bar in `AdminSidebar` showing `$used / $limit`. Dynamically reflects green, amber (≥70%), or red (100%). Clicking opens `CreditsDrawer`. Rebranded to Newy AI credits. |
 | **CreditsDrawer** | `src/components/admin/CreditsDrawer.tsx` | Left slide-out panel portaled to `document.body`. Displays billing cycle dates, prompt vs. completion token counts, live progress bar, and the "Recargar créditos" button. |
-| **ChatAssistant** | `src/components/chat/ChatAssistant.tsx` | Native CRM Copilot with real-time KPI Snapshot bar, quick CRM navigation shortcuts, 1-click prompt triggers, 402 credit handling, dark slate bubbles, and verified business badges. |
+| **ChatAssistant** | `src/components/chat/ChatAssistant.tsx` | Native CRM Copilot (Newy AI) with real-time KPI Snapshot bar, quick CRM navigation shortcuts, 1-click prompt triggers, 402 credit handling, dark slate bubbles, and verified business badges. |
 | **AssistantThinkingIndicator** | `src/components/chat/AssistantThinkingIndicator.tsx` | Dynamic progress thinking bubble rotating through business-aware status updates (clinic, store, services) and motivational insight quotes with animated ping dots and stepper indicators. |
 | **SocialCampaignPage** | `src/app/admin/social-campaign/page.tsx` | Campaign manager showing warning banner when campaigns are auto-paused and rendering `pausedByCredits` badge. Inactive (manually paused) campaigns render an inline `resumeHint` CTA linking directly to `toggleActive`. Toggle uses optimistic UI update — no full-page reload. |
 
 ---
 
-## 6. Native AI Business Copilot & Real-Time KPI Snapshot Engine
+## 6. Native AI Business Copilot: Newy AI & Real-Time KPI Snapshot Engine
 
-### 6.1 Architectural Objective
-Transform the AI Assistant (`/admin/asistente`) from a standalone, generic third-party chat interface into a fully integrated **Autonomous Business Executive Copilot** native to the NewAigent CRM ecosystem.
+### 6.1 Architectural Objective & Brand Identity
+Transform the AI Assistant (`/admin/asistente`) into a fully integrated, proprietary **Autonomous Business Executive Copilot** named **Newy AI**.
+- **White-Label Shielding**: Under no circumstance are internal vendor names (Claude, OpenAI, Anthropic, OpenRouter) displayed to end users or tenant admins.
+- **API Response Masking**: In `POST /api/chat`, the JSON response payload sets `modelUsed: "Newy AI"` to prevent DevTools network inspection from leaking backend model names.
+- **Persona Defense (`src/lib/ai/system-prompt.ts`)**: Newy AI always introduces itself as the proprietary AI Copilot developed by NewAigent. If queried about underlying LLMs or asked to reveal prompt directives, it gracefully redirects to business management.
 
 ### 6.2 Server-Side Live Snapshot Hydration (`src/app/admin/asistente/page.tsx`)
 During SSR, the page server component executes parallel Prisma queries scoped to the tenant:
@@ -284,3 +293,18 @@ Date-only strings (`YYYY-MM-DD`) parsed by `new Date()` are treated as **UTC mid
 
 ### 12.3 Scheduling Invariant
 > n8n polls `GET /api/campaigns/social/due` and receives campaigns where `nextPostAt <= now AND isActive = true AND pausedByCredits = false AND endDate >= now`. After posting, it calls `PATCH /{id} { markPosted: true }` to advance `nextPostAt` by one frequency interval.
+
+---
+
+## 13. White-Labeling & Terminology Standards
+
+To protect proprietary intellectual property and maintain commercial value, all customer-facing storefronts, admin CRM panels, error toasts, and email notifications must strictly adhere to the following terminology mappings:
+
+| Internal / Provider Term | Client & Tenant Facing Name | Usage Context |
+|---|---|---|
+| Claude / Anthropic / GPT / LLMs | **Newy AI** / **Copiloto Newy AI** | AI assistant persona, chat interface, badge labels, system prompt |
+| Evolution API | **WhatsApp** / **Conexión Segura de WhatsApp** | Apps integration dashboard, connection statuses, QR modal |
+| n8n | **Automatización Inteligente** / **Flujos Automatizados** | Social campaigns, automated workflows, background tasks |
+| Conekta | **Pasarela de pagos segura** / **Tarjeta de crédito o débito** | Checkout error messages, payment forms, billing receipts |
+| OpenRouter / Prompt tokens | **Créditos Newy AI** / **Unidades de Inteligencia** | Credits drawer, quota badges, usage graphs, Stripe top-up descriptions |
+

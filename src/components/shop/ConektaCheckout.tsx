@@ -90,7 +90,7 @@ export function ConektaCheckout({
       } catch (err) {
         if (!cancelled)
           setError(
-            "No se pudo cargar Conekta. Verifica tu conexión e intenta de nuevo.",
+            "No se pudo cargar la pasarela de pagos segura. Verifica tu conexión e intenta de nuevo.",
           );
         return;
       }
