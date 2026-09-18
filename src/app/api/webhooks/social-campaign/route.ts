@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { recordTokenUsage } from "@/lib/credits";
 
 export async function POST(req: Request) {
   try {
@@ -34,6 +35,32 @@ export async function POST(req: Request) {
         tenantId = camp.tenantId;
       }
 
+      // Record token usage if provided by n8n workflow
+      let creditStatus = null;
+      const usage = body.tokenUsage || body.usage;
+      if (usage) {
+        try {
+          const promptTokens = Number(usage.promptTokens ?? usage.prompt_tokens) || 0;
+          const completionTokens = Number(usage.completionTokens ?? usage.completion_tokens) || 0;
+          const modelId = usage.model || usage.modelId || "anthropic/claude-sonnet-4.5";
+
+          if (promptTokens > 0 || completionTokens > 0) {
+            creditStatus = await recordTokenUsage(
+              tenantId,
+              promptTokens,
+              completionTokens,
+              undefined,
+              modelId
+            );
+            console.log(
+              `[Social Webhook] AI credits updated for tenant ${tenantId}. Used: $${creditStatus.usedUsd.toFixed(4)}, Remaining: $${creditStatus.remainingUsd.toFixed(4)} (Exhausted: ${creditStatus.isExhausted})`
+            );
+          }
+        } catch (creditErr) {
+          console.error("[Social Webhook] Failed to record token usage:", creditErr);
+        }
+      }
+
       // Save it to the DB history table
       await prisma.socialPost.create({
         data: {
@@ -46,10 +73,10 @@ export async function POST(req: Request) {
           postedAt: body.postedAt ? new Date(body.postedAt) : new Date()
         }
       });
-    }
 
-    // Acknowledge receipt
-    return NextResponse.json({ ok: true, received: true });
+      // Acknowledge receipt
+      return NextResponse.json({ ok: true, received: true, creditStatus });
+    }
 
   } catch (error: any) {
     console.error("[Social Webhook API Error]:", error);
