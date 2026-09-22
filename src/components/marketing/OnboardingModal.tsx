@@ -95,6 +95,7 @@ export default function OnboardingModal({
   const [step, setStep] = useState<Step>(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   // Step 1 — Business
   const [name, setName] = useState("");
@@ -190,6 +191,10 @@ export default function OnboardingModal({
 
   // ── Submit ─────────────────────────────────────────────────────
   const handleSubmit = async () => {
+    if (!termsAccepted) {
+      setError(lang === "es" ? "Debes aceptar los Términos de Servicio y la Política de Privacidad para continuar." : "You must agree to the Terms of Service and Privacy Policy to continue.");
+      return;
+    }
     setLoading(true); setError("");
     const whatsappFull = phoneNumber ? `${dialCountry.dial}${phoneNumber.replace(/^0+/, "")}` : "";
     try {
@@ -535,6 +540,27 @@ export default function OnboardingModal({
                   <Gift size={16} className="text-violet-400 shrink-0" />
                   <span className="text-gray-400">{t.modals.onboarding.trialNote}</span>
                 </div>
+
+                <div className="mt-4 pt-3 border-t border-white/5 flex items-start gap-3 bg-[#12121e] p-3 rounded-xl border border-white/10 hover:border-violet-500/40 transition-colors">
+                  <input
+                    id="onboarding-terms-checkbox"
+                    type="checkbox"
+                    checked={termsAccepted}
+                    onChange={(e) => setTermsAccepted(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 rounded border-white/20 bg-white/5 text-violet-600 focus:ring-violet-500 focus:ring-offset-0 cursor-pointer accent-violet-600 shrink-0"
+                    required
+                  />
+                  <label htmlFor="onboarding-terms-checkbox" className="text-xs text-gray-300 leading-snug cursor-pointer select-none">
+                    {t.footer.rights ? "He leído y acepto los" : "I have read and agree to the"}{" "}
+                    <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-violet-400 hover:text-violet-300 underline font-semibold">
+                      {t.footer.terms}
+                    </a>{" "}
+                    {t.footer.rights ? "y la" : "and"}{" "}
+                    <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-violet-400 hover:text-violet-300 underline font-semibold">
+                      {t.footer.privacy}
+                    </a>.
+                  </label>
+                </div>
               </div>
             </div>
           )}
@@ -595,7 +621,7 @@ export default function OnboardingModal({
               ) : (
                 <button
                   onClick={handleSubmit}
-                  disabled={loading || slugStatus !== "available"}
+                  disabled={loading || slugStatus !== "available" || !termsAccepted}
                   className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-sm text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-300 hover:shadow-[0_0_20px_rgba(124,58,237,0.4)] hover:-translate-y-0.5"
                   style={{ background: "linear-gradient(135deg, #7C3AED 0%, #4F46E5 100%)" }}
                 >

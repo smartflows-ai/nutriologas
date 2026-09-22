@@ -109,9 +109,7 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials: any, req) {
-        console.log("[AUTH] ===== authorize() called =====");
         if (!credentials?.email || !credentials?.password) {
-          console.log("[AUTH] Missing email or password");
           return null;
         }
         const email = credentials.email.trim().toLowerCase();
@@ -130,36 +128,30 @@ export const authOptions: NextAuthOptions = {
         } else {
           tenantIdentifier = host.split(":")[0];
         }
-        console.log("[AUTH] Tenant identifier:", tenantIdentifier);
 
-        // 2. Buscar clínica y bloquear si no existe
-        let tenant = await prisma.tenant.findFirst({
+        // Buscar tenant y bloquear si no existe
+        const tenant = await prisma.tenant.findFirst({
           where: { OR: [{ slug: tenantIdentifier }, { customDomain: tenantIdentifier }] }
         });
 
         if (!tenant) {
-          console.warn(`[AUTH] Tenant NOT found for: ${tenantIdentifier} (host: ${host})`);
           return null;
         }
-        console.log("[AUTH] Tenant found:", tenant.id, tenant.name);
 
         const user = await prisma.user.findFirst({
           where: { email, tenantId: tenant.id },
         });
+        // Only accept bcrypt-hashed passwords
         if (!user || !user.passwordHash) return null;
-        let isValid = false;
         if (
-          user.passwordHash.startsWith("$2a$") ||
-          user.passwordHash.startsWith("$2b$") ||
-          user.passwordHash.startsWith("$2y$")
+          !user.passwordHash.startsWith("$2a$") &&
+          !user.passwordHash.startsWith("$2b$") &&
+          !user.passwordHash.startsWith("$2y$")
         ) {
-          isValid = await bcrypt.compare(credentials.password, user.passwordHash);
-        } else {
-          const isPlainMatch = user.passwordHash === credentials.password;
-          const isHashedMatch = user.passwordHash === `hashed_${credentials.password}`;
-          isValid = isPlainMatch || isHashedMatch;
+          // Password was not stored as a bcrypt hash — reject for security
+          return null;
         }
-
+        const isValid = await bcrypt.compare(credentials.password, user.passwordHash);
         if (!isValid) return null;
 
         return { id: user.id, email: user.email, name: user.name, role: user.role, tenantId: user.tenantId };

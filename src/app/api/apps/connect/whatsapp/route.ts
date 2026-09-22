@@ -60,14 +60,11 @@ export async function POST(req: NextRequest) {
         return Response.json({ error: "Respuesta inesperada al verificar la conexión de WhatsApp." }, { status: 502 });
       }
 
-      console.log("[whatsapp-connect] Instance exists, state:", checkData.instance?.state);
-
       if (checkData.instance?.state === "open") {
         // Ya esta conectado!
         status = "connected";
       } else {
         // Existe pero no esta conectado, pedimos QR fresco
-        console.log("[whatsapp-connect] Instance exists but not open, requesting QR...");
         const qrRes = await evoFetch(`${EVOLUTION_API_URL}/instance/connect/${instanceName}`, {
           method: "GET",
           headers: { "apikey": EVOLUTION_API_KEY },
@@ -80,21 +77,14 @@ export async function POST(req: NextRequest) {
           console.error("[whatsapp-connect] Failed to parse qrRes JSON");
           return Response.json({ error: "No se pudo generar el código QR de WhatsApp." }, { status: 502 });
         }
-        
+
         // Evolution API a veces devuelve la base64 directamente o en un objeto code
         qrCode = qrData.base64 || qrData.code || (typeof qrData === 'string' ? qrData : null);
-        
-        if (!qrCode && qrData.pairingCode) {
-           // Si no hay QR pero hay codigo de emparejamiento, lo mencionamos (opcional)
-           console.warn("[whatsapp-connect] No QR found, only pairing code");
-        }
-
-        console.log("[whatsapp-connect] QR fetched:", !!qrCode);
         status = qrCode ? "qr_pending" : "connecting";
       }
+
     } else {
       // No existe, creamos
-      console.log("[whatsapp-connect] Instance does not exist, creating...");
       const createRes = await evoFetch(`${EVOLUTION_API_URL}/instance/create`, {
         method: "POST",
         headers: {
@@ -119,9 +109,8 @@ export async function POST(req: NextRequest) {
 
       if (!createRes.ok) {
         const err = await createRes.text();
-        console.error("[whatsapp-connect] Create error:", err);
         if (!err.includes("already exists")) {
-          return Response.json({ error: `Error al crear instancia: ${err}` }, { status: 500 });
+          return Response.json({ error: "No se pudo inicializar la conexión de WhatsApp." }, { status: 500 });
         }
       } else {
         let data;
@@ -131,7 +120,6 @@ export async function POST(req: NextRequest) {
           console.error("[whatsapp-connect] Failed to parse createRes JSON");
           return Response.json({ error: "No se pudo inicializar la conexión de WhatsApp." }, { status: 502 });
         }
-        console.log("[whatsapp-connect] Create success, has qr:", !!data.qrcode?.base64);
         qrCode = data.qrcode?.base64 ?? null;
         status = qrCode ? "qr_pending" : "connecting";
       }
@@ -172,6 +160,6 @@ export async function POST(req: NextRequest) {
     return Response.json({ qrCode, status, instanceName, webhookUrl });
   } catch (err: any) {
     console.error("[whatsapp-connect] Unhandled error:", err.message);
-    return Response.json({ error: `Error interno: ${err.message}` }, { status: 500 });
+    return Response.json({ error: "Error interno al conectar WhatsApp" }, { status: 500 });
   }
 }

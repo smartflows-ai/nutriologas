@@ -105,12 +105,6 @@ export async function callOpenRouterWithCascade(
         const errText = await res.text();
         attempts.push({ model: currentModel, status: res.status, error: errText.slice(0, 150) });
 
-        console.warn(
-          `[OpenRouter Cascade] Model ${currentModel} returned HTTP ${res.status}. ${
-            i < modelStack.length - 1 ? "Failing over to next model in stack..." : "No more models in stack."
-          }`,
-        );
-
         if (i < modelStack.length - 1) {
           continue; // Seamlessly jump to next model in the cascade
         }
@@ -136,7 +130,6 @@ export async function callOpenRouterWithCascade(
     } catch (err: any) {
       if (i < modelStack.length - 1) {
         attempts.push({ model: currentModel, status: "error", error: err.message });
-        console.warn(`[OpenRouter Cascade] Failed on ${currentModel}: ${err.message}. Retrying with next model...`);
         continue;
       }
       throw err;

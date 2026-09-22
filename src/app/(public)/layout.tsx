@@ -1,5 +1,6 @@
 // src/app/(public)/layout.tsx
 import { prisma } from "@/lib/db";
+import Link from "next/link";
 import Navbar from "@/components/shop/Navbar";
 import WhatsAppButton from "@/components/shop/WhatsAppButton";
 import SessionProviderWrapper from "@/components/shop/SessionProviderWrapper";
@@ -62,6 +63,15 @@ export default async function PublicLayout({ children }: { children: React.React
         <main className="flex-1">{children}</main>
         <footer className="bg-gray-900 border-t border-gray-800 text-gray-400 text-sm text-center py-6 mt-16 dark:bg-black">
           <p>© {new Date().getFullYear()} {name}. Todos los derechos reservados.</p>
+          <div className="flex items-center justify-center gap-4 mt-2 text-xs text-gray-500">
+            <Link href="/privacy" className="hover:text-gray-300 transition-colors">
+              Política de Privacidad
+            </Link>
+            <span>•</span>
+            <Link href="/terms" className="hover:text-gray-300 transition-colors">
+              Términos de Servicio
+            </Link>
+          </div>
         </footer>
         {whatsapp && <WhatsAppButton phone={whatsapp} />}
       </div>

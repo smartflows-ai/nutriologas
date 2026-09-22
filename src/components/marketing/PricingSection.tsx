@@ -39,7 +39,7 @@ export default function PricingSection() {
           setPrices(data);
         }
       })
-      .catch((err) => console.error("Could not fetch prices:", err));
+      .catch(() => { /* fail silently — pricing defaults are used as fallback */ });
   }, []);
 
   const langKey = isEs ? "es" : "en";

@@ -16,6 +16,7 @@ export default function RegistroPage() {
   const callbackUrl = searchParams.get("callbackUrl") ?? "/";
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   const { register, handleSubmit, formState: { errors } } = useForm<RegisterInput>({
     resolver: zodResolver(registerSchema),
@@ -103,7 +104,33 @@ export default function RegistroPage() {
             {errors.confirmPassword && <p className="text-red-500 text-xs mt-1">{errors.confirmPassword.message}</p>}
           </div>
           {error && <p className="text-red-500 text-sm">{error}</p>}
-          <button type="submit" disabled={loading} className="btn-primary w-full py-3">
+
+          <div className="flex items-start gap-2.5 p-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50/70 dark:bg-gray-900/60 transition-colors">
+            <input
+              id="registro-terms-checkbox"
+              type="checkbox"
+              checked={termsAccepted}
+              onChange={(e) => setTermsAccepted(e.target.checked)}
+              className="mt-0.5 w-4 h-4 rounded border-gray-300 dark:border-gray-700 text-primary focus:ring-primary cursor-pointer accent-primary shrink-0"
+              required
+            />
+            <label htmlFor="registro-terms-checkbox" className="text-xs text-gray-600 dark:text-gray-300 leading-snug cursor-pointer select-none">
+              {t.footer.rights ? "He leído y acepto los" : "I have read and agree to the"}{" "}
+              <Link href="/terms" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-semibold">
+                {t.footer.terms}
+              </Link>{" "}
+              {t.footer.rights ? "y la" : "and"}{" "}
+              <Link href="/privacy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-semibold">
+                {t.footer.privacy}
+              </Link>.
+            </label>
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading || !termsAccepted}
+            className="btn-primary w-full py-3 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+          >
             {loading ? t.auth.registering : t.auth.registerButton}
           </button>
         </form>

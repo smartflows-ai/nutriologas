@@ -1,5 +1,5 @@
-// src/components/marketing/MarketingFooter.tsx
 import Image from "next/image";
+import Link from "next/link";
 import { useTranslation } from "@/i18n";
 
 export default function MarketingFooter() {
@@ -98,11 +98,15 @@ export default function MarketingFooter() {
             © {year} NewAigent. {t.footer.rights}
           </p>
           <div className="flex items-center gap-6">
-            {[t.footer.privacy, t.footer.terms, t.footer.cookies].map((item) => (
-              <a key={item} href="#" className="text-gray-700 text-xs hover:text-gray-400 transition-colors">
-                {item}
-              </a>
-            ))}
+            <Link href="/privacy" className="text-gray-600 text-xs hover:text-gray-300 transition-colors">
+              {t.footer.privacy}
+            </Link>
+            <Link href="/terms" className="text-gray-600 text-xs hover:text-gray-300 transition-colors">
+              {t.footer.terms}
+            </Link>
+            <Link href="/privacy#cookies" className="text-gray-600 text-xs hover:text-gray-300 transition-colors">
+              {t.footer.cookies}
+            </Link>
           </div>
         </div>
       </div>

@@ -6,7 +6,7 @@ export async function POST(req: Request) {
   try {
     // 1. Verify internal secret
     const secret = req.headers.get("x-internal-secret");
-    if (secret !== process.env.INTERNAL_API_KEY) {
+    if (!process.env.INTERNAL_API_KEY || secret !== process.env.INTERNAL_API_KEY) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -16,14 +16,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
     }
 
-    console.log("[Social Webhook] Received payload:", body.type, "for campaign:", body.campaignId);
-
     // If it's an error notification, we may handle it specially
     if (body.type === "social_campaign_error") {
-      console.warn(`[Social Webhook] Campaign ${body.campaignId} failed. Error:`, body.error);
       return NextResponse.json({ ok: false, error: "Logged error" });
     } else {
-      console.log(`[Social Webhook] Campaign ${body.campaignId} successfully posted.`);
 
       let tenantId = body.tenantId;
       if (!tenantId) {
@@ -51,9 +47,6 @@ export async function POST(req: Request) {
               completionTokens,
               undefined,
               modelId
-            );
-            console.log(
-              `[Social Webhook] AI credits updated for tenant ${tenantId}. Used: $${creditStatus.usedUsd.toFixed(4)}, Remaining: $${creditStatus.remainingUsd.toFixed(4)} (Exhausted: ${creditStatus.isExhausted})`
             );
           }
         } catch (creditErr) {
