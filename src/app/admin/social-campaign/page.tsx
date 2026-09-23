@@ -206,11 +206,15 @@ export default function SocialCampaignPage() {
     }
     setSaving(true);
     try {
+      const finalSelectedImage = formProductIds.length > 0
+        ? (formSelectedImageUrl || products.find(p => formProductIds.includes(p.id))?.images?.[0] || null)
+        : null;
+
       const body = {
         name: formName || t.crm.social.defaultCampaignName,
         platforms: formPlatforms,
         productIds: formProductIds,
-        selectedImageUrl: formProductIds.length > 0 ? (formSelectedImageUrl || null) : null,
+        selectedImageUrl: finalSelectedImage,
         campaignGoal: formGoal,
         tone: formTone,
         extraContext: formContext || undefined,
@@ -287,8 +291,17 @@ export default function SocialCampaignPage() {
   const openEdit = (c: SocialCampaign) => {
     setEditId(c.id);
     setFormName(c.name); setFormPlatforms(c.platforms);
-    setFormProductIds(c.productIds);
-    setFormSelectedImageUrl(c.selectedImageUrl ?? "");
+    // Enforce single product selection (if historically multiple, match by selectedImageUrl or first)
+    let singleProductIds = c.productIds;
+    if (c.productIds.length > 1) {
+      const match = products.find(p => c.productIds.includes(p.id) && Array.isArray(p.images) && p.images.includes(c.selectedImageUrl || ""));
+      singleProductIds = match ? [match.id] : [c.productIds[0]];
+    }
+    setFormProductIds(singleProductIds);
+    const initialImg = c.selectedImageUrl || (
+      products.find(p => singleProductIds.includes(p.id))?.images?.[0] || ""
+    );
+    setFormSelectedImageUrl(initialImg);
     setFormGoal(c.campaignGoal); setFormTone(c.tone);
     setFormContext(c.extraContext ?? ""); setFormFrequency(c.frequency);
     setFormStartDateTime(toDateTimeLocal(c.startDate));
@@ -306,22 +319,18 @@ export default function SocialCampaignPage() {
   const togglePlatform = (p: string) =>
     setFormPlatforms(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]);
 
-  const toggleProduct = (id: string) =>
-    setFormProductIds(prev => {
-      const next = prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id];
-      if (next.length === 0) {
-        setFormSelectedImageUrl("");
-      } else if (!formSelectedImageUrl) {
-        const prod = products.find(p => p.id === next[0]);
-        if (prod?.images?.[0]) setFormSelectedImageUrl(prod.images[0]);
-      } else {
-        const remainingImages = products.filter(p => next.includes(p.id)).flatMap(p => p.images || []);
-        if (!remainingImages.includes(formSelectedImageUrl)) {
-          setFormSelectedImageUrl(remainingImages[0] || "");
-        }
-      }
-      return next;
-    });
+  const toggleProduct = (id: string) => {
+    if (formProductIds.includes(id)) {
+      // Deselect if already selected
+      setFormProductIds([]);
+      setFormSelectedImageUrl("");
+    } else {
+      // Single select: only allow one product to be selected at a time
+      setFormProductIds([id]);
+      const prod = products.find(p => p.id === id);
+      setFormSelectedImageUrl(prod?.images?.[0] || "");
+    }
+  };
 
   // ── Loading ────────────────────────────────────────────────────────────────
   if (loading) return (
@@ -704,7 +713,7 @@ export default function SocialCampaignPage() {
             )}
           </div>
 
-          {/* Interactive Image Picker - only displayed when at least one product is selected */}
+          {/* Post Photo Picker - only displayed when at least one product is selected */}
           {formProductIds.length > 0 && (() => {
             const relevantProducts = products.filter(p => formProductIds.includes(p.id));
             const availableImages = relevantProducts.flatMap(p =>
@@ -733,7 +742,7 @@ export default function SocialCampaignPage() {
                       <button
                         key={`${item.productId}-${item.idx}-${index}`}
                         type="button"
-                        onClick={() => setFormSelectedImageUrl(isSelected ? "" : item.url)}
+                        onClick={() => setFormSelectedImageUrl(item.url)}
                         className={`group relative aspect-square rounded-xl overflow-hidden border-2 transition-all cursor-pointer ${
                           isSelected
                             ? "border-primary ring-2 ring-primary/40 shadow-md scale-[1.02]"
@@ -741,15 +750,9 @@ export default function SocialCampaignPage() {
                         }`}
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={item.url}
-                          alt={item.productName}
-                          className="w-full h-full object-cover"
-                        />
+                        <img src={item.url} alt={item.productName} className="w-full h-full object-cover" />
                         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-1.5 text-left opacity-0 group-hover:opacity-100 transition-opacity">
-                          <p className="text-[10px] text-white font-medium truncate leading-tight">
-                            {item.productName}
-                          </p>
+                          <p className="text-[10px] text-white font-medium truncate leading-tight">{item.productName}</p>
                         </div>
                         {isSelected && (
                           <div className="absolute top-1.5 right-1.5 w-6 h-6 bg-primary text-white rounded-full flex items-center justify-center shadow-md">
