@@ -356,22 +356,20 @@ export default function SocialCampaignPage() {
   return (
     <div className="max-w-3xl mx-auto">
       {/* Header */}
-      <div className="mb-8 flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
         <div>
-          <div className="flex items-center gap-3 mb-1">
-            <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center">
-              <Globe className="w-5 h-5 text-white" />
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t.crm.social.title}</h1>
-          </div>
-          <p className="text-gray-500 text-sm mt-1 ml-12">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2.5">
+            <Globe className="text-primary" size={26} />
+            {t.crm.social.title}
+          </h1>
+          <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
             {t.crm.social.subtitle}
           </p>
         </div>
         {view === "list" && (
           <button
             onClick={() => { resetForm(); setView("form"); }}
-            className="btn-primary flex items-center gap-2 text-sm px-4 py-2.5"
+            className="btn-primary flex items-center gap-2 text-sm px-4 py-2.5 shadow-sm"
           >
             <Plus size={16} /> {t.crm.social.newCampaign}
           </button>

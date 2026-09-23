@@ -3,7 +3,7 @@ import { getAppSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { formatPrice, formatDate } from "@/lib/utils";
 import Link from "next/link";
-import { Eye } from "lucide-react";
+import { Eye, ShoppingBag } from "lucide-react";
 import Pagination from "@/components/admin/Pagination";
 
 const STATUS_CLASSES: Record<string, string> = {
@@ -81,8 +81,13 @@ export default async function PedidosPage({
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">{t.crm.orders.title}</h1>
-        <p className="text-gray-500 text-sm">{totalCount} {t.crm.orders.totalOrders}</p>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2.5">
+          <ShoppingBag className="text-primary" size={26} />
+          {t.crm.orders.title}
+        </h1>
+        <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
+          {t.crm.orders.subtitle} • {totalCount} {t.crm.orders.totalOrders}
+        </p>
       </div>
 
       {/* Filter tabs */}
@@ -91,10 +96,10 @@ export default async function PedidosPage({
           <Link
             key={f.value}
             href={f.value === "ALL" ? "/admin/pedidos" : `/admin/pedidos?status=${f.value}`}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+            className={`px-3.5 py-1.5 rounded-xl text-sm font-medium transition-all ${
               activeFilter === f.value
-                ? "bg-primary text-white"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                ? "bg-primary text-white shadow-sm shadow-primary/20"
+                : "bg-gray-100 dark:bg-gray-800/80 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
             }`}
           >
             {f.label} ({f.count})

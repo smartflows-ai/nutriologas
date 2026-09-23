@@ -43,8 +43,13 @@ export default function AparienciaPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{t.crm.appearance.title}</h1>
-      <p className="text-gray-500 text-sm mb-8">{t.crm.appearance.subtitle}</p>
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2.5">
+          <Palette className="text-primary" size={26} />
+          {t.crm.appearance.title}
+        </h1>
+        <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">{t.crm.appearance.subtitle}</p>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Color form */}

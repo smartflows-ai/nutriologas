@@ -2,7 +2,7 @@
 import { getAppSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { formatPrice } from "@/lib/utils";
-import { ShoppingBag, Users, Star, TrendingUp } from "lucide-react";
+import { ShoppingBag, Users, Star, TrendingUp, BarChart3 } from "lucide-react";
 import SalesChart from "@/components/crm/SalesChart";
 import ProductsChart from "@/components/crm/ProductsChart";
 import RatingsChart from "@/components/crm/RatingsChart";
@@ -98,7 +98,7 @@ async function getDashboardData(tenantId: string, rangeStr: string) {
 
 import { getTranslationServer } from "@/i18n/server";
 
-export default async function DashboardPage({ searchParams }: { searchParams: { range?: string } }) {
+export default async function DashboardPage({ searchParams }: { searchParams: { range?: string; subscribed?: string } }) {
   const session = await getAppSession();
   const tenantId = session!.user.tenantId;
   const range = searchParams.range || "7d";
@@ -114,8 +114,32 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
 
   return (
     <div>
+      {searchParams?.subscribed === "true" && (
+        <div className="mb-6 p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 flex items-center justify-between text-emerald-800 dark:text-emerald-200 shadow-sm animate-fade-in">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/60 flex items-center justify-center text-emerald-600 dark:text-emerald-400 font-bold text-sm">
+              ✓
+            </div>
+            <div>
+              <p className="text-sm font-bold">¡Suscripción activada con éxito!</p>
+              <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                Tu plan ha sido confirmado y todas las funciones de NewAigent están desbloqueadas sin restricciones.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t.crm.dashboard.title}</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2.5">
+            <BarChart3 className="text-primary" size={26} />
+            {t.crm.dashboard.title}
+          </h1>
+          <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
+            {t.crm.dashboard.subtitle}
+          </p>
+        </div>
         <DashboardFilters />
       </div>
 

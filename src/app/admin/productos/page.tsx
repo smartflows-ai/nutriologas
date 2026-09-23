@@ -98,12 +98,19 @@ export default function ProductosPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t.crm.products.title}</h1>
-          <p className="text-gray-500 text-sm">{totalCount} {t.crm.products.totalProducts}</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2.5">
+            <Package className="text-primary" size={26} />
+            {t.crm.products.title}
+          </h1>
+          <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
+            {t.crm.products.subtitle} • {totalCount} {t.crm.products.totalProducts}
+          </p>
         </div>
-        <button onClick={openCreate} className="btn-primary flex items-center gap-2"><Plus size={18} /> {t.crm.products.newProduct}</button>
+        <button onClick={openCreate} className="btn-primary flex items-center gap-2 shadow-sm">
+          <Plus size={18} /> {t.crm.products.newProduct}
+        </button>
       </div>
 
       {loadingProducts ? (

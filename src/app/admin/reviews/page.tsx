@@ -51,8 +51,15 @@ export default function ReviewsPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{t.crm.reviews.title}</h1>
-      <p className="text-gray-500 text-sm mb-8">{totalCount} {t.crm.reviews.totalReviews}</p>
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2.5">
+          <Star className="text-primary fill-primary/20" size={26} />
+          {t.crm.reviews.title}
+        </h1>
+        <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
+          {t.crm.reviews.subtitle} • {totalCount} {t.crm.reviews.totalReviews}
+        </p>
+      </div>
 
       {/* Filter */}
       <div className="flex gap-2 mb-6 flex-wrap">
@@ -60,7 +67,11 @@ export default function ReviewsPage() {
           <button 
             key={f} 
             onClick={() => handleFilterChange(f)} 
-            className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${filter === f ? "bg-primary text-white border-primary" : "border-gray-300 text-gray-600 dark:text-gray-400 hover:border-primary"}`}
+            className={`px-3.5 py-1.5 rounded-xl text-sm font-medium border transition-all ${
+              filter === f 
+                ? "bg-primary text-white border-primary shadow-sm shadow-primary/20" 
+                : "border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 hover:border-primary/50 hover:text-gray-900 dark:hover:text-white"
+            }`}
           >
             {f === "all" ? (
               t.crm.reviews.all

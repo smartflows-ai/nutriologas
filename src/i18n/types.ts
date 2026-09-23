@@ -280,6 +280,7 @@ export interface Translations {
   crm: {
     dashboard: {
       title: string;
+      subtitle: string;
       period: string;
       last7d: string;
       last30d: string;
@@ -303,6 +304,7 @@ export interface Translations {
     };
     orders: {
       title: string;
+      subtitle: string;
       totalOrders: string;
       status: {
         pending: string;
@@ -330,6 +332,7 @@ export interface Translations {
     };
     products: {
       title: string;
+      subtitle: string;
       totalProducts: string;
       newProduct: string;
       loading: string;
@@ -370,6 +373,7 @@ export interface Translations {
     };
     reviews: {
       title: string;
+      subtitle: string;
       totalReviews: string;
       all: string;
       loading: string;

@@ -322,11 +322,11 @@ export default function AppsPage() {
     <div>
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-          <Plug className="text-primary" size={24} />
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2.5">
+          <Plug className="text-primary" size={26} />
           {t.crm.apps.title}
         </h1>
-        <p className="text-gray-500 text-sm mt-1">
+        <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
           {t.crm.apps.subtitle}
         </p>
       </div>

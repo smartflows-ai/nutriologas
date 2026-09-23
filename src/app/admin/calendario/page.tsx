@@ -22,18 +22,18 @@ export default async function CalendarioPage() {
   return (
     <div>
       {/* Page Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-            <CalendarIcon className="text-primary" size={24} />
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2.5">
+            <CalendarIcon className="text-primary" size={26} />
             {t.crm.calendar.title}
           </h1>
-          <p className="text-gray-500 text-sm mt-1">{t.crm.calendar.subtitle}</p>
+          <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">{t.crm.calendar.subtitle}</p>
         </div>
         {!isConnected && (
           <Link
             href="/admin/apps"
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-white text-sm font-medium rounded-xl hover:bg-primary/90 transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-white text-sm font-medium rounded-xl hover:bg-primary/90 transition-colors shadow-sm"
           >
             <CalendarIcon size={16} />
             {t.crm.calendar.connectCalendar}

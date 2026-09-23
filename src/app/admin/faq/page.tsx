@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Trash2, Plus, GripVertical, Check, Pencil, Eye, EyeOff, X } from "lucide-react";
+import { Trash2, Plus, GripVertical, Check, Pencil, Eye, EyeOff, X, HelpCircle } from "lucide-react";
 import { useTranslation } from "@/i18n";
 
 interface FAQ {
@@ -118,10 +118,13 @@ export default function FAQPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t.crm.faq.title}</h1>
-          <p className="text-gray-500 text-sm">{t.crm.faq.subtitle}</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2.5">
+            <HelpCircle className="text-primary" size={26} />
+            {t.crm.faq.title}
+          </h1>
+          <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">{t.crm.faq.subtitle}</p>
         </div>
         {!showAddForm && (
           <button 

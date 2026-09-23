@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { formatPrice, formatDate } from "@/lib/utils";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ShoppingBag } from "lucide-react";
 import OrderStatusSelect from "./OrderStatusSelect";
 
 export default async function OrderDetailPage({
@@ -50,8 +50,11 @@ export default async function OrderDetailPage({
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Pedido #{order.id.slice(0, 8)}</h1>
-          <p className="text-gray-500 text-sm">{formatDate(order.createdAt)}</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2.5">
+            <ShoppingBag className="text-primary" size={26} />
+            Pedido #{order.id.slice(0, 8)}
+          </h1>
+          <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">{formatDate(order.createdAt)}</p>
         </div>
         <OrderStatusSelect orderId={order.id} currentStatus={order.status} />
       </div>

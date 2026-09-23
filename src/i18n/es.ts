@@ -332,6 +332,7 @@ export const es: Translations = {
   crm: {
     dashboard: {
       title: "Dashboard Analítico",
+      subtitle: "Monitorea las métricas clave, ventas, citas y actividad reciente de tu negocio.",
       period: "Período:",
       last7d: "Últimos 7 días",
       last30d: "Últimos 30 días",
@@ -355,6 +356,7 @@ export const es: Translations = {
     },
     orders: {
       title: "Pedidos",
+      subtitle: "Gestiona y da seguimiento a todas las órdenes y envíos de tu tienda.",
       totalOrders: "pedidos en total",
       status: {
         pending: "Pendiente",
@@ -382,6 +384,7 @@ export const es: Translations = {
     },
     products: {
       title: "Productos",
+      subtitle: "Administra tu catálogo de productos, precios, inventario y disponibilidad.",
       totalProducts: "productos en total",
       newProduct: "Nuevo producto",
       loading: "Cargando productos...",
@@ -422,6 +425,7 @@ export const es: Translations = {
     },
     reviews: {
       title: "Reseñas",
+      subtitle: "Modera las opiniones de tus clientes y gestiona su visibilidad pública.",
       totalReviews: "reseñas en total",
       all: "Todos",
       loading: "Cargando...",
