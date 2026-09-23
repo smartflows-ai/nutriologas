@@ -289,14 +289,26 @@ Tools disponibles: ventas, pedidos, productos, clientes, reviews, calendario.
 
 ## Automatización con n8n y Medición de Tokens
 
-Las campañas sociales se ejecutan automáticamente en n8n:
+Las campañas sociales se ejecutan automáticamente en n8n bajo una estricta **arquitectura API-first** (n8n **nunca** se conecta directamente a la base de datos PostgreSQL; todas las operaciones se realizan mediante llamadas HTTP autenticadas con `x-internal-secret` a las APIs de Next.js):
 
-1. n8n consulta periódicamente `GET /api/campaigns/social/due` (verifica saldo de créditos antes de despachar).
-2. Genera contenido persuasivo con el nodo `Newy AI - Generate Content` y la imagen con `Build Image Request`.
-3. Publica en Facebook e Instagram vía Graph API.
-4. Actualiza la fecha de próxima publicación vía `PATCH /api/campaigns/social/[id]`.
-5. Notifica a `POST /api/webhooks/social-campaign` con `webhookPayload` conteniendo `tokenUsage: { promptTokens, completionTokens, model }`.
-6. El webhook procesa la deducción de créditos en `AiTokenLedger` mediante `recordTokenUsage()` aplicando el margen de retail y guarda el registro histórico en `SocialPost`.
+1. **Consulta de Campañas Programadas**: n8n consulta periódicamente `GET /api/campaigns/social/due` (filtra `nextPostAt <= now AND isActive = true AND pausedByCredits = false`).
+2. **Contexto de Campaña y Tenant**: n8n invoca `GET /api/campaigns/social/[id]/context` para recibir la configuración de la campaña, credenciales de Meta y los datos del negocio.
+3. **Selección Dinámica de Imagen (`selectedImageUrl`)**:
+   - En la UI (`/admin/social-campaign`), el usuario selecciona interactivamente cualquier foto de producto de su catálogo (nunca hardcodeado `images[0]`).
+   - La URL seleccionada se persiste en `SocialCampaign.selectedImageUrl` en la base de datos PostgreSQL.
+   - En el nodo `Build Image Request`, n8n lee `campaign.selectedImageUrl` directamente desde el payload de contexto. Si no hay una foto asignada, utiliza como respaldo la foto del producto o fotografía editorial libre de marcas de agua.
+4. **Almacenamiento Aislado en Cloudinary**:
+   - El nodo `Upload to Cloudinary` sube los medios procesados a la ruta por tenant: `nutriologas/{{ tenantId }}/campaigns`.
+5. **Generación de Copy Estratégico (Modelos Gratuitos de OpenRouter)**:
+   - El nodo `Newy AI - Generate Content` envía el prompt a OpenRouter utilizando `google/gemini-2.0-flash-exp:free` (con respaldo a `meta-llama/llama-3.3-70b-instruct:free` y `openrouter/free`).
+   - Incluye filtros de desinfección anti-leak para eliminar tokens de pensamiento (`<think>`) y evitar fugas del system prompt hacia Facebook o Instagram.
+6. **Publicación en Meta Graph API**:
+   - Facebook Page: `POST /v19.0/{pageId}/photos`.
+   - Instagram Business: `POST /v19.0/{igUserId}/media` (contenedor) -> espera 5s -> `POST /v19.0/{igUserId}/media_publish`.
+7. **Actualización de Calendario**: Llama a `PATCH /api/campaigns/social/[id]` con `markPosted: true` para que el CRM recalcule el `nextPostAt`.
+8. **Auditoría y Ledger de Tokens**:
+   - Notifica a `POST /api/webhooks/social-campaign` con `webhookPayload` conteniendo `tokenUsage: { promptTokens, completionTokens, model }`.
+   - El webhook deduce créditos en `AiTokenLedger` aplicando las tarifas estándar del SaaS ($3.00 in / $15.00 out por 1M de tokens) y registra el post en `SocialPost`.
 
 ---
 

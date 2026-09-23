@@ -210,7 +210,7 @@ export default function SocialCampaignPage() {
         name: formName || t.crm.social.defaultCampaignName,
         platforms: formPlatforms,
         productIds: formProductIds,
-        selectedImageUrl: formSelectedImageUrl || null,
+        selectedImageUrl: formProductIds.length > 0 ? (formSelectedImageUrl || null) : null,
         campaignGoal: formGoal,
         tone: formTone,
         extraContext: formContext || undefined,
@@ -309,9 +309,16 @@ export default function SocialCampaignPage() {
   const toggleProduct = (id: string) =>
     setFormProductIds(prev => {
       const next = prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id];
-      if (!formSelectedImageUrl && next.length > 0) {
+      if (next.length === 0) {
+        setFormSelectedImageUrl("");
+      } else if (!formSelectedImageUrl) {
         const prod = products.find(p => p.id === next[0]);
         if (prod?.images?.[0]) setFormSelectedImageUrl(prod.images[0]);
+      } else {
+        const remainingImages = products.filter(p => next.includes(p.id)).flatMap(p => p.images || []);
+        if (!remainingImages.includes(formSelectedImageUrl)) {
+          setFormSelectedImageUrl(remainingImages[0] || "");
+        }
       }
       return next;
     });
@@ -697,11 +704,9 @@ export default function SocialCampaignPage() {
             )}
           </div>
 
-          {/* Interactive Image Picker */}
-          {(() => {
-            const relevantProducts = formProductIds.length > 0
-              ? products.filter(p => formProductIds.includes(p.id))
-              : products;
+          {/* Interactive Image Picker - only displayed when at least one product is selected */}
+          {formProductIds.length > 0 && (() => {
+            const relevantProducts = products.filter(p => formProductIds.includes(p.id));
             const availableImages = relevantProducts.flatMap(p =>
               (p.images || []).map((img, idx) => ({
                 url: img,

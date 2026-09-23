@@ -292,12 +292,25 @@ All third-party OAuth flows (`/api/apps/oauth/google/*` and `/api/apps/oauth/fac
 
 ## 8. Automated Social Campaigns & AI Token Accounting
 
-1. Automation engine (n8n) polls `GET /api/campaigns/social/due` (filters by `nextPostAt <= now AND isActive = true AND pausedByCredits = false`).
-2. Generates persuasive copy with `Newy AI - Generate Content` node and image prompt via `Build Image Request`.
-3. Publishes to Facebook & Instagram via Meta Graph API.
-4. Updates next schedule via `PATCH /api/campaigns/social/[id]`.
-5. Webhook Notification: Calls `POST /api/webhooks/social-campaign` with `tokenUsage: { promptTokens, completionTokens, model }`.
-6. Token Ledger Deduction: The webhook invokes `recordTokenUsage()` at retail platform rates ($3.00/$15.00 per 1M), debits `AiTokenLedger`, saves metadata in `SocialPost.postUrls.aiTokens`, and automatically pauses campaigns if the monthly credit limit is breached.
+The social automation engine (n8n) operates under an **API-first architecture**. Under no circumstances should n8n connect directly to the PostgreSQL database — all reads and mutations are performed via authenticated Next.js internal endpoints (`x-internal-secret`):
+
+1. **Scheduled Polling**: n8n polls `GET /api/campaigns/social/due` (filters by `nextPostAt <= now AND isActive = true AND pausedByCredits = false`).
+2. **Context Hydration**: Calls `GET /api/campaigns/social/[id]/context` to retrieve campaign settings, Meta credentials, and tenant metadata.
+3. **Dynamic User-Selected Image (`selectedImageUrl`)**:
+   - The user visually selects the exact photo from their product gallery in `/admin/social-campaign`.
+   - The choice is persisted to `SocialCampaign.selectedImageUrl` in the database.
+   - n8n's `Build Image Request` node retrieves `campaign.selectedImageUrl` via the context API. If no image is selected, it gracefully falls back to the product image or high-resolution editorial photography.
+4. **Tenant-Isolated Cloudinary Storage**:
+   - Images are uploaded to `Upload to Cloudinary` inside the tenant folder: `nutriologas/{{ tenantId }}/campaigns`.
+5. **AI Content Generation (Free Model Cascade)**:
+   - `Newy AI - Generate Content` queries OpenRouter using free models: `google/gemini-2.0-flash-exp:free` (with fallback to `meta-llama/llama-3.3-70b-instruct:free` and `openrouter/free`).
+   - Anti-leak sanitization scrubs `<think>` tokens and system instructions before posting.
+6. **Meta Graph API Publishing**:
+   - Publishes photos to Facebook (`POST /{pageId}/photos`) and Instagram (`POST /{igUserId}/media` container -> 5s wait -> `POST /{igUserId}/media_publish`).
+7. **Schedule Update**: Calls `PATCH /api/campaigns/social/[id]` to mark the post completed and recalculate `nextPostAt`.
+8. **Token Ledger Deduction**: Calls `POST /api/webhooks/social-campaign` with `tokenUsage: { promptTokens, completionTokens, model }`. The webhook invokes `recordTokenUsage()` at retail platform rates ($3.00/$15.00 per 1M), debits `AiTokenLedger`, saves metadata in `SocialPost.postUrls.aiTokens`, and automatically pauses campaigns if the monthly credit limit is breached.
+
+---
 
 ### 8.1 White-Labeling & Terminology Standards
 
