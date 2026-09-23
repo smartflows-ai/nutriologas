@@ -27,8 +27,25 @@ export async function GET() {
       scopes: true,
       connectedAt: true,
       connectedByUserId: true,
+      metadata: true, // needed to surface igBusinessAccountId for the Meta card
     },
   });
 
-  return NextResponse.json({ apps, isAssistantEnabled: tenant?.isAssistantEnabled ?? false, isTriageEnabled: tenant?.isTriageEnabled ?? false });
+  // Safe-expose only non-sensitive metadata fields to the client
+  const safeApps = apps.map(app => {
+    const meta = app.metadata as Record<string, unknown> | null;
+    return {
+      provider: app.provider,
+      scopes: app.scopes,
+      connectedAt: app.connectedAt,
+      connectedByUserId: app.connectedByUserId,
+      // Expose Facebook page name and Instagram linked flag only (never tokens)
+      ...(app.provider === "FACEBOOK" && meta ? {
+        pageName: meta.pageName as string | undefined,
+        igLinked: !!meta.igBusinessAccountId,
+      } : {}),
+    };
+  });
+
+  return NextResponse.json({ apps: safeApps, isAssistantEnabled: tenant?.isAssistantEnabled ?? false, isTriageEnabled: tenant?.isTriageEnabled ?? false });
 }

@@ -79,6 +79,9 @@ interface ConnectedAppInfo {
   provider: string;
   scopes: string | null;
   connectedAt: string;
+  // Facebook / Meta extras (safe fields only — no tokens)
+  pageName?: string;
+  igLinked?: boolean;
 }
 
 function WhatsAppConnectModal({
@@ -255,7 +258,29 @@ export default function AppsPage() {
     }
   };
 
-  useEffect(() => { fetchApps(); }, []);
+  useEffect(() => {
+    fetchApps();
+
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const err = params.get("error");
+      if (err) {
+        let msg = err;
+        if (err === "no_pages") {
+          msg = "Meta no devolvió ninguna página autorizada. Al conectar Meta, asegúrate de seleccionar 'Opt in to all current and future Pages' (o marcar tu página y permitir todos los accesos en el paso de permisos).";
+        } else if (err === "no_email") {
+          msg = "No se pudo obtener el correo de tu cuenta de Facebook.";
+        } else if (err === "user_not_found") {
+          msg = "El correo de tu cuenta de Facebook no coincide con tu usuario administrador en NewAigent.";
+        }
+        setNotificationState({
+          title: "Error al Conectar Meta",
+          message: msg,
+          type: "error"
+        });
+      }
+    }
+  }, []);
 
   const handleDisconnect = (provider: string) => {
     setConfirmState({
@@ -363,11 +388,30 @@ export default function AppsPage() {
 
                   {/* Connected info */}
                   {isConnected && activeConn && (
-                    <div className="mb-4 p-2.5 bg-gray-50 dark:bg-gray-950 rounded-lg border border-gray-100">
-                      <p className="text-[11px] font-medium text-gray-700 dark:text-gray-200 flex items-center gap-1.5 mb-1">
+                    <div className="mb-4 p-2.5 bg-gray-50 dark:bg-gray-950 rounded-lg border border-gray-100 space-y-1.5">
+                      <p className="text-[11px] font-medium text-gray-700 dark:text-gray-200 flex items-center gap-1.5">
                         <Plug size={12} className="text-primary" />
                         {t.crm.apps.using} {getProviderName(activeConn.provider)}
+                        {activeConn.provider === "FACEBOOK" && activeConn.pageName && (
+                          <span className="font-semibold text-gray-900 dark:text-white truncate max-w-[120px]">{activeConn.pageName}</span>
+                        )}
                       </p>
+
+                      {/* Instagram Business Account status for Meta card */}
+                      {activeConn.provider === "FACEBOOK" && (
+                        activeConn.igLinked ? (
+                          <p className="text-[10px] font-medium flex items-center gap-1 text-pink-600 dark:text-pink-400">
+                            <Check size={10} className="shrink-0" />
+                            Instagram Business vinculado
+                          </p>
+                        ) : (
+                          <p className="text-[10px] flex items-center gap-1 text-amber-600 dark:text-amber-400">
+                            <span className="font-bold">⚠</span>
+                            Sin cuenta de Instagram Business — reconecta Meta para vincularla
+                          </p>
+                        )
+                      )}
+
                       <p className="text-[10px] text-gray-400">
                         {t.crm.apps.linkedOn} {new Date(activeConn.connectedAt).toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" })}
                       </p>

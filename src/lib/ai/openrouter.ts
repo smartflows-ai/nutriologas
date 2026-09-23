@@ -44,11 +44,8 @@ export function getModelStack(): string[] {
   return [
     "anthropic/claude-sonnet-4.5",
     "openai/gpt-4o",
-    "nvidia/nemotron-3-super-120b-a12b:free",
-    "google/gemma-4-31b-it:free",
-    "openrouter/free",
+    "google/gemini-2.5-pro",
   ];
-
 }
 
 /**

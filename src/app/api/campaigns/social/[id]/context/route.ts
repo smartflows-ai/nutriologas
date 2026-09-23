@@ -21,7 +21,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   const [tenant, fbApp] = await Promise.all([
     prisma.tenant.findUnique({
       where: { id: tenantId },
-      select: { name: true, whatsappNumber: true, slug: true },
+      select: { name: true, whatsappNumber: true, slug: true, businessInfo: true },
     }),
     prisma.connectedApp.findUnique({
       where: { tenantId_provider: { tenantId, provider: "FACEBOOK" } },
@@ -55,11 +55,14 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       campaignGoal: campaign.campaignGoal,
       tone: campaign.tone,
       extraContext: campaign.extraContext,
+      selectedImageUrl: campaign.selectedImageUrl,
+      tenantId: campaign.tenantId,
     },
     products,
     tenant: {
       name: tenant?.name,
       slug: tenant?.slug,
+      businessInfo: tenant?.businessInfo ?? null,
       whatsappNumber: (tenant?.whatsappNumber ?? "").replace(/\D/g, ""),
       baseUrl: `https://${tenant?.slug}.${rootDomain}`,
     },

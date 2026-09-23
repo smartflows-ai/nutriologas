@@ -69,9 +69,11 @@ src/
       checkout/         ← Pasarela de pago (Conekta + PayPal)
       mis-pedidos/      ← Historial de órdenes del cliente
       pedido/[id]/      ← Detalle de un pedido
+      terminos/         ← Términos de Servicio (i18n)
+      privacidad/       ← Política de Privacidad (i18n)
     (auth)/
       login/            ← Login con email/contraseña + Google OAuth
-      registro/         ← Registro de nuevos clientes
+      registro/         ← Registro de nuevos clientes (con consentimiento legal)
     admin/              ← CRM — Solo accesible para role = ADMIN
       dashboard/        ← Métricas: ventas, pedidos, clientes
       productos/        ← CRUD de productos + Cloudinary upload
@@ -82,9 +84,9 @@ src/
       reviews/          ← Moderación de reseñas de clientes
       asistente/        ← Chatbot IA con Claude (tool use)
       faq/              ← CRUD de preguntas frecuentes
-      social-campaign/  ← Campañas automatizadas para FB/Instagram
+      social-campaign/  ← Campañas automatizadas para FB/Instagram (i18n completo)
       whatsapp/         ← CRM de conversaciones WhatsApp
-      apps/             ← Gestión de integraciones (Google, Facebook, WhatsApp)
+      apps/             ← Gestión de integraciones (Google, Facebook/Instagram Meta, WhatsApp)
       negocio/          ← Perfil del negocio (nombre, logo, WhatsApp, info) — NO incluye slug
     api/
       auth/             ← NextAuth handlers ([...nextauth])
@@ -111,8 +113,9 @@ src/
     admin/              ← Componentes del CRM (CreditsBadge, CreditsDrawer, AdminSidebar)
     chat/               ← Chatbot del CRM (ChatAssistant, AssistantThinkingIndicator)
     marketing/          ← Componentes de la landing page de NewAigent
+    legal/              ← Componentes legales (LegalPageLayout)
     ui/                 ← Componentes UI reutilizables
-
+  i18n/                 ← Sistema de internacionalización (useTranslation, en.ts, es.ts, types.ts)
   lib/
     ai/                 ← Tools de Claude / OpenRouter, system prompt dinámico
     credits.ts          ← Motor de contabilidad de tokens, límites y auto-pausa
@@ -431,3 +434,33 @@ Luego acceder a `http://doctor.localhost:3000` para ver el tenant "doctor".
 - El tema se inyecta como variables CSS desde el layout del tenant. Usa siempre `var(--color-primary)` / `bg-primary` / `text-primary` y las utilidades Tailwind configuradas — **nunca** valores de color hardcodeados (`#16a34a`, `green-600`, etc.) en componentes de tenant.
 - En componentes de la **página de marketing** (`marketing/`), sí se permiten colores fijos porque no pertenecen a ningún tenant.
 - Si un nuevo componente necesita un color de acento diferente al del tenant, debe exponerlo como prop o CSS token — no codificarlo directamente.
+
+---
+
+## Integración Meta (Facebook & Instagram)
+
+- **OAuth Unificado**: Conecta Facebook Pages e Instagram Professional Accounts a través del flujo OAuth de Meta (`/api/apps/oauth/facebook/start` y `/callback`).
+- **Scopes Requeridos**: `email`, `pages_show_list`, `pages_manage_posts`, `pages_read_engagement`, `instagram_basic`, `instagram_content_publish`.
+- **Requisito Estricto de Instagram Professional**: Meta Graph API **bloquea cuentas personales** de Instagram para publicación vía API. El usuario debe:
+  1. Cambiar la cuenta de Instagram a cuenta Profesional (Negocio o Creador).
+  2. Vincular la cuenta de Instagram a su Página de Facebook en Meta Business Suite.
+  3. Reconectar Meta desde `/admin/apps` para asociar el `igBusinessAccountId`.
+- **Publicación Automática con n8n**: El workflow publica directamente en Facebook (`POST /{pageId}/photos`) e Instagram (`POST /{igUserId}/media` -> `POST /{igUserId}/media_publish`).
+
+---
+
+## Páginas Legales y Consentimiento de Registro
+
+- **Rutas Legales**: `/terminos` (Términos de Servicio) y `/privacidad` (Política de Privacidad) disponibles en el storefront público y dominio raíz.
+- **Componente**: `src/components/legal/LegalPageLayout.tsx` maneja el diseño responsive, branding y soporte multilingüe.
+- **Consentimiento Obligatorio**: En `/registro` y en el modal de onboarding (`OnboardingModal.tsx`), el usuario debe marcar la casilla de aceptación de Términos y Política de Privacidad antes de habilitar el botón de creación de cuenta.
+
+---
+
+## Arquitectura de Internacionalización (i18n)
+
+- **Hook Central**: `useTranslation()` desde `@/i18n`.
+- **Detección Automática**: Detecta el idioma principal configurado en el navegador del usuario (`navigator.languages[0]` / `navigator.language`) soportando Español (`es`) e Inglés (`en`).
+- **Diccionarios Tipados**: `src/i18n/types.ts`, `src/i18n/es.ts`, `src/i18n/en.ts`.
+- **Cero Textos Hardcodeados**: Todas las vistas del CRM (incluyendo `/admin/social-campaign`, modales, selectores de objetivo/tono/frecuencia, alertas, placeholders y toasts) consumen sus textos desde `t.crm.*`.
+

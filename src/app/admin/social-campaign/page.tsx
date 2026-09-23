@@ -1,5 +1,5 @@
 "use client";
-// src/app/admin/facebook/page.tsx
+// src/app/admin/social-campaign/page.tsx
 // Social Campaign Manager — create/manage AI-driven social media campaigns
 
 import { useState, useEffect } from "react";
@@ -7,7 +7,7 @@ import {
   Facebook, Instagram, Sparkles, Loader2, X, Check, Plus,
   ChevronDown, Zap, Target, MessageSquare, Tag, Calendar,
   Pause, Play, Trash2, Edit3, Clock, Globe, LayoutList, History, Search, Filter,
-  ExternalLink, Image as ImageIcon, FileText
+  ExternalLink, Image as ImageIcon, FileText, AlertTriangle
 } from "lucide-react";
 import CampaignMetrics from "@/components/crm/CampaignMetrics";
 import Pagination from "@/components/admin/Pagination";
@@ -25,11 +25,14 @@ interface Product {
 interface FacebookConfig {
   pageName: string; pageId: string;
   allPages: { id: string; name: string }[];
+  igLinked: boolean;
+  igBusinessAccountId: string | null;
 }
 
 interface SocialCampaign {
   id: string; name: string;
   platforms: string[]; productIds: string[];
+  selectedImageUrl?: string | null;
   campaignGoal: string;
   tone: string; extraContext: string | null;
   frequency: string; isActive: boolean;
@@ -39,46 +42,17 @@ interface SocialCampaign {
   createdAt: string;
 }
 
-// ── Constants ──────────────────────────────────────────────────────────────
-const GOALS = [
-  { id: "promocion", label: "Promoción", desc: "Oferta o precio especial" },
-  { id: "informativo", label: "Informativo", desc: "Presenta el servicio" },
-  { id: "urgencia", label: "Urgencia", desc: "Cupos / tiempo limitado" },
-  { id: "testimonio", label: "Testimonio", desc: "Basado en resultados" },
-  { id: "educativo", label: "Educativo", desc: "Tips de valor" },
-];
-
-const TONES = [
-  { id: "profesional", label: "Profesional" },
-  { id: "cercano", label: "Cercano" },
-  { id: "motivacional", label: "Motivacional" },
-  { id: "urgente", label: "Urgente" },
-];
-
-const FREQUENCIES = [
-  { id: "DAILY", label: "Diario", desc: "1 post por día" },
-  { id: "EVERY_3_DAYS", label: "Cada 3 días", desc: "~10 posts/mes" },
-  { id: "WEEKLY", label: "Semanal", desc: "4 posts/mes" },
-  { id: "BIWEEKLY", label: "Quincenal", desc: "2 posts/mes" },
-  { id: "MONTHLY", label: "Mensual", desc: "1 post/mes" },
-];
-
-const FREQ_LABELS: Record<string, string> = {
-  DAILY: "Diario", EVERY_3_DAYS: "Cada 3 días",
-  WEEKLY: "Semanal", BIWEEKLY: "Quincenal", MONTHLY: "Mensual",
-};
-
 // ── Helpers ────────────────────────────────────────────────────────────────
-function formatDate(iso: string | null): string {
+function formatDate(iso: string | null, lang: string = "es"): string {
   if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("es-MX", {
+  return new Date(iso).toLocaleDateString(lang === "es" ? "es-MX" : "en-US", {
     day: "2-digit", month: "short", year: "numeric",
   });
 }
 
-function formatDateTime(iso: string | null): string {
+function formatDateTime(iso: string | null, lang: string = "es"): string {
   if (!iso) return "—";
-  return new Date(iso).toLocaleString("es-MX", {
+  return new Date(iso).toLocaleString(lang === "es" ? "es-MX" : "en-US", {
     day: "2-digit", month: "short", year: "numeric",
     hour: "2-digit", minute: "2-digit",
   });
@@ -101,7 +75,39 @@ function toDateTimeLocal(iso: string | null): string {
 
 // ── Main Component ─────────────────────────────────────────────────────────
 export default function SocialCampaignPage() {
-  const { t } = useTranslation();
+  const { t, lang } = useTranslation();
+
+  const GOALS = [
+    { id: "promocion", label: t.crm.social.goals.promocion.label, desc: t.crm.social.goals.promocion.desc },
+    { id: "informativo", label: t.crm.social.goals.informativo.label, desc: t.crm.social.goals.informativo.desc },
+    { id: "urgencia", label: t.crm.social.goals.urgencia.label, desc: t.crm.social.goals.urgencia.desc },
+    { id: "testimonio", label: t.crm.social.goals.testimonio.label, desc: t.crm.social.goals.testimonio.desc },
+    { id: "educativo", label: t.crm.social.goals.educativo.label, desc: t.crm.social.goals.educativo.desc },
+  ];
+
+  const TONES = [
+    { id: "profesional", label: t.crm.social.tones.profesional },
+    { id: "cercano", label: t.crm.social.tones.cercano },
+    { id: "motivacional", label: t.crm.social.tones.motivacional },
+    { id: "urgente", label: t.crm.social.tones.urgente },
+  ];
+
+  const FREQUENCIES = [
+    { id: "DAILY", label: t.crm.social.frequencies.DAILY.label, desc: t.crm.social.frequencies.DAILY.desc },
+    { id: "EVERY_3_DAYS", label: t.crm.social.frequencies.EVERY_3_DAYS.label, desc: t.crm.social.frequencies.EVERY_3_DAYS.desc },
+    { id: "WEEKLY", label: t.crm.social.frequencies.WEEKLY.label, desc: t.crm.social.frequencies.WEEKLY.desc },
+    { id: "BIWEEKLY", label: t.crm.social.frequencies.BIWEEKLY.label, desc: t.crm.social.frequencies.BIWEEKLY.desc },
+    { id: "MONTHLY", label: t.crm.social.frequencies.MONTHLY.label, desc: t.crm.social.frequencies.MONTHLY.desc },
+  ];
+
+  const FREQ_LABELS: Record<string, string> = {
+    DAILY: t.crm.social.frequencies.DAILY.label,
+    EVERY_3_DAYS: t.crm.social.frequencies.EVERY_3_DAYS.label,
+    WEEKLY: t.crm.social.frequencies.WEEKLY.label,
+    BIWEEKLY: t.crm.social.frequencies.BIWEEKLY.label,
+    MONTHLY: t.crm.social.frequencies.MONTHLY.label,
+  };
+
   const [config, setConfig] = useState<FacebookConfig | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [campaigns, setCampaigns] = useState<SocialCampaign[]>([]);
@@ -125,6 +131,7 @@ export default function SocialCampaignPage() {
   const [formName, setFormName] = useState("");
   const [formPlatforms, setFormPlatforms] = useState<string[]>(["FACEBOOK"]);
   const [formProductIds, setFormProductIds] = useState<string[]>([]);
+  const [formSelectedImageUrl, setFormSelectedImageUrl] = useState<string>("");
   const [formGoal, setFormGoal] = useState("promocion");
   const [formTone, setFormTone] = useState("cercano");
   const [formContext, setFormContext] = useState("");
@@ -165,7 +172,7 @@ export default function SocialCampaignPage() {
       if (prodRes.ok) { const d = await prodRes.json(); setProducts(d.products ?? []); }
       if (campRes.ok) { const d = await campRes.json(); setCampaigns(d.campaigns ?? []); }
       if (credRes.ok) { const d = await credRes.json(); if (d.creditStatus) setCreditStatus(d.creditStatus); }
-    } catch (e) { console.error(e); }
+    } catch { /* silent — UI keeps showing any loaded data */ }
     finally { setLoading(false); }
   };
 
@@ -183,7 +190,7 @@ export default function SocialCampaignPage() {
         setHistory(data.posts || []);
         setHistTotalPages(data.totalPages || 1);
       }
-    } catch (e) { console.error(e); }
+    } catch { /* silent — history falls back to empty */ }
     finally { setHistLoading(false); }
   };
 
@@ -194,15 +201,16 @@ export default function SocialCampaignPage() {
   // ── Save campaign ─────────────────────────────────────────────────────────
   const handleSave = async () => {
     if (!formPlatforms.length || !formEndDate || !formContext.trim()) {
-      setNotif({ msg: "La plataforma, fin y descripción son obligatorios", ok: false });
+      setNotif({ msg: t.crm.social.validationRequired, ok: false });
       return;
     }
     setSaving(true);
     try {
       const body = {
-        name: formName || "Campaña",
+        name: formName || t.crm.social.defaultCampaignName,
         platforms: formPlatforms,
         productIds: formProductIds,
+        selectedImageUrl: formSelectedImageUrl || null,
         campaignGoal: formGoal,
         tone: formTone,
         extraContext: formContext || undefined,
@@ -219,15 +227,15 @@ export default function SocialCampaignPage() {
         method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
       });
       if (res.ok) {
-        setNotif({ msg: editId ? "Campaña actualizada" : "Campaña creada", ok: true });
+        setNotif({ msg: editId ? t.crm.social.campaignUpdated : t.crm.social.campaignCreated, ok: true });
         resetForm();
         setView("list");
         loadAll();
       } else {
         const d = await res.json();
-        setNotif({ msg: d.error ?? "Error", ok: false });
+        setNotif({ msg: d.error ?? t.crm.social.unexpectedError, ok: false });
       }
-    } catch { setNotif({ msg: "Error inesperado", ok: false }); }
+    } catch { setNotif({ msg: t.crm.social.unexpectedError, ok: false }); }
     finally { setSaving(false); }
   };
 
@@ -248,7 +256,7 @@ export default function SocialCampaignPage() {
       setCampaigns(prev =>
         prev.map(c => c.id === id ? { ...c, isActive: current } : c)
       );
-      setNotif({ msg: "Error al cambiar el estado", ok: false });
+      setNotif({ msg: t.crm.social.toggleError, ok: false });
     }
   };
 
@@ -265,11 +273,11 @@ export default function SocialCampaignPage() {
       const res = await fetch(`/api/campaigns/social/${campaign.id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to delete");
       setConfirmDelete(null);
-      setNotif({ msg: "Campaña eliminada", ok: true });
+      setNotif({ msg: t.crm.social.campaignDeleted, ok: true });
       loadAll();
     } catch {
       setConfirmDelete(null);
-      setNotif({ msg: "Error al eliminar la campaña", ok: false });
+      setNotif({ msg: t.crm.social.deleteError, ok: false });
     } finally {
       setDeleting(false);
     }
@@ -280,6 +288,7 @@ export default function SocialCampaignPage() {
     setEditId(c.id);
     setFormName(c.name); setFormPlatforms(c.platforms);
     setFormProductIds(c.productIds);
+    setFormSelectedImageUrl(c.selectedImageUrl ?? "");
     setFormGoal(c.campaignGoal); setFormTone(c.tone);
     setFormContext(c.extraContext ?? ""); setFormFrequency(c.frequency);
     setFormStartDateTime(toDateTimeLocal(c.startDate));
@@ -289,7 +298,7 @@ export default function SocialCampaignPage() {
 
   const resetForm = () => {
     setEditId(null); setFormName(""); setFormPlatforms(["FACEBOOK"]);
-    setFormProductIds([]); setFormGoal("promocion");
+    setFormProductIds([]); setFormSelectedImageUrl(""); setFormGoal("promocion");
     setFormTone("cercano"); setFormContext(""); setFormFrequency("WEEKLY");
     setFormStartDateTime(""); setFormEndDate("");
   };
@@ -298,7 +307,14 @@ export default function SocialCampaignPage() {
     setFormPlatforms(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]);
 
   const toggleProduct = (id: string) =>
-    setFormProductIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    setFormProductIds(prev => {
+      const next = prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id];
+      if (!formSelectedImageUrl && next.length > 0) {
+        const prod = products.find(p => p.id === next[0]);
+        if (prod?.images?.[0]) setFormSelectedImageUrl(prod.images[0]);
+      }
+      return next;
+    });
 
   // ── Loading ────────────────────────────────────────────────────────────────
   if (loading) return (
@@ -313,10 +329,10 @@ export default function SocialCampaignPage() {
       <div className="w-20 h-20 bg-primary/10 dark:bg-primary/20 rounded-3xl flex items-center justify-center mb-6">
         <Facebook className="w-10 h-10 text-primary" />
       </div>
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">Facebook no conectado</h1>
-      <p className="text-gray-500 mb-8 max-w-sm">Conecta tu página desde Apps para crear campañas.</p>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">{t.crm.social.notConnectedTitle}</h1>
+      <p className="text-gray-500 mb-8 max-w-sm">{t.crm.social.notConnectedDesc}</p>
       <a href="/admin/apps" className="btn-primary inline-flex items-center gap-2 px-6 py-3">
-        <Facebook size={18} /> Conectar Facebook
+        <Facebook size={18} /> {t.crm.social.connectFacebook}
       </a>
     </div>
   );
@@ -425,7 +441,7 @@ export default function SocialCampaignPage() {
                         <span className="flex items-center gap-1 text-xs text-pink-600 dark:text-pink-400"><Instagram size={12} /> Instagram</span>
                       )}
                       <span className="text-xs text-gray-400">·</span>
-                      <span className="text-xs text-gray-500">{FREQ_LABELS[c.frequency]}</span>
+                      <span className="text-xs text-gray-500">{FREQ_LABELS[c.frequency] || c.frequency}</span>
                       {c.productIds.length > 0 && (
                         <><span className="text-xs text-gray-400">·</span>
                           <span className="text-xs text-gray-500">{c.productIds.length} {t.crm.social.productsCount}</span></>
@@ -435,20 +451,34 @@ export default function SocialCampaignPage() {
                     {/* Dates */}
                     <div className="flex flex-wrap gap-4 text-xs text-gray-500">
                       <span className="flex items-center gap-1">
-                        <Clock size={11} /> {t.crm.social.start} {formatDateTime(c.startDate)}
+                        <Clock size={11} /> {t.crm.social.start} {formatDateTime(c.startDate, lang)}
                       </span>
                       <span className="flex items-center gap-1">
-                        <Clock size={11} /> {t.crm.social.end} {formatDate(c.endDate)}
+                        <Clock size={11} /> {t.crm.social.end} {formatDate(c.endDate, lang)}
                       </span>
                     </div>
                     <div className="flex gap-4 text-xs text-gray-400 mt-1">
                       <span className="flex items-center gap-1">
-                        <Clock size={11} /> {t.crm.social.next} {formatDateTime(c.nextPostAt)}
+                        <Clock size={11} /> {t.crm.social.next} {formatDateTime(c.nextPostAt, lang)}
                       </span>
                       {c.lastPostedAt && (
-                        <span>{t.crm.social.last} {formatDateTime(c.lastPostedAt)}</span>
+                        <span>{t.crm.social.last} {formatDateTime(c.lastPostedAt, lang)}</span>
                       )}
                     </div>
+
+                    {c.selectedImageUrl && (
+                      <div className="mt-2.5 flex items-center gap-2">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={c.selectedImageUrl}
+                          alt=""
+                          className="w-9 h-9 rounded-lg object-cover border border-gray-200 dark:border-gray-700 shadow-xs"
+                        />
+                        <span className="text-[11px] text-gray-500 flex items-center gap-1">
+                          <ImageIcon size={11} /> {t.crm.social.formImage}
+                        </span>
+                      </div>
+                    )}
 
                     {/* Inactive hint — only when manually paused (not by credits) and not ended */}
                     {!c.isActive && !c.pausedByCredits && !isEnded && (
@@ -566,7 +596,7 @@ export default function SocialCampaignPage() {
                           </div>
                         </td>
                         <td className="px-4 py-4 text-gray-500"><span className="badge bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">{FREQ_LABELS[h.frequency] || h.frequency}</span></td>
-                        <td className="px-4 py-4 text-right text-gray-500 text-xs">{formatDate(h.postedAt)}</td>
+                        <td className="px-4 py-4 text-right text-gray-500 text-xs">{formatDate(h.postedAt, lang)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -613,11 +643,31 @@ export default function SocialCampaignPage() {
                 {formPlatforms.includes("FACEBOOK") && <Check size={14} />}
               </button>
               <button type="button" onClick={() => togglePlatform("INSTAGRAM")}
-                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-medium transition-all ${formPlatforms.includes("INSTAGRAM") ? "border-primary bg-primary/10 dark:bg-primary/20 text-primary" : "border-gray-200 dark:border-gray-700 text-gray-500"}`}>
+                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-medium transition-all ${formPlatforms.includes("INSTAGRAM") ? "border-pink-500 bg-pink-50 dark:bg-pink-900/20 text-pink-600" : "border-gray-200 dark:border-gray-700 text-gray-500"}`}>
                 <Instagram size={16} /> Instagram
                 {formPlatforms.includes("INSTAGRAM") && <Check size={14} />}
               </button>
             </div>
+
+            {/* Warning: Instagram selected but no IG Business Account linked */}
+            {formPlatforms.includes("INSTAGRAM") && !config?.igLinked && (
+              <div className="mt-3 flex items-start gap-2.5 p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/50 rounded-xl">
+                <AlertTriangle size={16} className="text-amber-500 shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-amber-900 dark:text-amber-200">
+                    {t.crm.social.igWarningTitle}
+                  </p>
+                  <p className="text-xs text-amber-700 dark:text-amber-300 mt-1 leading-relaxed">
+                    {t.crm.social.igWarningDesc}
+                  </p>
+                  <ol className="text-xs text-amber-700 dark:text-amber-300 mt-1.5 ml-3 space-y-0.5 list-decimal leading-relaxed">
+                    <li>{t.crm.social.igWarningStep1}</li>
+                    <li>{t.crm.social.igWarningStep2}</li>
+                    <li><a href="/admin/apps" className="underline font-medium hover:no-underline">{t.crm.social.igWarningStep3}</a></li>
+                  </ol>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Products multi-select */}
@@ -638,7 +688,7 @@ export default function SocialCampaignPage() {
                     )}
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">{p.name}</p>
-                      <p className="text-xs text-gray-400">{new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(p.price)}</p>
+                      <p className="text-xs text-gray-400">{new Intl.NumberFormat(lang === "es" ? "es-MX" : "en-US", { style: "currency", currency: "MXN" }).format(p.price)}</p>
                     </div>
                     {formProductIds.includes(p.id) && <Check size={14} className="text-primary shrink-0" />}
                   </button>
@@ -646,6 +696,68 @@ export default function SocialCampaignPage() {
               </div>
             )}
           </div>
+
+          {/* Interactive Image Picker */}
+          {(() => {
+            const relevantProducts = formProductIds.length > 0
+              ? products.filter(p => formProductIds.includes(p.id))
+              : products;
+            const availableImages = relevantProducts.flatMap(p =>
+              (p.images || []).map((img, idx) => ({
+                url: img,
+                productId: p.id,
+                productName: p.name,
+                idx,
+              }))
+            ).filter(item => Boolean(item.url));
+
+            if (availableImages.length === 0) return null;
+
+            return (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-1.5">
+                  <ImageIcon size={14} /> {t.crm.social.formImage}
+                </label>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                  {t.crm.social.formImageHint}
+                </p>
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                  {availableImages.map((item, index) => {
+                    const isSelected = formSelectedImageUrl === item.url;
+                    return (
+                      <button
+                        key={`${item.productId}-${item.idx}-${index}`}
+                        type="button"
+                        onClick={() => setFormSelectedImageUrl(isSelected ? "" : item.url)}
+                        className={`group relative aspect-square rounded-xl overflow-hidden border-2 transition-all cursor-pointer ${
+                          isSelected
+                            ? "border-primary ring-2 ring-primary/40 shadow-md scale-[1.02]"
+                            : "border-gray-200 dark:border-gray-700 hover:border-gray-400 opacity-80 hover:opacity-100"
+                        }`}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={item.url}
+                          alt={item.productName}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-1.5 text-left opacity-0 group-hover:opacity-100 transition-opacity">
+                          <p className="text-[10px] text-white font-medium truncate leading-tight">
+                            {item.productName}
+                          </p>
+                        </div>
+                        {isSelected && (
+                          <div className="absolute top-1.5 right-1.5 w-6 h-6 bg-primary text-white rounded-full flex items-center justify-center shadow-md">
+                            <Check size={14} className="stroke-[3]" />
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Campaign goal */}
           <div>
@@ -669,10 +781,10 @@ export default function SocialCampaignPage() {
               <MessageSquare size={14} /> {t.crm.social.formTone}
             </label>
             <div className="flex flex-wrap gap-2">
-              {TONES.map(t => (
-                <button key={t.id} type="button" onClick={() => setFormTone(t.id)}
-                  className={`px-4 py-2 rounded-xl text-sm font-medium border transition-all ${formTone === t.id ? "border-primary bg-primary/10 dark:bg-primary/20 text-primary" : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300"}`}>
-                  {t.label}
+              {TONES.map(to => (
+                <button key={to.id} type="button" onClick={() => setFormTone(to.id)}
+                  className={`px-4 py-2 rounded-xl text-sm font-medium border transition-all ${formTone === to.id ? "border-primary bg-primary/10 dark:bg-primary/20 text-primary" : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300"}`}>
+                  {to.label}
                 </button>
               ))}
             </div>
@@ -725,12 +837,7 @@ export default function SocialCampaignPage() {
 
             {/* Example chips */}
             <div className="flex flex-wrap gap-2 mb-3">
-              {[
-                "Promoción por el 8M, 10% de descuento para las primeras 10 en contactar",
-                "Campaña del Día de las Madres",
-                "Lanzamiento de nuevo producto, quiero generar expectativa",
-                "Recordatorio de citas disponibles esta semana",
-              ].map((example) => (
+              {t.crm.social.formExamples.map((example) => (
                 <button
                   key={example}
                   type="button"
@@ -746,7 +853,7 @@ export default function SocialCampaignPage() {
               value={formContext}
               onChange={e => setFormContext(e.target.value)}
               rows={3}
-              placeholder="Ej: Esta campaña es para el Día de las Madres, quiero resaltar nuestro plan de nutrición familiar y ofrecer 15% de descuento a las primeras 5 en agendar cita."
+              placeholder={t.crm.social.formDescPlaceholder}
               className="w-full border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-100 text-sm focus:ring-2 focus:ring-primary outline-none resize-none leading-relaxed"
             />
           </div>
@@ -845,7 +952,7 @@ export default function SocialCampaignPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="font-bold text-gray-900 dark:text-white text-lg leading-tight">
-                      {selectedPost.campaign?.name || "Campaña eliminada"}
+                      {selectedPost.campaign?.name || t.crm.social.deletedCampaign}
                     </h3>
                     <div className="flex flex-wrap gap-1.5 mt-1.5">
                       {selectedPost.platforms.map((p: string) => p === "FACEBOOK" ?
@@ -888,7 +995,7 @@ export default function SocialCampaignPage() {
                       hr: () => <hr className="my-3 border-gray-200 dark:border-gray-700" />,
                     }}
                   >
-                    {selectedPost.content || "Contenido no disponible"}
+                    {selectedPost.content || t.crm.social.contentNotAvailable}
                   </ReactMarkdown>
                 </div>
               </div>
@@ -897,7 +1004,7 @@ export default function SocialCampaignPage() {
               <div className="flex gap-3 text-sm items-start">
                 <Clock size={18} className="flex-shrink-0 mt-0.5" style={{ color: "var(--color-primary)" }} />
                 <p className="text-gray-700 dark:text-gray-200">
-                  {new Date(selectedPost.postedAt).toLocaleString("es-MX", {
+                  {new Date(selectedPost.postedAt).toLocaleString(lang === "es" ? "es-MX" : "en-US", {
                     weekday: "long", day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit"
                   })}
                 </p>
@@ -911,13 +1018,13 @@ export default function SocialCampaignPage() {
                     {selectedPost.postUrls?.facebook?.postUrl && (
                       <a href={selectedPost.postUrls.facebook.postUrl} target="_blank" rel="noreferrer"
                         className="flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:underline">
-                        <Facebook size={13} /> Ver en Facebook
+                        <Facebook size={13} /> {t.crm.social.viewOnFacebook}
                       </a>
                     )}
                     {selectedPost.postUrls?.instagram?.postUrl && (
                       <a href={selectedPost.postUrls.instagram.postUrl} target="_blank" rel="noreferrer"
                         className="flex items-center gap-1.5 text-xs font-medium text-pink-600 hover:underline">
-                        <Instagram size={13} /> Ver en Instagram
+                        <Instagram size={13} /> {t.crm.social.viewOnInstagram}
                       </a>
                     )}
                   </div>
@@ -932,7 +1039,7 @@ export default function SocialCampaignPage() {
                 className="flex items-center justify-center gap-2 w-full rounded-xl py-2.5 text-sm font-medium text-white transition"
                 style={{ backgroundColor: "var(--color-primary)" }}
               >
-                Cerrar
+                {t.crm.social.closeModal}
               </button>
             </div>
           </div>

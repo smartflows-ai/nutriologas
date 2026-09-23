@@ -619,6 +619,8 @@ export interface Translations {
       formPlatforms: string;
       formProducts: string;
       formNoProducts: string;
+      formImage: string;
+      formImageHint: string;
       formGoal: string;
       formTone: string;
       formFreq: string;
@@ -628,10 +630,12 @@ export interface Translations {
       formEndDateHint: string;
       formDesc: string;
       formDescHint: string;
+      formDescPlaceholder: string;
       formWhatsappNote: string;
       formSaveBtn: string;
       formCreateBtn: string;
       formSavingBtn: string;
+      formExamples: string[];
       modalDeleteTitle: string;
       modalDeleteDesc1: string;
       modalDeleteDesc2: string;
@@ -643,6 +647,47 @@ export interface Translations {
       rechargeBtn: string;
       resumeHint: string;
       ended: string;
+      notConnectedTitle: string;
+      notConnectedDesc: string;
+      connectFacebook: string;
+      igWarningTitle: string;
+      igWarningDesc: string;
+      igWarningStep1: string;
+      igWarningStep2: string;
+      igWarningStep3: string;
+      validationRequired: string;
+      defaultCampaignName: string;
+      campaignUpdated: string;
+      campaignCreated: string;
+      campaignDeleted: string;
+      toggleError: string;
+      deleteError: string;
+      unexpectedError: string;
+      deletedCampaign: string;
+      contentNotAvailable: string;
+      viewOnFacebook: string;
+      viewOnInstagram: string;
+      closeModal: string;
+      goals: {
+        promocion: { label: string; desc: string };
+        informativo: { label: string; desc: string };
+        urgencia: { label: string; desc: string };
+        testimonio: { label: string; desc: string };
+        educativo: { label: string; desc: string };
+      };
+      tones: {
+        profesional: string;
+        cercano: string;
+        motivacional: string;
+        urgente: string;
+      };
+      frequencies: {
+        DAILY: { label: string; desc: string };
+        EVERY_3_DAYS: { label: string; desc: string };
+        WEEKLY: { label: string; desc: string };
+        BIWEEKLY: { label: string; desc: string };
+        MONTHLY: { label: string; desc: string };
+      };
     };
     calendar: {
       title: string;

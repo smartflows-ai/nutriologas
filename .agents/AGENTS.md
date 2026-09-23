@@ -81,9 +81,11 @@ src/
       checkout/          ← Payment flow (Conekta + PayPal)
       mis-pedidos/       ← Customer order history
       pedido/[id]/       ← Single order detail
+      terminos/          ← Terms of Service (i18n)
+      privacidad/        ← Privacy Policy (i18n)
     (auth)/
       login/             ← Email/password + Google OAuth
-      registro/          ← New customer registration
+      registro/          ← New customer registration (with legal consent checkbox)
     admin/               ← CRM — ADMIN role only
       dashboard/         ← Sales, orders, customer metrics
       productos/         ← Product CRUD + Cloudinary upload
@@ -94,9 +96,9 @@ src/
       reviews/           ← Customer review moderation
       asistente/         ← Claude AI chatbot (tool use)
       faq/               ← FAQ CRUD
-      social-campaign/   ← Automated FB/Instagram campaigns
+      social-campaign/   ← Automated FB/Instagram campaigns (fully internationalized)
       whatsapp/          ← WhatsApp CRM conversations
-      apps/              ← App integrations (Google, Facebook, WhatsApp)
+      apps/              ← App integrations (Google, Facebook/Instagram Meta, WhatsApp)
     api/
       auth/              ← NextAuth handlers ([...nextauth])
       products/          ← Product CRUD API
@@ -119,7 +121,9 @@ src/
     shop/                ← Public storefront components
     admin/               ← CRM components
     marketing/           ← NewAigent landing page components
+    legal/               ← Legal components (LegalPageLayout)
     ui/                  ← Shared reusable UI components
+  i18n/                  ← Internationalization system (useTranslation, en.ts, es.ts, types.ts)
   lib/
     ai/                  ← Claude tools + dynamic system prompt
     validations/         ← Zod schemas
@@ -306,6 +310,21 @@ All agents must adhere to the commercial white-labeling vocabulary in any user-f
 | n8n | **Automatización Inteligente** / **Flujos Automatizados** | Social campaigns, automated workflows, background tasks |
 | Conekta | **Pasarela de pagos segura** / **Tarjeta de crédito o débito** | Checkout error messages, payment forms, billing receipts |
 | OpenRouter / Prompt tokens | **Créditos Newy AI** / **Unidades de Inteligencia** | Credits drawer, quota badges, usage graphs, Stripe top-ups |
+
+### 8.2 Meta Integration (Facebook & Instagram)
+- **Unified OAuth**: Connects Facebook Pages & Instagram Professional accounts via `/api/apps/oauth/facebook/start` and `/callback`.
+- **Required Scopes**: `email`, `pages_show_list`, `pages_manage_posts`, `pages_read_engagement`, `instagram_basic`, `instagram_content_publish`.
+- **Instagram Professional Requirement**: Meta Graph API strictly requires an Instagram Business or Creator account linked to the Facebook Page in Meta Business Suite. Personal Instagram accounts are blocked by Meta's API.
+- **Automated Publishing (n8n)**: Dispatches photos/posts to Facebook (`POST /{pageId}/photos`) and Instagram (`POST /{igUserId}/media` container -> `POST /{igUserId}/media_publish`).
+
+### 8.3 Legal Pages & Mandatory Consent
+- **Routes**: `/terminos` (Terms of Service) and `/privacidad` (Privacy Policy) served via `LegalPageLayout`.
+- **Mandatory Consent**: Registration (`/registro`) and modal onboarding (`OnboardingModal.tsx`) enforce checkbox acceptance of Terms & Privacy Policy before enabling account creation.
+
+### 8.4 Internationalization (i18n) Architecture
+- **Hook**: `useTranslation()` from `@/i18n`.
+- **Zero Hardcoded Strings**: All storefront and CRM components (including `/admin/social-campaign`, modals, forms, dropdowns, toasts, error messages, and banners) must use typed dictionary keys from `src/i18n/types.ts` (`en.ts` and `es.ts`).
+- **Browser Detection**: Auto-detects top language from `navigator.languages[0]` or `navigator.language` (defaults to English if not Spanish).
 
 ---
 

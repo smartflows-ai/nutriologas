@@ -33,6 +33,7 @@ export async function GET(req: NextRequest) {
     "pages_show_list",
     "pages_manage_posts",
     "pages_read_engagement",
+    "business_management",
     "instagram_basic",
     "instagram_content_publish",
   ].join(",");
@@ -42,6 +43,7 @@ export async function GET(req: NextRequest) {
   authUrl.searchParams.set("redirect_uri", redirectUri);
   authUrl.searchParams.set("scope", scopes);
   authUrl.searchParams.set("response_type", "code");
+  authUrl.searchParams.set("auth_type", "rerequest");
   authUrl.searchParams.set("state", subdomainOrigin); // used in callback to bounce back to tenant subdomain
 
   return NextResponse.redirect(authUrl.toString());

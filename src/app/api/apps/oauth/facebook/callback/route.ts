@@ -66,7 +66,7 @@ export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     userEmail = (session?.user as any)?.email ?? null;
-  } catch (_) {}
+  } catch (_) { }
 
   // Facebook /me returns email when 'email' scope was requested in start route
   if (!userEmail) {
@@ -119,7 +119,7 @@ export async function GET(req: NextRequest) {
     );
     const igData = await igRes.json();
     igBusinessAccountId = igData.instagram_business_account?.id ?? null;
-  } catch (_) {}
+  } catch (_) { }
 
   // ── 7. Upsert ConnectedApp ─────────────────────────────────────────────────
   const metadata = {

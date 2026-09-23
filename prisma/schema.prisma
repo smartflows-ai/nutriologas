@@ -367,6 +367,7 @@ model SocialCampaign {
   name            String             @default("Campaña")
   platforms       SocialPlatform[]   // [FACEBOOK, INSTAGRAM]
   productIds      String[]           // IDs of selected products
+  selectedImageUrl String?          // Specific image URL chosen by the user from UI/catalog
   campaignGoal    String             // "promocion" | "informativo" | "urgencia" | "testimonio" | "educativo"
   tone            String             // "profesional" | "cercano" | "motivacional" | "urgente"
   extraContext    String?            @db.Text

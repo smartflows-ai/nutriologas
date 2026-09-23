@@ -37,6 +37,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (body.name !== undefined) updateData.name = body.name;
   if (body.platforms !== undefined) updateData.platforms = body.platforms;
   if (body.productIds !== undefined) updateData.productIds = body.productIds;
+  if (body.selectedImageUrl !== undefined) updateData.selectedImageUrl = body.selectedImageUrl;
   if (body.campaignGoal !== undefined) updateData.campaignGoal = body.campaignGoal;
   if (body.tone !== undefined) updateData.tone = body.tone;
   if (body.extraContext !== undefined) updateData.extraContext = body.extraContext;

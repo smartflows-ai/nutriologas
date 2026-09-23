@@ -26,6 +26,7 @@ export async function GET() {
     pageId: string;
     pageName: string;
     allPages?: { id: string; name: string }[];
+    igBusinessAccountId?: string;
   } | null;
 
   return NextResponse.json({
@@ -33,5 +34,8 @@ export async function GET() {
     pageName: meta?.pageName ?? "Mi Página",
     allPages: meta?.allPages ?? [],
     connectedAt: fbApp.connectedAt,
+    // Instagram Business Account status — never expose the raw token
+    igLinked: !!meta?.igBusinessAccountId,
+    igBusinessAccountId: meta?.igBusinessAccountId ?? null,
   });
 }

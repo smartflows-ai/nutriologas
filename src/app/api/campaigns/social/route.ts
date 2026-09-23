@@ -47,6 +47,7 @@ export async function POST(req: NextRequest) {
     name,
     platforms,
     productIds,
+    selectedImageUrl,
     campaignGoal,
     tone,
     extraContext,
@@ -57,6 +58,7 @@ export async function POST(req: NextRequest) {
     name?: string;
     platforms: SocialPlatform[];
     productIds: string[];
+    selectedImageUrl?: string | null;
     campaignGoal: string;
     tone: string;
     extraContext?: string;
@@ -84,6 +86,7 @@ export async function POST(req: NextRequest) {
       name: name ?? "Campaña",
       platforms,
       productIds: productIds ?? [],
+      selectedImageUrl: selectedImageUrl ?? null,
       campaignGoal,
       tone,
       extraContext: extraContext ?? null,
