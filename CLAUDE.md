@@ -13,7 +13,7 @@ Cada negocio (llamado **tenant**) opera en su propio subdominio:
 - `nutrifit.newaigent.com` → Tienda de Nutrición
 - `newaigent.com` → Solo página de marketing (NO tiene acceso a ninguna ruta de tenant)
 
-**Stack:** Next.js 14 · TypeScript · Tailwind CSS · Prisma ORM · PostgreSQL (Supabase) · NextAuth v4 · Anthropic Claude AI · Cloudinary · Conekta · PayPal · Stripe · n8n
+**Stack:** Next.js 14 · TypeScript · Tailwind CSS · Prisma ORM · PostgreSQL (Supabase) · NextAuth v4 · Anthropic Claude AI / OpenRouter · Cloudinary · Conekta · PayPal · Stripe · n8n · Upstash Redis
 
 ---
 
@@ -69,8 +69,10 @@ src/
       checkout/         ← Pasarela de pago (Conekta + PayPal)
       mis-pedidos/      ← Historial de órdenes del cliente
       pedido/[id]/      ← Detalle de un pedido
-      terminos/         ← Términos de Servicio (i18n)
-      privacidad/       ← Política de Privacidad (i18n)
+      terminos/         ← Términos de Servicio — Español
+      privacidad/       ← Política de Privacidad — Español
+      terms/            ← Terms of Service — English locale alias
+      privacy/          ← Privacy Policy — English locale alias
     (auth)/
       login/            ← Login con email/contraseña + Google OAuth
       registro/         ← Registro de nuevos clientes (con consentimiento legal)
@@ -80,48 +82,89 @@ src/
       pedidos/          ← Gestión de pedidos
       carrusel/         ← Gestión del banner/carrusel de imágenes
       apariencia/       ← Editor de tema (colores + fuente)
-      calendario/       ← Integración Google Calendar
+      calendario/       ← Integración Google Calendar y Outlook (Microsoft)
       reviews/          ← Moderación de reseñas de clientes
-      asistente/        ← Chatbot IA con Claude (tool use)
+      asistente/        ← Chatbot IA con Newy AI (tool use)
       faq/              ← CRUD de preguntas frecuentes
       social-campaign/  ← Campañas automatizadas para FB/Instagram (i18n completo)
       whatsapp/         ← CRM de conversaciones WhatsApp
-      apps/             ← Gestión de integraciones (Google, Facebook/Instagram Meta, WhatsApp)
+      apps/             ← Gestión de integraciones (Google, Microsoft, Facebook/Instagram Meta, WhatsApp)
       negocio/          ← Perfil del negocio (nombre, logo, WhatsApp, info) — NO incluye slug
+      pacientes/        ← Perfiles de pacientes/triage (visible solo si Tenant.isTriageEnabled = true)
+      suscripcion/      ← Gestión de suscripción Stripe del tenant
     api/
       auth/             ← NextAuth handlers ([...nextauth])
       products/         ← CRUD API de productos
       orders/           ← Creación y consulta de pedidos
+      pedido/[id]/      ← Detalle público de un pedido específico
       checkout/         ← Procesamiento de pagos (Conekta, PayPal)
-      chat/             ← Chatbot IA endpoint (streaming con Claude)
+      chat/             ← Chatbot IA endpoint (streaming con Newy AI)
       campaigns/        ← API de campañas sociales
       carousel/         ← API de imágenes del carrusel
       faqs/             ← API de FAQs
       reviews/          ← API de reseñas
       theme/            ← API del tema visual
-      apps/             ← Conexión de apps externas (OAuth flows)
+      apps/             ← Conexión de apps externas (OAuth flows Google + Facebook)
       calendar/         ← Google Calendar API proxy
       billing/          ← Stripe webhooks y gestión de suscripciones
       credits/          ← API de créditos IA (GET estado, POST recarga Stripe)
-      internal/         ← APIs internas para n8n (/tokens/report, /campaigns/due)
+      internal/         ← APIs internas para n8n y WhatsApp AI (autenticadas con x-internal-key)
+        tokens/report   ← POST: Reportar consumo de tokens desde workflows externos
+        render-post-banner ← POST: Componer banner 1080×1080 con Cloudinary SDK para campañas
+        triage/         ← GET/POST: Consultar y guardar perfil de paciente desde WhatsApp AI
+        tenant-context/ ← POST: Contexto completo del tenant para el agente WhatsApp (products, FAQs, reviews, waConfig)
+        calendar/       ← GET availability / POST create-event desde n8n
+        whatsapp/sync   ← POST: Sincronizar mensajes de WhatsApp desde Evolution API
+      admin/pacientes   ← GET: Lista de PatientProfiles para el CRM (filtrada por tenantId)
       tenants/          ← API de gestión de tenants
-      tenants/business/ ← GET/PUT perfil del negocio (name, logoUrl, whatsappNumber, businessInfo). Slug es read-only.
+      tenants/business/ ← GET/PUT perfil del negocio. Slug es read-only.
       upload/           ← Upload de imágenes a Cloudinary
-      webhooks/         ← Webhooks de Conekta, WhatsApp Evolution API
+      webhooks/         ← Webhooks de Conekta y WhatsApp Evolution API
+      webhooks/social-campaign ← POST: Notificación de n8n al publicar un post (deduce tokens del ledger)
   components/
     shop/               ← Componentes del storefront público
-    admin/              ← Componentes del CRM (CreditsBadge, CreditsDrawer, AdminSidebar)
+    admin/              ← Componentes del CRM:
+      AdminSidebar      ← Navegación lateral con colapso y filtrado dinámico por integración
+      CreditsBadge      ← Barra de créditos IA en sidebar
+      CreditsDrawer     ← Panel de detalle de créditos (portaleado a document.body)
+      TrialBanner       ← Banner de período de prueba activo
+      TrialExpiredGate  ← Bloqueo de acceso al CRM cuando el trial expira
+      AmazonCheckout    ← UI de checkout alternativa estilo Amazon
+      ImageCropperModal ← Modal de recorte de imágenes
+      Pagination        ← Componente de paginación reutilizable
     chat/               ← Chatbot del CRM (ChatAssistant, AssistantThinkingIndicator)
+    crm/                ← Componentes de visualización del dashboard:
+      SalesChart, AppointmentsChart, CampaignMetrics, ProductsChart, RatingsChart
+      CalendarView      ← Vista de calendario interactiva
+      DashboardFilters  ← Filtros del dashboard
+    order/              ← DownloadTicketButton, PrintButton (vista de pedido)
     marketing/          ← Componentes de la landing page de NewAigent
     legal/              ← Componentes legales (LegalPageLayout)
     ui/                 ← Componentes UI reutilizables
   i18n/                 ← Sistema de internacionalización (useTranslation, en.ts, es.ts, types.ts)
+  hooks/
+    useToast.ts         ← Hook personalizado para toasts
   lib/
-    ai/                 ← Tools de Claude / OpenRouter, system prompt dinámico
+    ai/                 ← Tools de Newy AI / OpenRouter, system prompt dinámico
+      openrouter.ts     ← Cascade de modelos + computeTokenCost
+      tools.ts          ← Definición de tools CRM (ventas, pedidos, productos, etc.)
+      execute-tool.ts   ← Ejecutor de tools con Prisma (siempre filtrado por tenantId)
+      system-prompt.ts  ← System prompt de Newy AI con defensa anti-jailbreak
     credits.ts          ← Motor de contabilidad de tokens, límites y auto-pausa
-    credits-error.ts    ← Error CreditExhaustedError
+    credits-error.ts    ← CreditExhaustedError (error 402)
+    trial.ts            ← Helpers de estado de suscripción (getTrialDaysLeft, isTrialExpired, etc.)
+    auth.ts             ← Configuración de NextAuth (providers, callbacks, JWT)
+    db.ts               ← Cliente Prisma singleton (importar como @/lib/db)
+    cloudinary.ts       ← Helper de Cloudinary
+    conekta.ts          ← Helper de Conekta
+    stripe.ts           ← Helper de Stripe
+    connected-apps.ts   ← Helpers para queries de ConnectedApp
+    google-calendar.ts  ← Integración completa de Google Calendar
+    tenant.ts           ← Helpers de tenant (getBySlug, getByDomain)
+    session.ts          ← Helper para extraer sesión en server components
+    utils.ts            ← Utilidades generales
     validations/        ← Schemas Zod
-    prisma.ts           ← Cliente Prisma singleton
+    image/              ← Utilidades de procesamiento de imágenes
   store/                ← Zustand stores (carrito de compras)
   types/                ← TypeScript type augmentations (NextAuth JWT)
 prisma/
@@ -129,6 +172,8 @@ prisma/
 local-utils/            ← Scripts de prueba, debugging, utilidades locales que NO forman parte de la app de producción
 middleware.ts           ← Gatekeeper multi-tenant + protección de rutas
 ```
+
+> ⚠️ **Nota crítica para agentes**: El cliente Prisma singleton se importa desde `@/lib/db` (archivo `src/lib/db.ts`), **NO** desde `@/lib/prisma`. Usar la ruta incorrecta causa errores de módulo.
 
 ---
 
@@ -140,7 +185,8 @@ El corazón del sistema. Cada negocio es un Tenant con:
 - `customDomain` → dominio propio opcional
 - `logoUrl`, `whatsappNumber`, `businessInfo`
 - `theme` (ThemeConfig 1:1) → colores y fuente del tenant
-- `isAssistantEnabled` → toggle del chatbot IA
+- `isAssistantEnabled` → toggle del chatbot IA por tenant
+- `isTriageEnabled` → toggle para habilitar el módulo de triage/pacientes (default: false)
 - `aiCreditLimitUsd` → override opcional del tope mensual de créditos IA (null = usa el del plan)
 
 ### User
@@ -159,11 +205,24 @@ El corazón del sistema. Cada negocio es un Tenant con:
 - Estados: `PENDING → PAID → SHIPPED → DELIVERED | CANCELLED`
 - Métodos de pago: `CARD_CONEKTA`, `OXXO_CONEKTA`, `PAYPAL`
 - `shippingAddress` como JSON
+- `conektaChargeId` → ID del cargo de Conekta (recibido vía webhook)
 
 ### ConnectedApp
-- Integraciones por tenant: Google, Facebook, WhatsApp
-- WhatsApp usa Evolution API (campos `wa*`)
+- Integraciones por tenant: `GOOGLE`, `MICROSOFT`, `FACEBOOK`, `WHATSAPP`
+- WhatsApp usa Evolution API (campos `wa*`):
+  - `waInstanceId`, `waInstanceName`, `waStatus`, `waQrCode`, `waPhoneNumber`, `waWebhookUrl`
+  - `waTemperature` (Float, default 0.7) → temperatura del modelo IA para respuestas de WhatsApp
+  - `waContext` (Text) → contexto personalizado del negocio para el agente de WhatsApp
 - Facebook/Instagram para campañas sociales
+- `@@unique([tenantId, provider])` → un tenant solo puede tener una app de cada tipo
+
+### PatientProfile
+- Perfil de triage de pacientes, vinculado 1:1 con `User`
+- Activado por `Tenant.isTriageEnabled = true`
+- Campos recopilados por el agente AI de WhatsApp: `age`, `heightCm`, `weightKg`, `goals`, `allergies`, `medicalHistory`, `medications`
+- `remoteJid` → identificador de WhatsApp del paciente
+- `isTriageComplete` → indica si el cuestionario fue completado
+- Visible en `/admin/pacientes` con i18n via `t.crm.triage.*`
 
 ### SocialCampaign + SocialPost
 - Campañas automatizadas via n8n
@@ -171,6 +230,8 @@ El corazón del sistema. Cada negocio es un Tenant con:
 - n8n genera contenido con IA y publica en Facebook/Instagram
 - `nextPostAt` calculado automáticamente
 - `pausedByCredits` → boolean que indica si la campaña fue auto-pausada por falta de créditos de IA
+- Campos de configuración: `name`, `campaignGoal` (promocion/informativo/urgencia/testimonio/educativo), `tone` (profesional/cercano/motivacional/urgente), `extraContext`
+- Campos de auditoría: `lastResults` (JSON con resultados por plataforma), `lastError`, `lastErrorAt`, `errorNode` (nodo n8n donde ocurrió el error)
 - **Scheduling gotcha**: Las fechas del formulario se envían como `datetime-local` (`YYYY-MM-DDTHH:mm`) para la `startDate` (con hora exacta del primer post) y `YYYY-MM-DDT23:59:59` para `endDate`. NUNCA envíes solo `YYYY-MM-DD` — JavaScript lo parsea como UTC midnight lo que causa que el primer post se dispare en el ciclo incorrecto o que la campaña expire prematuramente en zonas UTC-.
 
 ### AiTokenLedger
@@ -182,6 +243,9 @@ El corazón del sistema. Cada negocio es un Tenant con:
 - Planes: STARTER, PRO, ENTERPRISE
 - Estados: TRIALING, ACTIVE, PAST_DUE, CANCELED, UNPAID
 - Billing gestionado por Stripe
+- `trialEndsAt` → fecha de expiración del período de prueba (14 días desde creación)
+- Helpers en `src/lib/trial.ts`: `getTrialDaysLeft()`, `isTenantOnTrial()`, `isTrialExpired()`, `isSubscriptionBlocked()`
+- `TrialBanner` → mostrado durante el trial; `TrialExpiredGate` → bloquea el CRM al expirar
 
 ---
 
@@ -197,12 +261,14 @@ Cada tenant cuenta con un presupuesto mensual de gasto en créditos de IA ($15 U
 | **ENTERPRISE** | **$200.00 USD** |
 
 ### 2. Stack de Modelos en Cascada (5 Niveles)
-Para maximizar la monetización de créditos ($15 por Starter) y garantizar 100% de disponibilidad, las llamadas se ejecutan en cascada via `src/lib/ai/openrouter.ts`:
-1. `anthropic/claude-3.5-sonnet` (Pago: $3.00 in / $15.00 out) — Principal para tool use y español natural.
+Para maximizar la monetización de créditos ($15 por Starter) y garantizar 100% de disponibilidad, las llamadas se ejecutan en cascada via `src/lib/ai/openrouter.ts`.
+El orden real se configura en la env var `OPENROUTER_MODELS` (lista separada por comas).
+Configuracion actual de produccion:
+1. `anthropic/claude-sonnet-4.5` (Pago: $3.00 in / $15.00 out) — Principal para tool use y español natural.
 2. `openai/gpt-4o` (Pago: $2.50 in / $10.00 out) — Respaldo de pago si Anthropic tiene saturación.
-3. `google/gemini-2.0-flash-exp:free` (Gratuito: $0.00) — Fallback ultra-rápido de 1M de contexto.
-4. `meta-llama/llama-3.3-70b-instruct:free` (Gratuito: $0.00) — Fallback de open-weights para tool use.
-5. `deepseek/deepseek-chat:free` (Gratuito: $0.00) — Red de seguridad MoE 671B anti-errores 500.
+3. `nvidia/nemotron-3-super-120b-a12b:free` (Gratuito: $0.00) — Fallback rápido de NVIDIA.
+4. `google/gemma-4-31b-it:free` (Gratuito: $0.00) — Fallback Google open-weights.
+5. `openrouter/free` (Gratuito: $0.00) — Red de seguridad final, selección automática de OpenRouter.
 
 ### 3. Modelo de Negocio: Doble Contabilidad y Arbitraje SaaS
 El tenant siempre paga por **unidades de servicio de la plataforma** a la tarifa estándar de retail:
@@ -327,41 +393,86 @@ Para mantener la calidad y el valor comercial de la plataforma, aplican las sigu
 ## Variables de Entorno Críticas
 
 ```bash
-# Base de datos
-DATABASE_URL=                    # PostgreSQL en Supabase
+# ─── Base de datos ──────────────────────────────────────────────────────────────
+DATABASE_URL=                    # PostgreSQL en Supabase (pooler port 6543 — runtime)
+DIRECT_DATABASE_URL=             # Misma URL pero port 5432 — requerido para prisma db push / migrate
 
-# Auth
+# ─── Auth ───────────────────────────────────────────────────────────────────────
 NEXTAUTH_SECRET=                 # openssl rand -base64 32
 NEXTAUTH_URL=                    # http://localhost:3000 (dev) | https://newaigent.com (prod)
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 
-# IA (Claude / OpenRouter)
-ANTHROPIC_API_KEY=               # Claude API
-OPENROUTER_API_KEY=              # OpenRouter API key
-OPENROUTER_MODEL=                # anthropic/claude-sonnet-4-5
-OPENROUTER_INPUT_PRICE_PER_M=    # 3.00 (USD / 1M prompt tokens)
-OPENROUTER_OUTPUT_PRICE_PER_M=   # 15.00 (USD / 1M completion tokens)
+# ─── Microsoft OAuth (Outlook Calendar) ─────────────────────────────────────────
+MICROSOFT_CLIENT_ID=
+MICROSOFT_CLIENT_SECRET=
+MICROSOFT_TENANT_ID=             # "common" para multi-tenant Microsoft
 
-# Dominio raíz (multi-tenant)
+# ─── IA (Newy AI / OpenRouter) ──────────────────────────────────────────────────
+ANTHROPIC_API_KEY=               # Claude API (fallback directo)
+OPENROUTER_API_KEY=              # OpenRouter API key (principal)
+OPENROUTER_MODEL=                # Modelo primario: anthropic/claude-sonnet-4.5
+OPENROUTER_MODELS=               # Cascade completo separado por comas (ver §2 Stack de Modelos)
+OPENROUTER_INPUT_PRICE_PER_M=    # 3.00 (USD / 1M prompt tokens — tarifa retail)
+OPENROUTER_OUTPUT_PRICE_PER_M=   # 15.00 (USD / 1M completion tokens — tarifa retail)
+
+# ─── Dominio raíz (multi-tenant) ────────────────────────────────────────────────
 NEXT_PUBLIC_ROOT_DOMAIN=         # newaigent.com
 
-# Pagos
-CONEKTA_PRIVATE_KEY=
+# ─── Pagos — Conekta ────────────────────────────────────────────────────────────
+CONEKTA_PRIVATE_KEY=             # Server-side
+NEXT_PUBLIC_CONEKTA_PUBLIC_KEY=  # Client-side (Conekta.js tokenización)
 CONEKTA_WEBHOOK_SECRET=
-NEXT_PUBLIC_PAYPAL_CLIENT_ID=
-STRIPE_SECRET_KEY=               # Platform billing
-STRIPE_WEBHOOK_SECRET=
+CONEKTA_SUCCESS_URL=             # URL de redirección tras pago exitoso
+CONEKTA_FAILURE_URL=             # URL de redirección tras fallo de pago
 
-# Cloudinary (imágenes)
-CLOUDINARY_CLOUD_NAME=
+# ─── Pagos — PayPal ─────────────────────────────────────────────────────────────
+PAYPAL_CLIENT_ID=                # Server-side
+PAYPAL_CLIENT_SECRET=            # Server-side
+NEXT_PUBLIC_PAYPAL_CLIENT_ID=    # Client-side SDK
+
+# ─── Stripe (Platform SaaS Billing) ─────────────────────────────────────────────
+STRIPE_SECRET_KEY=               # sk_test_... o sk_live_...
+STRIPE_WEBHOOK_SECRET=           # whsec_...
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=  # pk_test_... o pk_live_...
+STRIPE_PRICE_STARTER_MONTHLY=    # price_...
+STRIPE_PRICE_STARTER_ANNUAL=
+STRIPE_PRICE_PRO_MONTHLY=
+STRIPE_PRICE_PRO_ANNUAL=
+STRIPE_PRICE_STARTER_MONTHLY_DLLS=  # Variante en USD
+STRIPE_PRICE_STARTER_ANNUAL_DLLS=
+STRIPE_PRICE_PRO_MONTHLY_DLLS=
+STRIPE_PRICE_PRO_ANNUAL_DLLS=
+
+# ─── Cloudinary (imágenes) ──────────────────────────────────────────────────────
+NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=   # Client-side (uploads directos)
 CLOUDINARY_API_KEY=
 CLOUDINARY_API_SECRET=
 
-# WhatsApp Evolution API
+# ─── Facebook / Instagram OAuth (campañas sociales) ─────────────────────────────
+FACEBOOK_APP_ID=
+FACEBOOK_APP_SECRET=
+# FACEBOOK_REDIRECT_URI se auto-detecta desde NEXTAUTH_URL si no se define
+
+# ─── n8n Automatización ─────────────────────────────────────────────────────────
+N8N_FACEBOOK_WEBHOOK_URL=        # URL del webhook de n8n para triggerear publicaciones
+
+# ─── APIs Internas (n8n → Next.js) ──────────────────────────────────────────────
+# IMPORTANTE: Todos los endpoints en /api/internal/ verifican este header: x-internal-key
+INTERNAL_API_KEY=                # openssl rand -hex 32
+# Nota: en .env.example puede aparecer como INTERNAL_API_SECRET — deben ser el mismo valor
+
+# ─── WhatsApp Evolution API ──────────────────────────────────────────────────────
 EVOLUTION_API_URL=
 EVOLUTION_API_KEY=
+
+# ─── Redis / Upstash (cache de sesiones) ────────────────────────────────────────
+UPSTASH_REDIS_REST_URL=
+UPSTASH_REDIS_REST_TOKEN=
 ```
+
+> ⚠️ **Windows `.env` rule**: No uses comillas alrededor de los valores.
+> ⚠️ **INTERNAL_API_KEY**: Los endpoints en `/api/internal/` leen `process.env.INTERNAL_API_KEY`. Si tu `.env` lo define como `INTERNAL_API_SECRET`, el header `x-internal-key` fallará con 401/403 silencioso.
 
 ---
 
@@ -387,6 +498,7 @@ Para probar subdominos localmente, editar el archivo `hosts` del sistema:
 127.0.0.1  localhost
 127.0.0.1  doctor.localhost
 127.0.0.1  nutrifit.localhost
+127.0.0.1  nutriologas.localhost
 ```
 
 Luego acceder a `http://doctor.localhost:3000` para ver el tenant "doctor".
@@ -413,7 +525,7 @@ Luego acceder a `http://doctor.localhost:3000` para ver el tenant "doctor".
 ### Pendiente
 - Row Level Security en Supabase (actualmente solo filtrado por app)
 - Rate limiting en `/api/chat`
-- Trial expiry gate completamente implementado en frontend
+- Trial expiry gate: `TrialBanner` y `TrialExpiredGate` existen pero el gate de expiración del trial en el layout de admin aún no bloquea completamente todas las rutas
 
 ---
 
@@ -461,6 +573,15 @@ Luego acceder a `http://doctor.localhost:3000` para ver el tenant "doctor".
 
 ---
 
+## Integración Microsoft (Outlook Calendar)
+
+- **OAuth Flow**: `/api/apps/oauth/microsoft/start` y `/callback` — análogo al flujo de Google.
+- **Provider Enum**: `MICROSOFT` en `AppProvider` de Prisma.
+- **Sidebar**: La ruta `/admin/calendario` requiere `providersReq: ["GOOGLE", "MICROSOFT"]` — se muestra si cualquiera de los dos está conectado.
+- **Env vars**: `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, `MICROSOFT_TENANT_ID` (usar `"common"` para multi-tenant).
+
+---
+
 ## Páginas Legales y Consentimiento de Registro
 
 - **Rutas Legales**: `/terminos` (Términos de Servicio) y `/privacidad` (Política de Privacidad) disponibles en el storefront público y dominio raíz.
@@ -474,5 +595,31 @@ Luego acceder a `http://doctor.localhost:3000` para ver el tenant "doctor".
 - **Hook Central**: `useTranslation()` desde `@/i18n`.
 - **Detección Automática**: Detecta el idioma principal configurado en el navegador del usuario (`navigator.languages[0]` / `navigator.language`) soportando Español (`es`) e Inglés (`en`).
 - **Diccionarios Tipados**: `src/i18n/types.ts`, `src/i18n/es.ts`, `src/i18n/en.ts`.
-- **Cero Textos Hardcodeados**: Todas las vistas del CRM (incluyendo `/admin/social-campaign`, modales, selectores de objetivo/tono/frecuencia, alertas, placeholders y toasts) consumen sus textos desde `t.crm.*`.
+- **Cero Textos Hardcodeados**: Todas las vistas del CRM (incluyendo `/admin/social-campaign`, `/admin/pacientes`, modales, selectores de objetivo/tono/frecuencia, alertas, placeholders y toasts) consumen sus textos desde `t.crm.*`.
+- **Rutas legales bilingues**: `/terminos` y `/privacidad` son las rutas en español; `/terms` y `/privacy` son las rutas alias en inglés. Ambas usan el mismo `LegalPageLayout` con i18n.
+
+---
+
+## Módulo de Triage / Pacientes (feature-flagged)
+
+- **Toggle**: `Tenant.isTriageEnabled = true` habilita el módulo (default: `false`).
+- **CRM**: `/admin/pacientes` — lista tarjetas de `PatientProfile` con datos recopilados por el agente WhatsApp.
+- **API interna**: `GET/POST /api/internal/triage` — autenticada con `x-internal-key`. El agente AI de WhatsApp consulta si un paciente ya tiene triage completo (`isTriageComplete`) y guarda los datos al terminar.
+- **Flujo de datos**: WhatsApp AI (n8n) → `POST /api/internal/triage` → crea/actualiza `PatientProfile` → visible en `/admin/pacientes`.
+- Si `isTriageEnabled = false`, el endpoint devuelve `{ isTriageComplete: true }` para que n8n omita el flujo de triage sin errores.
+- **Nota**: Este módulo **NO fue eliminado**. Está activo y funcional, solo se oculta en la sidebar cuando `isTriageEnabled = false`.
+
+---
+
+## Pipeline de Banners para Campañas Sociales (`/api/internal/render-post-banner`)
+
+- **Endpoint**: `POST /api/internal/render-post-banner`
+- **Auth**: Header `x-internal-key` → `process.env.INTERNAL_API_KEY`
+- **Función**: Compone una imagen 1080×1080 con Cloudinary SDK:
+  1. Sube un overlay SVG con degradado oscuro (scrim), título hero, subtítulo y botón CTA pill
+  2. Combina el overlay con la foto base del producto (crop fill + gravity auto)
+  3. Devuelve la URL pública de Cloudinary del banner compuesto
+- **Llamado por**: n8n antes de publicar en Facebook/Instagram
+- **Parámetros body**: `imageUrl` (requerido), `tenantId`, `hero`, `heroHighlight`, `support`, `cta`, `accentColor`
+- **Storage**: `nutriologas/{tenantId}/campaigns/banner_{timestamp}`
 

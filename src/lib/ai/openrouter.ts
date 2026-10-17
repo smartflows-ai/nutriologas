@@ -100,12 +100,17 @@ export async function callOpenRouterWithCascade(
 
       if (!res.ok) {
         const errText = await res.text();
-        attempts.push({ model: currentModel, status: res.status, error: errText.slice(0, 150) });
+        attempts.push({ model: currentModel, status: res.status, error: errText.slice(0, 200) });
 
-        if (i < modelStack.length - 1) {
-          continue; // Seamlessly jump to next model in the cascade
+        // 402 = insufficient credits on paid model → cascade to next (likely free) model
+        // 429 = rate limit, 5xx = server errors → all retryable
+        const retryableStatuses = [402, 429, 500, 502, 503, 504];
+        if (retryableStatuses.includes(res.status) && i < modelStack.length - 1) {
+          console.warn(`[OpenRouter] Model "${currentModel}" failed with HTTP ${res.status} — trying next model in cascade.`);
+          continue;
         }
 
+        // Non-retryable error (400, 401, 403) or last model in stack
         throw new Error(`OpenRouter error (${currentModel}) HTTP ${res.status}: ${errText}`);
       }
 

@@ -9,8 +9,8 @@
 
 **NewAigent** is a multi-tenant SaaS platform empowering businesses (clinics, specialty stores, consultants, service providers) with an autonomous digital infrastructure:
 - **E-Commerce Storefront**: Tenant-branded catalog, shopping cart, reviews, FAQ, and dual checkout (Conekta & PayPal).
-- **Admin CRM**: Real-time sales metrics, order fulfillment, customer profiles (triage), calendar scheduling, and visual theme customizer.
-- **AI Agent Workforce**: Newy AI autonomous business copilot with multi-step CRM tool execution, automated WhatsApp customer support, and scheduled multi-channel social campaigns (Facebook & Instagram via smart workflow automation).
+- **Admin CRM**: Real-time sales metrics, order fulfillment, customer profiles (triage with AI WhatsApp intake), calendar scheduling, and visual theme customizer.
+- **AI Agent Workforce**: Newy AI autonomous business copilot with multi-step CRM tool execution, automated WhatsApp customer support (with optional AI Triage for patient/client profiling), and scheduled multi-channel social campaigns (Facebook & Instagram via smart workflow automation).
 - **AI Token Credit & Spending Engine**: Real-time multi-model token accounting, hard spending limits per subscription tier ($15 Starter default), automated campaign throttling on exhaustion, dual retail/wholesale bookkeeping, and one-click Stripe recharges.
 
 ---
@@ -62,11 +62,13 @@ To balance **token budget monetization** (ensuring tenants utilize their $15 mon
 
 | Priority | Model ID | Tier | Rate (per 1M Tokens) | Purpose |
 |---|---|---|---|---|
-| **1 (Primary)** | `anthropic/claude-3.5-sonnet` | Paid | $3.00 in / $15.00 out | Primary intelligence driver, flawless Spanish CRM tool calling, drives healthy $15 budget utilization. |
+| **1 (Primary)** | `anthropic/claude-sonnet-4.5` | Paid | $3.00 in / $15.00 out | Primary intelligence driver, flawless Spanish CRM tool calling, drives healthy $15 budget utilization. |
 | **2 (Backup)** | `openai/gpt-4o` | Paid | $2.50 in / $10.00 out | Paid flagship failover if Anthropic queues are congested; maintains spending velocity. |
-| **3 (Fallback)** | `google/gemini-2.0-flash-exp:free` | Free | **$0.00** | Ultra-fast zero-cost fallback with 1M context if paid APIs are throttled. |
-| **4 (Fallback)** | `meta-llama/llama-3.3-70b-instruct:free` | Free | **$0.00** | High-precision open-weights tool execution fallback. |
-| **5 (Anchor)** | `deepseek/deepseek-chat:free` | Free | **$0.00** | 671B MoE deep reasoning safety net ensuring zero 500 errors. |
+| **3 (Fallback)** | `nvidia/nemotron-3-super-120b-a12b:free` | Free | **$0.00** | Ultra-fast NVIDIA zero-cost fallback. |
+| **4 (Fallback)** | `google/gemma-4-31b-it:free` | Free | **$0.00** | Google open-weights fallback. |
+| **5 (Anchor)** | `openrouter/free` | Free | **$0.00** | Final safety net — OpenRouter automatic free model selection. |
+
+> ⚠️ **Config**: The actual model cascade order is driven by the `OPENROUTER_MODELS` environment variable (comma-separated list). Always verify `.env` against this table.
 
 #### Failover Mechanics
 1. **OpenRouter Protocol**: Passes the remaining models in the `models` payload array for automatic edge-level routing.
@@ -229,11 +231,54 @@ In both Google and Facebook OAuth handlers (`start/route.ts` and `callback/route
 
 ---
 
-## 8. Feature Deprecation & Cleanup (AI Triage & Onboarding)
+## 8. Patient Triage Module (Feature-Flagged)
 
-- The legacy standalone **AI Triage & Onboarding** card has been deprecated and permanently removed from `/admin/apps`.
-- The corresponding "Pacientes/Triage" navigation link has been removed from `AdminSidebar`.
-- Customer profile and medical intake operations are natively integrated into the customer CRM records and unified AI Copilot inquiries.
+### 8.1 Overview
+The Triage module enables AI-assisted patient/client profiling via WhatsApp. It is **not deprecated** — it is **feature-flagged** per tenant via `Tenant.isTriageEnabled`.
+
+- **Default**: `isTriageEnabled = false` — module is hidden from sidebar and WhatsApp AI bypasses triage.
+- **Enabled**: `isTriageEnabled = true` — `/admin/pacientes` appears in the CRM sidebar and the WhatsApp AI agent conducts intake interviews.
+
+### 8.2 PatientProfile Data Model
+```prisma
+model PatientProfile {
+  id               String   @id @default(uuid())
+  userId           String   @unique
+  user             User     @relation(...)
+  tenantId         String
+  tenant           Tenant   @relation(...)
+  remoteJid        String?  // WhatsApp identifier (@s.whatsapp.net)
+  age              Int?
+  heightCm         Float?
+  weightKg         Float?
+  goals            String?  @db.Text
+  allergies        String?  @db.Text
+  medicalHistory   String?  @db.Text
+  medications      String?  @db.Text
+  isTriageComplete Boolean  @default(false)
+  updatedAt        DateTime @updatedAt
+}
+```
+
+### 8.3 Internal API Contracts
+```
+GET  /api/internal/triage?remoteJid=&tenantId=
+  Auth: x-internal-key header
+  Response: { exists, isTriageComplete, profile? }
+  — If isTriageEnabled = false: returns { isTriageComplete: true } to short-circuit n8n
+
+POST /api/internal/triage
+  Auth: x-internal-key header
+  Body: { tenantId, remoteJid, name, age, heightCm, weightKg, goals, allergies, medicalHistory, medications }
+  Response: { success, profile }
+  — Creates/updates PatientProfile and sets isTriageComplete = true
+```
+
+### 8.4 CRM View
+- Route: `/admin/pacientes`
+- API: `GET /api/admin/pacientes` (filtered by tenantId from JWT)
+- Displays patient cards with triage data, completion badge, and WhatsApp identifier
+- i18n via `t.crm.triage.*` keys
 
 ---
 
@@ -247,8 +292,10 @@ In both Google and Facebook OAuth handlers (`start/route.ts` and `callback/route
 ## 10. Verification & Quality Gates
 
 - **Static Analysis & Build**: `npm run build` must compile with zero errors across all routes.
-- **Prisma Schema**: `prisma db push` and `prisma generate` keep DB models synchronized.
+- **Prisma Schema**: `prisma db push` requires `DIRECT_DATABASE_URL` (port 5432). Runtime uses `DATABASE_URL` (pooler port 6543).
+- **Prisma Client Import**: Always import from `@/lib/db` — **NOT** `@/lib/prisma`. The singleton file is `src/lib/db.ts`.
 - **Internationalization**: All UI elements must supply keys in `src/i18n/types.ts`, `src/i18n/es.ts`, and `src/i18n/en.ts`.
+- **Internal API Key**: All `/api/internal/*` endpoints authenticate via `x-internal-key: process.env.INTERNAL_API_KEY`. Verify this var matches in `.env` (may be declared as `INTERNAL_API_SECRET` in `.env.example` — they must be the same value).
 
 ---
 
@@ -307,4 +354,63 @@ To protect proprietary intellectual property and maintain commercial value, all 
 | n8n | **Automatización Inteligente** / **Flujos Automatizados** | Social campaigns, automated workflows, background tasks |
 | Conekta | **Pasarela de pagos segura** / **Tarjeta de crédito o débito** | Checkout error messages, payment forms, billing receipts |
 | OpenRouter / Prompt tokens | **Créditos Newy AI** / **Unidades de Inteligencia** | Credits drawer, quota badges, usage graphs, Stripe top-up descriptions |
+
+---
+
+## 14. Microsoft / Outlook Calendar Integration
+
+### 14.1 OAuth Flow
+- Start: `GET /api/apps/oauth/microsoft/start` — initiates MSAL OAuth flow.
+- Callback: `GET /api/apps/oauth/microsoft/callback` — exchanges code for tokens, persists `ConnectedApp` with `provider = MICROSOFT`.
+- **Env vars**: `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, `MICROSOFT_TENANT_ID` (use `"common"` for multi-tenant).
+
+### 14.2 Sidebar Display Logic
+- `/admin/calendario` is shown in `AdminSidebar` when the tenant has **at least one** connected app matching `["GOOGLE", "MICROSOFT"]`.
+- Both Google and Microsoft Calendar integrations funnel through the same `/admin/calendario` CRM page.
+
+---
+
+## 15. Campaign Banner Rendering (`/api/internal/render-post-banner`)
+
+### 15.1 Purpose
+Generates composited 1080×1080 social media banners server-side using the Cloudinary SDK, called by n8n immediately before posting to Facebook/Instagram.
+
+### 15.2 API Contract
+```
+POST /api/internal/render-post-banner
+  Auth: x-internal-key (→ INTERNAL_API_KEY)
+  Body: {
+    imageUrl: string     // Base product photo (required)
+    tenantId?: string    // Used to scope Cloudinary folder
+    hero?: string        // Main headline text
+    heroHighlight?: string // Word in hero to colorize with accentColor
+    support?: string     // Subtitle / value proposition
+    cta?: string         // CTA button label (default: "Agenda ahora")
+    accentColor?: string // Hex color for CTA + highlight (default: #00C853)
+  }
+  Response: { success, imageUrl, publicId, folder, format, width, height }
+```
+
+### 15.3 Rendering Pipeline
+1. Builds SVG overlay with gradient scrim, shadow filter, hero title, subtitle, and CTA pill button.
+2. Uploads SVG as PNG to `nutriologas/assets/temp` (temporary).
+3. Uploads base `imageUrl` to Cloudinary with transformation: `fill crop 1080×1080` + overlay composite.
+4. Deletes temporary overlay asset (fire & forget).
+5. Returns composited banner URL stored in `nutriologas/{tenantId}/campaigns/banner_{timestamp}`.
+
+---
+
+## 16. Internal API Surface (n8n & WhatsApp AI)
+
+All endpoints under `/api/internal/` are excluded from tenant middleware and authenticate via `x-internal-key: process.env.INTERNAL_API_KEY`.
+
+| Endpoint | Method | Caller | Purpose |
+|---|---|---|---|
+| `/api/internal/tokens/report` | POST | n8n, WhatsApp AI | Report token usage from external automations |
+| `/api/internal/render-post-banner` | POST | n8n | Compose 1080×1080 campaign banner via Cloudinary |
+| `/api/internal/triage` | GET, POST | WhatsApp AI agent | Check/save patient triage profile |
+| `/api/internal/tenant-context` | POST | WhatsApp AI agent | Full tenant context (products, FAQs, reviews, waConfig) |
+| `/api/internal/calendar/availability` | GET | n8n | Query calendar free/busy slots |
+| `/api/internal/calendar/create-event` | POST | n8n | Create calendar event |
+| `/api/internal/whatsapp/sync` | POST | Evolution API webhook | Sync incoming WhatsApp messages to DB |
 
