@@ -17,6 +17,8 @@ export default async function AsistentePage() {
       slug: true,
       businessInfo: true,
       isAssistantEnabled: true,
+      vertical: true,
+      isBookingEnabled: true,
     },
   });
 
@@ -40,12 +42,16 @@ export default async function AsistentePage() {
 
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+  const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
   const [
     monthlyPaidOrders,
     pendingOrdersCount,
     activeProductsCount,
     activeCampaignsCount,
+    todayAppointmentsCount,
+    pendingAppointmentsCount,
   ] = await Promise.all([
     prisma.order.findMany({
       where: {
@@ -74,6 +80,19 @@ export default async function AsistentePage() {
         isActive: true,
       },
     }),
+    prisma.appointment.count({
+      where: {
+        tenantId: session?.user.tenantId,
+        appointmentDate: { gte: startOfToday, lte: endOfToday },
+        status: { notIn: ["CANCELLED"] },
+      },
+    }),
+    prisma.appointment.count({
+      where: {
+        tenantId: session?.user.tenantId,
+        status: "PENDING",
+      },
+    }),
   ]);
 
   const monthlySales = monthlyPaidOrders.reduce((sum, o) => sum + o.total, 0);
@@ -85,6 +104,8 @@ export default async function AsistentePage() {
     pendingOrdersCount,
     activeProductsCount,
     activeCampaignsCount,
+    todayAppointmentsCount,
+    pendingAppointmentsCount,
   };
 
   return (
@@ -94,6 +115,8 @@ export default async function AsistentePage() {
         businessInfo={tenant.businessInfo ?? undefined}
         tenantSlug={tenant.slug}
         initialMetrics={initialMetrics}
+        vertical={tenant.vertical}
+        isBookingEnabled={tenant.isBookingEnabled}
       />
     </div>
   );

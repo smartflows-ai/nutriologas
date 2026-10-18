@@ -1,10 +1,12 @@
 // src/app/api/calendar/events/route.ts
-// Fetches real events from Google Calendar or Microsoft Outlook
-// using the centralized connected_apps table.
+// Unified events endpoint returning both native CRM appointments and external Google/Microsoft events
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/db";
 import { getAppToken, getConnectedProvider } from "@/lib/connected-apps";
+
+export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -14,43 +16,115 @@ export async function GET(req: NextRequest) {
 
   const tenantId = (session.user as any).tenantId as string;
 
-  // Detect which calendar provider is connected
-  const provider = await getConnectedProvider(tenantId, ["GOOGLE", "MICROSOFT"]);
-  if (!provider) {
-    return NextResponse.json(
-      { error: "Ningún calendario conectado. Ve a Apps para conectar Google o Microsoft." },
-      { status: 400 }
-    );
-  }
-
-  const accessToken = await getAppToken(tenantId, provider);
-  if (!accessToken) {
-    return NextResponse.json(
-      { error: "Token expirado o inválido. Reconecta la app desde Apps.", errorCode: "TOKEN_EXPIRED" },
-      { status: 401 }
-    );
-  }
-
-  // Pad by 1 day on each side for timezone edge cases
   const { searchParams } = new URL(req.url);
   const rawStart = new Date(searchParams.get("start") ?? Date.now() - 7 * 86400000);
   const rawEnd = new Date(searchParams.get("end") ?? Date.now() + 30 * 86400000);
   const timeMin = new Date(rawStart.getTime() - 86400000).toISOString();
   const timeMax = new Date(rawEnd.getTime() + 86400000).toISOString();
 
-  if (provider === "GOOGLE") {
-    return fetchGoogleCalendar(accessToken, timeMin, timeMax);
-  } else {
-    return fetchMicrosoftCalendar(accessToken, timeMin, timeMax);
+  // 1. Cargar citas nativas del CRM (creadas vía web, WhatsApp o recepcionista)
+  let nativeEvents: any[] = [];
+  try {
+    const nativeAppts = await prisma.appointment.findMany({
+      where: {
+        tenantId,
+        appointmentDate: {
+          gte: new Date(rawStart.getTime() - 86400000),
+          lte: new Date(rawEnd.getTime() + 86400000),
+        },
+      },
+      include: {
+        product: { select: { name: true, durationMinutes: true, price: true } },
+        user: { select: { name: true, email: true } },
+      },
+      orderBy: { appointmentDate: "asc" },
+    });
+
+    nativeEvents = nativeAppts.map((a) => {
+      const start = a.appointmentDate;
+      const end = new Date(start.getTime() + (a.durationMinutes || 30) * 60000);
+      const patientName = a.customerName || a.user?.name || "Paciente";
+      const serviceName = a.product?.name || "Consulta Médica";
+
+      let status: "attended" | "pending" | "cancelled" = "pending";
+      let color = "#f59e0b"; // amber for pending
+
+      if (a.status === "CONFIRMED") {
+        status = "attended";
+        color = "#16a34a"; // emerald
+      } else if (a.status === "COMPLETED") {
+        status = "attended";
+        color = "#2563eb"; // blue
+      } else if (a.status === "CANCELLED" || a.status === "NO_SHOW") {
+        status = "cancelled";
+        color = "#ef4444"; // red
+      }
+
+      return {
+        id: `native_${a.id}`,
+        title: `${patientName} — ${serviceName}`,
+        start: start.toISOString(),
+        end: end.toISOString(),
+        allDay: false,
+        backgroundColor: color,
+        borderColor: color,
+        extendedProps: {
+          status,
+          appointmentStatus: a.status,
+          source: "native",
+          description: `Servicio: ${serviceName}\nPaciente: ${patientName}${a.customerPhone ? `\nTel: ${a.customerPhone}` : ""}${a.notes ? `\nMotivo: ${a.notes}` : ""}${a.internalNotes ? `\nNotas Clínicas: ${a.internalNotes}` : ""}`,
+          location: "Consultorio / Presencial",
+          patientName,
+          patientPhone: a.customerPhone,
+          patientEmail: a.user?.email,
+          service: serviceName,
+          notes: a.notes,
+          internalNotes: a.internalNotes,
+          appointmentId: a.id,
+        },
+      };
+    });
+  } catch (err) {
+    console.error("[calendar/events] Error fetching native appointments:", err);
   }
+
+  // 2. Cargar eventos de Google Calendar o Microsoft si están conectados
+  let externalEvents: any[] = [];
+  const provider = await getConnectedProvider(tenantId, ["GOOGLE", "MICROSOFT"]);
+
+  if (provider) {
+    try {
+      const accessToken = await getAppToken(tenantId, provider);
+      if (accessToken) {
+        if (provider === "GOOGLE") {
+          externalEvents = await getGoogleEvents(accessToken, timeMin, timeMax);
+        } else {
+          externalEvents = await getMicrosoftEvents(accessToken, timeMin, timeMax);
+        }
+      }
+    } catch (err) {
+      console.warn("[calendar/events] Could not load external calendar events:", err);
+    }
+  }
+
+  const allEvents = [...nativeEvents, ...externalEvents];
+  const statuses = allEvents.map((e) => e.extendedProps?.status ?? "pending");
+
+  return NextResponse.json({
+    events: allEvents,
+    hasExternalCalendar: !!provider,
+    provider: provider ?? null,
+    stats: {
+      total: statuses.length,
+      attended: statuses.filter((s) => s === "attended").length,
+      cancelled: statuses.filter((s) => s === "cancelled").length,
+      pending: statuses.filter((s) => s === "pending").length,
+    },
+  });
 }
 
-// ── Google Calendar ────────────────────────────────────────────────
-async function fetchGoogleCalendar(accessToken: string, timeMin: string, timeMax: string) {
-  // Fetch events directly from the primary calendar.
-  // Note: calendar.events scope allows reading events from "primary"
-  // but does NOT allow listing all calendars via calendarList API.
-  // If calendarList is available, also fetch from secondary calendars.
+// ── Google Calendar Helper ──────────────────────────────────────────
+async function getGoogleEvents(accessToken: string, timeMin: string, timeMax: string): Promise<any[]> {
   let calendarIds: string[] = ["primary"];
   let primaryCalEmail = "";
 
@@ -69,10 +143,9 @@ async function fetchGoogleCalendar(accessToken: string, timeMin: string, timeMax
       }
     }
   } catch {
-    // calendarList not available (insufficient scopes) — just use "primary"
+    // calendarList not available — fallback to primary
   }
 
-  // Fetch events from each calendar in parallel
   const allItems: any[] = [];
   await Promise.all(
     calendarIds.map(async (calId: string) => {
@@ -91,7 +164,7 @@ async function fetchGoogleCalendar(accessToken: string, timeMin: string, timeMax
 
   const now = new Date();
 
-  const events = allItems.map((item: any) => {
+  return allItems.map((item: any) => {
     const isAllDay = !!item.start?.date;
     const startStr = isAllDay ? item.start.date : item.start.dateTime;
     const startDate = new Date(startStr);
@@ -104,12 +177,12 @@ async function fetchGoogleCalendar(accessToken: string, timeMin: string, timeMax
     } else if (startDate < now) {
       status = "attended"; color = "#16a34a";
     } else {
-      status = "pending"; color = "#f59e0b";
+      status = "pending"; color = "#6366f1"; // Indigo for Google Calendar events
     }
 
     return {
       id: item.id,
-      title: item.summary ?? "(sin título)",
+      title: `[Google] ${item.summary ?? "(sin título)"}`,
       start: startStr,
       end: isAllDay ? item.end?.date : item.end?.dateTime,
       allDay: isAllDay,
@@ -117,33 +190,20 @@ async function fetchGoogleCalendar(accessToken: string, timeMin: string, timeMax
       borderColor: color,
       extendedProps: {
         status,
+        source: "google",
         description: item.description ?? "",
         location: item.location ?? "",
         htmlLink: item.htmlLink ?? "",
         eventId: item.id,
         calendarId: item._calendarId,
         calendarOwnerEmail: primaryCalEmail,
-        _calendarId: item._calendarId,
       },
     };
   });
-
-  // Stats from all fetched events
-  const statuses = events.map((e) => e.extendedProps.status);
-
-  return NextResponse.json({
-    events,
-    stats: {
-      total: statuses.length,
-      attended: statuses.filter((s) => s === "attended").length,
-      cancelled: statuses.filter((s) => s === "cancelled").length,
-      pending: statuses.filter((s) => s === "pending").length,
-    },
-  });
 }
 
-// ── Microsoft Outlook Calendar ─────────────────────────────────────
-async function fetchMicrosoftCalendar(accessToken: string, timeMin: string, timeMax: string) {
+// ── Microsoft Calendar Helper ───────────────────────────────────────
+async function getMicrosoftEvents(accessToken: string, timeMin: string, timeMax: string): Promise<any[]> {
   const res = await fetch(
     `https://graph.microsoft.com/v1.0/me/calendarView?` +
     new URLSearchParams({
@@ -155,16 +215,13 @@ async function fetchMicrosoftCalendar(accessToken: string, timeMin: string, time
     { headers: { Authorization: `Bearer ${accessToken}` } }
   );
 
-  if (!res.ok) {
-    console.error("[calendar] Microsoft Graph error:", await res.text());
-    return NextResponse.json({ error: "Error al leer calendario de Microsoft" }, { status: 502 });
-  }
+  if (!res.ok) return [];
 
   const data = await res.json();
   const items: any[] = data.value ?? [];
   const now = new Date();
 
-  const events = items.map((item: any) => {
+  return items.map((item: any) => {
     const isAllDay = item.isAllDay ?? false;
     const startStr = item.start?.dateTime
       ? new Date(item.start.dateTime + "Z").toISOString()
@@ -182,12 +239,12 @@ async function fetchMicrosoftCalendar(accessToken: string, timeMin: string, time
     } else if (startDate < now) {
       status = "attended"; color = "#16a34a";
     } else {
-      status = "pending"; color = "#f59e0b";
+      status = "pending"; color = "#0284c7"; // Sky blue for Outlook
     }
 
     return {
       id: item.id,
-      title: item.subject ?? "(sin título)",
+      title: `[Outlook] ${item.subject ?? "(sin título)"}`,
       start: startStr,
       end: endStr,
       allDay: isAllDay,
@@ -195,6 +252,7 @@ async function fetchMicrosoftCalendar(accessToken: string, timeMin: string, time
       borderColor: color,
       extendedProps: {
         status,
+        source: "microsoft",
         description: item.bodyPreview ?? "",
         location: item.location?.displayName ?? "",
         htmlLink: item.webLink ?? "",
@@ -202,11 +260,4 @@ async function fetchMicrosoftCalendar(accessToken: string, timeMin: string, time
       },
     };
   });
-
-  const total = items.length;
-  const cancelled = events.filter((e) => e.extendedProps.status === "cancelled").length;
-  const attended = events.filter((e) => e.extendedProps.status === "attended").length;
-  const pending = events.filter((e) => e.extendedProps.status === "pending").length;
-
-  return NextResponse.json({ events, stats: { total, attended, cancelled, pending } });
 }

@@ -292,7 +292,87 @@ Decisions made:
 - No scratch scripts permitted in root, `scratch/`, or `src/`.
 - Codified across `CLAUDE.md`, `spec.md`, `.agents/AGENTS.md`, and `.agents/dev/system_prompt.md`.
 
+---
 
+## 2026-10-17 — Architect & Dev — Unified Scheduling Hub & External Calendar Normalization
+
+**Pipeline**: BA Requirements → Architect Design → Dev Implementation → Code Reviewer → Docs.
+
+**Problems & Resolutions:**
+1. **Multi-Calendar Fragmentation**: The CRM previously segregated appointments into separate tabs ("Gestión de Citas" vs "Vista Calendario") which displayed conflicting KPI metrics (e.g. 1 native appointment vs 2 total events) and duplicated calendar UI components.
+2. **Consolidated Single View (`/admin/citas`)**:
+   - Replaced multi-calendar tabs with **one unified agenda** combining native CRM appointments and external Google/Microsoft calendar events.
+   - Built an interactive **Mini-Calendar** sidebar that reflects dot indicators for any appointment regardless of origin, allowing seamless date filtering without page reloads.
+   - External events are normalized via `src/lib/external-calendar.ts` and delivered via `GET /api/appointments` alongside native bookings.
+   - Google Calendar appointments feature verified integration badges and direct "Abrir en Calendar ↗" deep-links.
+   - `/admin/calendario` redirects directly to `/admin/citas`.
+3. **Automated Patient Notification**:
+   - Marking an appointment `CONFIRMED` via `PATCH /api/appointments/[id]` dispatches a personalized WhatsApp notification to the patient detailing doctor name, service, date, time, and duration.
+
+---
+
+## 2026-10-17 — Dev & Security — Evolution API v2 Configuration Invariants & QR Polling Handshake Fix
+
+**Pipeline**: Dev Implementation → Security & Integration Verification → Docs.
+
+**Problems & Resolutions:**
+1. **QR Modal Freezing (`WhatsAppModal`)**:
+   - When scanning the QR code from mobile devices, the modal remained stuck on "Waiting for you to scan the QR".
+   - **Root Cause**: The status polling route called `/instance/connect` on every 3-second cycle, which reset the Baileys socket while the phone was attempting the handshake. Furthermore, `/instance/connectionState` returned delayed states compared to real-time instance tables.
+   - **Fix**: Replaced disruptive connect calls with read-only inspection via `fetchInstances?instanceName=${instanceName}`, detecting `connectionStatus === "open"` and extracting `ownerJid` instantly.
+   - Polling interval set to 2000ms with automatic 1.2s exit animation and mount check for pre-authenticated sessions.
+2. **Evolution API Instance Configuration Flags**:
+   - Enforced required flags in `POST /api/apps/connect/whatsapp` during instance creation and explicit `/settings/set` + `/webhook/set` sync:
+     - `events: ["MESSAGES_UPSERT"]`
+     - `webhookBase64: true`
+     - `rejectCall: true` (Reject Calls)
+     - `groupsIgnore: true` (Ignore Groups)
+     - `readMessages: true` (Read Messages)
+     - `alwaysOnline: true` (Always Online)
+     - `readStatus: false` (Read Status disabled)
+     - `syncFullHistory: false`
+   - Verified live against Evolution API instance database.
+
+
+---
+
+## 2026-10-17 — Dev — Vertical-Aware UX: Hide Ecommerce Elements for Service Tenants
+
+**Pipeline**: Dev Implementation → Docs.
+
+**Problem & Rationale:**
+- Service-based tenants (`HEALTH`, `TOURISM`, `PETS_HOTEL`) operate entirely through `Appointment` and never create physical `Order` records.
+- Previously, the admin sidebar always displayed "Pedidos" and the public storefront Navbar always showed the shopping cart icon and "Mis Pedidos" link, causing confusion and dead-end routes for clinic/service users.
+
+**Changes Implemented:**
+
+### Admin Sidebar (`src/components/admin/AdminSidebar.tsx`)
+- Added `isOrders?: boolean` flag to `NavItem` interface.
+- Computed `isEcommerce = vertical === "ECOMMERCE"` alongside existing `isHealth`.
+- Tagged the Pedidos nav item with `isOrders: true`.
+- Filter rule: `if (item.isOrders && !isEcommerce) return false` — hides "Pedidos" for all non-ecommerce verticals.
+
+### Public Layout (`src/app/(public)/layout.tsx`)
+- `getTenantPublicData()` now fetches and returns `vertical` from the `Tenant` record.
+- Passes `isEcommerce={vertical === "ECOMMERCE"}` as a prop to `<Navbar>`.
+
+### Public Storefront Navbar (`src/components/shop/Navbar.tsx`)
+- Added `isEcommerce?: boolean` prop (defaults to `true` for backwards safety).
+- Four elements now conditionally rendered only when `isEcommerce` is true:
+  1. Desktop shopping cart icon button (top-right)
+  2. Mobile drawer cart link
+  3. Desktop "Mis Pedidos" user pill (authenticated state)
+  4. Mobile drawer "Mis Pedidos" link (authenticated state)
+- "Mis Citas" link remains visible for all verticals.
+
+**Vertical Matrix (Post-Change):**
+
+| Vertical | Admin: Pedidos | Storefront: Cart | Storefront: Mis Pedidos | Storefront: Mis Citas |
+|---|---|---|---|---|
+| `ECOMMERCE` | ✅ | ✅ | ✅ | ✅ |
+| `HEALTH` | ❌ | ❌ | ❌ | ✅ |
+| `TOURISM` | ❌ | ❌ | ❌ | ✅ |
+| `PETS_HOTEL` | ❌ | ❌ | ❌ | ✅ |
 
 
 

@@ -1,7 +1,7 @@
 // src/components/shop/Navbar.tsx
 "use client";
 import Link from "next/link";
-import { ShoppingCart, User, Menu, X, LogOut, ClipboardList, LayoutDashboard } from "lucide-react";
+import { ShoppingCart, User, Menu, X, LogOut, ClipboardList, LayoutDashboard, Calendar } from "lucide-react";
 import { useCartStore } from "@/store/cart";
 import { useEffect, useState } from "react";
 import { useSession, signOut } from "next-auth/react";
@@ -10,9 +10,10 @@ import { useTranslation } from "@/i18n";
 interface NavbarProps {
   storeName: string;
   logoUrl?: string | null;
+  isEcommerce?: boolean;
 }
 
-export default function Navbar({ storeName, logoUrl }: NavbarProps) {
+export default function Navbar({ storeName, logoUrl, isEcommerce = true }: NavbarProps) {
   const { t } = useTranslation();
   const itemCount = useCartStore((s) => s.itemCount());
   const [open, setOpen] = useState(false);
@@ -78,7 +79,8 @@ export default function Navbar({ storeName, logoUrl }: NavbarProps) {
 
         {/* Right Side Action Hub */}
         <div className="flex items-center gap-2 sm:gap-3">
-          {/* Shopping Cart Button */}
+          {/* Shopping Cart Button — ecommerce only */}
+          {isEcommerce && (
           <Link
             href="/carrito"
             className="relative p-2.5 rounded-xl text-gray-700 dark:text-gray-300 hover:text-primary hover:bg-primary/10 transition-all duration-200 flex items-center justify-center group"
@@ -92,6 +94,7 @@ export default function Navbar({ storeName, logoUrl }: NavbarProps) {
               </span>
             )}
           </Link>
+          )}
 
           <div className="h-5 w-px bg-gray-200 dark:bg-gray-800 mx-0.5 hidden sm:block" />
 
@@ -109,6 +112,15 @@ export default function Navbar({ storeName, logoUrl }: NavbarProps) {
                 </Link>
               )}
               <Link
+                href="/mis-citas"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-violet-50/80 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300 hover:bg-violet-100 text-xs font-semibold transition-all"
+                title="Mis Citas"
+              >
+                <Calendar size={13} />
+                <span>Mis Citas</span>
+              </Link>
+              {isEcommerce && (
+              <Link
                 href="/mis-pedidos"
                 className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gray-100/80 dark:bg-gray-900/80 hover:bg-gray-200/80 dark:hover:bg-gray-800 border border-gray-200/50 dark:border-gray-800 text-gray-700 dark:text-gray-300 text-xs font-semibold transition-all group"
                 title={t.shop.myOrders}
@@ -116,6 +128,7 @@ export default function Navbar({ storeName, logoUrl }: NavbarProps) {
                 <ClipboardList size={14} className="text-primary transition-transform duration-200 group-hover:scale-110" />
                 <span className="truncate max-w-[120px]">{userName}</span>
               </Link>
+              )}
               <button
                 onClick={async () => { await signOut({ redirect: false }); window.location.href = "/"; }}
                 className="p-2 rounded-xl text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all"
@@ -180,6 +193,8 @@ export default function Navbar({ storeName, logoUrl }: NavbarProps) {
           
           <div className="h-px w-full bg-gray-100 dark:bg-gray-800 my-1" />
           
+          {/* Cart — mobile drawer, ecommerce only */}
+          {isEcommerce && (
           <Link
             href="/carrito"
             onClick={() => setOpen(false)}
@@ -195,6 +210,7 @@ export default function Navbar({ storeName, logoUrl }: NavbarProps) {
               </span>
             )}
           </Link>
+          )}
 
           {isLoggedIn ? (
             <div className="space-y-3 pt-2">
@@ -209,6 +225,15 @@ export default function Navbar({ storeName, logoUrl }: NavbarProps) {
                 </Link>
               )}
               <Link
+                href="/mis-citas"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl text-violet-700 dark:text-violet-300 font-semibold hover:bg-violet-50 dark:hover:bg-violet-950/40 transition-colors"
+              >
+                <Calendar size={16} />
+                <span>Mis Citas</span>
+              </Link>
+              {isEcommerce && (
+              <Link
                 href="/mis-pedidos"
                 onClick={() => setOpen(false)}
                 className="flex items-center gap-2 px-3 py-2 rounded-xl text-gray-700 dark:text-gray-200 font-medium hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors"
@@ -216,6 +241,7 @@ export default function Navbar({ storeName, logoUrl }: NavbarProps) {
                 <ClipboardList size={16} />
                 {t.shop.myOrders}
               </Link>
+              )}
               <div className="flex items-center justify-between px-3 pt-2 border-t border-gray-100 dark:border-gray-800">
                 <span className="text-gray-500 text-xs truncate max-w-[180px]">{userName}</span>
                 <button

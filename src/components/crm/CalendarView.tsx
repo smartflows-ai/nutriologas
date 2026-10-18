@@ -7,8 +7,9 @@ import interactionPlugin from "@fullcalendar/interaction";
 import esLocale from "@fullcalendar/core/locales/es";
 import { useState, useCallback, useEffect, useRef } from "react";
 import type FullCalendarType from "@fullcalendar/react";
-import { X, MapPin, FileText, ExternalLink, CalendarDays, ClipboardList, AlertCircle } from "lucide-react";
+import { X, MapPin, FileText, ExternalLink, CalendarDays, ClipboardList, AlertCircle, Check } from "lucide-react";
 import { useTranslation } from "@/i18n";
+import { toast } from "sonner";
 
 interface CalStats { total: number; attended: number; cancelled: number; }
 
@@ -20,12 +21,22 @@ interface CalEvent {
   allDay?: boolean;
   backgroundColor: string;
   borderColor: string;
-  extendedProps: { status: string; description?: string; location?: string; htmlLink?: string };
+  extendedProps: {
+    status: string;
+    description?: string;
+    location?: string;
+    htmlLink?: string;
+    calendarOwnerEmail?: string;
+    source?: string;
+    appointmentId?: string;
+    appointmentStatus?: string;
+    [key: string]: any;
+  };
 }
 
 type FilterStatus = "all" | "attended" | "pending" | "cancelled";
 
-export default function CalendarView() {
+export default function CalendarView({ hideStats = false }: { hideStats?: boolean } = {}) {
   const { lang, t } = useTranslation();
   const [stats, setStats] = useState<CalStats>({ total: 0, attended: 0, cancelled: 0 });
   const [error, setError] = useState<string | null>(null);
@@ -128,15 +139,17 @@ export default function CalendarView() {
 
       {!error && (
         <>
-          {/* Stat Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {statCards.map((s) => (
-              <div key={s.label} className={`rounded-2xl bg-gradient-to-br ${s.from} ${s.to} p-5 text-white shadow-lg flex flex-col gap-1`}>
-                <p className="text-3xl font-extrabold tracking-tight">{s.value}</p>
-                <p className="text-xs font-medium opacity-80 uppercase tracking-wider">{s.label}</p>
-              </div>
-            ))}
-          </div>
+          {/* Stat Cards (only when not embedded in unified hub) */}
+          {!hideStats && (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              {statCards.map((s) => (
+                <div key={s.label} className={`rounded-2xl bg-gradient-to-br ${s.from} ${s.to} p-5 text-white shadow-lg flex flex-col gap-1`}>
+                  <p className="text-3xl font-extrabold tracking-tight">{s.value}</p>
+                  <p className="text-xs font-medium opacity-80 uppercase tracking-wider">{s.label}</p>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Filter buttons + Legend row */}
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -304,6 +317,44 @@ export default function CalendarView() {
                       <ExternalLink size={15} />
                       Ver en Google Calendar
                     </a>
+                  </div>
+                )}
+
+                {/* Native CRM Appointment Actions */}
+                {ep?.source === "native" && ep?.appointmentId && (
+                  <div className="px-6 pb-6 pt-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between gap-3">
+                    <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+                      Estado: <b className="uppercase tracking-wide">{ep.appointmentStatus || ep.status}</b>
+                    </span>
+                    {ep.appointmentStatus === "PENDING" && (
+                      <button
+                        onClick={async () => {
+                          try {
+                            const res = await fetch(`/api/appointments/${ep.appointmentId}`, {
+                              method: "PATCH",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ status: "CONFIRMED" }),
+                            });
+                            if (res.ok) {
+                              const d = await res.json();
+                              toast.success(
+                                d.whatsappSent
+                                  ? "¡Cita confirmada! Se envió mensaje de WhatsApp al paciente."
+                                  : "¡Cita confirmada!"
+                              );
+                              setSelected(null);
+                              calendarRef.current?.getApi().refetchEvents();
+                            }
+                          } catch (err) {
+                            toast.error("Error al confirmar cita");
+                          }
+                        }}
+                        className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-md shadow-emerald-600/20"
+                      >
+                        <Check size={15} />
+                        Confirmar y Notificar WhatsApp
+                      </button>
+                    )}
                   </div>
                 )}
               </div>

@@ -13,6 +13,7 @@ interface Props {
   onClose: () => void;
   initialPlan?: "STARTER" | "PRO";
   initialBillingInterval?: "monthly" | "annual";
+  initialVertical?: string;
 }
 
 type Step = 1 | 2 | 3 | 4;
@@ -88,7 +89,8 @@ const MAJOR_CITIES = [
 export default function OnboardingModal({
   onClose,
   initialPlan = "STARTER",
-  initialBillingInterval = "monthly"
+  initialBillingInterval = "monthly",
+  initialVertical = "HEALTH",
 }: Props) {
   const { t, lang } = useTranslation();
   // Step state
@@ -98,6 +100,7 @@ export default function OnboardingModal({
   const [termsAccepted, setTermsAccepted] = useState(false);
 
   // Step 1 — Business
+  const [vertical, setVertical] = useState(initialVertical);
   const [name, setName] = useState("");
   const [businessInfo, setBusinessInfo] = useState("");
   const [city, setCity] = useState("");
@@ -209,6 +212,8 @@ export default function OnboardingModal({
           plan,
           billingInterval,
           lang,
+          vertical,
+          isBookingEnabled: vertical !== "ECOMMERCE",
         }),
       });
       const data = await res.json();
@@ -280,6 +285,34 @@ export default function OnboardingModal({
               <div>
                 <label className={labelCls}><Building2 size={12} className="inline mr-1" />{t.modals.onboarding.bizName}</label>
                 <input className={inputCls} value={name} onChange={e => setName(e.target.value)} placeholder={t.modals.onboarding.phBizName} />
+              </div>
+
+              {/* Business Vertical Selector */}
+              <div>
+                <label className={labelCls}>Tipo de Negocio / Especialidad</label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  {[
+                    { id: "HEALTH", label: "Salud & Clínicas", icon: "🏥", desc: "Citas y consultas" },
+                    { id: "ECOMMERCE", label: "Tienda Online", icon: "🛒", desc: "Productos y stock" },
+                    { id: "VETERINARY", label: "Veterinaria", icon: "🐾", desc: "Mascotas y hotel" },
+                    { id: "TOURISM", label: "Turismo & Viajes", icon: "✈️", desc: "Tours y paquetes" },
+                  ].map((v) => (
+                    <button
+                      key={v.id}
+                      type="button"
+                      onClick={() => setVertical(v.id)}
+                      className={`p-3 rounded-xl border text-left transition-all ${
+                        vertical === v.id
+                          ? "border-violet-500 bg-violet-600/20 text-white shadow-lg shadow-violet-500/10 scale-102"
+                          : "border-white/10 bg-[#12121e] text-gray-400 hover:border-white/20"
+                      }`}
+                    >
+                      <span className="text-xl block mb-1">{v.icon}</span>
+                      <span className="text-xs font-bold block text-white">{v.label}</span>
+                      <span className="text-[10px] text-gray-500 block truncate">{v.desc}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Business Description */}

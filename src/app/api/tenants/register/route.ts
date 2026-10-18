@@ -23,7 +23,8 @@ export async function POST(req: Request) {
     const body = await req.json();
     const {
       email, password, name, slug, businessInfo, whatsappNumber,
-      location, logoUrl, plan = "STARTER", billingInterval = "monthly", lang = "es"
+      location, logoUrl, plan = "STARTER", billingInterval = "monthly", lang = "es",
+      vertical = "ECOMMERCE", isBookingEnabled
     } = body;
 
     // ── Validation ────────────────────────────────────────────────
@@ -58,7 +59,7 @@ export async function POST(req: Request) {
       const customer = await stripe.customers.create({
         email,
         name,
-        metadata: { slug: cleanSlug, plan: validatedPlan, billingInterval: validatedInterval, lang },
+        metadata: { slug: cleanSlug, plan: validatedPlan, billingInterval: validatedInterval, lang, vertical },
       });
       stripeCustomerId = customer.id;
 
@@ -75,6 +76,10 @@ export async function POST(req: Request) {
     }
 
     // ── Create all DB records in a transaction ────────────────────
+    const shouldEnableBooking = isBookingEnabled !== undefined 
+      ? Boolean(isBookingEnabled) 
+      : ["HEALTH", "VETERINARY", "PET_CARE", "TOURISM", "TRAVEL", "SERVICES"].includes(vertical);
+
     const tenant = await prisma.$transaction(async (tx) => {
       const tenant = await tx.tenant.create({
         data: {
@@ -83,6 +88,8 @@ export async function POST(req: Request) {
           businessInfo: businessInfo ?? "",
           whatsappNumber: whatsappNumber ?? null,
           logoUrl: logoUrl ?? null,
+          vertical: (vertical as any) || "ECOMMERCE",
+          isBookingEnabled: shouldEnableBooking,
         },
       });
 

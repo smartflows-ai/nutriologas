@@ -28,60 +28,82 @@ export async function GET(req: NextRequest) {
   if (!app?.waInstanceId)
     return Response.json({ status: "disconnected" });
 
-  // Consultar estado real en Evolution API
-  const statusRes = await evoFetch(
-    `${EVOLUTION_API_URL}/instance/connectionState/${app.waInstanceId}`,
-    { headers: { apikey: EVOLUTION_API_KEY } }
-  );
+  let isConnected = false;
+  let phoneNumber: string | null = app.waPhoneNumber;
 
-  if (!statusRes.ok) return Response.json({ status: "disconnected" });
-
-  const statusData = await statusRes.json();
-  const isConnected = statusData.instance?.state === "open";
-
-  // Si ya conectó, obtener el número y limpiar el QR
-  if (isConnected && app.waStatus !== "connected") {
+  // 1. Consultar estado real en Evolution API vía fetchInstances (más confiable y contiene ownerJid)
+  try {
     const infoRes = await evoFetch(
       `${EVOLUTION_API_URL}/instance/fetchInstances?instanceName=${app.waInstanceId}`,
       { headers: { apikey: EVOLUTION_API_KEY } }
     );
-    const infoData = infoRes.ok ? await infoRes.json() : [];
-    const phone = infoData[0]?.instance?.number ?? infoData[0]?.instance?.ownerJid?.replace(/@.*$/, "") ?? null;
+    if (infoRes.ok) {
+      const infoData = await infoRes.json();
+      const inst = Array.isArray(infoData)
+        ? infoData.find((i: any) => i.name === app.waInstanceId || i.id === app.waInstanceId) || infoData[0]
+        : infoData;
 
-    await prisma.connectedApp.update({
-      where: { tenantId_provider: { tenantId, provider: "WHATSAPP" } },
-      data: {
-        waStatus: "connected",
-        waQrCode: null, // limpiar QR
-        waPhoneNumber: phone,
-      },
-    });
-    
-    revalidatePath("/admin");
-    revalidatePath("/admin/apps");
-    revalidatePath("/admin", "layout");
+      if (inst) {
+        const state = inst.connectionStatus || inst.state || inst.instance?.state;
+        if (state === "open") {
+          isConnected = true;
+        }
+        const rawPhone = inst.ownerJid || inst.number || inst.instance?.ownerJid || inst.instance?.number;
+        if (rawPhone) {
+          phoneNumber = rawPhone.replace(/@.*$/, "").replace(/\D/g, "");
+        }
+      }
+    }
+  } catch (err: any) {
+    console.warn("[whatsapp-status] fetchInstances error:", err.message);
   }
 
-  // Si sigue pendiente de QR, refrescar el QR
-  if (!isConnected && app.waStatus === "qr_pending") {
-    const qrRes = await evoFetch(
-      `${EVOLUTION_API_URL}/instance/connect/${app.waInstanceId}`,
-      { headers: { apikey: EVOLUTION_API_KEY } }
-    );
-    if (qrRes.ok) {
-      const qrData = await qrRes.json();
-      if (qrData.base64) {
-        await prisma.connectedApp.update({
-          where: { tenantId_provider: { tenantId, provider: "WHATSAPP" } },
-          data: { waQrCode: qrData.base64 },
-        });
-        return Response.json({ status: "qr_pending", qrCode: qrData.base64 });
+  // 2. Si fetchInstances no indicó open, verificar connectionState
+  if (!isConnected) {
+    try {
+      const statusRes = await evoFetch(
+        `${EVOLUTION_API_URL}/instance/connectionState/${app.waInstanceId}`,
+        { headers: { apikey: EVOLUTION_API_KEY } }
+      );
+      if (statusRes.ok) {
+        const statusData = await statusRes.json();
+        const state = statusData.instance?.state || statusData.state || statusData.connectionStatus;
+        if (state === "open") {
+          isConnected = true;
+        }
       }
+    } catch (err: any) {
+      console.warn("[whatsapp-status] connectionState error:", err.message);
     }
   }
 
+  // Si ya conectó, actualizar base de datos y limpiar QR
+  if (isConnected) {
+    if (app.waStatus !== "connected" || app.waQrCode !== null || (phoneNumber && !app.waPhoneNumber)) {
+      await prisma.connectedApp.update({
+        where: { tenantId_provider: { tenantId, provider: "WHATSAPP" } },
+        data: {
+          waStatus: "connected",
+          waQrCode: null, // limpiar QR
+          waPhoneNumber: phoneNumber || app.waPhoneNumber,
+        },
+      });
+
+      revalidatePath("/admin");
+      revalidatePath("/admin/apps");
+      revalidatePath("/admin", "layout");
+    }
+
+    return Response.json({
+      status: "connected",
+      phoneNumber: phoneNumber || app.waPhoneNumber,
+      instanceName: app.waInstanceId,
+      webhookUrl: app.waWebhookUrl,
+    });
+  }
+
   return Response.json({
-    status: isConnected ? "connected" : app.waStatus,
+    status: app.waStatus || "disconnected",
     qrCode: app.waQrCode,
     phoneNumber: app.waPhoneNumber,
     instanceName: app.waInstanceId,

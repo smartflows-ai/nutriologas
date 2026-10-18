@@ -63,8 +63,10 @@ src/
   app/
     (public)/           ← Storefront público del tenant
       page.tsx          ← Homepage (carrusel + productos + reviews + FAQ)
-      productos/        ← Catálogo con filtros
-      producto/[slug]/  ← Detalle de producto + reseñas
+      productos/        ← Catálogo con filtros y adaptación para servicios
+      producto/[slug]/  ← Detalle de producto o servicio + CTA agendar cita + reseñas
+      agendar/[slug]/   ← Flujo interactivo de citas / consultas con selector de 21 días y horarios
+      mis-citas/        ← Portal del paciente/cliente para ver y cancelar sus citas
       carrito/          ← Carrito de compras (Zustand)
       checkout/         ← Pasarela de pago (Conekta + PayPal)
       mis-pedidos/      ← Historial de órdenes del cliente
@@ -77,14 +79,15 @@ src/
       login/            ← Login con email/contraseña + Google OAuth
       registro/         ← Registro de nuevos clientes (con consentimiento legal)
     admin/              ← CRM — Solo accesible para role = ADMIN
-      dashboard/        ← Métricas: ventas, pedidos, clientes
-      productos/        ← CRUD de productos + Cloudinary upload
+      dashboard/        ← Métricas: ventas, pedidos, clientes, citas de hoy
+      citas/            ← Gestión y agenda de citas médicas/servicios con notas clínicas y estados
+      productos/        ← CRUD de productos físicos y servicios/consultas (duración, agendamiento)
       pedidos/          ← Gestión de pedidos
       carrusel/         ← Gestión del banner/carrusel de imágenes
       apariencia/       ← Editor de tema (colores + fuente)
       calendario/       ← Integración Google Calendar y Outlook (Microsoft)
       reviews/          ← Moderación de reseñas de clientes
-      asistente/        ← Chatbot IA con Newy AI (tool use)
+      asistente/        ← Chatbot IA con Newy AI (tool use, consultas de citas y KPIs)
       faq/              ← CRUD de preguntas frecuentes
       social-campaign/  ← Campañas automatizadas para FB/Instagram (i18n completo)
       whatsapp/         ← CRM de conversaciones WhatsApp
@@ -93,6 +96,9 @@ src/
       pacientes/        ← Perfiles de pacientes/triage (visible solo si Tenant.isTriageEnabled = true)
       suscripcion/      ← Gestión de suscripción Stripe del tenant
     api/
+      appointments/     ← GET/POST citas del tenant (aisladas por tenantId)
+      appointments/[id] ← PATCH/DELETE gestión de estado y notas clínicas de citas
+      appointments/availability ← GET cálculo de slots disponibles según horario y duración
       auth/             ← NextAuth handlers ([...nextauth])
       products/         ← CRUD API de productos
       orders/           ← Creación y consulta de pedidos
@@ -185,6 +191,8 @@ El corazón del sistema. Cada negocio es un Tenant con:
 - `customDomain` → dominio propio opcional
 - `logoUrl`, `whatsappNumber`, `businessInfo`
 - `theme` (ThemeConfig 1:1) → colores y fuente del tenant
+- `vertical` (`BusinessVertical`) → `ECOMMERCE`, `HEALTH`, `VETERINARY`, `TOURISM`, `SERVICES`
+- `isBookingEnabled` → activa el motor de agenda y citas para el tenant
 - `isAssistantEnabled` → toggle del chatbot IA por tenant
 - `isTriageEnabled` → toggle para habilitar el módulo de triage/pacientes (default: false)
 - `aiCreditLimitUsd` → override opcional del tope mensual de créditos IA (null = usa el del plan)
@@ -194,12 +202,28 @@ El corazón del sistema. Cada negocio es un Tenant con:
 - `role`: `CUSTOMER` | `ADMIN`
 - Auth: email+password o Google OAuth
 - `conektaCustomerId` para pagos recurrentes
+- `appointments` → relación 1:N con citas agendadas
 
 ### Product
 - Tenant-scoped
+- `itemType` (`ItemType`) → `PHYSICAL`, `SERVICE`, `PACKAGE`, `SUBSCRIPTION`
+- `durationMinutes` → duración estimada en minutos para citas/consultas (default: 30)
+- `requiresBooking` → boolean que activa el botón "Agendar Cita" y selector de agenda
+- `capacity` → cupo máximo para servicios grupales o tours
+- `serviceConfig` → configuración JSON (horarios específicos, requisitos, etc.)
 - `isActive` → visible en storefront
 - `deletedAt` → soft delete
 - `images[]` → URLs de Cloudinary
+
+### Appointment
+- Motor nativo de agenda de citas médicas y servicios (aislado por `tenantId`)
+- `userId` → paciente o cliente registrado
+- `productId` → servicio o consulta médica agendada
+- `appointmentDate` → fecha y hora exacta de la cita
+- `durationMinutes` → duración de la sesión
+- `status` (`AppointmentStatus`) → `PENDING`, `CONFIRMED`, `COMPLETED`, `CANCELLED`, `NO_SHOW`
+- `notes` → motivo de consulta o notas proporcionadas por el paciente
+- `internalNotes` → notas clínicas o de atención visibles solo para el profesional (ADMIN)
 
 ### Order + OrderItem
 - Estados: `PENDING → PAID → SHIPPED → DELIVERED | CANCELLED`
@@ -622,4 +646,55 @@ Luego acceder a `http://doctor.localhost:3000` para ver el tenant "doctor".
 - **Llamado por**: n8n antes de publicar en Facebook/Instagram
 - **Parámetros body**: `imageUrl` (requerido), `tenantId`, `hero`, `heroHighlight`, `support`, `cta`, `accentColor`
 - **Storage**: `nutriologas/{tenantId}/campaigns/banner_{timestamp}`
+
+---
+
+## Verticales de Negocio y Adaptación de Servicios
+
+- **Modelo en DB (`Tenant.vertical`)**: Enum `BusinessVertical` (`ECOMMERCE`, `HEALTH`, `PETS_HOTEL`, `TOURISM`).
+- **Adaptación Dinámica**:
+  - Para verticales no enfocadas en e-commerce físico (médicos/ginecólogos, veterinarias con hotel de mascotas, agencias de viaje/tours), los productos se configuran como servicios con duración (`durationMinutes`) y agendamiento interactivo (`isBookingEnabled: true`).
+  - En la sidebar, la sección de productos cambia automáticamente a "Servicios" para profesionales de salud (`isHealth`).
+  - Storefront adapta el botón principal de compra a "Agendar Cita / Servicio" enrutando a `/agendar/[slug]`.
+- **Portal de Citas del Paciente**: Los clientes pueden ver sus citas agendadas o cancelarlas en `/mis-citas`.
+- **Reserva de Huéspedes e Invitados**: El endpoint `POST /api/appointments` permite reservar citas sin requerir cuenta previa. Guarda el nombre y teléfono del paciente tanto en los campos relacionales (`customerName`, `customerPhone`) como en `notes` como respaldo redundante.
+
+---
+
+## Gestión Unificada de Agenda y Citas (`/admin/citas`)
+
+- **Vista Centralizada Única**: Unifica en una sola pantalla interactiva las citas nativas del CRM (creadas en la web o WhatsApp) y los eventos sincronizados desde **Google Calendar** y **Microsoft Outlook**.
+- **Mini-Calendario Interactivo**:
+  - Ubicado a la izquierda para navegación rápida por mes y día.
+  - Muestra puntos indicadores en los días que tienen citas (de cualquier origen).
+  - Al hacer clic en un día, filtra instantáneamente la lista unificada a esa fecha.
+- **Sin Cuadrículas Duplicadas**: Se eliminó la vista separada de FullCalendar al pie de la página para evitar discrepancias numéricas y garantizar que todas las citas compartan el mismo listado y métricas KPI (`TOTAL`, `POR CONFIRMAR`, `CONFIRMADAS`, `COMPLETADAS`).
+- **Insignias y Acciones por Origen**:
+  - Citas de Google Calendar: Muestran la insignia oficial `Google Calendar`, datos del evento y botón directo **"Abrir en Calendar ↗"**.
+  - Citas nativas: Muestran precio del servicio, teléfono con enlace directo a WhatsApp (`wa.me`), estado clínico y botones de acción (`Confirmar`, `Atendida`, `No vino`, `Notas clínicas`).
+- **Confirmación Automática por WhatsApp**:
+  - Al hacer clic en "Confirmar" en una cita, `PATCH /api/appointments/[id]` envía un mensaje automático al paciente vía WhatsApp con el nombre del consultorio, servicio, fecha, hora y duración estimada.
+- **Redirección de Ruta**: `/admin/calendario` redirige directamente a `/admin/citas`.
+
+---
+
+## Conexión de WhatsApp e Integración con Evolution API
+
+- **Banderas Requeridas en la Creación de Instancia**:
+  Al crear o conectar una instancia en `POST /api/apps/connect/whatsapp`, se aplican de forma estricta las siguientes banderas tanto en el payload de `/instance/create` como en `/settings/set` y `/webhook/set`:
+  1. `events: ["MESSAGES_UPSERT"]` (dispara webhook en mensajes entrantes).
+  2. `webhookBase64: true` (envía el payload del webhook en base64).
+  3. `rejectCall: true` (rechaza llamadas de voz automáticamente).
+  4. `groupsIgnore: true` (ignora mensajes de grupos).
+  5. `readMessages: true` (marca mensajes recibidos como leídos).
+  6. `alwaysOnline: true` (mantiene la sesión siempre activa en WhatsApp).
+  7. `readStatus: false` (desactiva la lectura de estados de WhatsApp).
+  8. `syncFullHistory: false`.
+- **Detección Confiable de Conexión (`/api/apps/whatsapp/status`)**:
+  - Consulta `fetchInstances?instanceName=${instanceName}` en Evolution API.
+  - Verifica `connectionStatus === "open"` y extrae el número de teléfono desde `ownerJid` de inmediato.
+  - **Sin Interrupción de Handshake**: Se eliminó la llamada recurrente a `/instance/connect` durante el sondeo que reiniciaba el socket mientras el teléfono escaneaba el código QR.
+- **Cierre Inmediato del Modal (`WhatsAppModal`)**:
+  - Polling a 2 segundos en `/admin/apps`. Al detectar `status === "connected"`, muestra la confirmación visual de éxito y cierra el modal automáticamente en 1.2 segundos.
+  - Al abrir el modal, realiza una verificación inmediata para auto-cerrarse si la sesión ya estaba vinculada.
 

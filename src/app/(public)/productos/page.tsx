@@ -39,13 +39,30 @@ async function getProducts(category?: string, sort?: string) {
     })),
     categories: categories.map((c) => c.category!).filter(Boolean),
     tenantName: tenant.name,
+    vertical: tenant.vertical,
+    isBookingEnabled: tenant.isBookingEnabled,
   };
 }
 
 export default async function ProductosPage({ searchParams }: { searchParams: { category?: string; sort?: string } }) {
-  const { products, categories, tenantName } = await getProducts(searchParams.category, searchParams.sort);
+  const { products, categories, tenantName, vertical, isBookingEnabled } = await getProducts(searchParams.category, searchParams.sort);
   const activeCategory = searchParams.category || null;
   const t = getTranslationServer();
+
+  const isHealth = vertical === "HEALTH";
+  const isBooking = isBookingEnabled || isHealth;
+  const pageTitle = activeCategory
+    ? activeCategory
+    : isHealth
+    ? "Servicios y Consultas"
+    : isBooking
+    ? "Nuestros Servicios"
+    : t.storefront.catalog.allProducts;
+  const pageSubtitle = isHealth
+    ? "Agenda tu consulta médica o procedimiento especializado con"
+    : isBooking
+    ? "Explora nuestros servicios y reserva tu horario con"
+    : t.storefront.catalog.exploreCatalog;
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#07070f]">
@@ -59,7 +76,9 @@ export default async function ProductosPage({ searchParams }: { searchParams: { 
           <nav className="flex items-center space-x-2 text-sm text-gray-500 mb-6 font-medium">
             <Link href="/" className="hover:text-[var(--color-primary)] transition-colors flex items-center gap-1.5"><Home size={14}/> {t.storefront.catalog.home}</Link>
             <ChevronRight size={14} className="text-gray-400" />
-            <span className="text-gray-900 dark:text-white font-semibold">{t.storefront.catalog.products}</span>
+            <span className="text-gray-900 dark:text-white font-semibold">
+              {isHealth ? "Consultas y Servicios" : isBooking ? "Servicios" : t.storefront.catalog.products}
+            </span>
             {activeCategory && (
               <>
                 <ChevronRight size={14} className="text-gray-400" />
@@ -69,10 +88,10 @@ export default async function ProductosPage({ searchParams }: { searchParams: { 
           </nav>
 
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-gray-900 dark:text-white tracking-tight leading-[1.1] mb-4">
-            {activeCategory ? activeCategory : t.storefront.catalog.allProducts}
+            {pageTitle}
           </h1>
           <p className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl">
-            {t.storefront.catalog.exploreCatalog} <span className="font-bold text-[var(--color-primary)]">{tenantName}</span>.
+            {pageSubtitle} <span className="font-bold text-[var(--color-primary)]">{tenantName}</span>.
           </p>
         </div>
       </div>

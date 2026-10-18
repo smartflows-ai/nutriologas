@@ -24,6 +24,7 @@ export default function PricingSection() {
   const [annual, setAnnual] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<PlanKey>("STARTER");
+  const [selectedVertical, setSelectedVertical] = useState<"HEALTH" | "ECOMMERCE" | "VETERINARY" | "TOURISM">("HEALTH");
   const { t, lang } = useTranslation();
 
   // Language is managed by LanguageProvider
@@ -57,54 +58,245 @@ export default function PricingSection() {
   const enterpriseAnnual = currentPrices?.enterprise.annualPrice ?? (isEs ? 2999 : 149);
   const enterpriseCurrency = currentPrices?.enterprise.currency ?? (isEs ? "MXN" : "USD");
 
-  const plans = [
-    {
-      id: "starter" as PlanKey,
-      name: "Starter",
-      tagline: t.pricing.starterTagline,
-      monthlyPrice: starterMonthly,
-      annualPrice: starterAnnual,
-      currency: starterCurrency,
-      color: "#06B6D4",
-      glow: "rgba(6,182,212,0.15)",
-      popular: false,
-      features: t.pricing.starterFeatures,
-      cta: t.pricing.startTrial,
-      planKey: "STARTER" as PlanKey,
-    },
-    {
-      id: "pro" as PlanKey,
-      name: "Pro",
-      tagline: t.pricing.proTagline,
-      monthlyPrice: proMonthly,
-      annualPrice: proAnnual,
-      currency: proCurrency,
-      color: "#7C3AED",
-      glow: "rgba(124,58,237,0.2)",
-      popular: true,
-      features: t.pricing.proFeatures,
-      cta: t.pricing.startTrial,
-      planKey: "PRO" as PlanKey,
-    },
-    {
-      id: "enterprise",
-      name: "Enterprise",
-      tagline: t.pricing.enterpriseTagline,
-      monthlyPrice: enterpriseMonthly,
-      annualPrice: enterpriseAnnual,
-      currency: enterpriseCurrency,
-      color: "#4F46E5",
-      glow: "rgba(79,70,229,0.15)",
-      popular: false,
-      features: t.pricing.enterpriseFeatures,
-      cta: t.pricing.contactSales,
-      planKey: null,
-    },
-  ];
+  // Definición dinámica de planes por vertical
+  const getVerticalPlans = () => {
+    if (selectedVertical === "HEALTH") {
+      return [
+        {
+          id: "starter" as PlanKey,
+          name: "Base",
+          tagline: "Para consultorios y especialistas que inician",
+          monthlyPrice: isEs ? 500 : 29,
+          annualPrice: isEs ? 375 : 19,
+          currency: starterCurrency,
+          color: "#06B6D4",
+          glow: "rgba(6,182,212,0.15)",
+          popular: false,
+          features: [
+            "Catálogo de servicios y consultas",
+            "Chat Newy AI Copilot integrado",
+            "Sincronización con Google Calendar",
+            "WhatsApp con respuestas automáticas",
+            "Valoraciones y reviews de pacientes",
+            "Soporte por correo y WhatsApp",
+          ],
+          cta: t.pricing.startTrial,
+          planKey: "STARTER" as PlanKey,
+        },
+        {
+          id: "pro" as PlanKey,
+          name: "Clínica & Salud",
+          tagline: "Agenda médica completa + Triage automatizado",
+          monthlyPrice: isEs ? 800 : 45,
+          annualPrice: isEs ? 600 : 35,
+          currency: starterCurrency,
+          color: "#7C3AED",
+          glow: "rgba(124,58,237,0.25)",
+          popular: true,
+          features: [
+            "Todo lo del Plan Base incluido",
+            "Agenda médica y reserva de citas en línea",
+            "Triage inteligente de pacientes vía WhatsApp",
+            "Recordatorios y confirmaciones automáticas",
+            "Historial médico y notas clínicas internas",
+            "Campañas automáticas en Facebook e Instagram",
+            "Copiloto Newy AI para preguntas médicas de CRM",
+          ],
+          cta: t.pricing.startTrial,
+          planKey: "PRO" as PlanKey,
+        },
+        {
+          id: "enterprise",
+          name: "Red Hospitalaria",
+          tagline: "Múltiples consultorios, doctores y sucursales",
+          monthlyPrice: enterpriseMonthly,
+          annualPrice: enterpriseAnnual,
+          currency: enterpriseCurrency,
+          color: "#4F46E5",
+          glow: "rgba(79,70,229,0.15)",
+          popular: false,
+          features: [
+            "Doctores y consultorios ilimitados",
+            "Dominio personalizado (clinicaginesalud.com)",
+            "Integraciones dedicadas con ERP y laboratorios",
+            "Gerente de cuenta y onboarding presencial",
+            "SLA de 99.9% garantizado",
+          ],
+          cta: t.pricing.contactSales,
+          planKey: null,
+        },
+      ];
+    }
+
+    if (selectedVertical === "VETERINARY") {
+      return [
+        {
+          id: "starter" as PlanKey,
+          name: "Base",
+          tagline: "Para veterinarios y tiendas de mascotas",
+          monthlyPrice: isEs ? 500 : 29,
+          annualPrice: isEs ? 375 : 19,
+          currency: starterCurrency,
+          color: "#06B6D4",
+          glow: "rgba(6,182,212,0.15)",
+          popular: false,
+          features: [
+            "Catálogo de productos y consultas",
+            "WhatsApp Business con respuestas IA",
+            "Google Calendar integrado",
+            "Control de clientes y valoraciones",
+          ],
+          cta: t.pricing.startTrial,
+          planKey: "STARTER" as PlanKey,
+        },
+        {
+          id: "pro" as PlanKey,
+          name: "Veterinaria & Hotel",
+          tagline: "Gestión de mascotas, hotel/pensión y grooming",
+          monthlyPrice: isEs ? 1000 : 55,
+          annualPrice: isEs ? 800 : 42,
+          currency: starterCurrency,
+          color: "#10B981",
+          glow: "rgba(16,185,129,0.25)",
+          popular: true,
+          features: [
+            "Perfiles de mascotas (raza, edad, cuidados)",
+            "Reservas para Hotel Canino y Pensión de mascotas",
+            "Citas para consultas médicas y estética/grooming",
+            "Recordatorios de vacunación por WhatsApp",
+            "Campañas automáticas en Facebook & Instagram",
+            "Multi-especialistas y doctores veterinarios",
+          ],
+          cta: t.pricing.startTrial,
+          planKey: "PRO" as PlanKey,
+        },
+        {
+          id: "enterprise",
+          name: "Cadena Veterinaria",
+          tagline: "Para franquicias y hospitales 24 horas",
+          monthlyPrice: enterpriseMonthly,
+          annualPrice: enterpriseAnnual,
+          currency: enterpriseCurrency,
+          color: "#4F46E5",
+          glow: "rgba(79,70,229,0.15)",
+          popular: false,
+          features: t.pricing.enterpriseFeatures,
+          cta: t.pricing.contactSales,
+          planKey: null,
+        },
+      ];
+    }
+
+    if (selectedVertical === "TOURISM") {
+      return [
+        {
+          id: "starter" as PlanKey,
+          name: "Base",
+          tagline: "Para guías y agencias locales",
+          monthlyPrice: isEs ? 500 : 29,
+          annualPrice: isEs ? 375 : 19,
+          currency: starterCurrency,
+          color: "#06B6D4",
+          glow: "rgba(6,182,212,0.15)",
+          popular: false,
+          features: [
+            "Catálogo de paquetes y tours",
+            "WhatsApp para dudas frecuentes",
+            "Reviews y fotos de viajeros",
+            "Soporte estándar",
+          ],
+          cta: t.pricing.startTrial,
+          planKey: "STARTER" as PlanKey,
+        },
+        {
+          id: "pro" as PlanKey,
+          name: "Agencia de Viajes",
+          tagline: "Tours enriquecidos, leads y gestión de comisiones",
+          monthlyPrice: isEs ? 1200 : 65,
+          annualPrice: isEs ? 950 : 50,
+          currency: starterCurrency,
+          color: "#F59E0B",
+          glow: "rgba(245,158,11,0.25)",
+          popular: true,
+          features: [
+            "Fichas de tours (itinerarios, salidas, inclusiones)",
+            "Captación y calificación de leads por WhatsApp",
+            "Control de cupos y disponibilidad por fecha",
+            "Asignación de agentes y control de comisiones",
+            "Campañas automáticas para turismo en Meta",
+            "Newy AI responde dudas de itinerarios 24/7",
+          ],
+          cta: t.pricing.startTrial,
+          planKey: "PRO" as PlanKey,
+        },
+        {
+          id: "enterprise",
+          name: "Operador Mayorista",
+          tagline: "Grandes volúmenes de reservación y grupos",
+          monthlyPrice: enterpriseMonthly,
+          annualPrice: enterpriseAnnual,
+          currency: enterpriseCurrency,
+          color: "#4F46E5",
+          glow: "rgba(79,70,229,0.15)",
+          popular: false,
+          features: t.pricing.enterpriseFeatures,
+          cta: t.pricing.contactSales,
+          planKey: null,
+        },
+      ];
+    }
+
+    // Default E-COMMERCE
+    return [
+      {
+        id: "starter" as PlanKey,
+        name: "Starter",
+        tagline: t.pricing.starterTagline,
+        monthlyPrice: starterMonthly,
+        annualPrice: starterAnnual,
+        currency: starterCurrency,
+        color: "#06B6D4",
+        glow: "rgba(6,182,212,0.15)",
+        popular: false,
+        features: t.pricing.starterFeatures,
+        cta: t.pricing.startTrial,
+        planKey: "STARTER" as PlanKey,
+      },
+      {
+        id: "pro" as PlanKey,
+        name: "Pro",
+        tagline: t.pricing.proTagline,
+        monthlyPrice: proMonthly,
+        annualPrice: proAnnual,
+        currency: proCurrency,
+        color: "#7C3AED",
+        glow: "rgba(124,58,237,0.2)",
+        popular: true,
+        features: t.pricing.proFeatures,
+        cta: t.pricing.startTrial,
+        planKey: "PRO" as PlanKey,
+      },
+      {
+        id: "enterprise",
+        name: "Enterprise",
+        tagline: t.pricing.enterpriseTagline,
+        monthlyPrice: enterpriseMonthly,
+        annualPrice: enterpriseAnnual,
+        currency: enterpriseCurrency,
+        color: "#4F46E5",
+        glow: "rgba(79,70,229,0.15)",
+        popular: false,
+        features: t.pricing.enterpriseFeatures,
+        cta: t.pricing.contactSales,
+        planKey: null,
+      },
+    ];
+  };
+
+  const plans = getVerticalPlans();
 
   const handlePlanClick = (plan: typeof plans[number]) => {
     if (!plan.planKey) {
-      // Enterprise → mailto
       window.location.href = "mailto:info@newaigent.com?subject=Enterprise%20Plan%20Inquiry";
       return;
     }
@@ -153,6 +345,29 @@ export default function PricingSection() {
             <p className="text-gray-400 text-lg max-w-xl mx-auto mb-10">
               {t.pricing.subtitle}
             </p>
+
+            {/* Vertical Tabs Selector */}
+            <div className="flex flex-wrap items-center justify-center gap-2 mb-8 max-w-2xl mx-auto">
+              {[
+                { id: "HEALTH", label: "Salud & Clínicas", icon: "🏥" },
+                { id: "ECOMMERCE", label: "Tienda / E-Commerce", icon: "🛒" },
+                { id: "VETERINARY", label: "Veterinarias", icon: "🐾" },
+                { id: "TOURISM", label: "Agencias de Viaje", icon: "✈️" },
+              ].map((v) => (
+                <button
+                  key={v.id}
+                  onClick={() => setSelectedVertical(v.id as any)}
+                  className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 border ${
+                    selectedVertical === v.id
+                      ? "bg-violet-600/20 text-white border-violet-500 shadow-[0_0_20px_rgba(124,58,237,0.3)] scale-105"
+                      : "bg-[#0d0d1a] text-gray-400 border-white/10 hover:border-white/20 hover:text-white"
+                  }`}
+                >
+                  <span className="text-sm">{v.icon}</span>
+                  <span>{v.label}</span>
+                </button>
+              ))}
+            </div>
 
             {/* Billing toggle */}
             <div className="inline-flex items-center gap-4 bg-[#0d0d1a] border border-white/10 rounded-2xl p-1.5">
@@ -286,6 +501,7 @@ export default function PricingSection() {
           onClose={() => setShowModal(false)}
           initialPlan={selectedPlan}
           initialBillingInterval={annual ? "annual" : "monthly"}
+          initialVertical={selectedVertical}
         />
       )}
     </>

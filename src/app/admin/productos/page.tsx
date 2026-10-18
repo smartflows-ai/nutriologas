@@ -5,12 +5,24 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { productSchema, type ProductInput } from "@/lib/validations";
 import { formatPrice } from "@/lib/utils";
-import { Plus, Pencil, Trash2, X, Check, Package, UploadCloud, ImageIcon } from "lucide-react";
+import { Plus, Pencil, Trash2, X, Check, Package, UploadCloud, ImageIcon, Calendar, Clock, Sparkles } from "lucide-react";
 import ImageCropperModal from "@/components/admin/ImageCropperModal";
 import Pagination from "@/components/admin/Pagination";
 import { useTranslation } from "@/i18n";
 
-interface Product { id: string; name: string; price: number; stock: number; category: string | null; isActive: boolean; images: string[]; description: string | null; }
+interface Product { 
+  id: string; 
+  name: string; 
+  price: number; 
+  stock: number; 
+  category: string | null; 
+  isActive: boolean; 
+  images: string[]; 
+  description: string | null;
+  itemType?: "PHYSICAL" | "SERVICE" | "PACKAGE" | "SUBSCRIPTION";
+  durationMinutes?: number | null;
+  requiresBooking?: boolean;
+}
 
 export default function ProductosPage() {
   const { t } = useTranslation();
@@ -27,7 +39,19 @@ export default function ProductosPage() {
   const [images, setImages] = useState<string[]>([]);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<ProductInput>({ resolver: zodResolver(productSchema) });
+  const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<ProductInput>({ 
+    resolver: zodResolver(productSchema),
+    defaultValues: {
+      itemType: "PHYSICAL",
+      stock: 0,
+      isActive: true,
+      requiresBooking: false,
+      images: [],
+    }
+  });
+
+  const selectedItemType = watch("itemType") || "PHYSICAL";
+  const requiresBookingVal = watch("requiresBooking");
 
   const fetchProducts = async (pageNumber = 1) => {
     setLoadingProducts(true);
@@ -50,12 +74,34 @@ export default function ProductosPage() {
     setEditing(null);
     setImages([]);
     setUploadError("");
-    reset({ isActive: true, stock: 0, images: [] });
+    reset({ 
+      name: "",
+      description: "",
+      price: 0,
+      stock: 0, 
+      category: "",
+      isActive: true, 
+      images: [],
+      itemType: "PHYSICAL",
+      durationMinutes: null,
+      requiresBooking: false,
+    });
     setOpen(true);
   };
   const openEdit = (p: Product) => {
     setEditing(p);
-    reset({ name: p.name, description: p.description ?? "", price: p.price, stock: p.stock, category: p.category ?? "", isActive: p.isActive, images: p.images });
+    reset({ 
+      name: p.name, 
+      description: p.description ?? "", 
+      price: p.price, 
+      stock: p.stock, 
+      category: p.category ?? "", 
+      isActive: p.isActive, 
+      images: p.images,
+      itemType: p.itemType ?? "PHYSICAL",
+      durationMinutes: p.durationMinutes ?? null,
+      requiresBooking: p.requiresBooking ?? false,
+    });
     setImages(p.images ?? []);
     setUploadError("");
     setOpen(true);
@@ -128,11 +174,24 @@ export default function ProductosPage() {
                   {p.images[0] ? <img src={p.images[0]} alt="" className="w-full h-full object-cover rounded-xl" /> : <Package size={20} className="text-gray-400" />}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-gray-900 dark:text-white text-sm truncate">{p.name}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-semibold text-gray-900 dark:text-white text-sm truncate">{p.name}</p>
+                    {p.itemType === "SERVICE" && (
+                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
+                        CITA
+                      </span>
+                    )}
+                  </div>
                   <p className="text-primary font-bold text-sm">{formatPrice(p.price)}</p>
                   <div className="flex gap-2 mt-1">
                     <span className={`badge text-xs ${p.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>{p.isActive ? t.crm.products.active : t.crm.products.inactive}</span>
-                    <span className={`badge text-xs ${p.stock <= 5 ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-700 dark:text-gray-200"}`}>{t.crm.products.stock} {p.stock}</span>
+                    {p.itemType === "SERVICE" ? (
+                      <span className="badge text-xs bg-violet-50 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300 flex items-center gap-1">
+                        <Clock size={11} /> {p.durationMinutes ? `${p.durationMinutes} min` : "Servicio"}
+                      </span>
+                    ) : (
+                      <span className={`badge text-xs ${p.stock <= 5 ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-700 dark:text-gray-200"}`}>{t.crm.products.stock} {p.stock}</span>
+                    )}
                   </div>
                 </div>
                 <div className="flex flex-col gap-1 flex-shrink-0">
@@ -162,11 +221,28 @@ export default function ProductosPage() {
                         <div className="w-10 h-10 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center flex-shrink-0">
                           {p.images[0] ? <img src={p.images[0]} alt="" className="w-full h-full object-cover rounded-lg" /> : <Package size={18} className="text-gray-400 dark:text-gray-500" />}
                         </div>
-                        <span className="font-medium text-gray-900 dark:text-white">{p.name}</span>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-gray-900 dark:text-white">{p.name}</span>
+                            {p.itemType === "SERVICE" && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
+                                <Clock size={10} /> Servicio {p.durationMinutes ? `• ${p.durationMinutes}m` : ""}
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </td>
                     <td className="px-4 py-3 font-semibold text-primary">{formatPrice(p.price)}</td>
-                    <td className="px-4 py-3"><span className={`badge ${p.stock <= 5 ? "bg-red-100 text-red-700" : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200"}`}>{p.stock}</span></td>
+                    <td className="px-4 py-3">
+                      {p.itemType === "SERVICE" ? (
+                        <span className="text-xs text-gray-400 italic flex items-center gap-1">
+                          <Calendar size={13} className="text-violet-500" /> Agenda
+                        </span>
+                      ) : (
+                        <span className={`badge ${p.stock <= 5 ? "bg-red-100 text-red-700" : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200"}`}>{p.stock}</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{p.category ?? "—"}</td>
                     <td className="px-4 py-3"><span className={`badge ${p.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"}`}>{p.isActive ? t.crm.products.active : t.crm.products.inactive}</span></td>
                     <td className="px-4 py-3">
@@ -203,6 +279,42 @@ export default function ProductosPage() {
             </div>
             
             <form onSubmit={handleSubmit(onSubmit)} className="p-8 overflow-y-auto space-y-8">
+              {/* Selector de Tipo (Físico vs Servicio) */}
+              <div className="p-4 bg-gray-50 dark:bg-gray-900/60 rounded-2xl border border-gray-200 dark:border-gray-800">
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Tipo de Catálogo</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setValue("itemType", "PHYSICAL");
+                      setValue("requiresBooking", false);
+                    }}
+                    className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-semibold transition-all ${
+                      selectedItemType === "PHYSICAL"
+                        ? "bg-primary text-white shadow-md shadow-primary/25"
+                        : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 border border-gray-200 dark:border-gray-700"
+                    }`}
+                  >
+                    <Package size={16} /> Producto Físico
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setValue("itemType", "SERVICE");
+                      setValue("requiresBooking", true);
+                      setValue("stock", 0);
+                    }}
+                    className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-semibold transition-all ${
+                      selectedItemType === "SERVICE"
+                        ? "bg-violet-600 text-white shadow-md shadow-violet-600/25"
+                        : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 border border-gray-200 dark:border-gray-700"
+                    }`}
+                  >
+                    <Clock size={16} /> Servicio / Consulta Cita
+                  </button>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                 {/* Columna Izquierda: Imágenes y Multimedia */}
                 <div className="space-y-4">
@@ -276,14 +388,14 @@ export default function ProductosPage() {
                 {/* Columna Derecha: Detalles Base */}
                 <div className="space-y-5">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1.5">{t.crm.products.modal.name}</label>
-                    <input {...register("name")} className="input bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800 focus:bg-white transition-all" />
+                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1.5">{selectedItemType === "SERVICE" ? "Nombre del Servicio o Consulta" : t.crm.products.modal.name}</label>
+                    <input {...register("name")} className="input bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800 focus:bg-white transition-all" placeholder={selectedItemType === "SERVICE" ? "Ej. Consulta Ginecológica de Primera Vez" : "Ej. Producto..."} />
                     {errors.name && <p className="text-red-500 text-[10px] mt-1 font-medium">{errors.name.message}</p>}
                   </div>
 
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1.5">{t.crm.products.modal.description}</label>
-                    <textarea {...register("description")} rows={4} className="input bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800 focus:bg-white transition-all resize-none text-sm" />
+                    <textarea {...register("description")} rows={3} className="input bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800 focus:bg-white transition-all resize-none text-sm" placeholder={selectedItemType === "SERVICE" ? "Detalles de la consulta, qué incluye, preparación previa..." : ""} />
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
@@ -296,14 +408,35 @@ export default function ProductosPage() {
                       {errors.price && <p className="text-red-500 text-[10px] mt-1 font-medium">{errors.price.message}</p>}
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1.5">{t.crm.products.modal.stock}</label>
-                      <input {...register("stock", { valueAsNumber: true })} type="number" className="input bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800" />
+                      {selectedItemType === "PHYSICAL" ? (
+                        <>
+                          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1.5">{t.crm.products.modal.stock}</label>
+                          <input {...register("stock", { valueAsNumber: true })} type="number" className="input bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800" />
+                        </>
+                      ) : (
+                        <>
+                          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1.5 flex items-center gap-1">
+                            <Clock size={13} className="text-violet-500" /> Duración (min)
+                          </label>
+                          <input {...register("durationMinutes", { valueAsNumber: true })} type="number" placeholder="Ej. 30, 45, 60" className="input bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800" />
+                        </>
+                      )}
                     </div>
                   </div>
 
+                  {selectedItemType === "SERVICE" && (
+                    <div className="flex items-center gap-3 p-3 bg-violet-50/60 dark:bg-violet-950/20 rounded-xl border border-violet-100 dark:border-violet-900/30">
+                      <input {...register("requiresBooking")} type="checkbox" id="requiresBooking" className="w-4 h-4 accent-violet-600 rounded cursor-pointer" />
+                      <div>
+                        <label htmlFor="requiresBooking" className="text-xs font-semibold text-gray-900 dark:text-gray-200 block cursor-pointer">Habilitar reserva de cita en línea</label>
+                        <p className="text-[10px] text-gray-500">Muestra botón "Agendar Cita" en storefront</p>
+                      </div>
+                    </div>
+                  )}
+
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1.5">{t.crm.products.modal.category}</label>
-                    <input {...register("category")} className="input bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800" />
+                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1.5">{selectedItemType === "SERVICE" ? "Especialidad / Categoría" : t.crm.products.modal.category}</label>
+                    <input {...register("category")} className="input bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800" placeholder={selectedItemType === "SERVICE" ? "Ej. Ginecología, Obstetricia, Chequeo" : ""} />
                   </div>
 
                   <div className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 select-none cursor-pointer" onClick={() => (document.getElementById('isActive') as HTMLInputElement).click()}>

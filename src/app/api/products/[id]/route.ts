@@ -19,7 +19,10 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
 
   const product = await prisma.product.update({
     where: { id: params.id, tenantId },
-    data,
+    data: {
+      ...data,
+      serviceConfig: data.serviceConfig ?? undefined,
+    } as any,
   });
 
   return Response.json(product);

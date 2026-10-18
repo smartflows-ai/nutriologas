@@ -166,18 +166,123 @@ export async function executeTool(
         return JSON.stringify(products.map(p => ({ name: p.name, stock: p.stock, price: p.price })));
       }
 
-      // ── CALENDARIO ──────────────────────────────────────
+      // ── CITAS Y CONSULTAS MÉDICAS / SERVICIOS ──────────
+      case "get_appointments": {
+        const where: any = { tenantId };
+
+        if (input.status && input.status !== "ALL") {
+          where.status = input.status;
+        }
+
+        const now = new Date();
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+        if (input.date) {
+          const parts = input.date.split("-").map(Number);
+          if (parts.length === 3) {
+            const start = new Date(parts[0], parts[1] - 1, parts[2], 0, 0, 0);
+            const end = new Date(parts[0], parts[1] - 1, parts[2], 23, 59, 59, 999);
+            where.appointmentDate = { gte: start, lte: end };
+          }
+        } else if (input.period === "today") {
+          where.appointmentDate = { gte: startOfToday, lte: endOfToday };
+        } else if (input.period === "tomorrow") {
+          const startOfTom = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
+          const endOfTom = new Date(endOfToday.getTime() + 24 * 60 * 60 * 1000);
+          where.appointmentDate = { gte: startOfTom, lte: endOfTom };
+        } else if (input.period === "week") {
+          const { startDate, endDate } = getPeriodDates("week");
+          where.appointmentDate = { gte: startDate, lte: endDate };
+        } else if (input.period === "month") {
+          const { startDate, endDate } = getPeriodDates("month");
+          where.appointmentDate = { gte: startDate, lte: endDate };
+        }
+
+        const appointments = await prisma.appointment.findMany({
+          where,
+          include: {
+            product: { select: { name: true, durationMinutes: true, price: true } },
+            user: { select: { name: true, email: true } },
+          },
+          orderBy: { appointmentDate: "asc" },
+          take: input.limit ?? 20,
+        });
+
+        return JSON.stringify({
+          count: appointments.length,
+          period: input.period ?? (input.date ? `date:${input.date}` : "all"),
+          appointments: appointments.map((a) => {
+            const dateStr = a.appointmentDate.toISOString().split("T")[0];
+            const timeStr = a.appointmentDate.toISOString().split("T")[1]?.slice(0, 5) ?? "";
+            return {
+              id: a.id.slice(0, 8),
+              patientName: a.user?.name || "Sin nombre",
+              patientEmail: a.user?.email || null,
+              service: a.product?.name ?? "Consulta General",
+              durationMinutes: a.durationMinutes ?? a.product?.durationMinutes ?? 30,
+              price: a.product?.price ?? null,
+              date: dateStr,
+              time: timeStr,
+              status: a.status,
+              notes: a.notes,
+              internalNotes: a.internalNotes,
+            };
+          }),
+        });
+      }
+
       case "get_appointments_summary": {
+        const { startDate, endDate } = getPeriodDates(input.period);
+
+        // Primero consultamos las citas nativas del CRM
+        const nativeAppointments = await prisma.appointment.findMany({
+          where: { tenantId, appointmentDate: { gte: startDate, lte: endDate } },
+          include: { product: { select: { name: true, price: true } } },
+        });
+
+        if (nativeAppointments.length > 0) {
+          const total = nativeAppointments.length;
+          const confirmed = nativeAppointments.filter(a => a.status === "CONFIRMED").length;
+          const completed = nativeAppointments.filter(a => a.status === "COMPLETED").length;
+          const pending = nativeAppointments.filter(a => a.status === "PENDING").length;
+          const cancelled = nativeAppointments.filter(a => a.status === "CANCELLED").length;
+          const noShow = nativeAppointments.filter(a => a.status === "NO_SHOW").length;
+          const attended = completed + confirmed;
+          const rate = total > 0 ? Math.round((attended / (total - cancelled || 1)) * 100) : 0;
+
+          return JSON.stringify({
+            source: "crm_native",
+            total,
+            confirmed,
+            completed,
+            pending,
+            cancelled,
+            noShow,
+            attendanceRate: rate,
+            period: input.period,
+          });
+        }
+
+        // Si no hay nativas, revisar si hay calendario externo conectado
         const calProvider = await getConnectedProvider(tenantId, ["GOOGLE", "MICROSOFT"]);
         if (!calProvider) {
-          return JSON.stringify({ error: "Ningún calendario conectado. El admin debe conectar Google o Microsoft desde la página de Apps." });
+          return JSON.stringify({
+            total: 0,
+            confirmed: 0,
+            completed: 0,
+            pending: 0,
+            cancelled: 0,
+            attendanceRate: 0,
+            message: "No se encontraron citas registradas en la agenda para este periodo.",
+            period: input.period,
+          });
         }
         const calToken = await getAppToken(tenantId, calProvider);
         if (!calToken) {
           return JSON.stringify({ error: "Token de calendario expirado. Reconectar desde Apps." });
         }
 
-        const { startDate, endDate } = getPeriodDates(input.period);
         const timeMin = startDate.toISOString();
         const timeMax = endDate.toISOString();
 

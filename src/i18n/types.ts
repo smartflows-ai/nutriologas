@@ -230,6 +230,7 @@ export interface Translations {
     websiteSection: string;
     appsSection: string;
     dashboard: string;
+    appointments: string;
     patients: string;
     orders: string;
     products: string;

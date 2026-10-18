@@ -32,12 +32,15 @@
 | Credits UI | ✅ `CreditsBadge` in sidebar, left-side portaled `CreditsDrawer`, localized (EN/ES) |
 | WhatsApp CRM & Socials | ✅ Evolution API + n8n automated generation & publishing |
 | Apps & Navigation Cleanup | ✅ Retired standalone AI Triage & Onboarding card and sidebar entry |
+| Unified Scheduling Hub & External Sync | ✅ `/admin/citas` single unified list + mini-calendar with Google Calendar & Outlook external normalization |
+| WhatsApp Instant Handshake & Invariants | ✅ Evolution API v2 flags (`MESSAGES_UPSERT`, `webhookBase64`, `rejectCall`, `alwaysOnline`, etc.), non-disruptive polling, auto-closing QR modal |
+| Business Verticals & Service Booking | ✅ `BusinessVertical` (`HEALTH`, `PETS_HOTEL`, `TOURISM`), `/agendar/[slug]`, `/mis-citas`, guest booking fail-safe |
 
 ---
 
 ## Active Sprint Goal
 
-Maintain documentation currency (`spec.md`, `CLAUDE.md`, `project_context.md`, `ledger.md`) and verify seamless integration of Native AI Copilot, live KPI Snapshot Bar, OAuth Localhost Guard, and prompt security hardening.
+Maintain documentation currency (`spec.md`, `CLAUDE.md`, `project_context.md`, `ledger.md`) and verify seamless operations of Unified Scheduling Hub, Evolution API v2 flags, and multi-vertical service bookings.
 
 ---
 

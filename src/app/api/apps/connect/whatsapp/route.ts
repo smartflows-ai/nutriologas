@@ -38,70 +38,65 @@ export async function POST(req: NextRequest) {
 
     // 1. Verificar si la instancia ya existe
     let checkRes;
+    let existingInstance: any = null;
     try {
-      checkRes = await evoFetch(`${EVOLUTION_API_URL}/instance/connectionState/${instanceName}`, {
+      const fetchInstRes = await evoFetch(`${EVOLUTION_API_URL}/instance/fetchInstances?instanceName=${instanceName}`, {
         method: "GET",
-        headers: { "apikey": EVOLUTION_API_KEY },
+        headers: { apikey: EVOLUTION_API_KEY },
       });
+      if (fetchInstRes.ok) {
+        const instList = await fetchInstRes.json();
+        existingInstance = Array.isArray(instList)
+          ? instList.find((i: any) => i.name === instanceName || i.id === instanceName) || instList[0]
+          : instList;
+      }
     } catch (err: any) {
-      console.error("[whatsapp-connect] Fetch error:", err.message);
-      return Response.json({ error: "Error conectando con el servicio de WhatsApp" }, { status: 502 });
+      console.warn("[whatsapp-connect] fetchInstances check warning:", err.message);
     }
 
-    let qrCode = null;
+    let qrCode: string | null = null;
     let status = "connecting";
 
-    if (checkRes.ok) {
-      let checkData;
-      try {
-        checkData = await checkRes.json();
-      } catch (err) {
-        console.error("[whatsapp-connect] Failed to parse checkRes JSON");
-        return Response.json({ error: "Respuesta inesperada al verificar la conexión de WhatsApp." }, { status: 502 });
-      }
-
-      if (checkData.instance?.state === "open") {
-        // Ya esta conectado!
+    if (existingInstance && (existingInstance.name === instanceName || existingInstance.id === instanceName)) {
+      if (existingInstance.connectionStatus === "open" || existingInstance.state === "open") {
+        // Ya está conectado
         status = "connected";
       } else {
-        // Existe pero no esta conectado, pedimos QR fresco
+        // Existe pero no está conectado, solicitamos QR fresco
         const qrRes = await evoFetch(`${EVOLUTION_API_URL}/instance/connect/${instanceName}`, {
           method: "GET",
-          headers: { "apikey": EVOLUTION_API_KEY },
+          headers: { apikey: EVOLUTION_API_KEY },
         });
 
-        let qrData;
-        try {
-          qrData = await qrRes.json();
-        } catch (err) {
-          console.error("[whatsapp-connect] Failed to parse qrRes JSON");
-          return Response.json({ error: "No se pudo generar el código QR de WhatsApp." }, { status: 502 });
+        if (qrRes.ok) {
+          const qrData = await qrRes.json();
+          qrCode = qrData.base64 || qrData.code || (typeof qrData === "string" ? qrData : null);
+          status = qrCode ? "qr_pending" : "connecting";
         }
-
-        // Evolution API a veces devuelve la base64 directamente o en un objeto code
-        qrCode = qrData.base64 || qrData.code || (typeof qrData === 'string' ? qrData : null);
-        status = qrCode ? "qr_pending" : "connecting";
       }
-
     } else {
-      // No existe, creamos
+      // No existe, creamos con las banderas requeridas:
+      // MESSAGES_UPSERT, Webhook Base64: true, Reject Calls: true, Ignore Groups: true, Read Messages: true, Always Online: true, Read Status: false
       const createRes = await evoFetch(`${EVOLUTION_API_URL}/instance/create`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "apikey": EVOLUTION_API_KEY,
+          apikey: EVOLUTION_API_KEY,
         },
         body: JSON.stringify({
           instanceName,
           qrcode: true,
           integration: "WHATSAPP-BAILEYS",
+          rejectCall: true,
+          groupsIgnore: true,
           alwaysOnline: true,
           readMessages: true,
-          readStatus: true,
+          readStatus: false,
+          syncFullHistory: false,
           webhook: {
             url: webhookUrl,
             byEvents: false,
-            base64: false,
+            base64: true,
             events: ["MESSAGES_UPSERT"],
           },
         }),
@@ -113,16 +108,51 @@ export async function POST(req: NextRequest) {
           return Response.json({ error: "No se pudo inicializar la conexión de WhatsApp." }, { status: 500 });
         }
       } else {
-        let data;
         try {
-          data = await createRes.json();
-        } catch (err) {
-          console.error("[whatsapp-connect] Failed to parse createRes JSON");
+          const data = await createRes.json();
+          qrCode = data.qrcode?.base64 ?? null;
+          status = qrCode ? "qr_pending" : "connecting";
+        } catch {
           return Response.json({ error: "No se pudo inicializar la conexión de WhatsApp." }, { status: 502 });
         }
-        qrCode = data.qrcode?.base64 ?? null;
-        status = qrCode ? "qr_pending" : "connecting";
       }
+    }
+
+    // Asegurar banderas requeridas en Settings de Evolution API
+    try {
+      await evoFetch(`${EVOLUTION_API_URL}/settings/set/${instanceName}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: EVOLUTION_API_KEY },
+        body: JSON.stringify({
+          rejectCall: true,
+          groupsIgnore: true,
+          alwaysOnline: true,
+          readMessages: true,
+          readStatus: false,
+          syncFullHistory: false,
+        }),
+      });
+    } catch (e) {
+      console.warn("[whatsapp-connect] settings/set warning:", e);
+    }
+
+    // Asegurar banderas requeridas en Webhook de Evolution API (MESSAGES_UPSERT + base64)
+    try {
+      await evoFetch(`${EVOLUTION_API_URL}/webhook/set/${instanceName}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: EVOLUTION_API_KEY },
+        body: JSON.stringify({
+          webhook: {
+            enabled: true,
+            url: webhookUrl,
+            byEvents: false,
+            base64: true,
+            events: ["MESSAGES_UPSERT"],
+          },
+        }),
+      });
+    } catch (e) {
+      console.warn("[whatsapp-connect] webhook/set warning:", e);
     }
 
     // Guardar en connected_apps

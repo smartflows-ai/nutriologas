@@ -101,7 +101,7 @@ export async function createCalendarEvent(
         description: event.description,
         start: { dateTime: event.startDateTime, timeZone: "America/Mexico_City" },
         end: { dateTime: event.endDateTime, timeZone: "America/Mexico_City" },
-        attendees: [{ email: event.attendeeEmail }],
+        attendees: event.attendeeEmail ? [{ email: event.attendeeEmail }] : undefined,
         conferenceData: {
           createRequest: {
             requestId: `meet-${Date.now()}`,
@@ -120,6 +120,55 @@ export async function createCalendarEvent(
   }
 
   return res.json();
+}
+
+/**
+ * Update the time range of an existing event (reschedule).
+ */
+export async function updateCalendarEvent(
+  accessToken: string,
+  eventId: string,
+  range: { startDateTime: string; endDateTime: string }
+): Promise<void> {
+  const res = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(eventId)}?sendUpdates=all`,
+    {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        start: { dateTime: range.startDateTime, timeZone: "America/Mexico_City" },
+        end: { dateTime: range.endDateTime, timeZone: "America/Mexico_City" },
+      }),
+    }
+  );
+
+  if (!res.ok) {
+    const text = await res.text();
+    console.error("[google-calendar] Error updating event:", text);
+    throw new Error(`Failed to update event: ${res.status}`);
+  }
+}
+
+/**
+ * Delete an event (cancellation). A 404 or 410 means it is already gone.
+ */
+export async function deleteCalendarEvent(accessToken: string, eventId: string): Promise<void> {
+  const res = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(eventId)}?sendUpdates=all`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }
+  );
+
+  if (!res.ok && res.status !== 404 && res.status !== 410) {
+    const text = await res.text();
+    console.error("[google-calendar] Error deleting event:", text);
+    throw new Error(`Failed to delete event: ${res.status}`);
+  }
 }
 
 // ── Availability Logic ──────────────────────────────────────────

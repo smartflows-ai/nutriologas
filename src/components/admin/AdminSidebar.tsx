@@ -22,7 +22,8 @@ import {
   PanelLeftOpen,
   Facebook,
   Globe,
-  Building2
+  Building2,
+  CalendarCheck
 } from "lucide-react";
 import SignOutButton from "@/components/admin/SignOutButton";
 import CreditsBadge from "@/components/admin/CreditsBadge";
@@ -31,24 +32,54 @@ interface Props {
   userName?: string | null;
   isAssistantEnabled: boolean;
   isTriageEnabled?: boolean;
+  isBookingEnabled?: boolean;
+  vertical?: string;
   connectedApps: string[];
 }
 
 import { useTranslation } from "@/i18n";
 
-export default function AdminSidebar({ userName, isAssistantEnabled, isTriageEnabled = false, connectedApps }: Props) {
+interface NavItem {
+  href: string;
+  label: string;
+  icon: any;
+  isAssistant?: boolean;
+  isTriage?: boolean;
+  isBooking?: boolean;
+  isOrders?: boolean;
+  providersReq?: string[];
+}
+
+interface NavCategory {
+  title: string;
+  items: NavItem[];
+}
+
+export default function AdminSidebar({ 
+  userName, 
+  isAssistantEnabled, 
+  isTriageEnabled = false, 
+  isBookingEnabled = true,
+  vertical = "ECOMMERCE",
+  connectedApps 
+}: Props) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const { t } = useTranslation();
 
-  const baseCategories = [
+  const isHealth = vertical === "HEALTH";
+  // Only ecommerce tenants use physical orders
+  const isEcommerce = vertical === "ECOMMERCE";
+
+  const baseCategories: NavCategory[] = [
     {
       title: t.admin.generalSection,
       items: [
         { href: "/admin/dashboard", label: t.admin.dashboard, icon: LayoutDashboard },
-        { href: "/admin/pedidos", label: t.admin.orders, icon: ShoppingBag },
-        { href: "/admin/productos", label: t.admin.products, icon: Package },
+        { href: "/admin/citas", label: t.admin.appointments, icon: CalendarCheck, isBooking: true },
+        { href: "/admin/pedidos", label: t.admin.orders, icon: ShoppingBag, isOrders: true },
+        { href: "/admin/productos", label: isHealth ? "Servicios" : t.admin.products, icon: Package },
         { href: "/admin/reviews", label: t.admin.reviews, icon: Star },
       ],
     },
@@ -66,7 +97,6 @@ export default function AdminSidebar({ userName, isAssistantEnabled, isTriageEna
       items: [
         { href: "/admin/apps", label: t.admin.store, icon: Plug },
         { href: "/admin/asistente", label: t.admin.aiAssistant, icon: Bot, isAssistant: true },
-        { href: "/admin/calendario", label: t.admin.calendar, icon: Calendar, providersReq: ["GOOGLE", "MICROSOFT"] },
         { href: "/admin/whatsapp", label: t.admin.whatsapp, icon: MessageSquare, providersReq: ["WHATSAPP"] },
         { href: "/admin/social-campaign", label: t.admin.socialCampaigns, icon: Globe, providersReq: ["FACEBOOK"] },
       ],
@@ -93,11 +123,14 @@ export default function AdminSidebar({ userName, isAssistantEnabled, isTriageEna
       items: category.items.filter(item => {
         // Evaluate AI Assistant requirement
         if (item.isAssistant && !isAssistantEnabled) return false;
-        if ((item as any).isTriage && !isTriageEnabled) return false;
+        if (item.isTriage && !isTriageEnabled) return false;
+        if (item.isBooking && !isBookingEnabled) return false;
+        // Hide "Pedidos" for service-only verticals (HEALTH, TOURISM, PETS_HOTEL)
+        if (item.isOrders && !isEcommerce) return false;
 
         // Evaluate Integrations requirement (if requires at least one of providersReq)
         if (item.providersReq) {
-          const hasConnectedProvider = item.providersReq.some(p => connectedApps.includes(p as string));
+          const hasConnectedProvider = item.providersReq.some((p: string) => connectedApps.includes(p));
           if (!hasConnectedProvider) return false;
         }
 

@@ -59,6 +59,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           userName={session.user?.name ?? session.user?.email} 
           isAssistantEnabled={tenant?.isAssistantEnabled ?? false}
           isTriageEnabled={tenant?.isTriageEnabled ?? false}
+          isBookingEnabled={tenant?.isBookingEnabled ?? true}
+          vertical={tenant?.vertical ?? "ECOMMERCE"}
           connectedApps={tenant?.connectedApps.map(a => a.provider) ?? []}
         />
 

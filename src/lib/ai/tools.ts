@@ -154,16 +154,33 @@ export const CHAT_TOOLS: OpenRouterTool[] = [
     },
   },
 
-  // ── CALENDARIO ────────────────────────────────────────
+  // ── CITAS Y CONSULTAS MÉDICAS / SERVICIOS ────────────
+  {
+    type: "function",
+    function: {
+      name: "get_appointments",
+      description: "Consulta las citas y consultas médicas o de servicios registradas en la agenda del negocio. Permite filtrar por periodo (today, tomorrow, week, month, all), estado (PENDING, CONFIRMED, COMPLETED, CANCELLED, NO_SHOW, ALL) o fecha exacta (YYYY-MM-DD). Devuelve datos del paciente, servicio, horario, estado y notas clínicas.",
+      parameters: {
+        type: "object",
+        properties: {
+          period: { type: "string", enum: ["today", "tomorrow", "week", "month", "all"], description: "Periodo a consultar (today, tomorrow, week, month, all)" },
+          status: { type: "string", enum: ["PENDING", "CONFIRMED", "COMPLETED", "CANCELLED", "NO_SHOW", "ALL"], description: "Estado de la cita" },
+          date: { type: "string", description: "Fecha específica en formato YYYY-MM-DD" },
+          limit: { type: "number", description: "Cantidad máxima de citas a retornar (default 20)" },
+        },
+        required: [],
+      },
+    },
+  },
   {
     type: "function",
     function: {
       name: "get_appointments_summary",
-      description: "Resumen de citas del calendario Google: total, atendidas, canceladas y tasa de asistencia. Para 'cuantas citas tuve', 'cuantas cancelaciones'.",
+      description: "Resumen estadístico de citas y consultas: total agendadas, confirmadas, completadas, pendientes, canceladas y tasa de asistencia. Para preguntas como '¿cuántas citas tuve este mes?', '¿cuál es mi tasa de asistencia?'.",
       parameters: {
         type: "object",
         properties: {
-          period: { type: "string", enum: ["day", "week", "month"] },
+          period: { type: "string", enum: ["day", "week", "month", "year"] },
         },
         required: ["period"],
       },

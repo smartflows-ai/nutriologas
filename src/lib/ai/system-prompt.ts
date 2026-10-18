@@ -5,18 +5,58 @@ export async function buildSystemPrompt(tenantId: string): Promise<string> {
   const tenant = await prisma.tenant.findUnique({
     where: { id: tenantId },
     include: {
-      products: { where: { isActive: true, deletedAt: null }, select: { name: true, price: true, category: true } },
+      products: {
+        where: { isActive: true, deletedAt: null },
+        select: { name: true, price: true, category: true, itemType: true, durationMinutes: true, requiresBooking: true },
+      },
     },
   });
 
   const today = new Date().toLocaleDateString("es-MX", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
-  const productList = tenant?.products.map(p => `- ${p.name} ($${p.price} MXN)`).join("\n") ?? "Sin productos registrados";
+  const productList = tenant?.products.map(p => {
+    const isService = p.itemType === "SERVICE" || p.requiresBooking;
+    return `- ${p.name} ($${p.price} MXN)${isService ? ` [Servicio/Cita - ${p.durationMinutes ?? 30} min]` : ""}`;
+  }).join("\n") ?? "Sin servicios o productos registrados";
 
   const businessContext = tenant?.businessInfo ? `Giro y descripción del negocio: "${tenant.businessInfo}".` : "";
 
+  let verticalDirectives = "";
+  switch (tenant?.vertical) {
+    case "HEALTH":
+      verticalDirectives = `
+DIRECTIVAS ESPECÍFICAS PARA EL SECTOR SALUD / CLÍNICA MÉDICA:
+- Este negocio es un consultorio médico, clínica de salud o centro de atención médica/ginecológica.
+- Sus ofertas principales son consultas médicas, procedimientos, citas clínicas y tratamientos de salud.
+- Usa terminología profesional del sector salud: "pacientes", "consultas", "citas médicas", "historial/expediente", "tratamientos", "asistencia y puntualidad".
+- Utiliza la herramienta de citas para responder con precisión sobre la agenda de hoy, consultas de la semana, confirmaciones de pacientes y cancelaciones.
+- Brinda sugerencias para optimizar la ocupación de horarios de consulta, reducir el ausentismo (no-shows) y fomentar el seguimiento a pacientes.`;
+      break;
+    case "VETERINARY":
+      verticalDirectives = `
+DIRECTIVAS ESPECÍFICAS PARA VETERINARIA Y CUIDADO ANIMAL:
+- Este negocio es una clínica veterinaria o centro de bienestar animal.
+- Ofrece consultas veterinarias, estética/grooming, vacunación, hotel/pensión animal y productos para mascotas.
+- Utiliza terminología empática: "tutores/dueños de mascotas", "pacientes peludos", "consultas", "citas de estética", "reservaciones de pensión".
+- Ayuda a gestionar la agenda de citas y capacidad de atención.`;
+      break;
+    case "TOURISM":
+      verticalDirectives = `
+DIRECTIVAS ESPECÍFICAS PARA AGENCIA DE VIAJES Y TURISMO:
+- Este negocio ofrece paquetes turísticos, tours guiados, experiencias de viaje y asesoría personalizada.
+- Utiliza terminología de la industria: "viajeros", "reservaciones de tours", "fechas de salida", "itinerarios", "leads y comisiones".
+- Ayuda a dar seguimiento a prospectos interesados y a gestionar la ocupación de los cupos turísticos.`;
+      break;
+    default:
+      verticalDirectives = `
+DIRECTIVAS PARA COMERCIO Y SERVICIOS:
+- Se enfoca en ventas, pedidos, catálogo y fidelización de clientes.`;
+      break;
+  }
+
   return `Eres Newy AI, el copiloto de inteligencia artificial y asesor de negocios de "${tenant?.name ?? "este negocio"}".
 ${businessContext}
-Tu función es ayudar al propietario y equipo del negocio a optimizar sus operaciones, aumentar sus ventas, gestionar clientes y tomar mejores decisiones estratégicas con análisis claros y recomendaciones accionables.
+${verticalDirectives}
+Tu función es ayudar al propietario y equipo del negocio a optimizar sus operaciones, aumentar sus ventas, gestionar clientes/pacientes y tomar mejores decisiones estratégicas con análisis claros y recomendaciones accionables.
 
 Hoy es: ${today}
 

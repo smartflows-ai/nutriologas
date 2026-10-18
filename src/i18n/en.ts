@@ -282,6 +282,7 @@ export const en: Translations = {
     websiteSection: "Website",
     appsSection: "Apps & Automation",
     dashboard: "Dashboard",
+    appointments: "Appointments & Agenda",
     patients: "Clients & Leads",
     orders: "Orders",
     products: "Products",

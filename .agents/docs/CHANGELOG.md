@@ -4,6 +4,20 @@ All notable changes to Presto AI are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.1] — 2026-10-17
+
+### Added
+- **Unified Scheduling Hub (`/admin/citas`)**: Single unified agenda with interactive mini-calendar and normalized multi-source event list merging native CRM bookings with external Google Calendar and Microsoft Outlook events.
+- **Business Verticals & Service-Based Commerce**: `BusinessVertical` (`ECOMMERCE`, `HEALTH`, `PETS_HOTEL`, `TOURISM`) supporting services without physical inventory, appointment booking (`/agendar/[slug]`), and patient portal (`/mis-citas`).
+- **Automated WhatsApp Patient Confirmation**: `PATCH /api/appointments/[id]` automatically notifies patients via WhatsApp when an appointment is confirmed by the provider.
+
+### Changed
+- **Evolution API Instance Configuration**: Strictly enforced required creation and sync flags: `MESSAGES_UPSERT`, `webhookBase64: true`, `rejectCall: true`, `groupsIgnore: true`, `readMessages: true`, `alwaysOnline: true`, `readStatus: false`.
+- **WhatsApp QR Modal Handshake**: Replaced disruptive socket connect polling with non-invasive `fetchInstances` state checks (`connectionStatus === "open"`, `ownerJid`), resolving modal hanging upon mobile scan and enabling auto-close in 1.2 seconds.
+- Consolidated `/admin/calendario` to redirect directly to `/admin/citas`.
+- **Vertical-Aware Admin Sidebar**: `AdminSidebar` now hides the "Pedidos" nav item for service-only verticals (`HEALTH`, `TOURISM`, `PETS_HOTEL`). Only `ECOMMERCE` tenants see the orders link. Controlled by a new `isOrders` flag on `NavItem` filtered by `isEcommerce = vertical === "ECOMMERCE"`.
+- **Vertical-Aware Public Storefront Navbar**: `(public)/layout.tsx` now passes `vertical` from Prisma to `<Navbar isEcommerce={...}>`. For non-ecommerce tenants, the shopping cart icon, mobile cart drawer link, desktop "Mis Pedidos" pill, and mobile "Mis Pedidos" link are all hidden — keeping the UI focused on service booking (`/mis-citas`).
+
 ---
 
 ## [1.2] — 2026-07-21

@@ -55,6 +55,20 @@ export default async function TenantPage() {
     reviewCount: p.reviews?.length || 0,
   })) ?? [];
 
+  const isHealth = tenant?.vertical === "HEALTH";
+  const isBooking = tenant?.isBookingEnabled || isHealth;
+  const sectionTitle = isHealth
+    ? "Servicios y Consultas"
+    : isBooking
+    ? "Nuestros Servicios"
+    : t.storefront.home.ourProducts;
+  const sectionDesc = isHealth
+    ? "Agenda tu consulta médica o procedimiento especializado con nuestros especialistas."
+    : isBooking
+    ? "Descubre nuestros servicios profesionales y agenda tu cita en línea."
+    : t.storefront.home.discoverProducts;
+  const catalogBtnText = isHealth || isBooking ? "Ver Servicios" : t.storefront.home.viewCatalog;
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-gray-950 font-sans selection:bg-primary/20">
       {/* Carrusel */}
@@ -97,11 +111,11 @@ export default async function TenantPage() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-6">
             <div className="max-w-2xl">
-              <h2 className="text-4xl sm:text-5xl font-black text-gray-900 dark:text-white tracking-tight mb-4">{t.storefront.home.ourProducts}</h2>
-              <p className="text-lg text-gray-500 dark:text-gray-400">{t.storefront.home.discoverProducts}</p>
+              <h2 className="text-4xl sm:text-5xl font-black text-gray-900 dark:text-white tracking-tight mb-4">{sectionTitle}</h2>
+              <p className="text-lg text-gray-500 dark:text-gray-400">{sectionDesc}</p>
             </div>
             <Link href="/productos" className="inline-flex items-center justify-center gap-2 bg-[var(--color-primary)] hover:bg-[var(--color-primary)]/90 text-white shadow-lg shadow-[var(--color-primary)]/25 px-8 py-4 rounded-2xl font-bold transition-all hover:-translate-y-1 hover:shadow-[var(--color-primary)]/40 whitespace-nowrap">
-              {t.storefront.home.viewCatalog} <span aria-hidden="true">&rarr;</span>
+              {catalogBtnText} <span aria-hidden="true">&rarr;</span>
             </Link>
           </div>
           

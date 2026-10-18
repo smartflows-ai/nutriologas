@@ -65,7 +65,12 @@ export async function POST(req: Request) {
 
   const slug = slugify(data.name);
   const product = await prisma.product.create({
-    data: { ...data, tenantId, slug },
+    data: {
+      ...data,
+      tenantId,
+      slug,
+      serviceConfig: data.serviceConfig ?? undefined,
+    } as any,
   });
 
   return Response.json(product, { status: 201 });

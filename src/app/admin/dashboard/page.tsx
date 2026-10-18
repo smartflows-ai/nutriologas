@@ -93,10 +93,39 @@ async function getDashboardData(tenantId: string, rangeStr: string) {
     return { date: dateStr, total };
   });
 
-  return { revenue, orderCount: allOrders.length, totalCustomers, newCustomers, avgRating, reviewCount: reviews.length, recentOrders, salesChartData, topProducts, ratingsDist, days };
+  // Appointments
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+  const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+  const [pendingAppointments, todayAppointments] = await Promise.all([
+    prisma.appointment.count({ where: { tenantId, status: "PENDING" } }),
+    prisma.appointment.count({
+      where: {
+        tenantId,
+        status: { in: ["PENDING", "CONFIRMED"] },
+        appointmentDate: { gte: todayStart, lte: todayEnd },
+      },
+    }),
+  ]);
+
+  return { 
+    revenue, 
+    orderCount: allOrders.length, 
+    totalCustomers, 
+    newCustomers, 
+    avgRating, 
+    reviewCount: reviews.length, 
+    recentOrders, 
+    salesChartData, 
+    topProducts, 
+    ratingsDist, 
+    days,
+    pendingAppointments,
+    todayAppointments
+  };
 }
 
 import { getTranslationServer } from "@/i18n/server";
+import { CalendarCheck } from "lucide-react";
 
 export default async function DashboardPage({ searchParams }: { searchParams: { range?: string; subscribed?: string } }) {
   const session = await getAppSession();
@@ -108,7 +137,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
   const metrics = [
     { label: t.crm.dashboard.revenue, value: formatPrice(data.revenue), sub: `${data.orderCount} ${t.crm.dashboard.ordersLabel}`, icon: TrendingUp, color: "bg-green-50 text-green-600" },
     { label: t.crm.dashboard.totalCustomers, value: data.totalCustomers.toString(), sub: `+${data.newCustomers} ${t.crm.dashboard.inPeriod}`, icon: Users, color: "bg-blue-50 text-blue-600" },
-    { label: t.crm.dashboard.paidOrders, value: data.orderCount.toString(), sub: t.crm.dashboard.successful, icon: ShoppingBag, color: "bg-purple-50 text-purple-600" },
+    { label: "Citas de Hoy", value: data.todayAppointments.toString(), sub: `${data.pendingAppointments} pendientes por confirmar`, icon: CalendarCheck, color: "bg-violet-50 text-violet-600" },
     { label: t.crm.dashboard.avgReviews, value: data.avgRating ? data.avgRating.toFixed(1) : "—", sub: `${data.reviewCount} ${t.crm.dashboard.reviewsLabel}`, icon: Star, color: "bg-yellow-50 text-yellow-600" },
   ];
 

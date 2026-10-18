@@ -8,6 +8,17 @@ datasource db {
 }
 
 // ─── MULTITENANT ─────────────────────────────────────────
+enum BusinessVertical {
+  ECOMMERCE
+  HEALTH
+  VETERINARY
+  TOURISM
+  SERVICES
+  PET_CARE
+  TRAVEL
+  GENERAL
+}
+
 model Tenant {
   id          String   @id @default(uuid())
   name        String
@@ -18,7 +29,12 @@ model Tenant {
   businessInfo   String?  // descripcion del negocio para la homepage
   isAssistantEnabled Boolean @default(true)
   isTriageEnabled    Boolean @default(false)
+  vertical           BusinessVertical @default(ECOMMERCE) @map("businessVertical")
+  isBookingEnabled   Boolean          @default(false)
+  boardingCapacity   Int?             // Capacidad de hospedaje (veterinaria/hotel)
   aiCreditLimitUsd   Float?  // Override per-tenant AI credit cap (null = use plan default)
+  remindersEnabled       Boolean @default(true)   // Recordatorios de cita por WhatsApp
+  reminderOffsetsMinutes Int[]   @default([1440, 120]) // Minutos antes de la cita (1440 = 24 h, 120 = 2 h)
 
   // Configuracion de colores (1:1)
   theme       ThemeConfig?
@@ -27,6 +43,7 @@ model Tenant {
   users           User[]
   products        Product[]
   orders          Order[]
+  appointments    Appointment[]
   reviews         Review[]
   carouselImages  CarouselImage[]
   connectedApps   ConnectedApp[]
@@ -77,6 +94,7 @@ model User {
   googleId     String?
   conektaCustomerId String?
   orders  Order[]
+  appointments Appointment[]
   reviews Review[]
   accounts Account[]
   sessions Session[]
@@ -224,22 +242,35 @@ model PatientProfile {
   @@map("patient_profiles")
 }
 
-// ─── PRODUCTOS ───────────────────────────────────────────
-model Product {
-  id          String   @id @default(uuid())
-  tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id])
-  name        String
-  slug        String
-  description String?
-  price       Float
-  stock       Int      @default(0)
-  isActive    Boolean  @default(true)
-  images      String[] // URLs de Cloudinary
-  category    String?
+// ─── PRODUCTOS Y SERVICIOS ───────────────────────────────
+enum ItemType {
+  PHYSICAL
+  SERVICE
+  PACKAGE
+  SUBSCRIPTION
+}
 
-  orderItems  OrderItem[]
-  reviews     Review[]
+model Product {
+  id              String    @id @default(uuid())
+  tenantId        String
+  tenant          Tenant    @relation(fields: [tenantId], references: [id])
+  name            String
+  slug            String
+  description     String?
+  price           Float
+  stock           Int       @default(0)
+  isActive        Boolean   @default(true)
+  images          String[]  // URLs de Cloudinary
+  category        String?
+  itemType        ItemType  @default(PHYSICAL)
+  durationMinutes Int?      // duración para servicios (30, 60, etc.)
+  requiresBooking Boolean   @default(false)
+  capacity        Int?      // cupo máximo (null = sin límite)
+  serviceConfig   Json?     // configuración específica por vertical
+
+  orderItems      OrderItem[]
+  appointments    Appointment[]
+  reviews         Review[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -416,6 +447,9 @@ model SocialPost {
 enum PlanId {
   STARTER
   PRO
+  CLINICA
+  VETERINARY
+  TOURISM
   ENTERPRISE
 }
 
@@ -486,4 +520,43 @@ model AiTokenLedger {
 
   @@unique([tenantId, periodStart])
   @@map("ai_token_ledger")
+}
+
+// ─── CITAS Y RESERVAS ────────────────────────────────────
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+model Appointment {
+  id              String            @id @default(uuid())
+  tenantId        String
+  tenant          Tenant            @relation(fields: [tenantId], references: [id])
+  userId          String
+  user            User              @relation(fields: [userId], references: [id])
+  productId       String
+  product         Product           @relation(fields: [productId], references: [id])
+
+  customerName    String?
+  customerPhone   String?
+  googleEventId   String?
+  remindersSent   Int[]             @default([]) // Offsets (minutos) ya enviados como recordatorio
+
+  appointmentDate DateTime          // fecha y hora de la cita
+  durationMinutes Int               // duración en minutos
+  notes           String?           @db.Text
+  internalNotes   String?           @db.Text
+
+  status          AppointmentStatus @default(PENDING)
+  orderId         String?
+
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, appointmentDate])
+  @@map("appointments")
 }

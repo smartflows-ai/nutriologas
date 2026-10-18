@@ -414,3 +414,57 @@ All endpoints under `/api/internal/` are excluded from tenant middleware and aut
 | `/api/internal/calendar/create-event` | POST | n8n | Create calendar event |
 | `/api/internal/whatsapp/sync` | POST | Evolution API webhook | Sync incoming WhatsApp messages to DB |
 
+---
+
+## 17. Business Verticals & Service-Based Commerce
+
+### 17.1 Supported Verticals (`Tenant.vertical`)
+- `ECOMMERCE`: Physical product storefront, shopping cart, courier shipping.
+- `HEALTH`: Medical, clinical, and psychological consults (appointment duration, clinical notes, patient scheduling).
+- `PETS_HOTEL`: Veterinary clinic, pet boarding hotel, and physical accessories.
+- `TOURISM`: Tour itineraries, client allocations, and custom travel experiences.
+
+### 17.2 Service Booking Invariants
+- Services are represented in the `Product` table with `isBookingEnabled: true` and `durationMinutes: Int`.
+- Storefront routes appointment booking through `/agendar/[slug]`, presenting an interactive 21-day timeline with automatic slot allocation.
+- Guest booking is supported via `POST /api/appointments`: patient contact details are persisted to `customerName` and `customerPhone`, and duplicated inside `notes` for fail-safe retrieval.
+- Patients review, monitor, and cancel their bookings via `/mis-citas`.
+
+---
+
+## 18. Unified Scheduling Hub & Multi-Source Calendar Engine
+
+### 18.1 Architecture (`/admin/citas`)
+- Replaces disjointed multi-calendar views with **one consolidated interface**.
+- Merges native CRM appointments (`Appointment`) with external events from **Google Calendar** and **Microsoft Outlook** via `src/lib/external-calendar.ts`.
+- `GET /api/appointments`: Automatically normalizes external events into standard `AppointmentItem` structures and delivers a chronologically unified schedule to the admin.
+
+### 18.2 Mini-Calendar Navigation & Real-Time Filtering
+- An interactive mini-calendar displays dot indicators on days with appointments across all sources.
+- Clicking any date filters the unified list in place without full page reloads.
+- Consolidated KPI cards (`TOTAL`, `POR CONFIRMAR`, `CONFIRMADAS`, `COMPLETADAS`) reflect true total appointments across native and synchronized calendars.
+
+### 18.3 Automated WhatsApp Confirmation Trigger
+- Updating an appointment status to `CONFIRMED` via `PATCH /api/appointments/[id]` executes `sendWhatsAppMessage` (Evolution API).
+- Sends a structured, friendly confirmation template to the patient's phone containing provider name, service, date, time, and estimated duration.
+
+---
+
+## 19. WhatsApp Evolution API v2 Integration & Flag Invariants
+
+### 19.1 Mandatory Instance Creation & Configuration Flags
+All instances provisioned via `POST /api/apps/connect/whatsapp` enforce the following flags in `/instance/create`, `/settings/set`, and `/webhook/set`:
+- `events`: `["MESSAGES_UPSERT"]`
+- `webhookBase64`: `true`
+- `rejectCall`: `true` (Reject voice calls)
+- `groupsIgnore`: `true` (Ignore group messages)
+- `readMessages`: `true` (Mark received messages as read)
+- `alwaysOnline`: `true` (Maintain persistent online presence)
+- `readStatus`: `false` (Omit status reading)
+- `syncFullHistory`: `false`
+
+### 19.2 Connection State Verification & Modal Handshake Invariants
+- `/api/apps/whatsapp/status` inspects `fetchInstances?instanceName=${instanceName}` in Evolution API, extracting `connectionStatus === "open"` and `ownerJid`.
+- Handshake Protection: Poll requests do not call `/instance/connect`, preventing socket resets while the user scans the QR code.
+- Polling in `WhatsAppModal` operates at 2000ms intervals and automatically closes the modal within 1.2s upon confirmation, with mount detection for pre-connected sessions.
+

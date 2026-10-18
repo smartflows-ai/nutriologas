@@ -1,7 +1,8 @@
 // src/app/(public)/producto/[slug]/page.tsx
 import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
-import { Star } from "lucide-react";
+import Link from "next/link";
+import { Star, Clock, Calendar } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
 import AddToCartButton from "@/components/shop/AddToCartButton";
 import ProductGallery from "@/components/shop/ProductGallery";
@@ -34,6 +35,8 @@ export default async function ProductoPage({
 }) {
   const product = await getProduct(params.slug);
   if (!product || !product.isActive) notFound();
+
+  const isService = product.itemType === "SERVICE" || product.requiresBooking;
 
   const avgRating =
     product.reviews.length > 0
@@ -88,26 +91,46 @@ export default async function ProductoPage({
           </p>
 
           <div className="mt-auto">
+            {isService && (
+              <div className="flex items-center gap-3 mb-4 p-3.5 rounded-2xl bg-[var(--color-primary)]/10 border border-[var(--color-primary)]/20 text-[var(--color-primary)]">
+                <Clock size={18} />
+                <span className="text-sm font-bold">
+                  Duración estimada: {product.durationMinutes ?? 30} minutos
+                </span>
+              </div>
+            )}
+
             <p className="text-3xl font-bold text-primary mb-4">
               {formatPrice(product.price)}
             </p>
-            {product.stock > 0 ? (
-              <AddToCartButton
-                product={{
-                  id: product.id,
-                  name: product.name,
-                  price: product.price,
-                  images: product.images,
-                  slug: product.slug,
-                  stock: product.stock,
-                }}
-              />
+
+            {isService ? (
+              <Link
+                href={`/agendar/${product.slug}`}
+                className="w-full py-4 px-6 rounded-2xl bg-[var(--color-primary)] hover:bg-[var(--color-primary)]/90 text-white font-bold text-base flex items-center justify-center gap-2.5 shadow-lg shadow-[var(--color-primary)]/25 transition-all hover:shadow-[var(--color-primary)]/40 hover:-translate-y-0.5"
+              >
+                <Calendar size={18} />
+                Agendar Cita Online
+              </Link>
+            ) : product.stock > 0 ? (
+              <>
+                <AddToCartButton
+                  product={{
+                    id: product.id,
+                    name: product.name,
+                    price: product.price,
+                    images: product.images,
+                    slug: product.slug,
+                    stock: product.stock,
+                  }}
+                />
+                <p className="text-xs text-gray-400 mt-2">
+                  {product.stock} unidades disponibles
+                </p>
+              </>
             ) : (
               <p className="text-red-500 font-medium">Producto agotado</p>
             )}
-            <p className="text-xs text-gray-400 mt-2">
-              {product.stock} unidades disponibles
-            </p>
           </div>
         </div>
       </div>

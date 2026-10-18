@@ -146,26 +146,52 @@ function WhatsAppConnectModal({
     if (data.qrCode) {
       setQrCode(data.qrCode);
       setStep("qr");
-      // Polling cada 3 segundos para detectar cuando escanea el QR
+      // Polling cada 2 segundos para detectar inmediatamente cuando el usuario escanea en el celular
+      if (pollRef.current) clearInterval(pollRef.current);
       pollRef.current = setInterval(async () => {
-        const s = await fetch("/api/apps/whatsapp/status", { cache: "no-store" }).then(r => r.json());
-        if (s.status === "connected") {
-          clearInterval(pollRef.current!);
-          setPhone(s.phoneNumber);
-          setStep("connected");
-          setTimeout(() => { onSuccess(); onClose(); }, 2000);
-        } else if (s.qrCode && s.qrCode !== qrCode) {
-          setQrCode(s.qrCode); // refrescar QR si caducó
+        try {
+          const s = await fetch("/api/apps/whatsapp/status", { cache: "no-store" }).then(r => r.json());
+          if (s.status === "connected") {
+            if (pollRef.current) clearInterval(pollRef.current);
+            setPhone(s.phoneNumber);
+            setStep("connected");
+            setTimeout(() => {
+              onSuccess();
+              onClose();
+            }, 1200);
+          } else if (s.qrCode && s.qrCode !== qrCode) {
+            setQrCode(s.qrCode);
+          }
+        } catch (e) {
+          console.warn("[whatsapp-poll] Error polling status:", e);
         }
-      }, 3000);
+      }, 2000);
     } else {
-      // Handle error scenario gracefully
       toast(data.error || "Algo salió mal al conectar con WhatsApp");
       setStep("idle");
     }
   };
 
-  useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
+  useEffect(() => {
+    // Verificación inmediata al abrir el modal: si ya está conectado, cerrar de inmediato
+    fetch("/api/apps/whatsapp/status", { cache: "no-store" })
+      .then(r => r.json())
+      .then(s => {
+        if (s.status === "connected") {
+          setPhone(s.phoneNumber);
+          setStep("connected");
+          setTimeout(() => {
+            onSuccess();
+            onClose();
+          }, 1200);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, []);
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">

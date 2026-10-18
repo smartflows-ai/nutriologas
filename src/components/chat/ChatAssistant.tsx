@@ -14,6 +14,7 @@ import {
   ArrowUpRight,
   AlertTriangle,
   Zap,
+  Calendar,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -29,6 +30,8 @@ export interface AssistantMetrics {
   pendingOrdersCount: number;
   activeProductsCount: number;
   activeCampaignsCount: number;
+  todayAppointmentsCount?: number;
+  pendingAppointmentsCount?: number;
 }
 
 interface Message {
@@ -192,6 +195,8 @@ interface ChatAssistantProps {
   businessInfo?: string;
   tenantSlug?: string;
   initialMetrics?: AssistantMetrics;
+  vertical?: string;
+  isBookingEnabled?: boolean;
 }
 
 export default function ChatAssistant({
@@ -199,6 +204,8 @@ export default function ChatAssistant({
   businessInfo,
   tenantSlug,
   initialMetrics,
+  vertical,
+  isBookingEnabled,
 }: ChatAssistantProps = {}) {
   const { t } = useTranslation();
 
@@ -349,7 +356,7 @@ export default function ChatAssistant({
 
       {/* ── Business KPI Snapshot Bar (Top CRM Metrics) ── */}
       {initialMetrics && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3 shrink-0">
+        <div className={`grid grid-cols-2 ${isBookingEnabled ? "lg:grid-cols-5" : "lg:grid-cols-4"} gap-3 mb-3 shrink-0`}>
           {/* Card 1: Ventas del Mes */}
           <button
             onClick={() =>
@@ -423,7 +430,7 @@ export default function ChatAssistant({
           >
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                {t.crm.assistant.kpis?.activeCatalog ?? "Catálogo Activo"}
+                {t.crm.assistant.kpis?.activeCatalog ?? (vertical === "HEALTH" ? "Servicios Activos" : "Catálogo Activo")}
               </span>
               <span className="p-1.5 rounded-lg bg-blue-50 dark:bg-blue-950/50 text-blue-600 group-hover:scale-110 transition-transform">
                 <Package size={14} />
@@ -433,7 +440,7 @@ export default function ChatAssistant({
               {initialMetrics.activeProductsCount}
             </p>
             <div className="flex items-center justify-between mt-1 text-[11px] text-gray-400">
-              <span>ítems disponibles</span>
+              <span>disponibles</span>
               <span className="text-blue-600 dark:text-blue-400 font-semibold inline-flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                 Rotación <ArrowUpRight size={11} />
               </span>
@@ -467,6 +474,38 @@ export default function ChatAssistant({
               </span>
             </div>
           </button>
+
+          {/* Card 5: Citas / Consultas (si isBookingEnabled) */}
+          {isBookingEnabled && (
+            <button
+              onClick={() =>
+                sendMessage(
+                  vertical === "HEALTH"
+                    ? "¿Qué consultas médicas tengo agendadas hoy y cuántas están pendientes de confirmación?"
+                    : "¿Qué citas tengo programadas para hoy y esta semana?"
+                )
+              }
+              className="p-3 rounded-2xl bg-white dark:bg-gray-900 border border-gray-200/80 dark:border-gray-800 text-left hover:border-cyan-500 hover:shadow-md transition-all group col-span-2 lg:col-span-1"
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                  {vertical === "HEALTH" ? "Citas de Hoy" : "Agenda de Citas"}
+                </span>
+                <span className="p-1.5 rounded-lg bg-cyan-50 dark:bg-cyan-950/50 text-cyan-600 group-hover:scale-110 transition-transform">
+                  <Calendar size={14} />
+                </span>
+              </div>
+              <p className="text-base font-bold text-gray-900 dark:text-white">
+                {initialMetrics.todayAppointmentsCount ?? 0}
+              </p>
+              <div className="flex items-center justify-between mt-1 text-[11px] text-gray-400">
+                <span>{initialMetrics.pendingAppointmentsCount ?? 0} pendientes</span>
+                <span className="text-cyan-600 dark:text-cyan-400 font-semibold inline-flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                  Agenda <ArrowUpRight size={11} />
+                </span>
+              </div>
+            </button>
+          )}
         </div>
       )}
 
@@ -488,7 +527,15 @@ export default function ChatAssistant({
 
               {/* Categorized Suggestion Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full max-w-xl text-left">
-                {t.crm.assistant.chat.suggestions.map((s, idx) => (
+                {(isBookingEnabled
+                  ? [
+                      vertical === "HEALTH"
+                        ? "¿Qué consultas médicas tengo agendadas hoy y cuántas están pendientes de confirmación?"
+                        : "¿Qué citas tengo programadas para hoy y esta semana?",
+                      ...t.crm.assistant.chat.suggestions,
+                    ]
+                  : t.crm.assistant.chat.suggestions
+                ).map((s, idx) => (
                   <button
                     key={s}
                     onClick={() => sendMessage(s)}

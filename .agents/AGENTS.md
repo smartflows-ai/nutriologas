@@ -146,6 +146,8 @@ Core of the system. One record per business.
 - `slug` (unique) → subdomain identifier
 - `customDomain` → optional custom domain
 - `logoUrl`, `whatsappNumber`, `businessInfo`
+- `vertical` → `BusinessVertical` (`ECOMMERCE`, `HEALTH`, `PETS_HOTEL`, `TOURISM`)
+- `isBookingEnabled` → boolean toggle for appointment scheduling
 - `theme` → 1:1 `ThemeConfig` relation (colors + font)
 - `isAssistantEnabled` → AI chatbot toggle per tenant
 
@@ -160,6 +162,17 @@ Core of the system. One record per business.
 - `isActive` → visible on storefront
 - `deletedAt` → **soft delete** (never hard-delete active products)
 - `images[]` → Cloudinary URLs
+- `isBookingEnabled` → boolean flag to enable service booking instead of physical cart purchase
+- `durationMinutes` → consultation or session duration (e.g. 30, 45, 60 min)
+
+### Appointment
+- Tenant-scoped scheduling entity (`Appointment`)
+- `userId` → registered patient/client or auto-provisioned guest user
+- `customerName`, `customerPhone` → direct guest contact info
+- `appointmentDate`, `durationMinutes`, `status` (`PENDING`, `CONFIRMED`, `COMPLETED`, `CANCELLED`, `NO_SHOW`)
+- `notes` → customer reasons/special notes
+- `internalNotes` → private clinical notes for specialists/doctors
+- Sincronizado en `/admin/citas` junto con Google Calendar y Microsoft Outlook
 
 ### Order + OrderItem
 - States: `PENDING → PAID → SHIPPED → DELIVERED | CANCELLED`
@@ -167,8 +180,8 @@ Core of the system. One record per business.
 - `shippingAddress` stored as JSON blob
 
 ### ConnectedApp
-- Per-tenant external integrations: Google, Facebook, WhatsApp
-- WhatsApp uses Evolution API (`wa*` fields)
+- Per-tenant external integrations: Google, Microsoft, Facebook, WhatsApp
+- WhatsApp uses Evolution API (`wa*` fields) with required flags (`MESSAGES_UPSERT`, `webhookBase64`, `rejectCall`, `alwaysOnline`, etc.)
 - Facebook/Instagram for social campaigns
 
 ### SocialCampaign + SocialPost
