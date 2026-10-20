@@ -229,6 +229,9 @@ El corazón del sistema. Cada negocio es un Tenant con:
 - `notes` → motivo de consulta o notas proporcionadas por el paciente
 - `internalNotes` → notas clínicas o de atención visibles solo para el profesional (ADMIN)
 - `customerPhone` → número de WhatsApp del cliente; identifica al paciente en el bot
+- `customerEmail` → email que escribió el cliente al agendar (puede diferir del email de la cuenta vinculada)
+- `externalProvider` (`AppProvider`) y `externalEventId` → calendario (`GOOGLE` o `MICROSOFT`) y id del evento que replica la cita; `null` si no hay calendario conectado
+- `googleEventId` → legado, reemplazado por `externalEventId`; se elimina tras correr `local-utils/backfill-appointment-calendar-links.mjs`
 - `remindersSent` (`Int[]`) → offsets (minutos) ya enviados como recordatorio; reprogramar la cita lo reinicia a `[]`
 
 ### Order + OrderItem
@@ -427,7 +430,8 @@ Flujo: `local-utils/n8n-chat-workflow-v2.json` ("NewAigent - WhatsApp Bot (Chat)
   | `reschedule_appointment` | `POST /api/internal/bot/reschedule` |
 
   El contexto (servicios, precios, FAQs, `waContext`) llega con `POST /api/internal/bot/context`.
-- **Reglas de negocio**: los precios se pueden citar, nunca cambiar ni descontar. Citas entre 08:00 y 20:00 (-06:00), con duración por servicio. El conflicto revisa citas nativas y Google Calendar; si Google falla, solo se usa la base de datos.
+- **Reglas de negocio**: los precios se pueden citar, nunca cambiar ni descontar. Citas entre 08:00 y 20:00 (-06:00), con duración por servicio. El conflicto revisa citas nativas y el calendario conectado (Google u Outlook, `getBusyPeriods` en `src/lib/calendar-sync.ts`); si el calendario falla, solo se usa la base de datos. La web y el bot crean citas con el mismo servicio (`src/lib/appointments-service.ts`).
+- **Horas del paciente**: son hora de Mexico. Se construyen con `clinicDateTime()` (`src/lib/clinic-time.ts`, offset `-06:00`) y se leen con `clinicTimeOf()`. Nunca usar sufijo `Z` para una hora elegida por el paciente.
 - **Privacidad**: el system prompt prohíbe mencionar formatos técnicos, IDs, herramientas, errores, infraestructura y datos de otros clientes. Es una guía para el modelo, no una garantía. El nodo `Clean Reply` quita saludos repetidos y es el único filtro de salida.
 - **Reporte de tokens**: `Collect Token Usage` suma el uso de todas las llamadas del agente y `Report Token Usage` lo envía a `POST /api/internal/tokens/report`, que lo cobra al tenant a tarifa retail. Si el proveedor no reporta uso, se estima (2,000 tokens de prompt por llamada más longitud de respuesta / 4).
 - **Reglas de n8n para este flujo**:
@@ -592,7 +596,9 @@ Luego acceder a `http://doctor.localhost:3000` para ver el tenant "doctor".
 - OXXO Pay requiere polling de webhooks de Conekta para confirmar pago
 
 ### Pendiente
-- **Migración del schema sin aplicar**: `remindersEnabled`, `reminderOffsetsMinutes` y `remindersSent` requieren `npm run db:push`. Confirmar antes de aplicar, porque el schema tiene otros cambios sin migrar.
+- **Migración del schema sin aplicar**: `remindersEnabled`, `reminderOffsetsMinutes` y `remindersSent` requieren `npm run db:push`. Confirmar antes de aplicar, porque el schema tiene otros cambios sin migrar. Lo mismo aplica a `externalProvider`, `externalEventId` y `customerEmail` de `Appointment`; después correr `local-utils/backfill-appointment-calendar-links.mjs`.
+- **Citas web anteriores al fix de hora**: se guardaron con hora UTC (6 horas adelantadas). No se han corregido.
+- **Concurrencia al agendar**: dos reservas simultáneas en el mismo horario pueden pasar la revisión de conflictos a la vez. Falta un candado o restricción en la base de datos.
 - **Secretos hardcodeados en workflows de n8n** (clave interna, API key de Evolution, clave de OpenRouter en la campaña social). Mover a credenciales cuando n8n lo permita, y rotarlos.
 - **Workflow social**: `Notify Error` usa `$env.WEBHOOK_URL`, que no está disponible en n8n. Si una publicación falla después de generar el texto, sus tokens no se reportan.
 - **Pantalla de recordatorios en el CRM**: no construida.
@@ -640,6 +646,13 @@ Luego acceder a `http://doctor.localhost:3000` para ver el tenant "doctor".
 - En componentes de la **página de marketing** (`marketing/`), sí se permiten colores fijos porque no pertenecen a ningún tenant.
 - Si un nuevo componente necesita un color de acento diferente al del tenant, debe exponerlo como prop o CSS token — no codificarlo directamente.
 
+### Reglas Multi-Tenant (Pensar en Todos los Negocios)
+- Todo cambio se diseña como regla para **cualquier** tenant, no para el ejemplo que se muestra en una captura. Una captura es un caso, no la especificación.
+- No escribir nada con datos de un negocio concreto: etiquetas, colores, verticales, nombres de producto o frases.
+- El texto libre de un negocio o del bot (motivo de cita, notas, respuestas) se muestra tal cual, respetando sus saltos de línea. No parsear su formato desde la pantalla: el formato depende de lo que escriba el bot o el cliente. Si el formato importa, se corrige en la fuente (prompt del bot o flujo de reserva).
+- Antes de cerrar un cambio de UI, revisar al menos: un valor vacío, uno largo, otra vertical, modo oscuro y colores del tenant muy claros o muy oscuros.
+- Al entregar, indicar qué regla se aplicó y qué casos cubre.
+
 ---
 
 ## Integración Meta (Facebook & Instagram)
@@ -660,6 +673,7 @@ Luego acceder a `http://doctor.localhost:3000` para ver el tenant "doctor".
 - **Provider Enum**: `MICROSOFT` en `AppProvider` de Prisma.
 - **Sidebar**: La ruta `/admin/calendario` requiere `providersReq: ["GOOGLE", "MICROSOFT"]` — se muestra si cualquiera de los dos está conectado.
 - **Env vars**: `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, `MICROSOFT_TENANT_ID` (usar `"common"` para multi-tenant).
+- **Escritura de eventos**: el scope es `Calendars.ReadWrite` (start, callback y refresh). Las conexiones anteriores son de solo lectura y deben reconectarse; `/admin/apps` muestra un aviso cuando falta el scope. Las llamadas a Graph viven en `src/lib/microsoft-calendar.ts`.
 
 ---
 
@@ -731,6 +745,7 @@ Luego acceder a `http://doctor.localhost:3000` para ver el tenant "doctor".
   - Citas nativas: Muestran precio del servicio, teléfono con enlace directo a WhatsApp (`wa.me`), estado clínico y botones de acción (`Confirmar`, `Atendida`, `No vino`, `Notas clínicas`).
 - **Confirmación Automática por WhatsApp**:
   - Al hacer clic en "Confirmar" en una cita, `PATCH /api/appointments/[id]` envía un mensaje automático al paciente vía WhatsApp con el nombre del consultorio, servicio, fecha, hora y duración estimada.
+- **Citas replicadas**: una cita creada desde la web o el bot se guarda en la base de datos y crea un evento en el calendario conectado (`externalProvider` / `externalEventId`). Ese evento no aparece por separado; los eventos creados a mano en el calendario sí aparecen.
 - **Redirección de Ruta**: `/admin/calendario` redirige directamente a `/admin/citas`.
 
 ---

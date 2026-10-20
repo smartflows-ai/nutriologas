@@ -3,16 +3,8 @@
 // then mirrors it to the tenant's Google Calendar when connected.
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import { createCalendarEvent } from "@/lib/google-calendar";
-import {
-  buildSlot,
-  formatSlotTime,
-  getBusyPeriods,
-  getTenantAccessToken,
-  isInternalKeyValid,
-  isSlotFree,
-  resolveBotTenant,
-} from "@/lib/bot";
+import { createAppointment } from "@/lib/appointments-service";
+import { buildSlot, formatSlotTime, isInternalKeyValid, resolveBotTenant } from "@/lib/bot";
 
 export async function POST(req: NextRequest) {
   if (!isInternalKeyValid(req)) return Response.json({ error: "No autorizado" }, { status: 401 });
@@ -51,15 +43,6 @@ export async function POST(req: NextRequest) {
     return Response.json({ success: false, error: "La fecha y hora ya pasaron" }, { status: 400 });
   }
 
-  const accessToken = await getTenantAccessToken(bot.tenantId);
-  const busy = await getBusyPeriods(bot.tenantId, date, accessToken);
-  if (!isSlotFree(busy, slot.start, slot.end)) {
-    return Response.json(
-      { success: false, error: "slot_unavailable", message: "Ese horario ya no está disponible." },
-      { status: 409 }
-    );
-  }
-
   // Guest account per phone number, same pattern as the web booking flow.
   const email = customerEmail?.toLowerCase().trim() || `wa_${customerPhone}@booking.local`;
   let user = await prisma.user.findFirst({ where: { tenantId: bot.tenantId, email } });
@@ -69,40 +52,31 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const appointment = await prisma.appointment.create({
-    data: {
-      tenantId: bot.tenantId,
-      userId: user.id,
-      productId: product.id,
-      customerName,
-      customerPhone,
-      appointmentDate: slot.start,
-      durationMinutes: duration,
-      notes: notes?.trim() || null,
-      status: "CONFIRMED",
+  const result = await createAppointment({
+    tenantId: bot.tenantId,
+    userId: user.id,
+    productId: product.id,
+    appointmentDate: slot.start,
+    durationMinutes: duration,
+    status: "CONFIRMED",
+    customerName,
+    customerPhone,
+    customerEmail: customerEmail?.toLowerCase().trim() || null,
+    notes: notes?.trim() || null,
+    calendar: {
+      summary: `Cita: ${product.name} - ${customerName}`,
+      description: `${notes?.trim() || "Cita agendada por WhatsApp"}
+Tel: ${customerPhone}`,
+      attendeeEmail: customerEmail || "",
     },
   });
-
-  let meetLink: string | null = null;
-  if (accessToken) {
-    try {
-      const gEvent = await createCalendarEvent(accessToken, {
-        summary: `Cita: ${product.name} - ${customerName}`,
-        description: `${notes?.trim() || "Cita agendada por WhatsApp"}\nTel: ${customerPhone}`,
-        startDateTime: slot.start.toISOString(),
-        endDateTime: slot.end.toISOString(),
-        attendeeEmail: customerEmail || "",
-      });
-      meetLink = gEvent.hangoutLink ?? null;
-      await prisma.appointment.update({
-        where: { id: appointment.id },
-        data: { googleEventId: gEvent.id },
-      });
-    } catch (err) {
-      // The appointment is saved; a missing calendar mirror should not fail the booking.
-      console.error("[bot/book] Google Calendar sync failed:", err);
-    }
+  if (!result.ok) {
+    return Response.json(
+      { success: false, error: "slot_unavailable", message: "Ese horario ya no está disponible." },
+      { status: 409 }
+    );
   }
+  const { appointment, meetLink } = result;
 
   return Response.json(
     {

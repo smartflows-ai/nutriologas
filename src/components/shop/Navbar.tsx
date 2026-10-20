@@ -29,7 +29,7 @@ export default function Navbar({ storeName, logoUrl, isEcommerce = true }: Navba
   const userName = session?.user?.name ?? session?.user?.email;
 
   return (
-    <header className="sticky top-0 z-50 bg-white/90 dark:bg-gray-950/90 border-b border-gray-100 dark:border-gray-800/80 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] dark:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.25)] transition-all duration-200">
+    <header className="sticky top-0 z-50 bg-white/90 dark:bg-gray-950/90 border-b border-gray-100 dark:border-gray-800/80 transition-all duration-200">
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 sm:h-20 flex items-center justify-between gap-4">
         {/* Brand */}
         <Link href="/" className="flex items-center gap-3 group shrink-0">
@@ -104,7 +104,7 @@ export default function Navbar({ storeName, logoUrl, isEcommerce = true }: Navba
               {isAdmin && (
                 <Link
                   href="/admin/dashboard"
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-primary hover:bg-primary/20 text-xs font-semibold transition-all"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 text-xs font-semibold transition-all"
                   title={t.storefrontUi.crmPanelTitle}
                 >
                   <LayoutDashboard size={14} />
@@ -113,7 +113,7 @@ export default function Navbar({ storeName, logoUrl, isEcommerce = true }: Navba
               )}
               <Link
                 href="/mis-citas"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/80 dark:bg-gray-800 text-primary dark:text-primary hover:bg-primary/10 text-xs font-semibold transition-all"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 text-xs font-semibold transition-all"
                 title={t.myAppointments.pageTitle}
               >
                 <Calendar size={13} />
@@ -227,7 +227,7 @@ export default function Navbar({ storeName, logoUrl, isEcommerce = true }: Navba
               <Link
                 href="/mis-citas"
                 onClick={() => setOpen(false)}
-                className="flex items-center gap-2 px-3 py-2 rounded-xl text-primary dark:text-primary font-semibold hover:bg-primary/10 dark:hover:bg-secondary/40 transition-colors"
+                className="flex items-center gap-2 px-3 py-2 rounded-xl text-gray-700 dark:text-gray-200 font-semibold hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
               >
                 <Calendar size={16} />
                 <span>{t.myAppointments.pageTitle}</span>

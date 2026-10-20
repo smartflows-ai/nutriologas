@@ -8,6 +8,7 @@ import {
   Clock,
   User,
   Phone,
+  Mail,
   CheckCircle2,
   XCircle,
   Check,
@@ -20,6 +21,7 @@ import {
 import { formatPrice, localeFor, fill } from "@/lib/utils";
 import { useTranslation } from "@/i18n";
 import { translateApiError } from "@/i18n/validation";
+import Pagination from "@/components/admin/Pagination";
 import { toast } from "sonner";
 import Link from "next/link";
 
@@ -45,6 +47,7 @@ interface AppointmentItem {
     durationMinutes: number | null;
     category: string | null;
   };
+  customerEmail?: string | null;
   user?: {
     id: string;
     name: string | null;
@@ -64,38 +67,29 @@ const STATUS_STYLE: Record<string, { bg: string; text: string; border: string; d
 
 /** Mini-calendar for interactive date navigation */
 function MiniCalendar({
-  appointments,
+  viewYear,
+  viewMonth,
+  onMonthChange,
+  appointmentDays,
   selectedDate,
   onSelectDate,
 }: {
-  appointments: AppointmentItem[];
+  viewYear: number;
+  viewMonth: number;
+  onMonthChange: (year: number, month: number) => void;
+  appointmentDays: string[];
   selectedDate: string;
   onSelectDate: (d: string) => void;
 }) {
   const { t, lang } = useTranslation();
   const locale = localeFor(lang);
   const today = new Date();
-  const [viewYear, setViewYear] = useState(today.getFullYear());
-  const [viewMonth, setViewMonth] = useState(today.getMonth());
 
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
   const firstDayOfWeek = new Date(viewYear, viewMonth, 1).getDay();
 
-  // Set of dates with appointments (YYYY-MM-DD based on local date)
-  const appointmentDates = useMemo(() => {
-    const dates = new Set<string>();
-    appointments.forEach((a) => {
-      const d = new Date(a.appointmentDate);
-      const y = d.getFullYear();
-      const m = String(d.getMonth() + 1).padStart(2, "0");
-      const day = String(d.getDate()).padStart(2, "0");
-      dates.add(`${y}-${m}-${day}`);
-      if (a.appointmentDate.length >= 10) {
-        dates.add(a.appointmentDate.slice(0, 10));
-      }
-    });
-    return dates;
-  }, [appointments]);
+  // Days of the viewed month that have appointments (YYYY-MM-DD, from the server)
+  const appointmentDates = useMemo(() => new Set(appointmentDays), [appointmentDays]);
 
   const monthName = new Date(viewYear, viewMonth, 1).toLocaleDateString(locale, {
     month: "long",
@@ -107,14 +101,10 @@ function MiniCalendar({
     new Date(2024, 0, 7 + i).toLocaleDateString(locale, { weekday: "narrow" })
   );
 
-  const prevMonth = () => {
-    if (viewMonth === 0) { setViewMonth(11); setViewYear(viewYear - 1); }
-    else setViewMonth(viewMonth - 1);
-  };
-  const nextMonth = () => {
-    if (viewMonth === 11) { setViewMonth(0); setViewYear(viewYear + 1); }
-    else setViewMonth(viewMonth + 1);
-  };
+  const prevMonth = () =>
+    viewMonth === 0 ? onMonthChange(viewYear - 1, 11) : onMonthChange(viewYear, viewMonth - 1);
+  const nextMonth = () =>
+    viewMonth === 11 ? onMonthChange(viewYear + 1, 0) : onMonthChange(viewYear, viewMonth + 1);
 
   const cells: (number | null)[] = [
     ...Array.from({ length: firstDayOfWeek }, () => null),
@@ -206,8 +196,17 @@ function MiniCalendar({
 function CitasContent() {
   const { t, lang } = useTranslation();
   const locale = localeFor(lang);
-  const [appointments, setAppointments] = useState<AppointmentItem[]>([]);
+  // Agenda state. The server filters and paginates; the page only keeps the query and the last response.
+  const PAGE_SIZE = 20;
+  const [items, setItems] = useState<AppointmentItem[]>([]);
+  const [counts, setCounts] = useState<Record<string, number>>({});
+  const [appointmentDays, setAppointmentDays] = useState<string[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [viewYear, setViewYear] = useState(() => new Date().getFullYear());
+  const [viewMonth, setViewMonth] = useState(() => new Date().getMonth());
   const [activeTab, setActiveTab] = useState<string>("ALL");
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -233,22 +232,59 @@ function CitasContent() {
       .catch(() => {});
   }, []);
 
-  const fetchAppointments = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/appointments?limit=200`);
-      const data = await res.json();
-      if (Array.isArray(data)) setAppointments(data);
-    } catch (e) {
-      console.error("Error fetching appointments:", e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Loads the viewed month with the current filters. Stale responses are ignored.
   useEffect(() => {
-    fetchAppointments();
-  }, []);
+    let ignore = false;
+    const params = new URLSearchParams({
+      month: `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}`,
+      status: activeTab,
+      page: String(page),
+      pageSize: String(PAGE_SIZE),
+    });
+    if (selectedDate) params.set("day", selectedDate);
+    if (searchTerm.trim()) params.set("q", searchTerm.trim());
+
+    setLoading(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/appointments?${params.toString()}`);
+        const data = await res.json();
+        if (ignore || !data || !Array.isArray(data.items)) return;
+        setItems(data.items);
+        setTotal(data.total ?? 0);
+        setCounts(data.counts ?? {});
+        setAppointmentDays(data.days ?? []);
+      } catch (e) {
+        console.error("Error fetching appointments:", e);
+      } finally {
+        if (!ignore) setLoading(false);
+      }
+    }, 250);
+
+    return () => {
+      ignore = true;
+      clearTimeout(timer);
+    };
+  }, [viewYear, viewMonth, activeTab, selectedDate, searchTerm, page, refreshKey]);
+
+  // Any filter change starts again from the first page
+  const changeMonth = (year: number, month: number) => {
+    setViewYear(year);
+    setViewMonth(month);
+    setPage(1);
+  };
+  const changeDate = (dateKey: string) => {
+    setSelectedDate(dateKey);
+    setPage(1);
+  };
+  const changeTab = (tabId: string) => {
+    setActiveTab(tabId);
+    setPage(1);
+  };
+  const changeSearch = (value: string) => {
+    setSearchTerm(value);
+    setPage(1);
+  };
 
   const updateStatus = async (id: string, newStatus: string) => {
     setUpdatingId(id);
@@ -260,9 +296,7 @@ function CitasContent() {
       });
       if (res.ok) {
         const data = await res.json();
-        setAppointments((prev) =>
-          prev.map((a) => (a.id === id ? { ...a, status: newStatus as any } : a))
-        );
+        setRefreshKey((k) => k + 1);
         if (newStatus === "CONFIRMED") {
           if (data.whatsappSent) {
             toast.success(t.agenda.toastConfirmedWa);
@@ -297,9 +331,7 @@ function CitasContent() {
         body: JSON.stringify({ internalNotes: internalNoteDraft }),
       });
       if (res.ok) {
-        setAppointments((prev) =>
-          prev.map((a) => (a.id === id ? { ...a, internalNotes: internalNoteDraft } : a))
-        );
+        setRefreshKey((k) => k + 1);
         setEditingNotesId(null);
         toast.success(t.agenda.toastNotesSaved);
       }
@@ -308,43 +340,16 @@ function CitasContent() {
     }
   };
 
-  // KPI counts
-  const totalCount = appointments.length;
-  const pendingCount = appointments.filter((a) => a.status === "PENDING").length;
-  const confirmedCount = appointments.filter((a) => a.status === "CONFIRMED").length;
-  const completedCount = appointments.filter((a) => a.status === "COMPLETED").length;
-  const cancelledCount = appointments.filter((a) => a.status === "CANCELLED" || a.status === "NO_SHOW").length;
+  // KPI counts for the viewed month (from the server, not affected by the filters)
+  const totalCount = counts.ALL ?? 0;
+  const pendingCount = counts.PENDING ?? 0;
+  const confirmedCount = counts.CONFIRMED ?? 0;
+  const completedCount = counts.COMPLETED ?? 0;
+  const cancelledCount = (counts.CANCELLED ?? 0) + (counts.NO_SHOW ?? 0);
 
-  // Filtered list
-  const filteredAppointments = useMemo(() => {
-    return appointments.filter((appt) => {
-      // Status filter
-      if (activeTab !== "ALL" && appt.status !== activeTab) return false;
-
-      // Date filter
-      if (selectedDate) {
-        const d = new Date(appt.appointmentDate);
-        const y = d.getFullYear();
-        const m = String(d.getMonth() + 1).padStart(2, "0");
-        const day = String(d.getDate()).padStart(2, "0");
-        const dateKey = `${y}-${m}-${day}`;
-        const dateIso = appt.appointmentDate.slice(0, 10);
-        if (dateKey !== selectedDate && dateIso !== selectedDate) return false;
-      }
-
-      // Search filter
-      if (searchTerm) {
-        const term = searchTerm.toLowerCase();
-        const matchName = (appt.customerName || appt.user?.name || "").toLowerCase().includes(term);
-        const matchPhone = (appt.customerPhone || "").includes(term);
-        const matchProduct = (appt.product?.name || "").toLowerCase().includes(term);
-        const matchNotes = (appt.notes || "").toLowerCase().includes(term);
-        if (!matchName && !matchPhone && !matchProduct && !matchNotes) return false;
-      }
-
-      return true;
-    });
-  }, [appointments, activeTab, selectedDate, searchTerm]);
+  // Current page of the filtered list
+  const filteredAppointments = items;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const selectedDateLabel = selectedDate
     ? new Date(selectedDate + "T12:00:00").toLocaleDateString(locale, { day: "numeric", month: "long" })
@@ -385,7 +390,7 @@ function CitasContent() {
           )}
 
           <button
-            onClick={fetchAppointments}
+            onClick={() => setRefreshKey((k) => k + 1)}
             title={t.agenda.reload}
             aria-label={t.agenda.reload}
             className="p-2.5 rounded-xl border border-gray-200 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300 transition-colors"
@@ -427,15 +432,18 @@ function CitasContent() {
         {/* Left column: mini calendar picker */}
         <div className="lg:col-span-4 xl:col-span-3 sticky top-6">
           <MiniCalendar
-            appointments={appointments}
+            viewYear={viewYear}
+            viewMonth={viewMonth}
+            onMonthChange={changeMonth}
+            appointmentDays={appointmentDays}
             selectedDate={selectedDate}
-            onSelectDate={(dateKey) => setSelectedDate(dateKey)}
+            onSelectDate={changeDate}
           />
 
           {selectedDate && (
             <div className="mt-3 p-3 rounded-xl bg-gray-100 dark:bg-gray-800 border border-primary/10 dark:border-primary/40 text-xs text-primary flex items-center justify-between">
               <span className="font-medium">{fill(t.agenda.filteredBy, { date: selectedDateLabel })}</span>
-              <button onClick={() => setSelectedDate("")} className="font-semibold underline text-primary hover:text-secondary">
+              <button onClick={() => changeDate("")} className="font-semibold underline text-primary hover:text-secondary">
                 {t.agenda.clear}
               </button>
             </div>
@@ -456,7 +464,7 @@ function CitasContent() {
               ].map((tab) => (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => changeTab(tab.id)}
                   className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${
                     activeTab === tab.id
                       ? "bg-primary text-white "
@@ -474,7 +482,7 @@ function CitasContent() {
                 placeholder={t.agenda.searchPlaceholder}
                 aria-label={t.agenda.searchPlaceholder}
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => changeSearch(e.target.value)}
                 className="input pl-9 text-xs py-2 w-full bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 rounded-xl"
               />
             </div>
@@ -507,38 +515,39 @@ function CitasContent() {
                 const style = STATUS_STYLE[appt.status] || STATUS_STYLE.PENDING;
                 const statusLabel = STATUS_LABEL[appt.status] || STATUS_LABEL.PENDING;
                 const patientName = appt.customerName || appt.user?.name || t.agenda.patientFallback;
+                const titleText = appt.product?.name ?? t.agenda.consultFallback;
                 const patientPhone = appt.customerPhone;
+                const contactEmail = appt.customerEmail || appt.user?.email;
                 const isExternal = appt.source === "google" || appt.source === "microsoft";
 
                 return (
                   <div
                     key={appt.id}
-                    className="card p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border border-gray-100 dark:border-gray-800/80 rounded-xl bg-white dark:bg-gray-900 transition-all"
+                    className="card p-5 flex flex-col sm:flex-row items-start gap-5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900"
                   >
-                    {/* Date badge */}
-                    <div className="flex items-center gap-3 shrink-0">
-                      <div className="w-14 h-14 rounded-xl bg-gray-100 dark:bg-gray-800 border border-primary/10 dark:border-primary/40 flex flex-col items-center justify-center text-primary">
-                        <span className="text-[9px] font-semibold ">
+                    {/* Date and time */}
+                    <div className="flex sm:flex-col items-center sm:items-start gap-3 sm:w-36 shrink-0">
+                      <div className="w-14 h-14 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex flex-col items-center justify-center text-primary">
+                        <span className="text-xs font-medium leading-tight">
                           {dateObj.toLocaleDateString(locale, { month: "short" })}
                         </span>
                         <span className="text-xl font-semibold leading-none">{dateObj.getDate()}</span>
-                        <span className="text-[9px] font-semibold">{dateObj.getFullYear()}</span>
+                        <span className="text-xs font-medium leading-tight">{dateObj.getFullYear()}</span>
                       </div>
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <Clock size={14} className="text-primary" />
-                          <span className="font-semibold text-gray-900 dark:text-white text-sm">{timeStr}</span>
-                          <span className="text-xs text-gray-400">({fill(t.productUi.minutesShort, { minutes: appt.durationMinutes })})</span>
-                        </div>
-                        <span className="text-xs text-gray-500 capitalize">{dateStr}</span>
+                      <div className="space-y-0.5">
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white">{timeStr}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {fill(t.productUi.minutesShort, { minutes: appt.durationMinutes })}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">{dateStr}</p>
                       </div>
                     </div>
 
-                    {/* Patient + service info */}
-                    <div className="flex-1 min-w-0 space-y-1">
+                    {/* Service, patient and notes */}
+                    <div className="flex-1 min-w-0 space-y-3">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-semibold text-gray-900 dark:text-white truncate">
-                          {appt.product?.name ?? t.agenda.consultFallback}
+                        <h3 className="font-semibold text-gray-900 dark:text-white">
+                          {titleText}
                         </h3>
 
                         {/* Integration source badge */}
@@ -567,36 +576,43 @@ function CitasContent() {
                         ) : null}
                       </div>
 
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs">
-                        <span className="flex items-center gap-1 font-semibold text-gray-800 dark:text-gray-200">
-                          <User size={12} className="text-gray-400" />
-                          {patientName}
-                        </span>
+                      <div className="flex flex-col gap-1 text-sm">
+                        {patientName !== titleText && (
+                          <span className="flex items-center gap-1.5 font-medium text-gray-800 dark:text-gray-200">
+                            <User size={14} className="text-gray-400" />
+                            {patientName}
+                          </span>
+                        )}
                         {patientPhone ? (
                           <a
                             href={`https://wa.me/${patientPhone.replace(/\D/g, "")}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center gap-1 text-primary hover:underline font-semibold"
+                            className="flex items-center gap-1.5 text-primary hover:underline w-fit"
                           >
-                            <Phone size={12} />
+                            <Phone size={14} />
                             {patientPhone}
                           </a>
                         ) : null}
-                        {appt.user?.email && !appt.user.email.includes("@booking.local") ? (
-                          <span className="text-gray-400">{appt.user.email}</span>
+                        {contactEmail && !contactEmail.includes("@booking.local") ? (
+                          <span className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400 break-all">
+                            <Mail size={14} className="text-gray-400 shrink-0" />
+                            {contactEmail}
+                          </span>
                         ) : null}
                       </div>
 
                       {appt.notes && (
-                        <p className="text-xs text-gray-500 bg-gray-50 dark:bg-gray-800/40 px-2.5 py-1.5 rounded-xl mt-1 border border-gray-100 dark:border-gray-800">
-                          <b className="font-semibold text-gray-700 dark:text-gray-300">{t.agenda.reason}</b> {appt.notes}
-                        </p>
+                        <div className="rounded-lg bg-gray-50 dark:bg-gray-800/40 border border-gray-200 dark:border-gray-800 px-3 py-2.5">
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t.agenda.reason}</p>
+                          <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line break-words">{appt.notes}</p>
+                        </div>
                       )}
                       {appt.internalNotes && (
-                        <p className="text-xs text-primary bg-gray-100 dark:bg-gray-800 px-2.5 py-1.5 rounded-xl mt-1 border border-primary/10 dark:border-primary/30">
-                          <b className="font-semibold">{t.agenda.clinicalNotes}</b> {appt.internalNotes}
-                        </p>
+                        <div className="rounded-lg border border-gray-200 dark:border-gray-800 dark:border-primary/30 px-3 py-2.5">
+                          <p className="text-xs font-medium text-primary mb-1">{t.agenda.clinicalNotes}</p>
+                          <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line break-words">{appt.internalNotes}</p>
+                        </div>
                       )}
                     </div>
 
@@ -696,6 +712,9 @@ function CitasContent() {
                 );
               })}
             </div>
+          )}
+          {!loading && totalPages > 1 && (
+            <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
           )}
         </div>
       </div>

@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { fetchExternalAppointments } from "@/lib/external-calendar";
+import { CLINIC_TIME_OFFSET, clinicTimeOf } from "@/lib/clinic-time";
 
 import { resolveTenantSlug } from "@/lib/tenant";
 import { apiError } from "@/lib/api-errors";
@@ -69,8 +70,8 @@ export async function GET(req: NextRequest) {
     }
 
     // Consultar citas existentes para ese día
-    const startOfDay = new Date(`${dateStr}T00:00:00.000Z`);
-    const endOfDay = new Date(`${dateStr}T23:59:59.999Z`);
+    const startOfDay = new Date(`${dateStr}T00:00:00.000${CLINIC_TIME_OFFSET}`);
+    const endOfDay = new Date(`${dateStr}T23:59:59.999${CLINIC_TIME_OFFSET}`);
 
     const existingAppointments = await prisma.appointment.findMany({
       where: {
@@ -86,12 +87,7 @@ export async function GET(req: NextRequest) {
     });
 
     const occupiedHours = new Set(
-      existingAppointments.map((a) => {
-        const d = new Date(a.appointmentDate);
-        const hours = d.getUTCHours().toString().padStart(2, "0");
-        const mins = d.getUTCMinutes().toString().padStart(2, "0");
-        return `${hours}:${mins}`;
-      })
+      existingAppointments.map((a) => clinicTimeOf(new Date(a.appointmentDate)))
     );
 
     try {
@@ -103,15 +99,15 @@ export async function GET(req: NextRequest) {
       
       externalAppts.forEach(app => {
         const d = new Date(app.appointmentDate);
-        const hours = d.getUTCHours().toString().padStart(2, "0");
-        const mins = d.getUTCMinutes().toString().padStart(2, "0");
-        
+        const startTime = clinicTimeOf(d);
+        const [startHour, startMinute] = startTime.split(":").map(Number);
+
         // Mark the start time as occupied
-        occupiedHours.add(`${hours}:${mins}`);
-        
+        occupiedHours.add(startTime);
+
         // Also mark subsequent slots based on duration to prevent overlapping
         const appDuration = app.durationMinutes || 30;
-        let currentMinutes = d.getUTCHours() * 60 + d.getUTCMinutes();
+        let currentMinutes = startHour * 60 + startMinute;
         const endMinutes = currentMinutes + appDuration;
         
         // Mark every slot that starts within the duration of this appointment

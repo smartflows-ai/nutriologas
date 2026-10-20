@@ -12,6 +12,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Agent prompts**: Designer, Dev, Code Reviewer, Tester and Orchestrator prompts now include the minimal UI rules.
 - **API error codes**: customer-facing routes return `{ error: <code> }` instead of raw text. Codes are typed in `src/lib/api-errors.ts` (`apiError`) and translated in the UI with `translateApiError` (`src/i18n/validation.ts`) from `t.apiErrors`. Migrated: `appointments`, `appointments/[id]`, `appointments/availability`, `checkout`, `reviews`, `reviews/[id]`, `auth/register`, `tenants/register`, `tenants/check-slug`, `tenants/business`, `upload/public`, `chat`. Call sites: BookingFlow, ReviewForm, checkout page, registro, OnboardingModal, ChatAssistant, admin citas, admin negocio. Unknown codes show the raw text, so routes not migrated keep working.
 - **Resource forms as modals**: FAQ, carrusel, productos/servicios and the social campaign form ("Nueva campaña" / edit) use the shared `FormPanel` modal (`src/components/admin/FormPanel.tsx`). The campaign list stays visible behind the modal. Productos fields follow the tenant's `vertical` and `isBookingEnabled` (`src/lib/product-form-profiles.ts`, provided through `TenantMetaProvider`).
+- **Citas paginated by month** (`GET /api/appointments`, admin): the agenda loads one month (`month=YYYY-MM`) with optional `day`, `status`, `q`, `page` and `pageSize` (default 20). Counts and days-with-appointments cover the whole month. The old `limit=200` returned the oldest 200 native appointments and silently dropped newer ones. Non-admin responses are unchanged.
+- **Minimal UI audit rules**: `local-utils/minimal-ui/config.js` now catches arbitrary values (`blur-[..]`, `shadow-[..]` with an optional `/NN` opacity, `rounded-[Nrem]`). The first run missed 11 of them in tenant screens. Removed with the codemod (8 shadows, 1 tinted border). The storefront "Sobre Nosotros" section lost its blurred blobs, backdrop blur and oversized radius and now uses `.card`.
+- **Google sign-in hidden** on `/login` (`GOOGLE_LOGIN_ENABLED = false`). The NextAuth provider stays configured.
+- **Citas card layout** (`admin/citas`): date and time on the left, service, patient and notes in the middle (notes have a label above the text), status and actions on the right. Motivo and clinical notes show the text as the bot or the patient wrote it, keeping its line breaks (`whitespace-pre-line`). No parsing of field labels, because the format depends on what the bot sends. The patient line is hidden when it repeats the service or event title (common with Google Calendar events). Uses `rounded-xl`, gray borders and `text-xs` labels.
 - **Confirmations**: `ConfirmModal` replaces the inline confirm in `admin/apps` and uses the tenant primary color for the confirm action.
 - **Tenant styling of remaining screens**: `TrialBanner`, `CreditsDrawer`, `admin/citas` KPI cards and action buttons, storefront footer, booking CTA, `admin/apps` integration cards, social campaign toast and setup page, `CampaignMetrics` and `CalendarView` use tenant tokens (`primary`, `secondary`, `accent`) and neutral surfaces instead of hardcoded colors or gradients.
 - **Phone numbers with country code**: the booking form (`src/components/shop/BookingFlow.tsx`) and `/admin/negocio` have a country code selector. The number is stored as `+<dial><digits>` (default `+52`) via `buildFullPhone` and `splitFullPhone` in `src/lib/phone.ts`. A number typed with a leading `+` overrides the selector.
@@ -26,13 +30,32 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Country code helper**: `src/lib/phone.ts` (`PHONE_COUNTRIES`, `DEFAULT_DIAL_CODE`, `buildFullPhone`, `splitFullPhone`).
 - **Minimal UI skill**: `.claude/skills/minimal-ui/` (SKILL.md, `references/style-spec.md`) and scripts in `local-utils/minimal-ui/`.
 
+- **Calendar sync layer**: `src/lib/calendar-sync.ts` (busy periods and create, update, delete of the mirror event for Google or Outlook), `src/lib/microsoft-calendar.ts` (Microsoft Graph event calls) and `src/lib/appointments-service.ts` (one booking pipeline for the web and the bot).
+- **Appointment fields**: `externalProvider`, `externalEventId` and `customerEmail`. `googleEventId` stays for one release.
+- **Backfill script**: `local-utils/backfill-appointment-calendar-links.mjs` copies `googleEventId` into the new fields.
+- **Clinic time helpers**: `src/lib/clinic-time.ts` (`clinicDateTime`, `clinicTimeOf`, offset `-06:00`).
+- **Outlook card** is visible again in `/admin/apps`. It shows a reconnect notice when the stored connection lacks write access (`integrationsUi.outlookReconnect`).
+- **API error code** `calendar_sync_failed` (HTTP 502), translated in `t.apiErrors`.
+
 ### Changed
 - `PATCH /api/tenants/business`: `whatsappNumber` is required and must be `+` followed by 8 to 15 digits. The business profile page enforces the same rule. Existing tenants without a number must add one on their next save.
 - `createCalendarEvent` adds attendees only when an attendee email is given.
 - Google Calendar: `updateCalendarEvent` (reschedule) and `deleteCalendarEvent` (cancel). A missing event (404/410) is not an error on delete.
 - Bot prompt: greets only on the first message, lists services when asked for prices, and follows privacy rules that keep technical details and other customers' data out of replies.
 
+- `POST /api/appointments` and the bot `book` route use the shared service. Web bookings check conflicts against native rows and the connected calendar and return 409 `slot_unavailable` on a conflict.
+- `PATCH /api/appointments/[id]`: a date change moves the mirror event and restarts reminders (admin edits skip the conflict check). CANCELLED or NO_SHOW deletes the mirror event.
+- `DELETE /api/appointments/[id]` deletes the mirror event before the row and returns 502 `calendar_sync_failed` if that fails.
+- Bot `cancel` and `reschedule` sync the calendar through the shared service and now support Outlook as well as Google.
+- Web bookings store only the patient's reason in `notes`. Name and phone stay in their own columns and appear in the calendar event description.
+- Microsoft OAuth scope is `Calendars.ReadWrite` in start, callback and token refresh. Existing Outlook connections must reconnect.
+- `GET /api/appointments/availability` compares slots in clinic time.
+
 ### Fixed
+- Duplicate appointments in `/admin/citas` when a booking also existed as a calendar event. A calendar event that mirrors a native row is now hidden, in both the agenda and `/api/calendar/events`.
+- Booking times were sent as UTC. A 17:00 slot was stored as 11:00 Mexico time, and availability compared UTC hours. Booking now uses clinic time.
+- A booking made while logged in as the admin was attributed to the admin account, and the CRM showed the admin email. The customer's email is now stored in `customerEmail`.
+- The "Motivo" text showed `reason | Tel: … | Paciente: …`. The notes now hold only the reason.
 - Bot tools failed with "Instancia de WhatsApp no encontrada". Tool and code nodes read the webhook data with `$('Extract Message').item`, which n8n cannot resolve there. They now use `.first().json`.
 - The agent failed with "Received tool input did not match expected schema" when an output parser was connected. The bot no longer uses one.
 - Replies sent by the bot could be logged as empty in the conversation history.
@@ -48,6 +71,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `CustomerAppointmentsList` cancels silently on failure (no message shown).
 - Six `confirm()` calls and one `alert()` still use native dialogs. The `ConfirmModal` replacement is optional.
 - Visual check pending in light and dark mode at 375 px, with a non-black primary and a custom font.
+- `npm run db:push` also adds `externalProvider`, `externalEventId` and `customerEmail` to `Appointment`. After it runs, execute `node local-utils/backfill-appointment-calendar-links.mjs`.
+- Outlook connections made before this change must be reconnected to enable event sync.
+- Web bookings made before the clinic-time fix are stored 6 hours early. They are not corrected yet.
+- Web bookings made before the notes change keep the old "Motivo" text.
+- Two simultaneous bookings for the same slot can both pass the conflict check.
+- Open decision: bookings made while logged in are linked to the session account. Should a booking for someone else link to the admin account at all?
 
 ---
 

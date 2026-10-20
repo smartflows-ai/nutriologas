@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
   // Use the current request origin instead of NEXTAUTH_URL to support subdomain routing
   const redirectUri = `${origin}/api/apps/oauth/microsoft/callback`;
 
-  const scopes = "Calendars.Read Mail.Read offline_access";
+  const scopes = "Calendars.ReadWrite Mail.Read offline_access";
 
   const authUrl = new URL(
     `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize`

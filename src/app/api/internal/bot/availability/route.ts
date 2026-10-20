@@ -7,12 +7,10 @@ import {
   BOT_DAY_START,
   BOT_TIMEZONE_OFFSET,
   buildSlot,
-  getBusyPeriods,
-  getTenantAccessToken,
   isInternalKeyValid,
-  isSlotFree,
   resolveBotTenant,
 } from "@/lib/bot";
+import { getBusyPeriods, isSlotFree } from "@/lib/calendar-sync";
 
 export async function POST(req: NextRequest) {
   if (!isInternalKeyValid(req)) return Response.json({ error: "No autorizado" }, { status: 401 });
@@ -32,8 +30,7 @@ export async function POST(req: NextRequest) {
   if (!product) return Response.json({ error: "Servicio no encontrado" }, { status: 404 });
 
   const duration = product.durationMinutes ?? 30;
-  const accessToken = await getTenantAccessToken(bot.tenantId);
-  const busy = await getBusyPeriods(bot.tenantId, date, accessToken);
+  const busy = await getBusyPeriods(bot.tenantId, date);
 
   // Candidate slots step by the service duration, like the web booking flow.
   const [startH, startM] = BOT_DAY_START.split(":").map(Number);

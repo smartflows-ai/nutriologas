@@ -110,7 +110,7 @@ export default async function ProductoPage({
             {isService ? (
               <Link
                 href={`/agendar/${product.slug}`}
-                className="w-full py-4 px-6 rounded-xl bg-[var(--color-primary)] hover:bg-[var(--color-primary)]/90 text-white font-semibold text-base flex items-center justify-center gap-2.5 shadow-[var(--color-primary)]/25 transition-all hover:shadow-[var(--color-primary)]/40 "
+                className="w-full py-4 px-6 rounded-xl bg-[var(--color-primary)] hover:bg-[var(--color-primary)]/90 text-white font-semibold text-base flex items-center justify-center gap-2.5 transition-all "
               >
                 <Calendar size={18} />
                 {t.storefrontUi.agendaCta}

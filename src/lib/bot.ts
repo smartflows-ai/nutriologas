@@ -4,8 +4,6 @@
 // never from model output or request input the model can influence.
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import { getAppToken } from "@/lib/connected-apps";
-import { fetchCalendarEvents } from "@/lib/google-calendar";
 
 export const BOT_TIMEZONE_OFFSET = "-06:00"; // America/Mexico_City (CST)
 export const BOT_DAY_START = "08:00";
@@ -22,13 +20,6 @@ export interface BotTenant {
   businessInfo: string | null;
   waContext: string | null;
   waTemperature: number;
-}
-
-export interface BusyPeriod {
-  start: number;
-  end: number;
-  appointmentId?: string;
-  googleEventId?: string;
 }
 
 export function isInternalKeyValid(req: NextRequest): boolean {
@@ -91,84 +82,6 @@ export function buildSlot(date: string, time: string, durationMinutes: number) {
 
   if (start.getTime() < dayStart || end.getTime() > dayEnd) return null;
   return { start, end };
-}
-
-export async function getTenantAccessToken(tenantId: string): Promise<string | null> {
-  try {
-    return await getAppToken(tenantId, "GOOGLE");
-  } catch (err) {
-    console.error("[bot] Could not read Google token:", err);
-    return null;
-  }
-}
-
-/**
- * Busy periods for one day, combining native appointments and the tenant's Google Calendar.
- * Google failures degrade to DB-only checks instead of blocking the bot.
- */
-export async function getBusyPeriods(
-  tenantId: string,
-  date: string,
-  accessToken: string | null
-): Promise<BusyPeriod[]> {
-  const dayStart = new Date(`${date}T00:00:00${BOT_TIMEZONE_OFFSET}`);
-  const dayEnd = new Date(`${date}T23:59:59${BOT_TIMEZONE_OFFSET}`);
-
-  const [appointments, googleEvents] = await Promise.all([
-    prisma.appointment.findMany({
-      where: {
-        tenantId,
-        status: { in: [...ACTIVE_APPOINTMENT_STATUSES] },
-        appointmentDate: { gte: dayStart, lte: dayEnd },
-      },
-      select: { id: true, googleEventId: true, appointmentDate: true, durationMinutes: true },
-    }),
-    accessToken
-      ? fetchCalendarEvents(accessToken, dayStart.toISOString(), dayEnd.toISOString()).catch((err) => {
-          console.error("[bot] Google Calendar busy lookup failed:", err);
-          return [];
-        })
-      : Promise.resolve([]),
-  ]);
-
-  const periods: BusyPeriod[] = appointments.map((a) => {
-    const start = a.appointmentDate.getTime();
-    return {
-      start,
-      end: start + a.durationMinutes * 60000,
-      appointmentId: a.id,
-      googleEventId: a.googleEventId ?? undefined,
-    };
-  });
-
-  for (const e of googleEvents) {
-    if (!e.start || e.transparency === "transparent" || e.status === "cancelled") continue;
-    const start = e.start.dateTime
-      ? new Date(e.start.dateTime).getTime()
-      : new Date(`${e.start.date}T00:00:00${BOT_TIMEZONE_OFFSET}`).getTime();
-    const end = e.end?.dateTime
-      ? new Date(e.end.dateTime).getTime()
-      : new Date(`${e.end?.date ?? e.start.date}T00:00:00${BOT_TIMEZONE_OFFSET}`).getTime();
-    periods.push({ start, end, googleEventId: e.id });
-  }
-
-  return periods;
-}
-
-/**
- * True when [start, end) overlaps no busy period, ignoring the appointment being edited.
- */
-export function isSlotFree(
-  periods: BusyPeriod[],
-  start: Date,
-  end: Date,
-  self?: { appointmentId?: string; googleEventId?: string | null }
-): boolean {
-  return !periods.some((p) => {
-    if (self?.appointmentId && p.appointmentId === self.appointmentId) return false;
-    if (self?.googleEventId && p.googleEventId === self.googleEventId) return false;
-    return start.getTime() < p.end && end.getTime() > p.start;
-  });
 }
 
 export function formatSlotTime(date: Date): string {

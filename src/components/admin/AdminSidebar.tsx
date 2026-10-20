@@ -284,7 +284,7 @@ export default function AdminSidebar({
 
       {/* ── Desktop: collapsible static sidebar ── */}
       <aside
-        className={`hidden md:flex md:flex-col flex-shrink-0 z-10 relative border-r border-white/60 shadow-[4px_0_24px_rgba(0,0,0,0.02)] transition-all duration-300 ease-in-out ${collapsed ? "w-16" : "w-64"}`}
+        className={`hidden md:flex md:flex-col flex-shrink-0 z-10 relative border-r border-white/60 transition-all duration-300 ease-in-out ${collapsed ? "w-16" : "w-64"}`}
       >
         {desktopSidebarContent}
       </aside>

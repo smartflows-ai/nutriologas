@@ -1131,6 +1131,7 @@ export interface Translations {
     assistantToggleFailed: string;
     igLinked: string;
     igMissing: string;
+    outlookReconnect: string;
     cancel: string;
     confirmDisconnect: string;
     understood: string;
@@ -1354,6 +1355,7 @@ export interface Translations {
     service_and_date_required: string;
     date_invalid: string;
     slot_unavailable: string;
+    calendar_sync_failed: string;
     cart_empty: string;
     product_unavailable: string;
     insufficient_stock: string;

@@ -431,3 +431,21 @@ Decisions made:
 - `formatWhatsAppNumber` in `src/lib/whatsapp.ts` still treats a 10-digit number as Mexican. Numbers stored with `+CC` pass through it unchanged, so only old numbers rely on that default.
 
 **Open:** existing tenants without a number must add one on their next save. The reminder and bot flows were not tested with the new format.
+
+## 2026-10-20 — Orchestrator — Multi-tenant rules added to CLAUDE.md
+
+**Decision:** Every UI or data-formatting change is designed as a rule for all tenants. A screenshot is one case, not the spec.
+
+**What changed:** `CLAUDE.md` has a new section "Reglas Multi-Tenant (Pensar en Todos los Negocios)" under the tenant style rules. It covers no tenant-specific data, free text shown as written (no parsing of bot or patient text), and the checks to run before closing a UI change (empty, long, other vertical, dark mode, extreme tenant colors).
+
+**Lesson:** A note-formatting helper built from one appointment note broke on other bot output. The rule now asks to fix the format at its source.
+
+## 2026-10-20 — Dev — Calendar mirror and clinic time
+
+**Decision:** The appointment row is the source of truth. The connected calendar (Google or Outlook, one per tenant) only mirrors it. The row stores `externalProvider` and `externalEventId`, and every listing hides calendar events that a row already mirrors. Web and bot bookings share one service (`appointments-service.ts`).
+
+**Decision:** Times chosen by the patient are clinic wall time (`-06:00`). They are built and read with `src/lib/clinic-time.ts`.
+
+**Lesson:** Building a time with a `Z` suffix stored a 17:00 slot as 11:00 in Mexico, and availability then blocked the wrong hour. A second bug was similar: the admin card showed the account email, not the email the patient typed. Store what the patient typed in its own column.
+
+**Open:** Existing web bookings made before the time fix are 6 hours early. Not corrected yet.

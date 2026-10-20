@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { getAppToken, getConnectedProvider } from "@/lib/connected-apps";
+import { linkedEventKeys, linkKey } from "@/lib/calendar-sync";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +25,7 @@ export async function GET(req: NextRequest) {
 
   // 1. Cargar citas nativas del CRM (creadas vía web, WhatsApp o recepcionista)
   let nativeEvents: any[] = [];
+  let linked = new Set<string>();
   try {
     const nativeAppts = await prisma.appointment.findMany({
       where: {
@@ -39,6 +41,8 @@ export async function GET(req: NextRequest) {
       },
       orderBy: { appointmentDate: "asc" },
     });
+
+    linked = linkedEventKeys(nativeAppts);
 
     nativeEvents = nativeAppts.map((a) => {
       const start = a.appointmentDate;
@@ -76,7 +80,7 @@ export async function GET(req: NextRequest) {
           location: "Consultorio / Presencial",
           patientName,
           patientPhone: a.customerPhone,
-          patientEmail: a.user?.email,
+          patientEmail: a.customerEmail || a.user?.email,
           service: serviceName,
           notes: a.notes,
           internalNotes: a.internalNotes,
@@ -97,9 +101,14 @@ export async function GET(req: NextRequest) {
       const accessToken = await getAppToken(tenantId, provider);
       if (accessToken) {
         if (provider === "GOOGLE") {
-          externalEvents = await getGoogleEvents(accessToken, timeMin, timeMax);
+          // Events that mirror a native booking are already shown as native events.
+          externalEvents = (await getGoogleEvents(accessToken, timeMin, timeMax)).filter(
+            (e) => !linked.has(linkKey("GOOGLE", e.id))
+          );
         } else {
-          externalEvents = await getMicrosoftEvents(accessToken, timeMin, timeMax);
+          externalEvents = (await getMicrosoftEvents(accessToken, timeMin, timeMax)).filter(
+            (e) => !linked.has(linkKey("MICROSOFT", e.id))
+          );
         }
       }
     } catch (err) {

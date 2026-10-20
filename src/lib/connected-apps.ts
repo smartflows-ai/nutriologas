@@ -26,7 +26,7 @@ const REFRESH_CONFIGS: Record<string, {
       client_secret: process.env.MICROSOFT_CLIENT_SECRET ?? "",
       refresh_token: refreshToken,
       grant_type: "refresh_token",
-      scope: "Calendars.Read Mail.Read offline_access",
+      scope: "Calendars.ReadWrite Mail.Read offline_access",
     }),
   },
 };

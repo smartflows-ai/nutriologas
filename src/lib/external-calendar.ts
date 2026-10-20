@@ -1,10 +1,12 @@
 // src/lib/external-calendar.ts
 // Unified external calendar helper (Google Calendar & Microsoft Outlook)
 import { getAppToken, getConnectedProvider } from "@/lib/connected-apps";
+import { linkKey } from "@/lib/calendar-sync";
 
 export interface ExternalAppointmentItem {
   id: string;
   source: "google" | "microsoft";
+  externalEventId: string; // raw id in the external calendar
   tenantId: string;
   userId: string;
   productId: string;
@@ -149,6 +151,7 @@ async function fetchGoogleCalendarAppointments(
     return {
       id: `google_${item.id}`,
       source: "google",
+      externalEventId: item.id,
       tenantId,
       userId: `ext_google_${item.id}`,
       productId: `ext_google`,
@@ -230,6 +233,7 @@ async function fetchMicrosoftCalendarAppointments(
       return {
         id: `ms_${item.id}`,
         source: "microsoft",
+        externalEventId: item.id,
         tenantId,
         userId: `ext_ms_${item.id}`,
         productId: `ext_ms`,
@@ -261,4 +265,17 @@ async function fetchMicrosoftCalendarAppointments(
     console.warn("[Microsoft Calendar] Error fetching events:", err);
     return [];
   }
+}
+
+/**
+ * Drops external events that a native appointment already mirrors, so each booking shows once.
+ */
+export function dropLinkedExternal<T extends { source: "google" | "microsoft"; externalEventId: string }>(
+  items: T[],
+  linked: Set<string>
+): T[] {
+  return items.filter((item) => {
+    const provider = item.source === "google" ? "GOOGLE" : "MICROSOFT";
+    return !linked.has(linkKey(provider, item.externalEventId));
+  });
 }

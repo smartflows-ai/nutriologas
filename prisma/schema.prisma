@@ -542,7 +542,10 @@ model Appointment {
 
   customerName    String?
   customerPhone   String?
-  googleEventId   String?
+  customerEmail   String?           // email que escribió el cliente al agendar
+  externalProvider AppProvider?     // GOOGLE | MICROSOFT: calendario que replica esta cita
+  externalEventId String?           // id del evento en ese calendario
+  googleEventId   String?           // legacy: reemplazado por externalEventId tras el backfill
   remindersSent   Int[]             @default([]) // Offsets (minutos) ya enviados como recordatorio
 
   appointmentDate DateTime          // fecha y hora de la cita

@@ -80,21 +80,17 @@ export default async function TenantPage() {
 
       {/* Info del negocio */}
       {tenant?.businessInfo && (
-        <section id="nosotros" className="relative py-24 sm:py-32 bg-slate-50 dark:bg-gray-950 overflow-hidden">
-          {/* Decorative glowing blobs using BOTH primary and secondary DB colors */}
-          <div className="absolute top-1/4 left-1/4 -translate-x-1/2 w-[600px] h-[600px] bg-[var(--color-primary)]/20 dark:bg-[var(--color-primary)]/5 rounded-full blur-[120px] pointer-events-none" />
-          <div className="absolute bottom-1/4 right-1/4 translate-x-1/4 w-[600px] h-[600px] bg-[var(--color-secondary)]/15 dark:bg-[var(--color-secondary)]/5 rounded-full blur-[120px] pointer-events-none" />
-          
-          <div className="mx-auto max-w-5xl px-6 lg:px-8 relative z-10">
-            <div className="bg-white/70 dark:bg-gray-900/40 backdrop-blur-3xl border border-white dark:border-gray-800 shadow-[0_8px_40px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_40px_rgb(255,255,255,0.02)] rounded-[3rem] p-10 sm:p-16 lg:p-20 flex flex-col items-center text-center">
-              <span className="inline-flex items-center rounded-full px-4 py-1.5 text-sm font-semibold text-[var(--color-primary)] bg-[var(--color-primary)]/10 ring-1 ring-inset ring-[var(--color-primary)]/30 mb-8 shadow-[0_0_20px_var(--color-primary)]/10">
+        <section id="nosotros" className="py-24 sm:py-32 bg-slate-50 dark:bg-gray-950">
+          <div className="mx-auto max-w-5xl px-6 lg:px-8">
+            <div className="card p-10 sm:p-16 flex flex-col items-center text-center">
+              <span className="text-sm font-semibold text-primary mb-6">
                 {t.storefront.home.aboutUs}
               </span>
               <h2 className="text-4xl sm:text-5xl lg:text-6xl font-semibold tracking-tight text-gray-900 dark:text-white mb-8 leading-[1.1]">
                 {t.storefront.home.welcomeTo} {tenant.name}
               </h2>
-              <div className="max-w-3xl border-t border-gray-100 dark:border-gray-800 pt-8">
-                <p className="text-xl sm:text-2xl leading-relaxed text-gray-700 dark:text-gray-300 font-medium ">
+              <div className="max-w-3xl border-t border-gray-200 dark:border-gray-800 pt-8">
+                <p className="text-xl sm:text-2xl leading-relaxed text-gray-700 dark:text-gray-300">
                   {tenant.businessInfo}
                 </p>
               </div>
@@ -114,7 +110,7 @@ export default async function TenantPage() {
               <h2 className="text-4xl sm:text-5xl font-semibold text-gray-900 dark:text-white tracking-tight mb-4">{sectionTitle}</h2>
               <p className="text-lg text-gray-500 dark:text-gray-400">{sectionDesc}</p>
             </div>
-            <Link href="/productos" className="inline-flex items-center justify-center gap-2 bg-[var(--color-primary)] hover:bg-[var(--color-primary)]/90 text-white shadow-[var(--color-primary)]/25 px-8 py-4 rounded-xl font-semibold transition-all hover:shadow-[var(--color-primary)]/40 whitespace-nowrap">
+            <Link href="/productos" className="inline-flex items-center justify-center gap-2 bg-[var(--color-primary)] hover:bg-[var(--color-primary)]/90 text-white px-8 py-4 rounded-xl font-semibold transition-all whitespace-nowrap">
               {catalogBtnText} <span aria-hidden="true">&rarr;</span>
             </Link>
           </div>
@@ -139,7 +135,7 @@ export default async function TenantPage() {
             
             <div className="space-y-6">
               {tenant.faqs.map((faq: any) => (
-                <details key={faq.id} className="group bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:hover:shadow-[0_8px_30px_rgb(255,255,255,0.01)] transition-all duration-300 overflow-hidden [&_summary::-webkit-details-marker]:hidden">
+                <details key={faq.id} className="group bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm dark:hover:shadow-[0_8px_30px_rgb(255,255,255,0.01)] transition-all duration-300 overflow-hidden [&_summary::-webkit-details-marker]:hidden">
                   <summary className="flex cursor-pointer items-center justify-between gap-4 p-8 text-gray-900 dark:text-white font-semibold text-xl select-none outline-none">
                     {faq.question}
                     <span className="shrink-0 transition-transform duration-500 group-open:rotate-180 bg-gray-50 dark:bg-gray-800 text-gray-400 dark:text-gray-500 rounded-full p-3 group-hover:text-[var(--color-primary)] group-open:bg-[var(--color-primary)]/10 group-open:text-[var(--color-primary)]">

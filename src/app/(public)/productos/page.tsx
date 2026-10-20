@@ -113,7 +113,7 @@ export default async function ProductosPage({ searchParams }: { searchParams: { 
                 <div className="flex flex-col gap-1.5">
                   <Link 
                     href="/productos" 
-                    className={`block px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${!activeCategory ? "bg-[var(--color-primary)] text-white shadow-[var(--color-primary)]/20 translate-x-1" : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-[var(--color-primary)]"}`}
+                    className={`block px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${!activeCategory ? "bg-[var(--color-primary)] text-white translate-x-1" : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-[var(--color-primary)]"}`}
                   >
                     {t.storefront.catalog.allDepartments}
                   </Link>
@@ -121,7 +121,7 @@ export default async function ProductosPage({ searchParams }: { searchParams: { 
                     <Link 
                       key={cat} 
                       href={`/productos?category=${encodeURIComponent(cat)}`} 
-                      className={`block px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${activeCategory === cat ? "bg-[var(--color-primary)] text-white shadow-[var(--color-primary)]/20 translate-x-1" : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-[var(--color-primary)]"}`}
+                      className={`block px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${activeCategory === cat ? "bg-[var(--color-primary)] text-white translate-x-1" : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-[var(--color-primary)]"}`}
                     >
                       {cat}
                     </Link>
@@ -152,7 +152,7 @@ export default async function ProductosPage({ searchParams }: { searchParams: { 
                 <p className="text-gray-500 max-w-sm mb-6 font-medium">
                   {t.storefront.catalog.tryAnotherCategory}
                 </p>
-                <a href="/productos" className="bg-[var(--color-primary)] text-white hover:brightness-110 px-8 py-3.5 rounded-xl font-semibold shadow-[var(--color-primary)]/20 transition-all ">
+                <a href="/productos" className="bg-[var(--color-primary)] text-white hover:brightness-110 px-8 py-3.5 rounded-xl font-semibold transition-all ">
                   {t.storefront.catalog.viewAllCatalog}
                 </a>
               </div>

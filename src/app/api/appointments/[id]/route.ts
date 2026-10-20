@@ -5,6 +5,8 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { sendWhatsAppMessage } from "@/lib/whatsapp";
 import { apiError } from "@/lib/api-errors";
+import { cancelAppointment, rescheduleAppointment } from "@/lib/appointments-service";
+import { syncCalendarDelete } from "@/lib/calendar-sync";
 
 export async function PATCH(
   req: NextRequest,
@@ -54,8 +56,17 @@ export async function PATCH(
       dataToUpdate.notes = notes;
     }
 
+    // A new time moves the mirror event and restarts reminders; cancellation removes the mirror event.
     if (isAdmin && appointmentDate) {
-      dataToUpdate.appointmentDate = new Date(appointmentDate);
+      await rescheduleAppointment({
+        tenantId,
+        appointment,
+        newStart: new Date(appointmentDate),
+        checkConflicts: false, // the admin may deliberately overbook
+      });
+    }
+    if (status === "CANCELLED" || status === "NO_SHOW") {
+      await cancelAppointment(tenantId, appointment, status);
     }
 
     const updated = await prisma.appointment.update({
@@ -140,6 +151,10 @@ export async function DELETE(
     if (!appointment) {
       return apiError("appointment_not_found", 404);
     }
+
+    // Remove the mirror event first. If that fails, keep the row so the event is not orphaned.
+    const removed = await syncCalendarDelete(tenantId, appointment);
+    if (!removed) return apiError("calendar_sync_failed", 502);
 
     await prisma.appointment.delete({
       where: { id: params.id },

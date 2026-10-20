@@ -1212,6 +1212,7 @@ export const es: Translations = {
     assistantToggleFailed: "No se pudo actualizar el estado del asistente.",
     igLinked: "Instagram Business vinculado",
     igMissing: "Sin cuenta de Instagram Business: reconecta Meta para vincularla.",
+    outlookReconnect: "Reconecta Outlook para que las citas se sincronicen con tu calendario.",
     cancel: "Cancelar",
     confirmDisconnect: "Sí, desconectar",
     understood: "Entendido"
@@ -1434,6 +1435,7 @@ export const es: Translations = {
     service_and_date_required: "Selecciona un servicio y una fecha.",
     date_invalid: "La fecha no es válida.",
     slot_unavailable: "Ese horario ya no está disponible. Elige otro.",
+    calendar_sync_failed: "No pudimos quitar la cita de tu calendario conectado. Inténtalo de nuevo.",
     cart_empty: "Tu carrito está vacío.",
     product_unavailable: "Uno o más productos ya no están disponibles.",
     insufficient_stock: "Uno de tus productos ya no tiene suficiente stock. Revisa tu carrito.",

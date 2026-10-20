@@ -46,7 +46,7 @@ const FEATURES: FeatureDef[] = [
     icon: <CalendarIcon size={22} />,
     providers: [
       { id: "GOOGLE", name: "Google", connectUrl: "/api/apps/oauth/google/start" },
-      // { id: "MICROSOFT", name: "Outlook", connectUrl: "/api/apps/oauth/microsoft/start" },
+      { id: "MICROSOFT", name: "Outlook", connectUrl: "/api/apps/oauth/microsoft/start" },
     ]
   },
   {
@@ -432,6 +432,14 @@ export default function AppsPage() {
                             {t.integrationsUi.igMissing}
                           </p>
                         )
+                      )}
+
+                      {/* Outlook connected before write access: bookings cannot sync until reconnected */}
+                      {activeConn.provider === "MICROSOFT" && !activeConn.scopes?.includes("Calendars.ReadWrite") && (
+                        <p className="text-xs flex items-center gap-1 text-amber-600 dark:text-amber-400">
+                          <AlertTriangle size={10} className="shrink-0" />
+                          {t.integrationsUi.outlookReconnect}
+                        </p>
                       )}
 
                       <p className="text-xs text-gray-400">

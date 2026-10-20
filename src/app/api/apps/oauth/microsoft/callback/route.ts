@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
         client_secret: process.env.MICROSOFT_CLIENT_SECRET ?? "",
         redirect_uri: redirectUri,
         grant_type: "authorization_code",
-        scope: "Calendars.Read Mail.Read offline_access",
+        scope: "Calendars.ReadWrite Mail.Read offline_access",
       }).toString(),
     }
   );

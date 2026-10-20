@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { formatPrice, localeFor, fill } from "@/lib/utils";
 import { buildFullPhone, DEFAULT_DIAL_CODE, PHONE_COUNTRIES } from "@/lib/phone";
+import { clinicDateTime } from "@/lib/clinic-time";
 import { useTranslation } from "@/i18n";
 import { translateApiError } from "@/i18n/validation";
 import Link from "next/link";
@@ -111,7 +112,7 @@ export default function BookingFlow({ product, tenant }: Props) {
     setError(null);
 
     try {
-      const appointmentDateTime = `${selectedDate}T${selectedSlot}:00.000Z`;
+      const appointmentDateTime = clinicDateTime(selectedDate, selectedSlot);
       const res = await fetch("/api/appointments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
