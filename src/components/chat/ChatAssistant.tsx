@@ -19,6 +19,7 @@ import {
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useTranslation } from "@/i18n";
+import { translateApiError } from "@/i18n/validation";
 import { toast } from "sonner";
 import { formatPrice, localeFor } from "@/lib/utils";
 import CreditsDrawer from "@/components/admin/CreditsDrawer";
@@ -299,7 +300,7 @@ export default function ChatAssistant({
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || t.assistantUi.processError);
+        throw new Error(translateApiError(t, data.error) || t.assistantUi.processError);
       }
 
       setMessages((prev) => [

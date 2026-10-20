@@ -1340,6 +1340,39 @@ export interface Translations {
     serviceIdRequired: string;
     dateRequired: string;
   };
+  // Error codes returned by the API in `{ error: code }`. Keys are the codes themselves.
+  apiErrors: {
+    unauthorized: string;
+    forbidden: string;
+    tenant_not_found: string;
+    internal_error: string;
+    validation_failed: string;
+    product_not_found: string;
+    appointment_not_found: string;
+    appointment_cancel_forbidden: string;
+    appointment_update_forbidden: string;
+    service_and_date_required: string;
+    date_invalid: string;
+    slot_unavailable: string;
+    cart_empty: string;
+    product_unavailable: string;
+    insufficient_stock: string;
+    user_not_found: string;
+    order_create_failed: string;
+    payment_profile_failed: string;
+    review_login_required: string;
+    review_already_exists: string;
+    register_fields_required: string;
+    register_password_short: string;
+    register_email_taken: string;
+    register_subdomain_taken: string;
+    register_subdomain_reserved: string;
+    register_slug_invalid: string;
+    upload_file_required: string;
+    upload_invalid_type: string;
+    upload_too_large: string;
+    credit_exhausted: string;
+  };
   authUi: {
     consentBefore: string;
     consentMiddle: string;

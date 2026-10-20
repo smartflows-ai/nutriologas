@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { stripe, getStripePriceId, PlanKey, BillingInterval } from "@/lib/stripe";
 import { trialEndsAtDate } from "@/lib/trial";
 import bcrypt from "bcryptjs";
+import { apiError, type ApiErrorCode } from "@/lib/api-errors";
 
 export const runtime = "nodejs";
 
@@ -11,10 +12,10 @@ const RESERVED = new Set([
   "newaigent", "support", "help", "login", "signout", "webhook",
 ]);
 
-function slugValid(slug: string): string | null {
-  if (slug.length < 3 || slug.length > 30) return "Slug must be 3–30 characters";
-  if (!/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(slug)) return "Invalid slug format";
-  if (RESERVED.has(slug)) return "This subdomain is reserved";
+function slugValid(slug: string): ApiErrorCode | null {
+  if (slug.length < 3 || slug.length > 30) return "register_slug_invalid";
+  if (!/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(slug)) return "register_slug_invalid";
+  if (RESERVED.has(slug)) return "register_subdomain_reserved";
   return null;
 }
 
@@ -29,18 +30,18 @@ export async function POST(req: Request) {
 
     // ── Validation ────────────────────────────────────────────────
     if (!email || !password || !name || !slug)
-      return Response.json({ error: "email, password, name, and slug are required" }, { status: 400 });
+      return apiError("register_fields_required", 400);
 
     const cleanSlug = slug.toLowerCase().trim();
     const slugError = slugValid(cleanSlug);
-    if (slugError) return Response.json({ error: slugError }, { status: 400 });
+    if (slugError) return apiError(slugError, 400);
 
     if (password.length < 8)
-      return Response.json({ error: "Password must be at least 8 characters" }, { status: 400 });
+      return apiError("register_password_short", 400);
 
     // ── Check slug uniqueness ─────────────────────────────────────
     const existing = await prisma.tenant.findUnique({ where: { slug: cleanSlug } });
-    if (existing) return Response.json({ error: "This subdomain is already taken" }, { status: 409 });
+    if (existing) return apiError("register_subdomain_taken", 409);
 
     const passwordHash = await bcrypt.hash(password, 12);
     const trialEndsAt  = trialEndsAtDate();
@@ -130,6 +131,6 @@ export async function POST(req: Request) {
     return Response.json({ success: true, slug: tenant.slug, tenantId: tenant.id });
   } catch (e: any) {
     console.error("[register]", e);
-    return Response.json({ error: e?.message ?? "Unexpected error" }, { status: 500 });
+    return apiError("internal_error", 500);
   }
 }

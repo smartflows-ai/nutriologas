@@ -4,6 +4,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { apiError } from "@/lib/api-errors";
 import {
   createConektaCustomer,
   createConektaOrder,
@@ -13,7 +14,7 @@ import {
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
-    return Response.json({ error: "No autorizado" }, { status: 401 });
+    return apiError("unauthorized", 401);
   }
 
   const userId = session.user.id!;
@@ -26,7 +27,7 @@ export async function POST(req: Request) {
   const tenantBaseUrl = host ? `${protocol}://${host}` : (process.env.NEXTAUTH_URL ?? "http://localhost:3000");
 
   if (!items?.length) {
-    return Response.json({ error: "Carrito vacío" }, { status: 400 });
+    return apiError("cart_empty", 400);
   }
 
   // Check for existing pending orders to prevent duplicates
@@ -94,22 +95,14 @@ export async function POST(req: Request) {
   });
 
   if (products.length !== items.length) {
-    return Response.json(
-      { error: "Uno o más productos no están disponibles" },
-      { status: 400 },
-    );
+    return apiError("product_unavailable", 400);
   }
 
   // Validate stock availability before proceeding
   for (const item of items) {
     const product = products.find((p) => p.id === item.productId)!;
     if (product.stock < item.quantity) {
-      return Response.json(
-        {
-          error: `Stock insuficiente para "${product.name}". Disponible: ${product.stock}`,
-        },
-        { status: 400 },
-      );
+      return apiError("insufficient_stock", 400);
     }
   }
 
@@ -121,7 +114,7 @@ export async function POST(req: Request) {
   // Get or lazily create the Conekta customer for this user
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user)
-    return Response.json({ error: "Usuario no encontrado" }, { status: 404 });
+    return apiError("user_not_found", 404);
 
   let conektaCustomerId = user.conektaCustomerId;
   if (!conektaCustomerId) {
@@ -140,10 +133,7 @@ export async function POST(req: Request) {
         "Conekta createCustomer error:",
         err?.response?.data ?? err,
       );
-      return Response.json(
-        { error: "Error al crear perfil de pago" },
-        { status: 500 },
-      );
+      return apiError("payment_profile_failed", 500);
     }
   }
 
@@ -166,8 +156,7 @@ export async function POST(req: Request) {
         });
 
         if (updated.count === 0) {
-          const product = products.find((p) => p.id === item.productId)!;
-          throw new Error(`Stock insuficiente para "${product.name}"`);
+          throw new Error("insufficient_stock");
         }
       }
 
@@ -192,10 +181,8 @@ export async function POST(req: Request) {
     });
   } catch (err: any) {
     console.error("Stock/order transaction error:", err.message);
-    return Response.json(
-      { error: err.message || "Error al crear el pedido" },
-      { status: 400 },
-    );
+    if (err.message === "insufficient_stock") return apiError("insufficient_stock", 400);
+    return apiError("order_create_failed", 400);
   }
 
   // Build Conekta line items (amounts in centavos)
@@ -244,9 +231,6 @@ export async function POST(req: Request) {
       await tx.order.delete({ where: { id: order.id } });
     });
     console.error("Conekta createOrder error:", err?.response?.data ?? err);
-    return Response.json(
-      { error: "Error al crear la orden de pago" },
-      { status: 500 },
-    );
+    return apiError("order_create_failed", 500);
   }
 }

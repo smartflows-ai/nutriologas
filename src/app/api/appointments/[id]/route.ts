@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { sendWhatsAppMessage } from "@/lib/whatsapp";
+import { apiError } from "@/lib/api-errors";
 
 export async function PATCH(
   req: NextRequest,
@@ -12,7 +13,7 @@ export async function PATCH(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+      return apiError("unauthorized", 401);
     }
 
     const tenantId = (session.user as any).tenantId;
@@ -24,12 +25,12 @@ export async function PATCH(
     });
 
     if (!appointment) {
-      return NextResponse.json({ error: "Cita no encontrada" }, { status: 404 });
+      return apiError("appointment_not_found", 404);
     }
 
     // Si no es admin y no es el dueño de la cita
     if (!isAdmin && appointment.userId !== userId) {
-      return NextResponse.json({ error: "No autorizado para modificar esta cita" }, { status: 403 });
+      return apiError("appointment_update_forbidden", 403);
     }
 
     const body = await req.json();
@@ -40,7 +41,7 @@ export async function PATCH(
     if (status) {
       // Clientes solo pueden CANCELAR su propia cita
       if (!isAdmin && status !== "CANCELLED") {
-        return NextResponse.json({ error: "Solo puedes cancelar tu cita" }, { status: 403 });
+        return apiError("appointment_cancel_forbidden", 403);
       }
       dataToUpdate.status = status;
     }
@@ -116,7 +117,7 @@ export async function PATCH(
     return NextResponse.json({ ...updated, whatsappSent, whatsappReason });
   } catch (error: any) {
     console.error("[PATCH /api/appointments/[id]] Error:", error);
-    return NextResponse.json({ error: error.message || "Error al actualizar cita" }, { status: 500 });
+    return apiError("internal_error", 500);
   }
 }
 
@@ -127,7 +128,7 @@ export async function DELETE(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user || (session.user as any).role !== "ADMIN") {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+      return apiError("unauthorized", 401);
     }
 
     const tenantId = (session.user as any).tenantId;
@@ -137,7 +138,7 @@ export async function DELETE(
     });
 
     if (!appointment) {
-      return NextResponse.json({ error: "Cita no encontrada" }, { status: 404 });
+      return apiError("appointment_not_found", 404);
     }
 
     await prisma.appointment.delete({
@@ -147,6 +148,6 @@ export async function DELETE(
     return NextResponse.json({ ok: true });
   } catch (error: any) {
     console.error("[DELETE /api/appointments/[id]] Error:", error);
-    return NextResponse.json({ error: error.message || "Error al eliminar cita" }, { status: 500 });
+    return apiError("internal_error", 500);
   }
 }

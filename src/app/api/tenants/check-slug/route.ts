@@ -10,13 +10,13 @@ const RESERVED = new Set([
 export async function GET(req: NextRequest) {
   const slug = req.nextUrl.searchParams.get("slug")?.toLowerCase().trim() ?? "";
 
-  if (!slug) return Response.json({ available: false, error: "slug required" }, { status: 400 });
+  if (!slug) return Response.json({ available: false, error: "register_fields_required" }, { status: 400 });
   if (slug.length < 3 || slug.length > 30)
-    return Response.json({ available: false, error: "Slug must be 3–30 characters" });
+    return Response.json({ available: false, error: "register_slug_invalid" });
   if (!/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(slug))
-    return Response.json({ available: false, error: "Only lowercase letters, numbers and hyphens allowed" });
+    return Response.json({ available: false, error: "register_slug_invalid" });
   if (RESERVED.has(slug))
-    return Response.json({ available: false, error: "This subdomain is reserved" });
+    return Response.json({ available: false, error: "register_subdomain_reserved" });
 
   const existing = await prisma.tenant.findUnique({ where: { slug } });
   return Response.json({ available: !existing });

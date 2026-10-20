@@ -6,3 +6,9 @@ export function translateValidation(t: Translations, message?: string): string |
   if (!message) return undefined;
   return (t.validation as Record<string, string>)[message] ?? message;
 }
+
+// API routes answer with `{ error: code }`. Unknown codes (routes not migrated yet) pass through unchanged.
+export function translateApiError(t: Translations, code?: string | null): string | undefined {
+  if (!code) return undefined;
+  return (t.apiErrors as Record<string, string>)[code] ?? code;
+}

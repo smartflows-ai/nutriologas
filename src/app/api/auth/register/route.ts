@@ -4,11 +4,12 @@ import { NextRequest } from "next/server";
 import bcrypt from "bcryptjs";
 import { createConektaCustomer } from "@/lib/conekta";
 import { resolveTenantSlug } from "@/lib/tenant";
+import { apiError } from "@/lib/api-errors";
 
 export async function POST(req: NextRequest) {
   const { name, email, password } = await req.json();
 
-  if (!email || !password) return Response.json({ error: "Email y contraseña requeridos" }, { status: 400 });
+  if (!email || !password) return apiError("register_fields_required", 400);
 
   // Resolve tenant from the host header using the shared helper
   const host = req.headers.get("host") || "";
@@ -18,10 +19,10 @@ export async function POST(req: NextRequest) {
     where: { OR: [{ slug: tenantSlug }, { customDomain: tenantSlug }] } 
   });
   
-  if (!tenant) return Response.json({ error: "Configuración no encontrada o debes usar el subdominio de tu clínica" }, { status: 400 });
+  if (!tenant) return apiError("tenant_not_found", 400);
 
   const existing = await prisma.user.findFirst({ where: { tenantId: tenant.id, email } });
-  if (existing) return Response.json({ error: "Ya existe una cuenta con ese email" }, { status: 409 });
+  if (existing) return apiError("register_email_taken", 409);
 
   const hash = await bcrypt.hash(password, 10);
 

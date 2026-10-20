@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { resolveTenantSlug } from "@/lib/tenant";
+import { apiError } from "@/lib/api-errors";
 
 import { getAppToken, getConnectedProvider } from "@/lib/connected-apps";
 import { createCalendarEvent } from "@/lib/google-calendar";
@@ -24,7 +25,7 @@ export async function GET(req: NextRequest) {
         where: { OR: [{ slug: tenantSlug }, { customDomain: tenantSlug }] },
         select: { id: true },
       });
-      if (!tenant) return NextResponse.json({ error: "Tenant no encontrado" }, { status: 404 });
+      if (!tenant) return apiError("tenant_not_found", 404);
       tenantId = tenant.id;
     }
 
@@ -38,7 +39,7 @@ export async function GET(req: NextRequest) {
     // Si no es admin, solo puede ver sus propias citas
     if (!isAdmin) {
       if (!userId) {
-        return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+        return apiError("unauthorized", 401);
       }
       where.userId = userId;
     }
@@ -133,7 +134,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(formattedNative);
   } catch (error: any) {
     console.error("[GET /api/appointments] Error:", error);
-    return NextResponse.json({ error: error.message || "Error al obtener citas" }, { status: 500 });
+    return apiError("internal_error", 500);
   }
 }
 
@@ -152,14 +153,14 @@ export async function POST(req: NextRequest) {
       select: { id: true, name: true, whatsappNumber: true },
     });
 
-    if (!tenant) return NextResponse.json({ error: "Tenant no encontrado" }, { status: 404 });
+    if (!tenant) return apiError("tenant_not_found", 404);
     tenantId = tenant.id;
 
     const body = await req.json();
     const { productId, appointmentDate, notes, clientName, clientEmail, clientPhone } = body;
 
     if (!productId || !appointmentDate) {
-      return NextResponse.json({ error: "Servicio y fecha son requeridos" }, { status: 400 });
+      return apiError("service_and_date_required", 400);
     }
 
     // Verificar que el producto exista y pertenezca al tenant
@@ -168,7 +169,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (!product) {
-      return NextResponse.json({ error: "Servicio no encontrado" }, { status: 404 });
+      return apiError("product_not_found", 404);
     }
 
     // Resolver usuario: si está logueado usar su cuenta, sino crear o buscar usuario cliente
@@ -198,7 +199,7 @@ export async function POST(req: NextRequest) {
 
     const apptDate = new Date(appointmentDate);
     if (isNaN(apptDate.getTime())) {
-      return NextResponse.json({ error: "Fecha inválida" }, { status: 400 });
+      return apiError("date_invalid", 400);
     }
 
     const duration = product.durationMinutes || 30;
@@ -277,6 +278,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(appointment, { status: 201 });
   } catch (error: any) {
     console.error("[POST /api/appointments] Error:", error);
-    return NextResponse.json({ error: error.message || "Error al crear cita" }, { status: 500 });
+    return apiError("internal_error", 500);
   }
 }

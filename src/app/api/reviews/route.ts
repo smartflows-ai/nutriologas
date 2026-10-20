@@ -5,6 +5,7 @@ import { reviewSchema } from "@/lib/validations";
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { resolveTenantSlug } from "@/lib/tenant";
+import { apiError } from "@/lib/api-errors";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -63,7 +64,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
-  if (!session?.user) return Response.json({ error: "Debes iniciar sesión" }, { status: 401 });
+  if (!session?.user) return apiError("review_login_required", 401);
   const userId = session.user.id!;
   const tenantId = (session.user as any).tenantId;
   const body = await req.json();
@@ -74,13 +75,13 @@ export async function POST(req: Request) {
   const product = await prisma.product.findFirst({
     where: { id: productId, tenantId },
   });
-  if (!product) return Response.json({ error: "Producto no encontrado" }, { status: 404 });
+  if (!product) return apiError("product_not_found", 404);
 
   // Verificar que el usuario no haya dejado ya una reseña para este producto
   const existing = await prisma.review.findFirst({
     where: { productId, userId, tenantId },
   });
-  if (existing) return Response.json({ error: "Ya dejaste una reseña para este producto" }, { status: 409 });
+  if (existing) return apiError("review_already_exists", 409);
 
   const review = await prisma.review.create({ data: { ...parsed, productId, userId, tenantId } });
 

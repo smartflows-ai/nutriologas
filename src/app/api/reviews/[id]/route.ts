@@ -2,11 +2,12 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { apiError } from "@/lib/api-errors";
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
   if (!session?.user || (session.user as any).role !== "ADMIN")
-    return Response.json({ error: "No autorizado" }, { status: 401 });
+    return apiError("unauthorized", 401);
   const tenantId = (session.user as any).tenantId;
   const { isVisible } = await req.json();
   const review = await prisma.review.update({

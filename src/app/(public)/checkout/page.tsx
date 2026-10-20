@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useTranslation } from "@/i18n";
+import { translateApiError } from "@/i18n/validation";
 import { PayPalButtons, PayPalScriptProvider } from "@paypal/react-paypal-js";
 import {
   CreditCard,
@@ -144,7 +145,7 @@ export default function CheckoutPage() {
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? t.storefrontUi.startPaymentError);
+      if (!res.ok) throw new Error(translateApiError(t, data.error) ?? t.storefrontUi.startPaymentError);
 
       // Store in localStorage to persist across page reloads
       const checkoutData = {

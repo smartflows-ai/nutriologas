@@ -7,6 +7,7 @@ import {
   AtSign, CheckCircle2, XCircle, Loader2, ChevronRight, ChevronLeft, X, ChevronDown, Search,
   Gift, Sparkles, Stethoscope, ShoppingBag, PawPrint, Plane } from "lucide-react";
 import { useTranslation } from "@/i18n";
+import { translateApiError } from "@/i18n/validation";
 
 interface Props {
   onClose: () => void;
@@ -220,7 +221,7 @@ export default function OnboardingModal({
         }),
       });
       const data = await res.json();
-      if (!res.ok) { setError(data.error ?? t.onboardingUi.genericError); return; }
+      if (!res.ok) { setError(translateApiError(t, data.error) ?? t.onboardingUi.genericError); return; }
       setStep(4);
     } catch (e: any) {
       setError(e.message ?? t.onboardingUi.networkError);

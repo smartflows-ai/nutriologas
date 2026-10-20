@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getAppSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
+import { apiError } from "@/lib/api-errors";
 
 const updateBusinessSchema = z.object({
   name: z.string().trim().min(2, "Name must be at least 2 characters").max(80, "Name cannot exceed 80 characters"),
@@ -16,7 +17,7 @@ export async function GET() {
   try {
     const session = await getAppSession();
     if (!session?.user || session.user.role !== "ADMIN") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError("unauthorized", 401);
     }
 
     const tenantId = session.user.tenantId;
@@ -33,7 +34,7 @@ export async function GET() {
     });
 
     if (!tenant) {
-      return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
+      return apiError("tenant_not_found", 404);
     }
 
     return NextResponse.json({
@@ -47,7 +48,7 @@ export async function GET() {
     });
   } catch (error) {
     console.error("[GET /api/tenants/business] Error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return apiError("internal_error", 500);
   }
 }
 
@@ -55,7 +56,7 @@ export async function PATCH(req: Request) {
   try {
     const session = await getAppSession();
     if (!session?.user || session.user.role !== "ADMIN") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiError("unauthorized", 401);
     }
 
     const tenantId = session.user.tenantId;
@@ -64,7 +65,7 @@ export async function PATCH(req: Request) {
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "Validation failed", details: parsed.error.format() },
+        { error: "validation_failed", details: parsed.error.format() },
         { status: 400 }
       );
     }
@@ -96,6 +97,6 @@ export async function PATCH(req: Request) {
     });
   } catch (error) {
     console.error("[PATCH /api/tenants/business] Error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return apiError("internal_error", 500);
   }
 }

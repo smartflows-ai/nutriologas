@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Star } from "lucide-react";
 import { toast } from "@/hooks/useToast";
 import { useTranslation } from "@/i18n";
+import { translateApiError } from "@/i18n/validation";
 import { fill } from "@/lib/utils";
 
 interface Props {
@@ -35,7 +36,7 @@ export default function ReviewForm({ productId, onSuccess }: Props) {
       });
       const data = await res.json();
       if (!res.ok) {
-        toast(data.error ?? t.productUi.reviewError);
+        toast(translateApiError(t, data.error) ?? t.productUi.reviewError);
         return;
       }
       toast(t.productUi.reviewSent);

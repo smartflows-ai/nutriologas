@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { formatPrice, localeFor, fill } from "@/lib/utils";
 import { useTranslation } from "@/i18n";
+import { translateApiError } from "@/i18n/validation";
 import { toast } from "sonner";
 import Link from "next/link";
 
@@ -279,7 +280,7 @@ function CitasContent() {
         }
       } else {
         const d = await res.json();
-        toast.error(d.error || t.agenda.toastUpdateError);
+        toast.error(translateApiError(t, d.error) || t.agenda.toastUpdateError);
       }
     } catch {
       toast.error(t.agenda.toastUpdateErrorNet);

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { fetchExternalAppointments } from "@/lib/external-calendar";
 
 import { resolveTenantSlug } from "@/lib/tenant";
+import { apiError } from "@/lib/api-errors";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,7 @@ export async function GET(req: NextRequest) {
     const dateStr = searchParams.get("date"); // YYYY-MM-DD
 
     if (!productId || !dateStr) {
-      return NextResponse.json({ error: "productId y date son requeridos" }, { status: 400 });
+      return apiError("service_and_date_required", 400);
     }
 
     const host = req.headers.get("host") || "";
@@ -27,7 +28,7 @@ export async function GET(req: NextRequest) {
     });
 
     if (!tenant) {
-      return NextResponse.json({ error: "Tenant no encontrado" }, { status: 404 });
+      return apiError("tenant_not_found", 404);
     }
 
     const product = await prisma.product.findFirst({
@@ -35,7 +36,7 @@ export async function GET(req: NextRequest) {
     });
 
     if (!product) {
-      return NextResponse.json({ error: "Servicio no encontrado" }, { status: 404 });
+      return apiError("product_not_found", 404);
     }
 
     const duration = product.durationMinutes || 30;
@@ -138,6 +139,6 @@ export async function GET(req: NextRequest) {
     });
   } catch (error: any) {
     console.error("[GET /api/appointments/availability] Error:", error);
-    return NextResponse.json({ error: error.message || "Error al calcular disponibilidad" }, { status: 500 });
+    return apiError("internal_error", 500);
   }
 }

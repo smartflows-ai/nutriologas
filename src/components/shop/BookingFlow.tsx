@@ -16,6 +16,7 @@ import {
 import { formatPrice, localeFor, fill } from "@/lib/utils";
 import { buildFullPhone, DEFAULT_DIAL_CODE, PHONE_COUNTRIES } from "@/lib/phone";
 import { useTranslation } from "@/i18n";
+import { translateApiError } from "@/i18n/validation";
 import Link from "next/link";
 
 interface Props {
@@ -126,7 +127,7 @@ export default function BookingFlow({ product, tenant }: Props) {
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || t.booking.errorSchedule);
+        throw new Error(translateApiError(t, data.error) || t.booking.errorSchedule);
       }
 
       setConfirmedAppointment(data);

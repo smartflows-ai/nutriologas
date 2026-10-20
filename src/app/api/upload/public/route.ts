@@ -1,6 +1,7 @@
 // src/app/api/upload/public/route.ts
 // Unauthenticated endpoint for onboarding logo uploads only.
 import crypto from "crypto";
+import { apiError } from "@/lib/api-errors";
 
 export const runtime = "nodejs";
 
@@ -23,11 +24,11 @@ export async function POST(req: Request) {
     const file = form.get("file");
 
     if (!file || !(file instanceof File))
-      return Response.json({ error: "file required" }, { status: 400 });
+      return apiError("upload_file_required", 400);
     if (!ALLOWED_TYPES.has(file.type))
-      return Response.json({ error: "Invalid file type. Use JPEG, PNG, WebP or SVG." }, { status: 400 });
+      return apiError("upload_invalid_type", 400);
     if (file.size > MAX_BYTES)
-      return Response.json({ error: "File exceeds 5 MB limit." }, { status: 400 });
+      return apiError("upload_too_large", 400);
 
     const folder    = "nutriologas/signups";
     const timestamp = Math.floor(Date.now() / 1000);
@@ -48,11 +49,14 @@ export async function POST(req: Request) {
       body: uploadForm,
     });
     const data = await res.json();
-    if (!res.ok)
-      return Response.json({ error: data?.error?.message ?? "Upload failed" }, { status: 500 });
+    if (!res.ok) {
+      console.error("[upload/public] Cloudinary error:", data?.error?.message);
+      return apiError("internal_error", 500);
+    }
 
     return Response.json({ url: data.secure_url as string });
   } catch (e: any) {
-    return Response.json({ error: e?.message ?? "Unexpected error" }, { status: 500 });
+    console.error("[upload/public] Error:", e);
+    return apiError("internal_error", 500);
   }
 }

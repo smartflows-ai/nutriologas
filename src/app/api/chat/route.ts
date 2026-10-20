@@ -8,17 +8,18 @@ import { buildSystemPrompt } from "@/lib/ai/system-prompt";
 import { enforceCredits, recordTokenUsage, getOrCreateLedger } from "@/lib/credits";
 import { CreditExhaustedError } from "@/lib/credits-error";
 import { prisma } from "@/lib/db";
+import { apiError } from "@/lib/api-errors";
 
 import { callOpenRouterWithCascade, ORMessage } from "@/lib/ai/openrouter";
 
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
-  if (!session?.user) return Response.json({ error: "No autorizado" }, { status: 401 });
+  if (!session?.user) return apiError("unauthorized", 401);
 
   const tenantId = (session.user as any).tenantId as string;
   const role = (session.user as any).role;
-  if (role !== "ADMIN") return Response.json({ error: "Solo admins" }, { status: 403 });
+  if (role !== "ADMIN") return apiError("forbidden", 403);
 
   // ── Resolve tenant plan for credit limit lookup ──────────────────────────
   const sub = await prisma.subscription.findUnique({
@@ -49,7 +50,7 @@ export async function POST(req: Request) {
 
   const { messages } = await req.json();
   if (!messages || !Array.isArray(messages))
-    return Response.json({ error: "Mensajes requeridos" }, { status: 400 });
+    return apiError("validation_failed", 400);
 
   const systemPrompt = await buildSystemPrompt(tenantId);
 

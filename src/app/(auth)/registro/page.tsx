@@ -3,7 +3,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { registerSchema, type RegisterInput } from "@/lib/validations";
-import { translateValidation } from "@/i18n/validation";
+import { translateApiError, translateValidation } from "@/i18n/validation";
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -34,7 +34,7 @@ export default function RegistroPage() {
       });
       if (!res.ok) {
         const body = await res.json();
-        setError(body.error ?? t.authUi.errorRegister);
+        setError(translateApiError(t, body.error) ?? t.authUi.errorRegister);
         return;
       }
       // Auto-login

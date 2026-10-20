@@ -15,6 +15,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useTranslation } from "@/i18n";
 import CreditsDrawer from "@/components/admin/CreditsDrawer";
+import FormPanel from "@/components/admin/FormPanel";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface Product {
@@ -377,7 +378,7 @@ export default function SocialCampaignPage() {
       </div>
 
       {/* ── TABS ──────────────────────────────────────────────────────────── */}
-      {view !== "form" && (
+      {(
         <div className="flex items-center gap-1 bg-gray-100/50 dark:bg-gray-800/50 p-1 rounded-xl w-fit mb-6 border border-gray-200 dark:border-gray-800">
           <button onClick={() => setView("list")} className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all ${view === "list" ? "bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm border border-gray-200/50 dark:border-gray-700/50" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"}`}>
             <LayoutList size={16} /> {t.crm.social.tabList}
@@ -389,7 +390,7 @@ export default function SocialCampaignPage() {
       )}
 
       {/* ── LIST VIEW ──────────────────────────────────────────────────────── */}
-      {view === "list" && (
+      {(view === "list" || view === "form") && (
         <div className="space-y-4">
           {/* Paused by credits alert banner */}
           {campaigns.some((c) => c.pausedByCredits) && (
@@ -626,17 +627,12 @@ export default function SocialCampaignPage() {
 
       {/* ── FORM VIEW ──────────────────────────────────────────────────────── */}
       {view === "form" && (
-        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6 shadow-sm space-y-6">
-
-          {/* Back */}
-          <button onClick={() => { resetForm(); setView("list"); }}
-            className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors">
-            {t.crm.social.formBack}
-          </button>
-
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-            {editId ? t.crm.social.formEditTitle : t.crm.social.formNewTitle}
-          </h2>
+        <FormPanel
+          icon={<Globe size={18} className="text-primary" />}
+          title={editId ? t.crm.social.formEditTitle : t.crm.social.formNewTitle}
+          onClose={() => { resetForm(); setView("list"); }}
+        >
+        <div className="space-y-6">
 
           {/* Campaign name */}
           <div>
@@ -876,6 +872,7 @@ export default function SocialCampaignPage() {
             {saving ? <><Loader2 size={18} className="animate-spin" /> {t.crm.social.formSavingBtn}</> : <><Zap size={18} /> {editId ? t.crm.social.formSaveBtn : t.crm.social.formCreateBtn}</>}
           </button>
         </div>
+        </FormPanel>
       )}
 
       {/* ── DELETE CONFIRMATION MODAL ────────────────────────────────────── */}

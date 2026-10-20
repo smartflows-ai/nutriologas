@@ -18,6 +18,7 @@ import {
 import Image from "next/image";
 import { useTranslation } from "@/i18n";
 import { buildFullPhone, splitFullPhone, DEFAULT_DIAL_CODE, PHONE_COUNTRIES } from "@/lib/phone";
+import { translateApiError } from "@/i18n/validation";
 
 export default function BusinessProfilePage() {
   const { t } = useTranslation();
@@ -165,7 +166,7 @@ export default function BusinessProfilePage() {
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || t.crm.business.saveError);
+        throw new Error(translateApiError(t, data.error) || t.crm.business.saveError);
       }
 
       setInitialData({
