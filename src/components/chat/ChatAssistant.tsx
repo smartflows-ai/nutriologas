@@ -20,7 +20,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useTranslation } from "@/i18n";
 import { toast } from "sonner";
-import { formatPrice } from "@/lib/utils";
+import { formatPrice, localeFor } from "@/lib/utils";
 import CreditsDrawer from "@/components/admin/CreditsDrawer";
 import AssistantThinkingIndicator from "./AssistantThinkingIndicator";
 
@@ -51,10 +51,10 @@ function MessageBubble({
     <div className={`flex gap-3 ${isUser ? "flex-row-reverse" : "flex-row"}`}>
       {/* Avatar */}
       <div
-        className={`w-9 h-9 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm relative ${
+        className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm relative ${
           isUser
             ? "bg-gray-900 text-white dark:bg-gray-800 border border-gray-700"
-            : "bg-gradient-to-tr from-primary to-violet-600 text-white"
+            : "bg-primary text-white"
         }`}
       >
         {isUser ? (
@@ -62,7 +62,7 @@ function MessageBubble({
         ) : (
           <>
             <Bot size={18} />
-            <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white dark:border-gray-900" />
+            <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-primary rounded-full border-2 border-white dark:border-gray-900" />
           </>
         )}
       </div>
@@ -71,8 +71,8 @@ function MessageBubble({
       <div
         className={`text-sm leading-relaxed ${
           isUser
-            ? "max-w-[78%] bg-gray-900 text-white dark:bg-gray-800 border border-gray-800 dark:border-gray-700 rounded-2xl rounded-tr-xs px-4 py-3 shadow-sm"
-            : "max-w-[85%] bg-white dark:bg-gray-900 border border-gray-200/90 dark:border-gray-800 text-gray-800 dark:text-gray-100 rounded-2xl rounded-tl-xs p-4 shadow-sm"
+            ? "max-w-[78%] bg-gray-900 text-white dark:bg-gray-800 border border-gray-800 dark:border-gray-700 rounded-xl rounded-tr-xs px-4 py-3 shadow-sm"
+            : "max-w-[85%] bg-white dark:bg-gray-900 border border-gray-200/90 dark:border-gray-800 text-gray-800 dark:text-gray-100 rounded-xl rounded-tl-xs p-4 shadow-sm"
         }`}
       >
         {!isUser && (
@@ -82,7 +82,7 @@ function MessageBubble({
               {tenantName && (
                 <span className="text-gray-400 font-normal">· {tenantName}</span>
               )}
-              <span className="text-[10px] font-medium px-2 py-0.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 rounded-full border border-emerald-200/60 dark:border-emerald-800/40">
+              <span className="text-xs font-medium px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-primary rounded-full border border-gray-200 dark:border-gray-800">
                 Datos Reales
               </span>
             </div>
@@ -96,17 +96,17 @@ function MessageBubble({
             remarkPlugins={[remarkGfm]}
             components={{
               h1: ({ children }) => (
-                <h1 className="text-base font-bold mt-3 mb-1.5 text-gray-900 dark:text-white">
+                <h1 className="text-base font-semibold mt-3 mb-1.5 text-gray-900 dark:text-white">
                   {children}
                 </h1>
               ),
               h2: ({ children }) => (
-                <h2 className="text-sm font-bold mt-2.5 mb-1 text-gray-900 dark:text-white">
+                <h2 className="text-sm font-semibold mt-2.5 mb-1 text-gray-900 dark:text-white">
                   {children}
                 </h2>
               ),
               h3: ({ children }) => (
-                <h3 className="text-xs font-semibold uppercase tracking-wider mt-2 mb-1 text-primary">
+                <h3 className="text-xs font-semibold mt-2 mb-1 text-primary">
                   {children}
                 </h3>
               ),
@@ -139,7 +139,7 @@ function MessageBubble({
                   </pre>
                 ),
               blockquote: ({ children }) => (
-                <blockquote className="border-l-4 border-primary/40 bg-primary/5 pl-3 py-1 italic text-gray-600 dark:text-gray-300 rounded-r-lg my-2">
+                <blockquote className="border-l-4 border-primary/40 bg-gray-50 dark:bg-gray-900 pl-3 py-1 italic text-gray-600 dark:text-gray-300 rounded-r-lg my-2">
                   {children}
                 </blockquote>
               ),
@@ -207,7 +207,8 @@ export default function ChatAssistant({
   vertical,
   isBookingEnabled,
 }: ChatAssistantProps = {}) {
-  const { t } = useTranslation();
+  const { t, lang } = useTranslation();
+  const locale = localeFor(lang);
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -224,8 +225,7 @@ export default function ChatAssistant({
           setCreditStatus(d.creditStatus);
           if (d.creditStatus.isExhausted) {
             toast.error(
-              t.crm.credits?.exhaustedToast ??
-                "Has agotado tus créditos de IA este mes. Recarga para continuar."
+              t.crm.credits.exhaustedToast
             );
           }
         }
@@ -240,8 +240,7 @@ export default function ChatAssistant({
       const params = new URLSearchParams(window.location.search);
       if (params.get("recharge") === "success") {
         toast.success(
-          t.crm.credits?.rechargeSuccess ??
-            "¡Créditos recargados! Tus campañas y asistente se han reactivado."
+          t.crm.credits.rechargeSuccess
         );
         window.history.replaceState({}, document.title, window.location.pathname);
       }
@@ -257,8 +256,7 @@ export default function ChatAssistant({
 
     if (creditStatus?.isExhausted) {
       toast.error(
-        t.crm.credits?.exhaustedToast ??
-          "Has agotado tus créditos de IA este mes. Recarga para continuar."
+        t.crm.credits.exhaustedToast
       );
       setDrawerOpen(true);
       return;
@@ -285,8 +283,7 @@ export default function ChatAssistant({
       if (res.status === 402) {
         setCreditStatus((prev: any) => ({ ...(prev ?? {}), isExhausted: true }));
         toast.error(
-          t.crm.credits?.exhaustedToast ??
-            "Has agotado tus créditos de IA este mes. Recarga para continuar."
+          t.crm.credits.exhaustedToast
         );
         setDrawerOpen(true);
         setMessages((prev) => [
@@ -294,7 +291,7 @@ export default function ChatAssistant({
           {
             role: "assistant",
             content:
-              "Has alcanzado el límite mensual de créditos de IA para tu plan. Para continuar recibiendo análisis en tiempo real y automatizaciones, por favor recarga créditos.",
+              t.assistantUi.creditsLimitMsg,
           },
         ]);
         return;
@@ -302,7 +299,7 @@ export default function ChatAssistant({
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || "Error al procesar la respuesta.");
+        throw new Error(data.error || t.assistantUi.processError);
       }
 
       setMessages((prev) => [
@@ -343,7 +340,7 @@ export default function ChatAssistant({
       {/* ── Header ── */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6 pb-4 border-b border-gray-200/80 dark:border-gray-800/80 shrink-0">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white flex items-center gap-2">
             <Bot size={22} className="text-primary" />
             {t.crm.assistant.title}
           </h1>
@@ -361,29 +358,28 @@ export default function ChatAssistant({
           <button
             onClick={() =>
               sendMessage(
-                t.crm.assistant.chat.suggestions[0] ||
-                  "¿Cómo van mis ventas este mes y cuál es el desglose por producto?"
+                t.crm.assistant.chat.suggestions[0]
               )
             }
-            className="p-3 rounded-2xl bg-white dark:bg-gray-900 border border-gray-200/80 dark:border-gray-800 text-left hover:border-emerald-500 hover:shadow-md transition-all group"
+            className="p-3 rounded-xl bg-white dark:bg-gray-900 border border-gray-200/80 dark:border-gray-800 text-left hover:border-primary transition-all group"
           >
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                {t.crm.assistant.kpis?.monthlySales ?? "Ventas del Mes"}
+                {t.crm.assistant.kpis.monthlySales}
               </span>
-              <span className="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 group-hover:scale-110 transition-transform">
+              <span className="p-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 text-primary transition-transform">
                 <TrendingUp size={14} />
               </span>
             </div>
-            <p className="text-base font-bold text-gray-900 dark:text-white">
-              {formatPrice(initialMetrics.monthlySales)}
+            <p className="text-base font-semibold text-gray-900 dark:text-white">
+              {formatPrice(initialMetrics.monthlySales, locale)}
             </p>
             <div className="flex items-center justify-between mt-1 text-[11px] text-gray-400">
               <span>
                 {initialMetrics.paidOrdersCount}{" "}
-                {t.crm.assistant.kpis?.paidOrders ?? "órdenes"}
+                {t.crm.assistant.kpis.paidOrders}
               </span>
-              <span className="text-emerald-600 dark:text-emerald-400 font-semibold inline-flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              <span className="text-primary font-semibold inline-flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                 Analizar <ArrowUpRight size={11} />
               </span>
             </div>
@@ -393,26 +389,25 @@ export default function ChatAssistant({
           <button
             onClick={() =>
               sendMessage(
-                t.crm.assistant.chat.suggestions[2] ||
-                  "¿Qué pedidos pendientes tengo y qué productos requieren despacho?"
+                t.crm.assistant.chat.suggestions[2]
               )
             }
-            className="p-3 rounded-2xl bg-white dark:bg-gray-900 border border-gray-200/80 dark:border-gray-800 text-left hover:border-amber-500 hover:shadow-md transition-all group"
+            className="p-3 rounded-xl bg-white dark:bg-gray-900 border border-gray-200/80 dark:border-gray-800 text-left hover:border-primary transition-all group"
           >
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                {t.crm.assistant.kpis?.pendingOrders ?? "Pedidos Pendientes"}
+                {t.crm.assistant.kpis.pendingOrders}
               </span>
-              <span className="p-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-600 group-hover:scale-110 transition-transform">
+              <span className="p-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 text-primary transition-transform">
                 <ShoppingBag size={14} />
               </span>
             </div>
-            <p className="text-base font-bold text-gray-900 dark:text-white">
+            <p className="text-base font-semibold text-gray-900 dark:text-white">
               {initialMetrics.pendingOrdersCount}
             </p>
             <div className="flex items-center justify-between mt-1 text-[11px] text-gray-400">
-              <span>por atender</span>
-              <span className="text-amber-600 dark:text-amber-400 font-semibold inline-flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              <span>{t.assistantUi.pendingLabel}</span>
+              <span className="text-primary font-semibold inline-flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                 Revisar <ArrowUpRight size={11} />
               </span>
             </div>
@@ -422,26 +417,25 @@ export default function ChatAssistant({
           <button
             onClick={() =>
               sendMessage(
-                t.crm.assistant.chat.suggestions[1] ||
-                  "¿Cuáles son mis productos más vendidos y cuáles no tienen rotación?"
+                t.crm.assistant.chat.suggestions[1]
               )
             }
-            className="p-3 rounded-2xl bg-white dark:bg-gray-900 border border-gray-200/80 dark:border-gray-800 text-left hover:border-blue-500 hover:shadow-md transition-all group"
+            className="p-3 rounded-xl bg-white dark:bg-gray-900 border border-gray-200/80 dark:border-gray-800 text-left hover:border-secondary transition-all group"
           >
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                {t.crm.assistant.kpis?.activeCatalog ?? (vertical === "HEALTH" ? "Servicios Activos" : "Catálogo Activo")}
+                {vertical === "HEALTH" ? t.assistantUi.activeServices : t.crm.assistant.kpis.activeCatalog}
               </span>
-              <span className="p-1.5 rounded-lg bg-blue-50 dark:bg-blue-950/50 text-blue-600 group-hover:scale-110 transition-transform">
+              <span className="p-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 text-secondary transition-transform">
                 <Package size={14} />
               </span>
             </div>
-            <p className="text-base font-bold text-gray-900 dark:text-white">
+            <p className="text-base font-semibold text-gray-900 dark:text-white">
               {initialMetrics.activeProductsCount}
             </p>
             <div className="flex items-center justify-between mt-1 text-[11px] text-gray-400">
-              <span>disponibles</span>
-              <span className="text-blue-600 dark:text-blue-400 font-semibold inline-flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              <span>{t.assistantUi.availableLabel}</span>
+              <span className="text-secondary font-semibold inline-flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                 Rotación <ArrowUpRight size={11} />
               </span>
             </div>
@@ -451,25 +445,25 @@ export default function ChatAssistant({
           <button
             onClick={() =>
               sendMessage(
-                "¿Qué campañas sociales tengo activas y qué me recomiendas publicar hoy?"
+                t.assistantUi.promptCampaigns
               )
             }
-            className="p-3 rounded-2xl bg-white dark:bg-gray-900 border border-gray-200/80 dark:border-gray-800 text-left hover:border-purple-500 hover:shadow-md transition-all group"
+            className="p-3 rounded-xl bg-white dark:bg-gray-900 border border-gray-200/80 dark:border-gray-800 text-left hover:border-primary transition-all group"
           >
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                {t.crm.assistant.kpis?.activeCampaigns ?? "Campañas Activas"}
+                {t.crm.assistant.kpis.activeCampaigns}
               </span>
-              <span className="p-1.5 rounded-lg bg-purple-50 dark:bg-purple-950/50 text-purple-600 group-hover:scale-110 transition-transform">
+              <span className="p-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 text-primary transition-transform">
                 <Globe size={14} />
               </span>
             </div>
-            <p className="text-base font-bold text-gray-900 dark:text-white">
+            <p className="text-base font-semibold text-gray-900 dark:text-white">
               {initialMetrics.activeCampaignsCount}
             </p>
             <div className="flex items-center justify-between mt-1 text-[11px] text-gray-400">
-              <span>automatizadas</span>
-              <span className="text-purple-600 dark:text-purple-400 font-semibold inline-flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              <span>{t.assistantUi.automatedLabel}</span>
+              <span className="text-primary dark:text-primary font-semibold inline-flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                 Estrategia <ArrowUpRight size={11} />
               </span>
             </div>
@@ -481,26 +475,26 @@ export default function ChatAssistant({
               onClick={() =>
                 sendMessage(
                   vertical === "HEALTH"
-                    ? "¿Qué consultas médicas tengo agendadas hoy y cuántas están pendientes de confirmación?"
-                    : "¿Qué citas tengo programadas para hoy y esta semana?"
+                    ? t.assistantUi.promptAppointmentsHealth
+                    : t.assistantUi.promptAppointments
                 )
               }
-              className="p-3 rounded-2xl bg-white dark:bg-gray-900 border border-gray-200/80 dark:border-gray-800 text-left hover:border-cyan-500 hover:shadow-md transition-all group col-span-2 lg:col-span-1"
+              className="p-3 rounded-xl bg-white dark:bg-gray-900 border border-gray-200/80 dark:border-gray-800 text-left hover:border-accent transition-all group col-span-2 lg:col-span-1"
             >
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                  {vertical === "HEALTH" ? "Citas de Hoy" : "Agenda de Citas"}
+                  {vertical === "HEALTH" ? t.assistantUi.todayAppointmentsHealth : t.assistantUi.scheduleAppointments}
                 </span>
-                <span className="p-1.5 rounded-lg bg-cyan-50 dark:bg-cyan-950/50 text-cyan-600 group-hover:scale-110 transition-transform">
+                <span className="p-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 text-accent transition-transform">
                   <Calendar size={14} />
                 </span>
               </div>
-              <p className="text-base font-bold text-gray-900 dark:text-white">
+              <p className="text-base font-semibold text-gray-900 dark:text-white">
                 {initialMetrics.todayAppointmentsCount ?? 0}
               </p>
               <div className="flex items-center justify-between mt-1 text-[11px] text-gray-400">
-                <span>{initialMetrics.pendingAppointmentsCount ?? 0} pendientes</span>
-                <span className="text-cyan-600 dark:text-cyan-400 font-semibold inline-flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                <span>{initialMetrics.pendingAppointmentsCount ?? 0} {t.assistantUi.pendingSuffix}</span>
+                <span className="text-accent font-semibold inline-flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                   Agenda <ArrowUpRight size={11} />
                 </span>
               </div>
@@ -510,15 +504,15 @@ export default function ChatAssistant({
       )}
 
       {/* ── Main Chat Area ── */}
-      <div className="flex-1 flex flex-col bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/90 dark:border-gray-800 overflow-hidden min-h-0 shadow-sm">
+      <div className="flex-1 flex flex-col bg-white dark:bg-gray-900 rounded-xl border border-gray-200/90 dark:border-gray-800 overflow-hidden min-h-0 shadow-sm">
         <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4 min-h-0">
           {/* Welcome State */}
           {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center h-full text-center py-6">
-              <div className="w-14 h-14 bg-gradient-to-tr from-primary/15 to-violet-500/15 rounded-2xl flex items-center justify-center mb-3 shadow-inner">
+              <div className="w-14 h-14 bg-gray-50 dark:bg-gray-900 rounded-xl flex items-center justify-center mb-3 shadow-inner">
                 <Sparkles size={28} className="text-primary" />
               </div>
-              <h2 className="font-bold text-gray-900 dark:text-white text-lg mb-1.5">
+              <h2 className="font-semibold text-gray-900 dark:text-white text-lg mb-1.5">
                 {t.crm.assistant.chat.welcomeTitle}
               </h2>
               <p className="text-gray-500 text-sm mb-6 max-w-md leading-relaxed">
@@ -530,8 +524,8 @@ export default function ChatAssistant({
                 {(isBookingEnabled
                   ? [
                       vertical === "HEALTH"
-                        ? "¿Qué consultas médicas tengo agendadas hoy y cuántas están pendientes de confirmación?"
-                        : "¿Qué citas tengo programadas para hoy y esta semana?",
+                        ? t.assistantUi.promptAppointmentsHealth
+                        : t.assistantUi.promptAppointments,
                       ...t.crm.assistant.chat.suggestions,
                     ]
                   : t.crm.assistant.chat.suggestions
@@ -577,8 +571,7 @@ export default function ChatAssistant({
                 className="text-amber-600 dark:text-amber-400 shrink-0"
               />
               <span>
-                {t.crm.credits?.exhaustedToast ??
-                  "Has agotado tus créditos de IA este mes. Recarga para continuar."}
+                {t.crm.credits.exhaustedToast}
               </span>
             </div>
             <button
@@ -586,7 +579,7 @@ export default function ChatAssistant({
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-medium text-xs transition-colors shrink-0 shadow-sm"
             >
               <Zap size={13} className="fill-white" />
-              {t.crm.credits?.recharge ?? "Recargar créditos"}
+              {t.crm.credits.recharge}
             </button>
           </div>
         )}
@@ -614,7 +607,7 @@ export default function ChatAssistant({
               onKeyDown={handleKeyDown}
               placeholder={
                 creditStatus?.isExhausted
-                  ? "Créditos agotados. Recarga para continuar."
+                  ? t.assistantUi.creditsPlaceholder
                   : t.crm.assistant.chat.placeholder
               }
               rows={1}

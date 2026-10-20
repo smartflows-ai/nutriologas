@@ -3,6 +3,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { registerSchema, type RegisterInput } from "@/lib/validations";
+import { translateValidation } from "@/i18n/validation";
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -33,7 +34,7 @@ export default function RegistroPage() {
       });
       if (!res.ok) {
         const body = await res.json();
-        setError(body.error ?? "Error al registrar");
+        setError(body.error ?? t.authUi.errorRegister);
         return;
       }
       // Auto-login
@@ -52,7 +53,7 @@ export default function RegistroPage() {
         }
       }
     } catch {
-      setError("Error al crear la cuenta");
+      setError(t.authUi.errorCreate);
     } finally {
       setLoading(false);
     }
@@ -61,7 +62,7 @@ export default function RegistroPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 px-4">
       <div className="card w-full max-w-sm">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2 text-center">{t.auth.registerTitle}</h1>
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2 text-center">{t.auth.registerTitle}</h1>
         <p className="text-gray-500 text-sm text-center mb-6">{t.auth.registerSubtitle}</p>
 
         <button
@@ -86,22 +87,22 @@ export default function RegistroPage() {
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{t.auth.nameLabel}</label>
             <input {...register("name")} className="input" placeholder={t.auth.phName} />
-            {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
+            {errors.name && <p className="text-red-500 text-xs mt-1">{translateValidation(t, errors.name.message)}</p>}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{t.auth.emailLabel}</label>
             <input {...register("email")} type="email" className="input" placeholder={t.auth.phEmail} />
-            {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
+            {errors.email && <p className="text-red-500 text-xs mt-1">{translateValidation(t, errors.email.message)}</p>}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{t.auth.passwordLabel}</label>
             <input {...register("password")} type="password" className="input" placeholder={t.auth.phPassword} />
-            {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
+            {errors.password && <p className="text-red-500 text-xs mt-1">{translateValidation(t, errors.password.message)}</p>}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{t.auth.confirmPassword}</label>
             <input {...register("confirmPassword")} type="password" className="input" placeholder={t.auth.phConfirmPwd} />
-            {errors.confirmPassword && <p className="text-red-500 text-xs mt-1">{errors.confirmPassword.message}</p>}
+            {errors.confirmPassword && <p className="text-red-500 text-xs mt-1">{translateValidation(t, errors.confirmPassword.message)}</p>}
           </div>
           {error && <p className="text-red-500 text-sm">{error}</p>}
 
@@ -115,11 +116,11 @@ export default function RegistroPage() {
               required
             />
             <label htmlFor="registro-terms-checkbox" className="text-xs text-gray-600 dark:text-gray-300 leading-snug cursor-pointer select-none">
-              {t.footer.rights ? "He leído y acepto los" : "I have read and agree to the"}{" "}
+              {t.authUi.consentBefore}{" "}
               <Link href="/terms" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-semibold">
                 {t.footer.terms}
               </Link>{" "}
-              {t.footer.rights ? "y la" : "and"}{" "}
+              {t.authUi.consentMiddle}{" "}
               <Link href="/privacy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-semibold">
                 {t.footer.privacy}
               </Link>.

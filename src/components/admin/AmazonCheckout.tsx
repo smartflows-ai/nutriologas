@@ -1,6 +1,6 @@
 "use client";
 // src/components/admin/AmazonCheckout.tsx
-// Amazon-style in-app custom checkout for subscriptions
+// In-app checkout for NewAigent subscriptions. SaaS-global billing UI: always dark brand, never tenant-themed.
 
 import { useState, useEffect } from "react";
 import { loadStripe } from "@stripe/stripe-js";
@@ -12,17 +12,7 @@ import {
   useStripe,
   useElements,
 } from "@stripe/react-stripe-js";
-import {
-  Check,
-  ShieldCheck,
-  Lock,
-  Loader2,
-  CreditCard,
-  Sparkles,
-  ArrowRight,
-  AlertCircle,
-  HelpCircle,
-} from "lucide-react";
+import { Check, ShieldCheck, Lock, Loader2, ArrowRight, AlertCircle } from "lucide-react";
 import { useTranslation } from "@/i18n";
 
 let stripePromise: Promise<any> | null = null;
@@ -39,6 +29,24 @@ interface AmazonCheckoutProps {
   onSuccess?: () => void;
   onCancel?: () => void;
 }
+
+// Stripe Elements render inside an iframe, so they need literal values instead of CSS variables.
+const elementStyle = {
+  base: {
+    fontSize: "15px",
+    color: "#f1f5f9",
+    "::placeholder": { color: "#64748b" },
+    fontFamily: "Inter, system-ui, -apple-system, sans-serif",
+  },
+  invalid: {
+    color: "#f87171",
+    iconColor: "#f87171",
+  },
+};
+
+const fieldWrap = "px-3.5 py-2.5 rounded-xl border border-white/10 bg-mk-surface";
+const fieldLabel = "block text-xs font-semibold text-white/70 mb-1.5";
+const errorBox = "p-3 bg-mk-red/10 border border-mk-red/20 rounded-xl text-xs text-mk-red flex items-center gap-2";
 
 function CheckoutForm({ onSuccess, onCancel }: AmazonCheckoutProps) {
   const stripe = useStripe();
@@ -66,10 +74,10 @@ function CheckoutForm({ onSuccess, onCancel }: AmazonCheckoutProps) {
           setClientSecret(data.clientSecret);
           if (data.currentPlan === "PRO") setSelectedPlan("PRO");
         } else {
-          setErrorMsg(data.error || "No se pudo inicializar la pasarela de pago.");
+          setErrorMsg(data.error || t.billing.errorInitFailed);
         }
       } catch (err: any) {
-        setErrorMsg("Error de conexión al cargar la pasarela segura.");
+        setErrorMsg(t.billing.errorConnection);
       } finally {
         setLoadingSecret(false);
       }
@@ -88,7 +96,7 @@ function CheckoutForm({ onSuccess, onCancel }: AmazonCheckoutProps) {
     if (!stripe || !elements || !clientSecret) return;
 
     if (!cardholderName.trim()) {
-      setErrorMsg("Por favor ingresa el nombre que figura en la tarjeta.");
+      setErrorMsg(t.billing.errorNameRequired);
       return;
     }
 
@@ -97,7 +105,7 @@ function CheckoutForm({ onSuccess, onCancel }: AmazonCheckoutProps) {
 
     const cardNumberElement = elements.getElement(CardNumberElement);
     if (!cardNumberElement) {
-      setErrorMsg("Error al obtener los datos de la tarjeta.");
+      setErrorMsg(t.billing.errorCardData);
       setSubmitting(false);
       return;
     }
@@ -114,13 +122,13 @@ function CheckoutForm({ onSuccess, onCancel }: AmazonCheckoutProps) {
       });
 
       if (error) {
-        setErrorMsg(error.message || "La tarjeta fue rechazada o los datos son inválidos.");
+        setErrorMsg(error.message || t.billing.errorCardRejected);
         setSubmitting(false);
         return;
       }
 
       if (!setupIntent?.payment_method) {
-        setErrorMsg("No se pudo registrar el método de pago.");
+        setErrorMsg(t.billing.errorMethodNotRegistered);
         setSubmitting(false);
         return;
       }
@@ -142,7 +150,7 @@ function CheckoutForm({ onSuccess, onCancel }: AmazonCheckoutProps) {
 
       const subData = await subRes.json();
       if (!subRes.ok || !subData.success) {
-        setErrorMsg(subData.error || "No se pudo activar la suscripción.");
+        setErrorMsg(subData.error || t.billing.errorSubscribeFailed);
         setSubmitting(false);
         return;
       }
@@ -158,148 +166,125 @@ function CheckoutForm({ onSuccess, onCancel }: AmazonCheckoutProps) {
       }, 1500);
 
     } catch (err: any) {
-      setErrorMsg(err?.message || "Ocurrió un error inesperado al procesar el pago.");
+      setErrorMsg(err?.message || t.billing.errorUnexpected);
       setSubmitting(false);
     }
   };
 
-  const elementStyle = {
-    base: {
-      fontSize: "15px",
-      color: "#1e293b",
-      "::placeholder": { color: "#94a3b8" },
-      fontFamily: "system-ui, -apple-system, sans-serif",
-    },
-    invalid: {
-      color: "#ef4444",
-      iconColor: "#ef4444",
-    },
+  const planCard = (plan: "STARTER" | "PRO", price: number, features: string[]) => {
+    const selected = selectedPlan === plan;
+    return (
+      <div
+        onClick={() => setSelectedPlan(plan)}
+        className={`relative p-4 rounded-2xl border-2 cursor-pointer transition-all ${
+          selected ? "border-mk-violet bg-mk-violet/10" : "border-white/10 hover:border-white/25"
+        }`}
+      >
+        <div className="flex justify-between items-start mb-1">
+          <span className="font-bold text-sm text-white">
+            {plan === "PRO" ? t.billing.planPro : t.billing.planStarter}
+          </span>
+          {selected && <Check size={16} className="text-mk-violet-light" />}
+        </div>
+        <div className="text-xl font-black text-white mb-2">
+          ${price} <span className="text-xs font-normal text-white/50">{t.billing.perMonth}</span>
+        </div>
+        <ul className="text-xs text-white/60 space-y-1">
+          {features.map((feature) => (
+            <li key={feature} className="flex items-center gap-1.5">
+              <Check size={12} className="text-mk-emerald shrink-0" /> {feature}
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
   };
 
   return (
-    <div className="max-w-5xl mx-auto my-4 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-xl overflow-hidden text-gray-800 dark:text-gray-100">
-      
-      {/* ── Amazon-style Top Header ────────────────────────────────────────── */}
-      <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between border-b border-slate-800">
+    <div className="max-w-5xl mx-auto my-4 mk-card overflow-hidden text-white shadow-2xl">
+
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      <div className="bg-mk-raised text-white px-6 py-4 flex items-center justify-between border-b border-white/10">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center text-primary font-bold text-lg">
+          <div className="w-8 h-8 rounded-lg bg-mk-gradient flex items-center justify-center text-white font-bold text-lg">
             N
           </div>
           <div>
             <span className="font-bold tracking-tight text-white text-base">NewAigent</span>
-            <span className="text-xs text-gray-400 ml-2 border-l border-gray-700 pl-2">Checkout Seguro</span>
+            <span className="text-xs text-white/50 ml-2 border-l border-white/15 pl-2">{t.billing.secureCheckout}</span>
           </div>
         </div>
-        <div className="flex items-center gap-2 text-emerald-400 text-xs font-medium bg-emerald-950/60 border border-emerald-800/50 px-3 py-1 rounded-full">
+        <div className="hidden sm:flex items-center gap-2 text-mk-emerald text-xs font-medium bg-mk-emerald/10 border border-mk-emerald/25 px-3 py-1 rounded-full">
           <Lock size={12} />
-          <span>Encriptación SSL 256-bit</span>
+          <span>{t.billing.sslEncryption}</span>
         </div>
       </div>
 
       {/* ── Main Layout: Left form + Right Order Summary ───────────────────── */}
       <div className="p-6 sm:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
-        
+
         {/* LEFT COLUMN: Steps (Plans + Card) */}
         <div className="lg:col-span-7 space-y-6">
 
           {/* STEP 1: Plan selection */}
-          <div className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/60 rounded-xl p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                <span className="w-5 h-5 rounded-full bg-primary text-white text-xs flex items-center justify-center font-bold">1</span>
-                Elige tu Plan de Negocio
+          <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <span className="w-5 h-5 rounded-full bg-mk-gradient text-white text-xs flex items-center justify-center font-bold">1</span>
+                {t.billing.selectPlan}
               </h3>
-              
+
               {/* Interval toggle */}
-              <div className="flex bg-gray-200 dark:bg-gray-700 p-0.5 rounded-lg text-xs">
+              <div className="flex bg-white/5 p-0.5 rounded-lg text-xs">
                 <button
                   type="button"
                   onClick={() => setInterval("monthly")}
                   className={`px-3 py-1 rounded-md font-medium transition-all ${
-                    interval === "monthly"
-                      ? "bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-xs"
-                      : "text-gray-600 dark:text-gray-400"
+                    interval === "monthly" ? "bg-mk-violet text-white shadow" : "text-white/60 hover:text-white"
                   }`}
                 >
-                  Mensual
+                  {t.billing.intervalMonthly}
                 </button>
                 <button
                   type="button"
                   onClick={() => setInterval("annual")}
                   className={`px-3 py-1 rounded-md font-medium transition-all ${
-                    interval === "annual"
-                      ? "bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-xs"
-                      : "text-gray-600 dark:text-gray-400"
+                    interval === "annual" ? "bg-mk-violet text-white shadow" : "text-white/60 hover:text-white"
                   }`}
                 >
-                  Anual <span className="text-emerald-500 font-bold">-20%</span>
+                  {t.billing.intervalAnnual} <span className="text-mk-emerald font-bold">{t.billing.annualSavings}</span>
                 </button>
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Starter Plan card */}
-              <div
-                onClick={() => setSelectedPlan("STARTER")}
-                className={`relative p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                  selectedPlan === "STARTER"
-                    ? "border-primary bg-primary/5 dark:bg-primary/10 shadow-xs"
-                    : "border-gray-200 dark:border-gray-700 hover:border-gray-300"
-                }`}
-              >
-                <div className="flex justify-between items-start mb-1">
-                  <span className="font-bold text-sm text-gray-900 dark:text-white">Plan Starter</span>
-                  {selectedPlan === "STARTER" && <Check size={16} className="text-primary" />}
-                </div>
-                <div className="text-xl font-black text-gray-900 dark:text-white mb-2">
-                  ${priceStarter} <span className="text-xs font-normal text-gray-500">USD/mes</span>
-                </div>
-                <ul className="text-xs text-gray-600 dark:text-gray-300 space-y-1">
-                  <li className="flex items-center gap-1.5"><Check size={12} className="text-emerald-500" /> Tienda online storefront</li>
-                  <li className="flex items-center gap-1.5"><Check size={12} className="text-emerald-500" /> Campañas en FB e Instagram</li>
-                  <li className="flex items-center gap-1.5"><Check size={12} className="text-emerald-500" /> Copiloto Newy AI ($15 crédito)</li>
-                </ul>
-              </div>
-
-              {/* Pro Plan card */}
-              <div
-                onClick={() => setSelectedPlan("PRO")}
-                className={`relative p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                  selectedPlan === "PRO"
-                    ? "border-primary bg-primary/5 dark:bg-primary/10 shadow-xs"
-                    : "border-gray-200 dark:border-gray-700 hover:border-gray-300"
-                }`}
-              >
-                <div className="flex justify-between items-start mb-1">
-                  <span className="font-bold text-sm text-gray-900 dark:text-white">Plan Pro</span>
-                  {selectedPlan === "PRO" && <Check size={16} className="text-primary" />}
-                </div>
-                <div className="text-xl font-black text-gray-900 dark:text-white mb-2">
-                  ${pricePro} <span className="text-xs font-normal text-gray-500">USD/mes</span>
-                </div>
-                <ul className="text-xs text-gray-600 dark:text-gray-300 space-y-1">
-                  <li className="flex items-center gap-1.5"><Check size={12} className="text-emerald-500" /> Todo en Starter + Pro Features</li>
-                  <li className="flex items-center gap-1.5"><Check size={12} className="text-emerald-500" /> Dominio web personalizado</li>
-                  <li className="flex items-center gap-1.5"><Check size={12} className="text-emerald-500" /> Copiloto Newy AI ($45 crédito)</li>
-                </ul>
-              </div>
+              {planCard("STARTER", priceStarter, [
+                t.billing.starterFeatureStorefront,
+                t.billing.starterFeatureCampaigns,
+                t.billing.starterFeatureCopilot,
+              ])}
+              {planCard("PRO", pricePro, [
+                t.billing.proFeatureEverything,
+                t.billing.proFeatureDomain,
+                t.billing.proFeatureCopilot,
+              ])}
             </div>
           </div>
 
           {/* STEP 2: Payment Method (Stripe Elements) */}
-          <div className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/60 rounded-xl p-5">
-            <h3 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
-              <span className="w-5 h-5 rounded-full bg-primary text-white text-xs flex items-center justify-center font-bold">2</span>
-              Método de Pago (Tarjeta de Crédito o Débito)
+          <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-5">
+            <h3 className="text-sm font-bold text-white flex items-center gap-2 mb-4">
+              <span className="w-5 h-5 rounded-full bg-mk-gradient text-white text-xs flex items-center justify-center font-bold">2</span>
+              {t.billing.paymentMethod}
             </h3>
 
             {loadingSecret ? (
-              <div className="py-8 flex flex-col items-center justify-center gap-2 text-gray-400">
-                <Loader2 size={24} className="animate-spin text-primary" />
-                <span className="text-xs">Conectando pasarela segura...</span>
+              <div className="py-8 flex flex-col items-center justify-center gap-2 text-white/50">
+                <Loader2 size={24} className="animate-spin text-mk-violet-light" />
+                <span className="text-xs">{t.billing.connectingGateway}</span>
               </div>
             ) : errorMsg && !clientSecret ? (
-              <div className="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 rounded-lg text-xs text-red-600 dark:text-red-400 flex items-center gap-2">
+              <div className={errorBox}>
                 <AlertCircle size={14} className="shrink-0" />
                 <span>{errorMsg}</span>
               </div>
@@ -307,26 +292,24 @@ function CheckoutForm({ onSuccess, onCancel }: AmazonCheckoutProps) {
               <form onSubmit={handleSubmit} className="space-y-4">
                 {/* Cardholder name */}
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
-                    Nombre en la tarjeta
-                  </label>
+                  <label className={fieldLabel}>{t.billing.cardholderName}</label>
                   <input
                     type="text"
                     required
-                    placeholder="Ej. Juan Pérez García"
+                    placeholder={t.billing.cardholderPlaceholder}
                     value={cardholderName}
                     onChange={(e) => setCardholderName(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-primary focus:outline-hidden"
+                    className={`${fieldWrap} w-full text-sm text-white placeholder-white/30 focus:outline-none focus:border-mk-violet focus:ring-4 focus:ring-mk-violet/20`}
                   />
                 </div>
 
                 {/* Card Number */}
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5 flex items-center justify-between">
-                    <span>Número de tarjeta</span>
-                    <span className="text-[11px] text-gray-400 font-normal">Visa, Mastercard, Amex</span>
+                  <label className={`${fieldLabel} flex items-center justify-between`}>
+                    <span>{t.billing.cardNumber}</span>
+                    <span className="text-[11px] text-white/40 font-normal">{t.billing.cardBrands}</span>
                   </label>
-                  <div className="px-3.5 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-2xs">
+                  <div className={fieldWrap}>
                     <CardNumberElement options={{ style: elementStyle, showIcon: true }} />
                   </div>
                 </div>
@@ -334,25 +317,21 @@ function CheckoutForm({ onSuccess, onCancel }: AmazonCheckoutProps) {
                 {/* Expiry & CVC Grid */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
-                      Vencimiento (MM/AA)
-                    </label>
-                    <div className="px-3.5 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-2xs">
+                    <label className={fieldLabel}>{t.billing.expiry}</label>
+                    <div className={fieldWrap}>
                       <CardExpiryElement options={{ style: elementStyle }} />
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
-                      Código CVC / CVV
-                    </label>
-                    <div className="px-3.5 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-2xs">
+                    <label className={fieldLabel}>{t.billing.cvc}</label>
+                    <div className={fieldWrap}>
                       <CardCvcElement options={{ style: elementStyle }} />
                     </div>
                   </div>
                 </div>
 
                 {errorMsg && (
-                  <div className="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 rounded-lg text-xs text-red-600 dark:text-red-400 flex items-center gap-2">
+                  <div className={errorBox}>
                     <AlertCircle size={14} className="shrink-0" />
                     <span>{errorMsg}</span>
                   </div>
@@ -362,64 +341,63 @@ function CheckoutForm({ onSuccess, onCancel }: AmazonCheckoutProps) {
           </div>
         </div>
 
-        {/* RIGHT COLUMN: Amazon-style Order Summary */}
+        {/* RIGHT COLUMN: Order Summary */}
         <div className="lg:col-span-5">
-          <div className="bg-amber-50/50 dark:bg-gray-800/70 border-2 border-amber-200/80 dark:border-amber-900/40 rounded-2xl p-6 sticky top-6 shadow-sm">
-            <h3 className="text-base font-bold text-gray-900 dark:text-white mb-4 pb-3 border-b border-gray-200 dark:border-gray-700">
-              Resumen del Pedido
+          <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-6 sticky top-6">
+            <h3 className="text-base font-bold text-white mb-4 pb-3 border-b border-white/10">
+              {t.billing.orderSummary}
             </h3>
 
             <div className="space-y-3 text-sm mb-6">
-              <div className="flex justify-between text-gray-600 dark:text-gray-400">
-                <span>Plan:</span>
-                <span className="font-semibold text-gray-900 dark:text-white">
-                  {selectedPlan === "PRO" ? "NewAigent Pro" : "NewAigent Starter"} ({interval === "annual" ? "Anual" : "Mensual"})
+              <div className="flex justify-between text-white/60">
+                <span>{t.billing.planLabel}</span>
+                <span className="font-semibold text-white">
+                  {selectedPlan === "PRO" ? t.billing.planNamePro : t.billing.planNameStarter} ({interval === "annual" ? t.billing.intervalAnnual : t.billing.intervalMonthly})
                 </span>
               </div>
-              <div className="flex justify-between text-gray-600 dark:text-gray-400">
-                <span>Subtotal:</span>
+              <div className="flex justify-between text-white/60">
+                <span>{t.billing.subtotal}</span>
                 <span>${billingTotal}.00 USD</span>
               </div>
-              <div className="flex justify-between text-gray-600 dark:text-gray-400">
-                <span>Impuestos estimados:</span>
+              <div className="flex justify-between text-white/60">
+                <span>{t.billing.estimatedTaxes}</span>
                 <span>$0.00 USD</span>
               </div>
 
-              <div className="pt-3 border-t border-gray-200 dark:border-gray-700 flex justify-between items-baseline">
-                <span className="text-base font-bold text-gray-900 dark:text-white">Total a pagar hoy:</span>
-                <span className="text-2xl font-black text-amber-600 dark:text-amber-400">
+              <div className="pt-3 border-t border-white/10 flex justify-between items-baseline">
+                <span className="text-base font-bold text-white">{t.billing.totalToday}</span>
+                <span className="mk-text-gradient text-2xl font-black">
                   ${billingTotal}.00 <span className="text-xs font-normal">USD</span>
                 </span>
               </div>
-              <p className="text-[11px] text-gray-500 dark:text-gray-400 italic">
-                {interval === "annual"
-                  ? `Se renovará automáticamente dentro de 1 año por $${billingTotal} USD.`
-                  : `Se renovará automáticamente cada mes por $${billingTotal} USD.`} Cancela cuando quieras.
+              <p className="text-[11px] text-white/50 italic">
+                {(interval === "annual" ? t.billing.renewsAnnual : t.billing.renewsMonthly).replace("{amount}", String(billingTotal))}{" "}
+                {t.billing.cancelAnytime}
               </p>
             </div>
 
-            {/* Amazon-style Big CTA Button */}
+            {/* Primary CTA */}
             {success ? (
-              <div className="w-full py-4 bg-emerald-500 text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg animate-pulse">
+              <div className="w-full py-4 bg-mk-emerald text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg animate-pulse">
                 <Check size={20} className="stroke-[3]" />
-                <span>¡Pago Exitoso! Redirigiendo...</span>
+                <span>{t.billing.paymentSuccess}</span>
               </div>
             ) : (
               <button
                 type="button"
                 onClick={handleSubmit}
                 disabled={submitting || loadingSecret || !clientSecret}
-                className="w-full py-3.5 px-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-bold text-sm rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                className="mk-btn-primary w-full py-3.5 text-sm cursor-pointer"
               >
                 {submitting ? (
                   <>
                     <Loader2 size={16} className="animate-spin" />
-                    <span>Confirmando con Stripe...</span>
+                    <span>{t.billing.confirmingStripe}</span>
                   </>
                 ) : (
                   <>
                     <Lock size={16} />
-                    <span>Confirmar y Activar Suscripción</span>
+                    <span>{t.billing.confirmActivate}</span>
                     <ArrowRight size={16} />
                   </>
                 )}
@@ -431,16 +409,16 @@ function CheckoutForm({ onSuccess, onCancel }: AmazonCheckoutProps) {
               <button
                 type="button"
                 onClick={onCancel}
-                className="w-full mt-3 text-center text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 py-1"
+                className="w-full mt-3 text-center text-xs text-white/50 hover:text-white py-1"
               >
-                Regresar al panel
+                {t.billing.backToDashboard}
               </button>
             )}
 
             {/* Guarantee / trust badge */}
-            <div className="mt-5 pt-4 border-t border-gray-200 dark:border-gray-700/60 flex items-center gap-2.5 text-xs text-gray-500 dark:text-gray-400">
-              <ShieldCheck size={24} className="text-emerald-500 shrink-0" />
-              <span>Garantía de satisfacción NewAigent. Soporte en español 24/7 y cancelaciones con 1 clic sin penalizaciones.</span>
+            <div className="mt-5 pt-4 border-t border-white/10 flex items-center gap-2.5 text-xs text-white/50">
+              <ShieldCheck size={24} className="text-mk-emerald shrink-0" />
+              <span>{t.billing.guarantee}</span>
             </div>
           </div>
         </div>
@@ -460,7 +438,7 @@ export default function AmazonCheckout(props: AmazonCheckoutProps) {
   if (!stripeInstance) {
     return (
       <div className="py-12 flex items-center justify-center">
-        <Loader2 className="animate-spin text-primary" size={32} />
+        <Loader2 className="animate-spin text-mk-violet-light" size={32} />
       </div>
     );
   }

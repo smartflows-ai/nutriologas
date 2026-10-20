@@ -61,6 +61,10 @@ Story ID: US-YYYY-MM-DD-NNN
 - For any new Firestore writes: verify candidates cannot write staff-only paths.
 - Verify expired sessions show the correct error screen.
 
+### Minimal UI and tenant theme
+- Change primary color and font in `/admin/apariencia`. The screen must follow both.
+- No decorative effects: gradients, blur, hover scale, uppercase micro labels, colored shadows.
+
 ### Regression
 - Smoke test the happy path of adjacent features that share the same component.
 

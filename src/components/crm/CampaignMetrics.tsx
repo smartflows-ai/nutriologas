@@ -1,5 +1,7 @@
 "use client";
 
+import { useTranslation } from "@/i18n";
+
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 
 interface SocialCampaign {
@@ -13,9 +15,10 @@ interface Props {
   campaigns: SocialCampaign[];
 }
 
-const COLORS = ["#3b82f6", "#ec4899", "#8b5cf6", "#10b981", "#f59e0b"];
+const COLORS = ["var(--color-primary)", "var(--color-secondary)", "var(--color-accent)"];
 
 export default function CampaignMetrics({ campaigns }: Props) {
+  const { t } = useTranslation();
   if (campaigns.length === 0) return null;
 
   // Aggregate platforms
@@ -37,7 +40,7 @@ export default function CampaignMetrics({ campaigns }: Props) {
   });
   
   const goalLabels: Record<string, string> = {
-    promocion: "Promoción", informativo: "Informativo", urgencia: "Urgencia", testimonio: "Testimonio", educativo: "Educativo",
+    promocion: t.adminUi.goalPromotion, informativo: t.adminUi.goalInformative, urgencia: t.adminUi.goalUrgency, testimonio: t.adminUi.goalTestimonial, educativo: t.adminUi.goalEducational,
   };
   
   const goalsData = Object.entries(goalsMap).map(([k, v]) => ({
@@ -47,9 +50,9 @@ export default function CampaignMetrics({ campaigns }: Props) {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 pt-2 border-t border-gray-100 dark:border-gray-800">
-      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-5 shadow-sm">
-        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Plataformas</h3>
-        <p className="text-xs text-gray-500 mb-4">Distribución por red social</p>
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-5 shadow-sm">
+        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">{t.adminUi.platformsTitle}</h3>
+        <p className="text-xs text-gray-500 mb-4">{t.adminUi.platformsDesc}</p>
         <ResponsiveContainer width="100%" height={200}>
           <PieChart>
             <Pie data={platformData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={2}>
@@ -64,9 +67,9 @@ export default function CampaignMetrics({ campaigns }: Props) {
         </ResponsiveContainer>
       </div>
 
-      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-5 shadow-sm">
-        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Objetivos</h3>
-        <p className="text-xs text-gray-500 mb-4">Rendimiento por propósito</p>
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-5 shadow-sm">
+        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">{t.adminUi.goalsTitle}</h3>
+        <p className="text-xs text-gray-500 mb-4">{t.adminUi.goalsDesc}</p>
         <ResponsiveContainer width="100%" height={200}>
           <BarChart data={goalsData} layout="vertical" margin={{ left: 10, right: 10 }}>
             <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e5e7eb" />

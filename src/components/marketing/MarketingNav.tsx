@@ -27,8 +27,8 @@ export default function MarketingNav({ onSignIn, onGetStarted }: { onSignIn?: ()
     <header
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
         scrolled
-          ? "bg-[#07070f]/80 backdrop-blur-xl border-b border-white/10 shadow-[0_4px_30px_rgba(0,0,0,0.4)]"
-          : "bg-[#07070f]/60 backdrop-blur-lg border-b border-white/5 md:bg-transparent md:backdrop-blur-none md:border-transparent"
+          ? "bg-mk-bg/80 backdrop-blur-xl border-b border-white/10 shadow-[0_4px_30px_rgba(0,0,0,0.4)]"
+          : "bg-mk-bg/60 backdrop-blur-lg border-b border-white/5 md:bg-transparent md:backdrop-blur-none md:border-transparent"
       }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -38,14 +38,14 @@ export default function MarketingNav({ onSignIn, onGetStarted }: { onSignIn?: ()
             <div className="relative w-9 h-9 transition-transform duration-300 group-hover:scale-110">
               <Image
                 src="/newaigent-mascot.png"
-                alt="NewAigent mascot"
+                alt={t.common.mascotAlt}
                 fill
                 className="object-contain relative z-10 drop-shadow-[0_0_20px_rgba(124,58,237,0.4)]"
                 style={{ filter: "brightness(0) invert(1) drop-shadow(0 0 10px rgba(124,58,237,0.6))" }}
               />
             </div>
             <span className="text-xl font-bold text-white tracking-tight">
-              New<span className="text-violet-400">Aigent</span>
+              New<span className="text-mk-violet-light">Aigent</span>
             </span>
           </Link>
 
@@ -76,7 +76,7 @@ export default function MarketingNav({ onSignIn, onGetStarted }: { onSignIn?: ()
               onClick={onGetStarted}
               className="group relative inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white overflow-hidden transition-all duration-300 hover:shadow-[0_0_20px_rgba(124,58,237,0.4)]"
               style={{
-                background: "linear-gradient(135deg, #7C3AED 0%, #4F46E5 100%)",
+                background: "linear-gradient(135deg, var(--mk-violet) 0%, var(--mk-indigo) 100%)",
               }}
             >
               <span className="relative z-10">{t.nav.getStarted}</span>
@@ -90,7 +90,7 @@ export default function MarketingNav({ onSignIn, onGetStarted }: { onSignIn?: ()
             id="mobile-menu-toggle"
             onClick={() => setMobileOpen(!mobileOpen)}
             className="md:hidden p-2 text-gray-400 hover:text-white transition-colors"
-            aria-label="Toggle menu"
+            aria-label={t.common.toggleMenu}
           >
             <div className="w-5 h-4 flex flex-col justify-between">
               <span className={`block h-0.5 bg-current transition-all duration-300 ${mobileOpen ? "rotate-45 translate-y-1.5" : ""}`} />
@@ -130,7 +130,7 @@ export default function MarketingNav({ onSignIn, onGetStarted }: { onSignIn?: ()
                 id="mobile-get-started"
                 onClick={() => { setMobileOpen(false); onGetStarted && onGetStarted(); }}
                 className="w-full text-center px-5 py-3 rounded-xl text-sm font-semibold text-white shadow-[0_4px_14px_rgba(124,58,237,0.3)] hover:shadow-[0_6px_20px_rgba(124,58,237,0.4)] transition-all"
-                style={{ background: "linear-gradient(135deg, #7C3AED 0%, #4F46E5 100%)" }}
+                style={{ background: "linear-gradient(135deg, var(--mk-violet) 0%, var(--mk-indigo) 100%)" }}
               >
                 {t.nav.getStarted}
               </button>

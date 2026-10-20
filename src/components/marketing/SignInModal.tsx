@@ -23,7 +23,7 @@ export default function SignInModal({ onClose }: { onClose: () => void }) {
     e.preventDefault();
     const clean = slug.trim().toLowerCase();
     if (!clean) {
-      setError("Please enter your subdomain.");
+      setError(t.common.subdomainRequired);
       return;
     }
     // In development: slug.localhost:3000/login
@@ -45,13 +45,13 @@ export default function SignInModal({ onClose }: { onClose: () => void }) {
     >
       <div
         className="relative w-full max-w-sm rounded-3xl p-8 border border-white/10 shadow-[0_0_60px_rgba(124,58,237,0.2)]"
-        style={{ background: "#0d0d1a" }}
+        style={{ background: "var(--mk-card)" }}
       >
         <button
           id="signin-modal-close"
           onClick={onClose}
           className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white text-lg transition-all hover:scale-110"
-          aria-label="Close"
+          aria-label={t.common.close}
         >
           ×
         </button>
@@ -78,7 +78,7 @@ export default function SignInModal({ onClose }: { onClose: () => void }) {
             <label className="block text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wider">
               {t.modals.signin.subdomainLabel}
             </label>
-            <div className="flex items-center bg-[#12121e] border border-white/10 rounded-xl overflow-hidden focus-within:border-violet-500 focus-within:ring-2 focus-within:ring-violet-500/20 transition-all">
+            <div className="flex items-center bg-mk-raised border border-white/10 rounded-xl overflow-hidden focus-within:border-mk-violet focus-within:ring-2 focus-within:ring-mk-violet/20 transition-all">
               <input
                 id="signin-subdomain-input"
                 type="text"
@@ -91,7 +91,7 @@ export default function SignInModal({ onClose }: { onClose: () => void }) {
                 placeholder={t.modals.signin.phSubdomain}
                 className="flex-1 min-w-0 bg-transparent px-4 py-3 text-white placeholder-gray-600 text-sm focus:outline-none"
               />
-              <span className="shrink-0 px-3 text-gray-600 text-xs font-medium border-l border-white/10 bg-[#0d0d1a] py-3 whitespace-nowrap text-center">
+              <span className="shrink-0 px-3 text-gray-600 text-xs font-medium border-l border-white/10 bg-mk-card py-3 whitespace-nowrap text-center">
                 .newaigent.com
               </span>
             </div>
@@ -102,7 +102,7 @@ export default function SignInModal({ onClose }: { onClose: () => void }) {
             id="signin-go-button"
             type="submit"
             className="w-full py-3 rounded-xl font-bold text-sm text-white transition-all duration-300 hover:shadow-[0_0_20px_rgba(124,58,237,0.4)] hover:-translate-y-0.5"
-            style={{ background: "linear-gradient(135deg, #7C3AED 0%, #4F46E5 100%)" }}
+            style={{ background: "linear-gradient(135deg, var(--mk-violet) 0%, var(--mk-indigo) 100%)" }}
           >
             {t.modals.signin.btnGo}
           </button>
@@ -110,7 +110,7 @@ export default function SignInModal({ onClose }: { onClose: () => void }) {
 
         <p className="text-center text-gray-600 text-xs mt-6">
           {t.modals.signin.noWorkspace}{" "}
-          <a href="#contact" onClick={onClose} className="text-violet-400 hover:text-violet-300 font-semibold">
+          <a href="#contact" onClick={onClose} className="text-mk-violet-light hover:text-mk-violet-light font-semibold">
             {t.modals.signin.signUp}
           </a>
         </p>

@@ -6,7 +6,8 @@ import { z } from "zod";
 
 const updateBusinessSchema = z.object({
   name: z.string().trim().min(2, "Name must be at least 2 characters").max(80, "Name cannot exceed 80 characters"),
-  whatsappNumber: z.string().trim().nullable().optional(),
+  // Required: country code plus 8 to 15 digits (E.164), e.g. +528446683688
+  whatsappNumber: z.string().trim().regex(/^\+\d{8,15}$/, "WhatsApp number must include the country code"),
   businessInfo: z.string().trim().max(3000, "Description cannot exceed 3000 characters").nullable().optional(),
   logoUrl: z.string().trim().nullable().optional(),
 });
@@ -74,7 +75,7 @@ export async function PATCH(req: Request) {
       where: { id: tenantId },
       data: {
         name,
-        whatsappNumber: whatsappNumber || null,
+        whatsappNumber,
         businessInfo: businessInfo ?? "",
         logoUrl: logoUrl || null,
       },

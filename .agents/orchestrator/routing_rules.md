@@ -67,6 +67,7 @@ Short-circuit the full pipeline for:
 | Typo / copy fix           | Dev → Code Reviewer | No arch or design change |
 | i18n key addition         | Dev → Code Reviewer | Locale files only |
 | CSS token tweak           | Designer → Dev → Code Reviewer | No logic change |
+| UI restyle (minimal-ui)   | Designer → Dev (minimal-ui skill) → Code Reviewer | No logic change; audit before and after |
 | Dependency version bump   | Security → DevOps   | No app code change |
 | Hotfix (prod bug)         | Dev → Code Reviewer → Security → DevOps (expedited human gate) | |
 | Docs-only change          | Docs                | |

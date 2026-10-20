@@ -79,7 +79,7 @@ export default function AdminSidebar({
         { href: "/admin/dashboard", label: t.admin.dashboard, icon: LayoutDashboard },
         { href: "/admin/citas", label: t.admin.appointments, icon: CalendarCheck, isBooking: true },
         { href: "/admin/pedidos", label: t.admin.orders, icon: ShoppingBag, isOrders: true },
-        { href: "/admin/productos", label: isHealth ? "Servicios" : t.admin.products, icon: Package },
+        { href: "/admin/productos", label: isHealth ? t.adminUi.servicesNav : t.admin.products, icon: Package },
         { href: "/admin/reviews", label: t.admin.reviews, icon: Star },
       ],
     },
@@ -141,11 +141,11 @@ export default function AdminSidebar({
 
   // ── Mobile sidebar content (always full) ──
   const mobileSidebarContent = (
-    <div className="flex flex-col h-full bg-white/70 dark:bg-gray-950/70 backdrop-blur-md border-r border-gray-100 dark:border-transparent">
+    <div className="flex flex-col h-full bg-white/70 dark:bg-gray-950/70 border-r border-gray-100 dark:border-transparent">
       <div className="px-6 py-6 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
         <div>
-          <h1 className="font-bold text-xl text-primary tracking-tight">CRM Nutrición</h1>
-          <p className="text-xs text-gray-400 font-medium truncate max-w-[160px] uppercase mt-0.5">{userName}</p>
+          <h1 className="font-semibold text-xl text-primary tracking-tight">CRM Nutrición</h1>
+          <p className="text-xs text-gray-400 font-medium truncate max-w-[160px] mt-0.5">{userName}</p>
         </div>
         <button
           className="p-1 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
@@ -158,7 +158,7 @@ export default function AdminSidebar({
       <nav className="flex-1 px-4 py-6 space-y-6 overflow-y-auto">
         {navCategories.map((category) => (
           <div key={category.title}>
-            <h3 className="px-2 text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">
+            <h3 className="px-2 text-xs font-semibold text-gray-400 dark:text-gray-500 mb-2">
               {category.title}
             </h3>
             <div className="space-y-1">
@@ -168,7 +168,7 @@ export default function AdminSidebar({
                   <Link key={href} href={href}
                     className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group relative
                       ${active
-                        ? "bg-gradient-to-r from-green-100/50 dark:from-primary/10 to-transparent text-primary font-semibold shadow-sm"
+                        ? "bg-gray-100 dark:bg-gray-800 text-primary font-semibold"
                         : "text-gray-600 dark:text-gray-400 hover:bg-gray-100/80 dark:hover:bg-gray-800/80 hover:text-gray-900 dark:hover:text-gray-200"}`}
                   >
                     {active && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full" />}
@@ -190,13 +190,13 @@ export default function AdminSidebar({
 
   // ── Desktop sidebar content (collapse-aware) ──
   const desktopSidebarContent = (
-    <div className="flex flex-col h-full bg-white/70 dark:bg-gray-950/70 backdrop-blur-md border-r border-gray-100 dark:border-transparent overflow-hidden">
+    <div className="flex flex-col h-full bg-white/70 dark:bg-gray-950/70 border-r border-gray-100 dark:border-transparent overflow-hidden">
       {/* Brand + collapse toggle */}
       <div className={`py-6 border-b border-gray-100 dark:border-gray-800 flex items-center ${collapsed ? "justify-center px-2" : "justify-between px-6"}`}>
         {!collapsed && (
           <div className="min-w-0">
-            <h1 className="font-bold text-xl text-primary tracking-tight">CRM Nutrición</h1>
-            <p className="text-xs text-gray-400 font-medium truncate max-w-[160px] uppercase mt-0.5">{userName}</p>
+            <h1 className="font-semibold text-xl text-primary tracking-tight">CRM Nutrición</h1>
+            <p className="text-xs text-gray-400 font-medium truncate max-w-[160px] mt-0.5">{userName}</p>
           </div>
         )}
         <button
@@ -213,7 +213,7 @@ export default function AdminSidebar({
         {navCategories.map((category) => (
           <div key={category.title}>
             {!collapsed && (
-              <h3 className="px-2 text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">
+              <h3 className="px-2 text-xs font-semibold text-gray-400 dark:text-gray-500 mb-2">
                 {category.title}
               </h3>
             )}
@@ -226,7 +226,7 @@ export default function AdminSidebar({
                     className={`flex items-center rounded-xl text-sm font-medium transition-all duration-200 group relative
                       ${collapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2.5"}
                       ${active
-                        ? "bg-gradient-to-r from-green-100/50 dark:from-primary/10 to-transparent text-primary font-semibold shadow-sm"
+                        ? "bg-gray-100 dark:bg-gray-800 text-primary font-semibold"
                         : "text-gray-600 dark:text-gray-400 hover:bg-gray-100/80 dark:hover:bg-gray-800/80 hover:text-gray-900 dark:hover:text-gray-200"}`}
                   >
                     {active && !collapsed && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full" />}
@@ -256,7 +256,7 @@ export default function AdminSidebar({
     <>
       {/* ── Mobile: hamburger button (top-left) ── */}
       <button
-        className="md:hidden fixed top-4 left-4 z-40 p-2.5 bg-white dark:bg-gray-900 rounded-xl shadow-md border border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-200"
+        className="md:hidden fixed top-4 left-4 z-40 p-2.5 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-200"
         onClick={() => setOpen(true)}
         aria-label={t.admin.openMenu}
       >
@@ -266,7 +266,7 @@ export default function AdminSidebar({
       {/* ── Mobile: backdrop overlay ── */}
       {open && (
         <div
-          className="md:hidden fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
+          className="md:hidden fixed inset-0 z-40 bg-black/40 "
           onClick={() => setOpen(false)}
         />
       )}
@@ -274,7 +274,7 @@ export default function AdminSidebar({
       {/* ── Mobile: slide-in drawer ── */}
       <aside
         className={`
-          md:hidden fixed top-0 left-0 z-50 h-full w-72 bg-white dark:bg-gray-950 shadow-2xl
+          md:hidden fixed top-0 left-0 z-50 h-full w-72 bg-white dark:bg-gray-950 shadow-lg
           transform transition-transform duration-300 ease-in-out
           ${open ? "translate-x-0" : "-translate-x-full"}
         `}

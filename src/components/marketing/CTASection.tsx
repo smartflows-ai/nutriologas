@@ -14,14 +14,14 @@ export default function CTASection() {
       <section
         id="cta"
         className="relative py-32 overflow-hidden"
-        style={{ background: "#0a0a14" }}
+        style={{ background: "var(--mk-surface)" }}
       >
         <div className="absolute top-0 left-0 right-0 h-px" style={{ background: "linear-gradient(90deg, transparent, rgba(124,58,237,0.4), transparent)" }} />
 
         {/* Dynamic Background Glow */}
         <div
           className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl h-full rounded-full opacity-20 blur-[120px] pointer-events-none"
-          style={{ background: "radial-gradient(circle, #7C3AED, #06B6D4, transparent 70%)" }}
+          style={{ background: "radial-gradient(circle, var(--mk-violet), var(--mk-cyan), transparent 70%)" }}
         />
 
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
@@ -43,7 +43,7 @@ export default function CTASection() {
             {t.cta.headline1}{" "}
             <span
               style={{
-                background: "linear-gradient(135deg, #A78BFA 0%, #06B6D4 100%)",
+                background: "linear-gradient(135deg, var(--mk-violet-light) 0%, var(--mk-cyan) 100%)",
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
                 backgroundClip: "text",
@@ -62,7 +62,7 @@ export default function CTASection() {
               id="cta-get-started"
               onClick={() => setShowModal(true)}
               className="px-10 py-5 rounded-2xl font-black text-lg text-white transition-all duration-300 hover:shadow-[0_0_40px_rgba(124,58,237,0.5)] hover:-translate-y-1 active:translate-y-0"
-              style={{ background: "linear-gradient(135deg, #7C3AED 0%, #4F46E5 100%)" }}
+              style={{ background: "linear-gradient(135deg, var(--mk-violet) 0%, var(--mk-indigo) 100%)" }}
             >
               {t.cta.button}
             </button>

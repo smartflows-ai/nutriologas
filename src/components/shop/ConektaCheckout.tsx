@@ -1,6 +1,8 @@
 "use client";
 // src/components/shop/ConektaCheckout.tsx
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "@/i18n";
+import { fill } from "@/lib/utils";
 import type { ConektaOrderResult } from "@/types/conekta";
 import { Download, CheckCircle, X, ArrowRight } from "lucide-react";
 
@@ -62,6 +64,7 @@ export function ConektaCheckout({
   onError,
   onExit,
 }: Props) {
+  const { t, lang } = useTranslation();
   const [iframeReady, setIframeReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [paymentCompleted, setPaymentCompleted] = useState(false);
@@ -90,7 +93,7 @@ export function ConektaCheckout({
       } catch (err) {
         if (!cancelled)
           setError(
-            "No se pudo cargar la pasarela de pagos segura. Verifica tu conexión e intenta de nuevo.",
+            t.conekta.loadError,
           );
         return;
       }
@@ -103,7 +106,7 @@ export function ConektaCheckout({
       try {
         window.ConektaCheckoutComponents.Integration({
           config: {
-            locale: "es",
+            locale: lang === "en" ? "en" : "es",
             publicKey: process.env.NEXT_PUBLIC_CONEKTA_PUBLIC_KEY ?? "",
             targetIFrame: "#conekta-checkout-container",
             checkoutRequestId,
@@ -164,7 +167,7 @@ export function ConektaCheckout({
       } catch (err) {
         if (!cancelled)
           setError(
-            "Error al inicializar el formulario de pago. Intenta de nuevo.",
+            t.conekta.initError,
           );
       }
     }
@@ -217,7 +220,7 @@ export function ConektaCheckout({
           onClick={() => window.location.reload()}
           className="btn-primary text-sm px-4 py-2"
         >
-          Recargar página
+          {t.conekta.reload}
         </button>
       </div>
     );
@@ -229,10 +232,10 @@ export function ConektaCheckout({
         <div className="flex flex-col justify-center items-center py-16 space-y-4">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
           <p className="text-gray-600 text-sm">
-            Cargando formulario de pago...
+            {t.conekta.loadingForm}
           </p>
           <p className="text-gray-500 text-xs text-center max-w-xs">
-            Esto puede tomar unos segundos. Por favor, no cierres esta página.
+            {t.conekta.loadingHint}
           </p>
         </div>
       )}
@@ -246,17 +249,17 @@ export function ConektaCheckout({
               <div>
                 <h3 className="font-semibold text-green-800">
                   {paymentMethod === "cash"
-                    ? "Referencia OXXO generada"
-                    : "Pago procesado"}
+                    ? t.conekta.oxxoReady
+                    : t.conekta.paid}
                 </h3>
                 <p className="text-sm text-green-600">
                   {paymentMethod === "cash"
-                    ? "Descarga tu referencia para pagar en OXXO"
-                    : "Tu pago ha sido confirmado"}
+                    ? t.conekta.oxxoHint
+                    : t.conekta.paidHint}
                 </p>
                 {paymentReference && paymentMethod === "cash" && (
                   <p className="text-xs font-mono text-green-700 mt-1">
-                    Ref: {paymentReference}
+                    {t.conekta.refLabel} {paymentReference}
                   </p>
                 )}
               </div>
@@ -266,8 +269,8 @@ export function ConektaCheckout({
                 // Download payment reference as text file
                 const content =
                   paymentMethod === "cash"
-                    ? `REFERENCIA DE PAGO OXXO\n\nOrden: ${orderId}\nReferencia: ${paymentReference}\n\nInstrucciones:\n1. Presenta esta referencia en cualquier tienda OXXO\n2. Realiza el pago en efectivo\n3. Tu orden se activará una vez confirmado el pago\n\nVálido por 24 horas`
-                    : `CONFIRMACIÓN DE PAGO\n\nOrden: ${orderId}\nMétodo: Tarjeta\nStatus: Pagado\n\nGracias por tu compra!`;
+                    ? `${t.conekta.ticketOxxoTitle}\n\n${t.conekta.ticketOrder}: ${orderId}\n${t.conekta.ticketRef}: ${paymentReference}\n\n${t.conekta.ticketInstructions}:\n${t.conekta.ticketOxxoStep1}\n${t.conekta.ticketOxxoStep2}\n${t.conekta.ticketOxxoStep3}\n\n${t.conekta.ticketOxxoValid}`
+                    : `${t.conekta.ticketPaidTitle}\n\n${t.conekta.ticketOrder}: ${orderId}\n${t.conekta.ticketMethod}\n${t.conekta.ticketStatus}\n\n${t.conekta.ticketThanks}`;
                 const blob = new Blob([content], { type: "text/plain" });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement("a");
@@ -279,7 +282,7 @@ export function ConektaCheckout({
               className="btn-primary flex items-center gap-2 text-sm"
             >
               <Download size={16} />
-              Descargar referencia
+              {t.conekta.download}
             </button>
           </div>
         </div>
@@ -307,12 +310,12 @@ export function ConektaCheckout({
             className="btn-primary flex-1 flex items-center justify-center gap-2"
             disabled={redirectCountdown !== null}
           >
-            Ver detalles del pedido
+            {t.conekta.viewOrder}
             <ArrowRight size={18} />
           </button>
           {redirectCountdown !== null && (
             <p className="text-center text-sm text-gray-600">
-              Redirigiendo en {redirectCountdown} segundos...
+              {fill(t.conekta.redirectIn, { seconds: redirectCountdown ?? 0 })}
             </p>
           )}
           <button
@@ -320,7 +323,7 @@ export function ConektaCheckout({
             className="btn-ghost flex items-center justify-center gap-2"
           >
             <X size={18} />
-            <span>Salir</span>
+            <span>{t.conekta.exit}</span>
           </button>
         </div>
       )}

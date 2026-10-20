@@ -7,7 +7,7 @@ export default function DemoSection() {
   const { t } = useTranslation();
 
   const chapters = [
-    { icon: <ShoppingBag size={16} className="text-violet-400" />, title: t.demoSection.chapters.store },
+    { icon: <ShoppingBag size={16} className="text-mk-violet-light" />, title: t.demoSection.chapters.store },
     { icon: <MessageSquare size={16} className="text-emerald-400" />, title: t.demoSection.chapters.whatsapp },
     { icon: <Bot size={16} className="text-blue-400" />, title: t.demoSection.chapters.social },
     { icon: <BarChart2 size={16} className="text-amber-400" />, title: t.demoSection.chapters.metrics },
@@ -19,22 +19,22 @@ export default function DemoSection() {
     <section
       id="demo"
       className="relative py-20 lg:py-28 overflow-hidden"
-      style={{ background: "#090914" }}
+      style={{ background: "var(--mk-bg)" }}
     >
       {/* Ambient background glows */}
       <div
         className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[500px] rounded-full opacity-20 blur-[130px] pointer-events-none"
         style={{
-          background: "radial-gradient(circle, #7C3AED 0%, #06B6D4 50%, transparent 70%)",
+          background: "radial-gradient(circle, var(--mk-violet) 0%, var(--mk-cyan) 50%, transparent 70%)",
         }}
       />
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         {/* Header */}
         <div className="text-center mb-12">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-violet-500/30 bg-violet-500/10 mb-4">
-            <span className="w-2 h-2 rounded-full bg-violet-400 animate-pulse" />
-            <span className="text-xs font-bold text-violet-300 uppercase tracking-widest">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-mk-violet/30 bg-mk-violet/10 mb-4">
+            <span className="w-2 h-2 rounded-full bg-mk-violet-light animate-pulse" />
+            <span className="text-xs font-bold text-mk-violet-light uppercase tracking-widest">
               {t.demoSection.badge}
             </span>
           </div>
@@ -42,7 +42,7 @@ export default function DemoSection() {
           <h2 className="text-4xl sm:text-5xl font-black text-white tracking-tight mb-4">
             {t.demoSection.headlinePrefix}{" "}
             <span style={{
-              background: "linear-gradient(135deg, #A78BFA 0%, #60A5FA 50%, #06B6D4 100%)",
+              background: "linear-gradient(135deg, var(--mk-violet-light) 0%, var(--mk-blue) 50%, var(--mk-cyan) 100%)",
               WebkitBackgroundClip: "text",
               WebkitTextFillColor: "transparent",
               backgroundClip: "text",

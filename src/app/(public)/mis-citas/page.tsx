@@ -4,8 +4,10 @@ import { prisma } from "@/lib/db";
 import { redirect } from "next/navigation";
 import CustomerAppointmentsList from "@/components/shop/CustomerAppointmentsList";
 import { Calendar } from "lucide-react";
+import { getTranslationServer } from "@/i18n/server";
 
 export default async function MisCitasPage() {
+  const t = getTranslationServer();
   const session = await getAppSession();
   if (!session?.user) redirect("/login?callbackUrl=/mis-citas");
 
@@ -40,11 +42,11 @@ export default async function MisCitasPage() {
     <div className="max-w-4xl mx-auto px-4 py-10">
       <div className="mb-8">
         <h1 className="text-2xl md:text-3xl font-extrabold text-gray-900 dark:text-white flex items-center gap-3">
-          <Calendar className="text-violet-600" size={28} />
-          Mis Citas y Consultas
+          <Calendar className="text-primary" size={28} />
+          {t.myAppointments.pageTitle}
         </h1>
         <p className="text-sm text-gray-500 mt-1">
-          Historial y seguimiento de tus citas médicas y consultas agendadas
+          {t.myAppointments.pageSubtitle}
         </p>
       </div>
 

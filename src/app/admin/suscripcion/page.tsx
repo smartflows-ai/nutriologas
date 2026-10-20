@@ -5,16 +5,18 @@
 import AmazonCheckout from "@/components/admin/AmazonCheckout";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { useTranslation } from "@/i18n";
 
 export default function SuscripcionPage() {
+  const { t } = useTranslation();
   return (
     <div className="py-2">
       <div className="mb-4">
         <Link
           href="/admin/dashboard"
-          className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+          className="inline-flex items-center gap-1.5 text-xs text-white/50 hover:text-white  transition-colors"
         >
-          <ArrowLeft size={14} /> Regresar al Dashboard
+          <ArrowLeft size={14} /> {t.billing.backToDashboard}
         </Link>
       </div>
 

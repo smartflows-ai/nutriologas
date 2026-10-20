@@ -4,9 +4,11 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { themeSchema, type ThemeInput } from "@/lib/validations";
+import { translateValidation } from "@/i18n/validation";
 import { Check, Palette, Moon, Sun, Monitor } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useTranslation } from "@/i18n";
+import { themeColorVars } from "@/lib/theme-vars";
 
 export default function AparienciaPage() {
   const { t } = useTranslation();
@@ -29,9 +31,19 @@ export default function AparienciaPage() {
 
   // Live preview
   useEffect(() => {
-    if (values.primaryColor) document.documentElement.style.setProperty("--color-primary", values.primaryColor);
-    if (values.secondaryColor) document.documentElement.style.setProperty("--color-secondary", values.secondaryColor);
-    if (values.accentColor) document.documentElement.style.setProperty("--color-accent", values.accentColor);
+    const preview = themeColorVars({ primaryColor: values.primaryColor, secondaryColor: values.secondaryColor, accentColor: values.accentColor });
+    if (values.primaryColor) {
+      document.documentElement.style.setProperty("--color-primary", preview["--color-primary"]);
+      document.documentElement.style.setProperty("--color-primary-rgb", preview["--color-primary-rgb"]);
+    }
+    if (values.secondaryColor) {
+      document.documentElement.style.setProperty("--color-secondary", preview["--color-secondary"]);
+      document.documentElement.style.setProperty("--color-secondary-rgb", preview["--color-secondary-rgb"]);
+    }
+    if (values.accentColor) {
+      document.documentElement.style.setProperty("--color-accent", preview["--color-accent"]);
+      document.documentElement.style.setProperty("--color-accent-rgb", preview["--color-accent-rgb"]);
+    }
     if (values.fontFamily) document.documentElement.style.setProperty("--font-family-base", values.fontFamily);
   }, [values]);
 
@@ -44,7 +56,7 @@ export default function AparienciaPage() {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2.5">
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white flex items-center gap-2.5">
           <Palette className="text-primary" size={26} />
           {t.crm.appearance.title}
         </h1>
@@ -64,17 +76,17 @@ export default function AparienciaPage() {
             { name: "secondaryColor" as const, label: t.crm.appearance.secondary, hint: t.crm.appearance.secondaryHint },
             { name: "accentColor" as const, label: t.crm.appearance.accent, hint: t.crm.appearance.accentHint },
           ].map((field) => (
-            <div key={field.name} className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-2xl border border-gray-100 dark:border-gray-800 transition-all hover:border-primary/20 hover:shadow-lg hover:shadow-gray-200/20 group">
+            <div key={field.name} className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-100 dark:border-gray-800 transition-all hover:border-primary/20 hover:shadow-gray-200/20 group">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <label className="block text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider text-[11px]">{field.label}</label>
-                  <p className="text-[10px] text-gray-500 font-medium leading-tight">{field.hint}</p>
+                  <label className="block text-sm font-semibold text-gray-900 dark:text-white text-[11px]">{field.label}</label>
+                  <p className="text-xs text-gray-500 font-medium leading-tight">{field.hint}</p>
                 </div>
               </div>
               
               <div className="relative group/input flex items-center">
                 {/* Clickable Swatch Prefix */}
-                <div className="absolute left-2.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-lg border border-gray-100 dark:border-gray-800 shadow-sm cursor-pointer hover:scale-105 active:scale-95 transition-all overflow-hidden"
+                <div className="absolute left-2.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-lg border border-gray-100 dark:border-gray-800 shadow-sm cursor-pointer transition-all overflow-hidden"
                      style={{ backgroundColor: values[field.name] || "#000000" }}
                      onClick={() => (document.getElementById(`picker-${field.name}`) as HTMLInputElement)?.click()}
                 >
@@ -90,7 +102,7 @@ export default function AparienciaPage() {
                 <input 
                   {...register(field.name)} 
                   type="text" 
-                  className="input pl-12 pr-4 py-3 bg-white dark:bg-gray-950 border-gray-200 dark:border-gray-800 font-mono uppercase text-sm font-bold focus:ring-primary/10 transition-all shadow-inner tracking-widest" 
+                  className="input pl-12 pr-4 py-3 bg-white dark:bg-gray-950 border-gray-200 dark:border-gray-800 font-mono text-sm font-semibold focus:ring-primary/10 transition-all shadow-inner " 
                   placeholder="#000000" 
                   onChange={(e) => {
                     const val = e.target.value.startsWith("#") ? e.target.value : `#${e.target.value}`;
@@ -99,28 +111,28 @@ export default function AparienciaPage() {
                   value={values[field.name] || ""}
                 />
               </div>
-              {errors[field.name] && <p className="text-red-500 text-[10px] mt-2 font-medium bg-red-50 dark:bg-red-900/10 px-2 py-1 rounded inline-block">{errors[field.name]?.message}</p>}
+              {errors[field.name] && <p className="text-red-500 text-xs mt-2 font-medium bg-red-50 dark:bg-red-900/10 px-2 py-1 rounded inline-block">{translateValidation(t, errors[field.name]?.message)}</p>}
             </div>
           ))}
 
-          <div className="p-5 bg-gray-50 dark:bg-gray-900/50 rounded-2xl border border-gray-100 dark:border-gray-800">
-            <label className="block text-sm font-bold text-gray-900 dark:text-white mb-1.5 flex items-center gap-2">
+          <div className="p-5 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-100 dark:border-gray-800">
+            <label className="block text-sm font-semibold text-gray-900 dark:text-white mb-1.5 flex items-center gap-2">
               <div className="w-1.5 h-4 bg-primary rounded-full" /> {t.crm.appearance.typography}
             </label>
-            <p className="text-[10px] text-gray-400 mb-4 font-medium italic">{t.crm.appearance.typographyHint}</p>
+            <p className="text-xs text-gray-400 mb-4 font-medium italic">{t.crm.appearance.typographyHint}</p>
             <select 
               {...register("fontFamily")} 
               className="input w-full bg-white dark:bg-gray-950 border-gray-200 dark:border-gray-800 cursor-pointer text-sm font-medium"
             >
-              <option value="Inter, sans-serif">Inter (Moderno y Limpio)</option>
-              <option value="'Playfair Display', serif">Playfair Display (Elegante y Clásico)</option>
-              <option value="Roboto, sans-serif">Roboto (Profesional y Neutro)</option>
-              <option value="'Montserrat', sans-serif">Montserrat (Geométrico y Fresco)</option>
-              <option value="'Comic Sans MS', cursive">Cómic (Divertido y Casual)</option>
+              <option value="Inter, sans-serif">{t.adminUi.fontInter}</option>
+              <option value="'Playfair Display', serif">{t.adminUi.fontPlayfair}</option>
+              <option value="Roboto, sans-serif">{t.adminUi.fontRoboto}</option>
+              <option value="'Montserrat', sans-serif">{t.adminUi.fontMontserrat}</option>
+              <option value="'Comic Sans MS', cursive">{t.adminUi.fontComic}</option>
             </select>
           </div>
 
-          <button type="submit" className="btn-primary w-full flex items-center justify-center gap-2 py-4 mt-4 font-bold rounded-2xl shadow-lg shadow-primary/20 transition-all active:scale-[0.98]">
+          <button type="submit" className="btn-primary w-full flex items-center justify-center gap-2 py-4 mt-4 font-semibold rounded-xl transition-all ">
             {saved ? <><Check size={20} /> {t.crm.appearance.savedBtn}</> : t.crm.appearance.applyBtn}
           </button>
         </form>
@@ -128,11 +140,11 @@ export default function AparienciaPage() {
         {/* Global toggles and Preview */}
         <div className="flex flex-col gap-6">
           {/* Dark Mode Toggle */}
-          <div className="card border-gray-100 dark:border-gray-800 shadow-xl shadow-gray-200/20">
-            <h2 className="font-bold text-gray-900 dark:text-gray-100 mb-1 flex items-center gap-2">
+          <div className="card border-gray-100 dark:border-gray-800 shadow-gray-200/20">
+            <h2 className="font-semibold text-gray-900 dark:text-gray-100 mb-1 flex items-center gap-2">
               <Sun size={18} className="text-amber-500" /> {t.crm.appearance.colorScheme}
             </h2>
-            <p className="text-[10px] text-gray-500 font-medium mb-6">{t.crm.appearance.schemeHint}</p>
+            <p className="text-xs text-gray-500 font-medium mb-6">{t.crm.appearance.schemeHint}</p>
             {mounted && (
               <div className="grid grid-cols-3 gap-4">
                 {[
@@ -145,10 +157,10 @@ export default function AparienciaPage() {
                     <button
                       key={mode.id}
                       onClick={() => setTheme(mode.id)}
-                      className={`flex flex-col items-center gap-2.5 p-5 rounded-2xl border-2 transition-all ${theme === mode.id ? "border-primary bg-primary/5 text-primary shadow-inner" : "border-gray-100 dark:border-gray-800 text-gray-400 hover:border-gray-200 dark:hover:border-gray-700"}`}
+                      className={`flex flex-col items-center gap-2.5 p-5 rounded-xl border-2 transition-all ${theme === mode.id ? "border-primary bg-gray-50 dark:bg-gray-900 text-primary shadow-inner" : "border-gray-100 dark:border-gray-800 text-gray-400 hover:border-gray-200 dark:hover:border-gray-700"}`}
                     >
                       <Icon size={24} />
-                      <span className="text-[11px] font-bold uppercase tracking-wider">{mode.label}</span>
+                      <span className="text-[11px] font-semibold ">{mode.label}</span>
                     </button>
                   );
                 })}
@@ -165,7 +177,7 @@ export default function AparienciaPage() {
               className="bg-white dark:bg-gray-900 border-b border-gray-200 rounded-xl px-4 py-3 flex items-center justify-between shadow-sm"
               style={{ fontFamily: values.fontFamily }}
             >
-              <span className="font-bold text-sm" style={{ color: values.primaryColor }}>{t.crm.appearance.preview.clinic}</span>
+              <span className="font-semibold text-sm" style={{ color: values.primaryColor }}>{t.crm.appearance.preview.clinic}</span>
               <div className="flex gap-3 text-xs">
                 <span className="text-gray-600 dark:text-gray-400">{t.crm.appearance.preview.products}</span>
                 <span className="px-3 py-1 rounded-full text-white text-xs" style={{ background: values.primaryColor }}>{t.crm.appearance.preview.enter}</span>
@@ -180,8 +192,8 @@ export default function AparienciaPage() {
               <div className="h-24 rounded-t-xl" style={{ background: values.accentColor + "40" }} />
               <div className="p-3">
                 <p className="font-semibold text-sm text-gray-900 dark:text-white">{t.crm.appearance.preview.plan}</p>
-                <p className="font-bold mt-1 text-lg" style={{ color: values.primaryColor }}>$1,200</p>
-                <button className="mt-2 w-full text-white text-xs py-2 rounded-lg font-medium transition-all hover:scale-[1.02]" style={{ background: values.primaryColor, boxShadow: `0 4px 14px 0 ${values.primaryColor}50` }}>
+                <p className="font-semibold mt-1 text-lg" style={{ color: values.primaryColor }}>$1,200</p>
+                <button className="mt-2 w-full text-white text-xs py-2 rounded-lg font-medium transition-all " style={{ background: values.primaryColor, boxShadow: `0 4px 14px 0 ${values.primaryColor}50` }}>
                   {t.crm.appearance.preview.addCart}
                 </button>
               </div>

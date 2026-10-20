@@ -14,7 +14,7 @@ const STATUS_CLASSES: Record<string, string> = {
   CANCELLED: "bg-red-100 text-red-700",
 };
 
-import { getTranslationServer } from "@/i18n/server";
+import { getTranslationServer, getLocaleServer } from "@/i18n/server";
 
 export default async function PedidosPage({
   searchParams,
@@ -24,6 +24,7 @@ export default async function PedidosPage({
   const session = await getAppSession();
   const tenantId = session!.user.tenantId;
   const t = getTranslationServer();
+  const locale = getLocaleServer();
   const params = await searchParams;
   const statusFilter = params.status;
   const currentPage = parseInt(params.page || "1");
@@ -81,7 +82,7 @@ export default async function PedidosPage({
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2.5">
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white flex items-center gap-2.5">
           <ShoppingBag className="text-primary" size={26} />
           {t.crm.orders.title}
         </h1>
@@ -98,7 +99,7 @@ export default async function PedidosPage({
             href={f.value === "ALL" ? "/admin/pedidos" : `/admin/pedidos?status=${f.value}`}
             className={`px-3.5 py-1.5 rounded-xl text-sm font-medium transition-all ${
               activeFilter === f.value
-                ? "bg-primary text-white shadow-sm shadow-primary/20"
+                ? "bg-primary text-white shadow-sm "
                 : "bg-gray-100 dark:bg-gray-800/80 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
             }`}
           >
@@ -121,9 +122,9 @@ export default async function PedidosPage({
               <p className="font-semibold text-gray-900 text-sm">{order.user.name ?? order.user.email}</p>
               <div className="flex items-center justify-between mt-2">
                 <span className="text-xs text-gray-400">
-                  {order.items.length} {t.crm.dashboard.productsLabel} &middot; {formatDate(order.createdAt)}
+                  {order.items.length} {t.crm.dashboard.productsLabel} &middot; {formatDate(order.createdAt, locale)}
                 </span>
-                <span className="font-bold text-primary text-sm">{formatPrice(order.total)}</span>
+                <span className="font-semibold text-primary text-sm">{formatPrice(order.total, locale)}</span>
               </div>
             </Link>
           );
@@ -137,7 +138,7 @@ export default async function PedidosPage({
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
               {[t.crm.orders.columns.order, t.crm.orders.columns.customer, t.crm.orders.columns.products, t.crm.orders.columns.total, t.crm.orders.columns.method, t.crm.orders.columns.status, t.crm.orders.columns.date, ""].map((h) => (
-                <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
+                <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 ">{h}</th>
               ))}
             </tr>
           </thead>
@@ -156,10 +157,10 @@ export default async function PedidosPage({
                     {order.items.slice(0, 2).map((i) => i.product.name).join(", ")}
                     {order.items.length > 2 && ` +${order.items.length - 2}`}
                   </td>
-                  <td className="px-4 py-3 font-semibold text-primary">{formatPrice(order.total)}</td>
+                  <td className="px-4 py-3 font-semibold text-primary">{formatPrice(order.total, locale)}</td>
                   <td className="px-4 py-3 text-gray-500">{order.paymentMethod ? getPaymentLabel(order.paymentMethod) : "—"}</td>
                   <td className="px-4 py-3"><span className={`badge ${sClass}`}>{sLabel}</span></td>
-                  <td className="px-4 py-3 text-gray-500">{formatDate(order.createdAt)}</td>
+                  <td className="px-4 py-3 text-gray-500">{formatDate(order.createdAt, locale)}</td>
                   <td className="px-4 py-3">
                     <Link href={`/admin/pedidos/${order.id}`} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-primary transition-colors inline-flex">
                       <Eye size={16} />

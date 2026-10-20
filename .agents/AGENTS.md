@@ -511,7 +511,7 @@ User Request
 **Job**: Translates approved BA specs and Architect component maps into a pixel-level UI specification.
 
 **Design System:**
-- Tone: Modern · premium · clean
+- Tone: Minimalist, flat, neutral (spec: `.claude/skills/minimal-ui/references/style-spec.md`)
 - Typography: Use font choices consistent with the tenant's theme config
 - Animations: Hover effects on all interactive elements; transitions 200–300 ms ease
 - Loading states: spinner or shimmer skeleton — never a blank white screen
@@ -809,6 +809,7 @@ Set `humanGateRequired: true` only for tasks that trigger a production deploy.
 | Modifying the root domain route blocking logic | It uses `rewrite`, not `redirect` — Vercel Edge requires this |
 | Stripping behavioral rules from AI system prompts thinking they are "redundant" | Structural rules are executable constraints — only strip true duplicates |
 | **Using emoji characters as UI elements** | Use `lucide-react` icons — never `⚠️`, `✅`, `📋`, etc. in JSX. Specify `size` and `strokeWidth`. Icon-only buttons need `aria-label`. |
+| **Decorative styles in tenant components** | Gradients, blur, colored shadows, hover scale, and uppercase micro labels are not allowed. Follow `.claude/skills/minimal-ui`. |
 | **Hardcoding colors in tenant components** | Use `bg-primary`, `text-primary`, `var(--color-primary)` etc. — colors come from `ThemeConfig` in the DB. Never use `#hex` or Tailwind named colors like `green-600` directly in `(public)/` or `admin/` components. |
 
 ---

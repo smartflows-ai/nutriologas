@@ -111,10 +111,10 @@ export default function CalendarView({ hideStats = false }: { hideStats?: boolea
   const attendanceRate = stats.total > 0 ? Math.round((stats.attended / stats.total) * 100) : 0;
 
   const statCards = [
-    { label: t.crm.calendar.stats.totalAppointments, value: stats.total, from: "from-blue-500", to: "to-blue-600" },
-    { label: t.crm.calendar.stats.attended, value: stats.attended, from: "from-green-500", to: "to-green-600" },
+    { label: t.crm.calendar.stats.totalAppointments, value: stats.total, bg: "bg-primary" },
+    { label: t.crm.calendar.stats.attended, value: stats.attended, bg: "bg-secondary" },
     { label: t.crm.calendar.stats.cancelled, value: stats.cancelled, from: "from-red-500", to: "to-red-600" },
-    { label: t.crm.calendar.stats.attendance, value: `${attendanceRate}%`, from: "from-purple-500", to: "to-purple-600" },
+    { label: t.crm.calendar.stats.attendance, value: `${attendanceRate}%`, bg: "bg-primary" },
   ];
 
   const filterButtons: { status: FilterStatus; label: string; dot: string; ring: string }[] = [
@@ -143,9 +143,9 @@ export default function CalendarView({ hideStats = false }: { hideStats?: boolea
           {!hideStats && (
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {statCards.map((s) => (
-                <div key={s.label} className={`rounded-2xl bg-gradient-to-br ${s.from} ${s.to} p-5 text-white shadow-lg flex flex-col gap-1`}>
+                <div key={s.label} className={`rounded-xl ${s.bg} p-5 text-white flex flex-col gap-1`}>
                   <p className="text-3xl font-extrabold tracking-tight">{s.value}</p>
-                  <p className="text-xs font-medium opacity-80 uppercase tracking-wider">{s.label}</p>
+                  <p className="text-xs font-medium opacity-80 ">{s.label}</p>
                 </div>
               ))}
             </div>
@@ -174,7 +174,7 @@ export default function CalendarView({ hideStats = false }: { hideStats?: boolea
           </div>
 
           {/* Calendar */}
-          <div ref={containerRef} className="rounded-2xl border border-gray-100 bg-white dark:bg-gray-900 shadow-sm overflow-hidden">
+          <div ref={containerRef} className="rounded-xl border border-gray-100 bg-white dark:bg-gray-900 shadow-sm overflow-hidden">
             <style>{`
             .fc { font-family: inherit; }
             .fc-toolbar-title { font-size: 1.1rem !important; font-weight: 700; color: #111827; }
@@ -185,7 +185,7 @@ export default function CalendarView({ hideStats = false }: { hideStats?: boolea
             .fc-button-active, .fc-button-primary:not(:disabled).fc-button-active {
               background: var(--color-primary, #16a34a) !important; color: #fff !important; }
             .fc-today-button { background: var(--color-primary, #16a34a) !important; color: #fff !important; opacity: 1 !important; }
-            .fc-daygrid-day.fc-day-today { background: #f0fdf4 !important; }
+            .fc-daygrid-day.fc-day-today { background: rgb(var(--color-primary-rgb) / 0.08) !important; }
             .fc-col-header-cell { background: #f9fafb; padding: 8px 0 !important; }
             .fc-col-header-cell-cushion { font-size: 0.75rem; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; }
             .fc-event { border-radius: 6px !important; font-size: 0.75rem !important; font-weight: 500 !important;
@@ -219,11 +219,11 @@ export default function CalendarView({ hideStats = false }: { hideStats?: boolea
           {/* Event detail modal */}
           {selected && (
             <div
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 "
               onClick={() => setSelected(null)}
             >
               <div
-                className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md mx-4"
+                className="bg-white dark:bg-gray-900 rounded-xl shadow-lg w-full max-w-md mx-4"
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Header */}
@@ -237,7 +237,7 @@ export default function CalendarView({ hideStats = false }: { hideStats?: boolea
                         <ClipboardList size={18} className="text-white" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-bold text-gray-900 dark:text-white text-lg leading-tight">
+                        <h3 className="font-semibold text-gray-900 dark:text-white text-lg leading-tight">
                           {(selected as any).title}
                         </h3>
                         <span className={`inline-block mt-1 text-xs font-semibold px-2.5 py-0.5 rounded-full ${ep?.status === "attended" ? "bg-green-100 text-green-700" :
@@ -299,7 +299,7 @@ export default function CalendarView({ hideStats = false }: { hideStats?: boolea
                   {/* Sin contenido */}
                   {!ep?.description && !ep?.location && (
                     <p className="text-sm text-gray-400 italic">
-                      Este evento no tiene descripción ni ubicación.
+                      {t.calendarUi.noDescription}
                     </p>
                   )}
                 </div>
@@ -315,7 +315,7 @@ export default function CalendarView({ hideStats = false }: { hideStats?: boolea
                       style={{ backgroundColor: "var(--color-primary)" }}
                     >
                       <ExternalLink size={15} />
-                      Ver en Google Calendar
+                      {t.calendarUi.openInGoogle}
                     </a>
                   </div>
                 )}
@@ -324,7 +324,7 @@ export default function CalendarView({ hideStats = false }: { hideStats?: boolea
                 {ep?.source === "native" && ep?.appointmentId && (
                   <div className="px-6 pb-6 pt-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between gap-3">
                     <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
-                      Estado: <b className="uppercase tracking-wide">{ep.appointmentStatus || ep.status}</b>
+                      {t.calendarUi.statusLabel} <b className=" ">{ep.appointmentStatus || ep.status}</b>
                     </span>
                     {ep.appointmentStatus === "PENDING" && (
                       <button
@@ -339,20 +339,20 @@ export default function CalendarView({ hideStats = false }: { hideStats?: boolea
                               const d = await res.json();
                               toast.success(
                                 d.whatsappSent
-                                  ? "¡Cita confirmada! Se envió mensaje de WhatsApp al paciente."
-                                  : "¡Cita confirmada!"
+                                  ? t.calendarUi.confirmedWa
+                                  : t.calendarUi.confirmed
                               );
                               setSelected(null);
                               calendarRef.current?.getApi().refetchEvents();
                             }
                           } catch (err) {
-                            toast.error("Error al confirmar cita");
+                            toast.error(t.calendarUi.confirmError);
                           }
                         }}
-                        className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-md shadow-emerald-600/20"
+                        className="px-4 py-2.5 rounded-xl bg-primary hover:bg-secondary text-white font-semibold text-xs flex items-center gap-1.5 transition-all "
                       >
                         <Check size={15} />
-                        Confirmar y Notificar WhatsApp
+                        {t.calendarUi.confirmNotify}
                       </button>
                     )}
                   </div>

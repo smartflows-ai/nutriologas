@@ -5,12 +5,13 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Plug, Check, X, ExternalLink, Loader2, Calendar as CalendarIcon, CheckCircle2,
-  Bot, MessageSquare, Globe
-} from "lucide-react";
+  Bot, MessageSquare, Globe, AlertTriangle} from "lucide-react";
 import { useRef } from "react";
 import { toggleAssistant, disconnectApp, refreshSidebar } from "./actions";
 import { useTranslation } from "@/i18n";
+import { fill, localeFor } from "@/lib/utils";
 import { toast } from "@/hooks/useToast";
+import ConfirmModal from "@/components/admin/ConfirmModal";
 
 // ── Feature definitions ─────────────────────────────────────────
 interface FeatureDef {
@@ -18,7 +19,6 @@ interface FeatureDef {
   name: string;
   description: string;
   icon: string | React.ReactNode;
-  color: string;     // tailwind gradient classes
   comingSoon?: boolean;
   isInternalToggle?: boolean;
   providers: {
@@ -35,7 +35,6 @@ const FEATURES: FeatureDef[] = [
     name: "Asistente IA",
     description: "Responde dudas, atiende citas y explica Faqs automáticamente.",
     icon: <Bot size={22} />,
-    color: "from-indigo-500 to-purple-600",
     isInternalToggle: true,
     providers: []
   },
@@ -45,7 +44,6 @@ const FEATURES: FeatureDef[] = [
     name: "Calendario",
     description: "Sincronización de citas, lectura de eventos y agenda.",
     icon: <CalendarIcon size={22} />,
-    color: "from-blue-500 to-indigo-600",
     providers: [
       { id: "GOOGLE", name: "Google", connectUrl: "/api/apps/oauth/google/start" },
       // { id: "MICROSOFT", name: "Outlook", connectUrl: "/api/apps/oauth/microsoft/start" },
@@ -56,7 +54,6 @@ const FEATURES: FeatureDef[] = [
     name: "WhatsApp",
     description: "Mensajería y atención automatizada a clientes vía WhatsApp.",
     icon: <MessageSquare size={22} />,
-    color: "from-green-500 to-green-600",
     comingSoon: false,
     providers: [
       { id: "WHATSAPP", name: "WhatsApp", connectUrl: "#", isCustomAction: true }
@@ -67,7 +64,6 @@ const FEATURES: FeatureDef[] = [
     name: "Campañas Sociales",
     description: "Genera y publica contenido automático con IA en Facebook e Instagram.",
     icon: <Globe size={22} />,
-    color: "from-blue-600 via-purple-600 to-pink-600",
     providers: [
       { id: "FACEBOOK", name: "Meta (Facebook/Instagram)", connectUrl: "/api/apps/oauth/facebook/start" }
     ]
@@ -98,11 +94,11 @@ function WhatsAppConnectModal({
   const pollRef = useRef<NodeJS.Timeout | null>(null);
 
   const LOADING_MESSAGES = [
-    "Creando tu conexión segura con WhatsApp...",
-    "Preparando tu número para uso exclusivo...",
-    "Generando tu código QR único...",
-    "Configurando el enlace con el Asistente IA...",
-    "Afinando los últimos detalles..."
+    t.integrationsUi.waLoading1,
+    t.integrationsUi.waLoading2,
+    t.integrationsUi.waLoading3,
+    t.integrationsUi.waLoading4,
+    t.integrationsUi.waLoading5
   ];
   const [loadingMsgIdx, setLoadingMsgIdx] = useState(0);
 
@@ -124,14 +120,14 @@ function WhatsAppConnectModal({
     try {
       data = await res.json();
     } catch (err) {
-      toast("Error del servidor: Respuesta no es JSON válido.");
+      toast(t.integrationsUi.waErrorNotJson);
       setStep("idle");
       return;
     }
 
     // Si la respuesta es error JSON
     if (!res.ok) {
-      toast(data.error || "Error al conectar con el servidor.");
+      toast(data.error || t.integrationsUi.waErrorServer);
       setStep("idle");
       return;
     }
@@ -167,7 +163,7 @@ function WhatsAppConnectModal({
         }
       }, 2000);
     } else {
-      toast(data.error || "Algo salió mal al conectar con WhatsApp");
+      toast(data.error || t.integrationsUi.waFailed);
       setStep("idle");
     }
   };
@@ -195,9 +191,9 @@ function WhatsAppConnectModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl w-full max-w-sm p-6 relative">
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg w-full max-w-sm p-6 relative">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="font-bold text-gray-900 dark:text-white">{t.crm.apps.whatsappModal.title}</h2>
+          <h2 className="font-semibold text-gray-900 dark:text-white">{t.crm.apps.whatsappModal.title}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:text-gray-400">
             <X size={20} />
           </button>
@@ -233,7 +229,7 @@ function WhatsAppConnectModal({
             </p>
             <div className="border-2 border-gray-100 rounded-xl p-3 inline-block mb-4 bg-white dark:bg-gray-900">
               {/* Evolution API returns base64 directly */}
-              <img src={qrCode.startsWith("data:image") ? qrCode : `data:image/png;base64,${qrCode}`} alt="QR WhatsApp" className="w-48 h-48" />
+              <img src={qrCode.startsWith("data:image") ? qrCode : `data:image/png;base64,${qrCode}`} alt={t.integrationsUi.waQrAlt} className="w-48 h-48" />
             </div>
             <div className="flex items-center gap-2 text-xs text-gray-400 justify-center">
               <Loader2 size={12} className="animate-spin" />
@@ -255,7 +251,7 @@ function WhatsAppConnectModal({
 }
 
 export default function AppsPage() {
-  const { t } = useTranslation();
+  const { t, lang } = useTranslation();
   const router = useRouter();
   const [apps, setApps] = useState<ConnectedAppInfo[]>([]);
   const [isAssistantEnabled, setIsAssistantEnabled] = useState(false);
@@ -293,14 +289,14 @@ export default function AppsPage() {
       if (err) {
         let msg = err;
         if (err === "no_pages") {
-          msg = "Meta no devolvió ninguna página autorizada. Al conectar Meta, asegúrate de seleccionar 'Opt in to all current and future Pages' (o marcar tu página y permitir todos los accesos en el paso de permisos).";
+          msg = t.integrationsUi.metaNoPages;
         } else if (err === "no_email") {
-          msg = "No se pudo obtener el correo de tu cuenta de Facebook.";
+          msg = t.integrationsUi.metaNoEmail;
         } else if (err === "user_not_found") {
-          msg = "El correo de tu cuenta de Facebook no coincide con tu usuario administrador en NewAigent.";
+          msg = t.integrationsUi.metaUserNotFound;
         }
         setNotificationState({
-          title: "Error al Conectar Meta",
+          title: t.integrationsUi.metaErrorTitle,
           message: msg,
           type: "error"
         });
@@ -310,8 +306,8 @@ export default function AppsPage() {
 
   const handleDisconnect = (provider: string) => {
     setConfirmState({
-      title: "Desconectar integración",
-      message: `¿Estás seguro que deseas desconectar ${provider}? El sistema perderá el acceso y las automatizaciones fallarán hasta que lo vuelvas a conectar.`,
+      title: t.integrationsUi.disconnectTitle,
+      message: fill(t.integrationsUi.disconnectMsg, { provider }),
       onConfirm: async () => {
         setDisconnecting(provider);
         try {
@@ -319,8 +315,8 @@ export default function AppsPage() {
           setApps((prev) => prev.filter((a) => a.provider !== provider));
         } catch (err) {
           setNotificationState({
-            title: "Error",
-            message: "No se pudo desconectar la aplicación.",
+            title: t.integrationsUi.errorTitle,
+            message: t.integrationsUi.disconnectFailed,
             type: "error"
           });
         } finally {
@@ -348,7 +344,7 @@ export default function AppsPage() {
     <div>
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2.5">
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white flex items-center gap-2.5">
           <Plug className="text-primary" size={26} />
           {t.crm.apps.title}
         </h1>
@@ -358,7 +354,7 @@ export default function AppsPage() {
       </div>
 
       {/* Info Banner */}
-      <div className="mb-6 rounded-xl bg-gradient-to-r from-primary/5 to-primary/10 border border-primary/20 p-4">
+      <div className="mb-6 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-4">
         <p className="text-sm text-gray-700 dark:text-gray-200">
           {t.crm.apps.banner}
         </p>
@@ -379,23 +375,23 @@ export default function AppsPage() {
             return (
               <div
                 key={feat.id}
-                className={`flex flex-col relative rounded-2xl border bg-white dark:bg-gray-900 shadow-sm overflow-hidden transition-all hover:shadow-md ${isConnected ? "border-primary/30" : feat.comingSoon ? "border-gray-100 opacity-60" : "border-gray-200"
+                className={`flex flex-col relative rounded-xl border bg-white dark:bg-gray-900 overflow-hidden transition-all ${isConnected ? "border-gray-200 dark:border-gray-800" : feat.comingSoon ? "border-gray-100 opacity-60" : "border-gray-200"
                   }`}
               >
                 {/* Gradient top bar */}
-                <div className={`h-1.5 bg-gradient-to-r ${feat.color}`} />
+                <div className={`h-1.5 bg-primary`} />
 
                 <div className="p-5 flex flex-col flex-1">
                   {/* Icon + Name */}
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${feat.color} flex items-center justify-center text-white shrink-0`}>
+                      <div className={`w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-white shrink-0`}>
                         {feat.icon}
                       </div>
                       <div>
                         <h3 className="font-semibold text-gray-900 dark:text-white text-sm">{(t.crm.apps.features as any)[feat.id]?.name || feat.name}</h3>
                         {feat.comingSoon && (
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full">
+                          <span className="text-xs font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full">
                             {t.crm.apps.comingSoon}
                           </span>
                         )}
@@ -403,7 +399,7 @@ export default function AppsPage() {
                     </div>
 
                     {isConnected && (
-                      <span className="flex items-center gap-1 text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded-full whitespace-nowrap">
+                      <span className="flex items-center gap-1 text-xs font-medium text-primary bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-full whitespace-nowrap">
                         <Check size={12} /> {t.crm.apps.connected}
                       </span>
                     )}
@@ -426,20 +422,20 @@ export default function AppsPage() {
                       {/* Instagram Business Account status for Meta card */}
                       {activeConn.provider === "FACEBOOK" && (
                         activeConn.igLinked ? (
-                          <p className="text-[10px] font-medium flex items-center gap-1 text-pink-600 dark:text-pink-400">
+                          <p className="text-xs font-medium flex items-center gap-1 text-pink-600 dark:text-pink-400">
                             <Check size={10} className="shrink-0" />
-                            Instagram Business vinculado
+                            {t.integrationsUi.igLinked}
                           </p>
                         ) : (
-                          <p className="text-[10px] flex items-center gap-1 text-amber-600 dark:text-amber-400">
-                            <span className="font-bold">⚠</span>
-                            Sin cuenta de Instagram Business — reconecta Meta para vincularla
+                          <p className="text-xs flex items-center gap-1 text-amber-600 dark:text-amber-400">
+                            <AlertTriangle size={10} className="shrink-0" />
+                            {t.integrationsUi.igMissing}
                           </p>
                         )
                       )}
 
-                      <p className="text-[10px] text-gray-400">
-                        {t.crm.apps.linkedOn} {new Date(activeConn.connectedAt).toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" })}
+                      <p className="text-xs text-gray-400">
+                        {t.crm.apps.linkedOn} {new Date(activeConn.connectedAt).toLocaleDateString(localeFor(lang), { day: "numeric", month: "short", year: "numeric" })}
                       </p>
                     </div>
                   )}
@@ -463,23 +459,23 @@ export default function AppsPage() {
                                 router.push("/admin/asistente");
                               }
                             } catch (e) {
-                              toast("No se pudo actualizar el estado del asistente.");
+                              toast(t.integrationsUi.assistantToggleFailed);
                             } finally {
                               setTogglingAssistant(false);
                             }
                           }
                         }}
                         disabled={togglingAssistant}
-                        className={`w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg transition-colors disabled:opacity-50 ${isAssistantEnabled ? "bg-red-50 text-red-600 hover:bg-red-100" : "bg-primary text-white hover:bg-primary/90"}`}
+                        className={`w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg transition-colors disabled:opacity-50 ${isAssistantEnabled ? "border border-transparent text-red-600 hover:border-red-200 hover:bg-red-50" : "bg-primary text-white hover:bg-primary/90"}`}
                       >
                         {togglingAssistant ? <Loader2 size={14} className="animate-spin" /> : (isAssistantEnabled ? <X size={14} /> : <Check size={14} />)}
-                        {isAssistantEnabled ? "Desactivar" : "Activar"}
+                        {isAssistantEnabled ? t.crm.apps.disableAssistant : t.crm.apps.enableAssistant}
                       </button>
                     ) : isConnected && activeConn ? (
                       <button
                         onClick={() => handleDisconnect(activeConn.provider)}
                         disabled={isDisconnecting}
-                        className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-red-50 text-red-600 text-xs font-medium rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50"
+                        className="w-full flex items-center justify-center gap-1.5 px-3 py-2 border border-transparent text-red-600 text-xs font-medium rounded-lg hover:border-red-200 hover:bg-red-50 transition-colors disabled:opacity-50"
                       >
                         {isDisconnecting ? (
                           <Loader2 size={14} className="animate-spin" />
@@ -490,7 +486,7 @@ export default function AppsPage() {
                       </button>
                     ) : (
                       <div className="flex flex-col gap-2">
-                        <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wider text-center mb-1">
+                        <p className="text-[11px] font-medium text-gray-400 text-center mb-1">
                           {t.crm.apps.chooseOption}
                         </p>
                         <div className="flex flex-col gap-2">
@@ -499,7 +495,7 @@ export default function AppsPage() {
                               <button
                                 key={p.id}
                                 onClick={() => setWhatsappModalOpen(true)}
-                                className="w-full flex items-center justify-center gap-1.5 px-2 py-2 bg-white dark:bg-gray-900 border border-gray-200 text-gray-700 dark:text-gray-200 text-xs font-semibold rounded-lg hover:border-primary hover:text-primary transition-colors shadow-sm"
+                                className="w-full flex items-center justify-center gap-1.5 px-2 py-2 bg-white dark:bg-gray-900 border border-gray-200 text-gray-700 dark:text-gray-200 text-xs font-semibold rounded-lg hover:border-primary hover:text-primary transition-colors"
                               >
                                 {t.crm.apps.connect} {p.name}
                               </button>
@@ -507,7 +503,7 @@ export default function AppsPage() {
                               <a
                                 key={p.id}
                                 href={p.connectUrl}
-                                className="w-full flex items-center justify-center gap-1.5 px-2 py-2 bg-white dark:bg-gray-900 border border-gray-200 text-gray-700 dark:text-gray-200 text-xs font-semibold rounded-lg hover:border-primary hover:text-primary transition-colors shadow-sm"
+                                className="w-full flex items-center justify-center gap-1.5 px-2 py-2 bg-white dark:bg-gray-900 border border-gray-200 text-gray-700 dark:text-gray-200 text-xs font-semibold rounded-lg hover:border-primary hover:text-primary transition-colors"
                               >
                                 {t.crm.apps.connect} {p.name}
                               </a>
@@ -538,42 +534,29 @@ export default function AppsPage() {
 
       {/* Custom Confirm Modal */}
       {confirmState && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md p-6 border border-gray-100 dark:border-gray-800">
-            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{confirmState.title}</h3>
-            <p className="text-gray-500 mb-8">{confirmState.message}</p>
-            <div className="flex gap-3 justify-end">
-              <button
-                className="px-5 py-2.5 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors"
-                onClick={() => setConfirmState(null)}
-              >
-                Cancelar
-              </button>
-              <button
-                className="px-5 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl shadow-sm transition-colors"
-                onClick={() => { setConfirmState(null); confirmState.onConfirm(); }}
-              >
-                Sí, desconectar
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmModal
+          title={confirmState.title}
+          message={confirmState.message}
+          confirmLabel={t.integrationsUi.confirmDisconnect}
+          onCancel={() => setConfirmState(null)}
+          onConfirm={() => { setConfirmState(null); confirmState.onConfirm(); }}
+        />
       )}
 
       {/* Custom Notification Modal */}
       {notificationState && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center border border-gray-100 dark:border-gray-800">
+        <div className="fixed inset-0 bg-black/40 z-[60] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg w-full max-w-sm p-6 text-center border border-gray-100 dark:border-gray-800">
             <div className={`mx-auto w-14 h-14 rounded-full flex items-center justify-center mb-5 ${notificationState.type === 'error' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
               {notificationState.type === 'error' ? <X size={28} /> : <Check size={28} />}
             </div>
-            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{notificationState.title}</h3>
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">{notificationState.title}</h3>
             <p className="text-gray-500 mb-8 max-w-[280px] mx-auto">{notificationState.message}</p>
             <button
-              className="px-6 py-3 w-full text-sm font-semibold text-white bg-gray-900 dark:bg-gray-800 rounded-xl hover:bg-gray-800 dark:hover:bg-gray-700 transition-colors shadow-sm"
+              className="px-6 py-3 w-full text-sm font-semibold text-white bg-primary hover:opacity-90 rounded-xl transition-opacity"
               onClick={() => setNotificationState(null)}
             >
-              Entendido
+              {t.integrationsUi.understood}
             </button>
           </div>
         </div>

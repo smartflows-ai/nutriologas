@@ -24,11 +24,11 @@ export default async function AsistentePage() {
 
   if (!tenant?.isAssistantEnabled) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-center p-8 bg-white dark:bg-gray-950 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm mt-4">
+      <div className="flex flex-col items-center justify-center h-full text-center p-8 bg-white dark:bg-gray-950 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm mt-4">
         <div className="bg-red-50 dark:bg-red-900/10 rounded-full p-3 w-16 h-16 flex items-center justify-center mx-auto mb-4 border-2 border-red-100 dark:border-red-900/30">
           <Bot size={32} className="text-red-500" />
         </div>
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{t.crm.assistant.disabledTitle}</h2>
+        <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">{t.crm.assistant.disabledTitle}</h2>
         <p className="text-gray-500 max-w-md mx-auto mb-8">
           {t.crm.assistant.disabledDesc}
         </p>

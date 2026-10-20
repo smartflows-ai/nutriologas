@@ -29,7 +29,7 @@ export default function Navbar({ storeName, logoUrl, isEcommerce = true }: Navba
   const userName = session?.user?.name ?? session?.user?.email;
 
   return (
-    <header className="sticky top-0 z-50 bg-white/90 dark:bg-gray-950/90 backdrop-blur-md border-b border-gray-100 dark:border-gray-800/80 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] dark:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.25)] transition-all duration-200">
+    <header className="sticky top-0 z-50 bg-white/90 dark:bg-gray-950/90 border-b border-gray-100 dark:border-gray-800/80 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] dark:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.25)] transition-all duration-200">
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 sm:h-20 flex items-center justify-between gap-4">
         {/* Brand */}
         <Link href="/" className="flex items-center gap-3 group shrink-0">
@@ -40,11 +40,11 @@ export default function Navbar({ storeName, logoUrl, isEcommerce = true }: Navba
               className="w-10 h-10 object-contain rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm"
             />
           ) : (
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-primary to-primary/80 flex items-center justify-center text-white font-black text-lg shadow-sm shadow-primary/20 shrink-0 transition-transform duration-200 group-hover:scale-105">
+            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-white font-semibold text-lg shadow-sm shrink-0 transition-transform duration-200 ">
               {storeName.charAt(0).toUpperCase()}
             </div>
           )}
-          <span className="font-bold text-xl sm:text-2xl text-gray-900 dark:text-white tracking-tight group-hover:text-primary transition-colors">
+          <span className="font-semibold text-xl sm:text-2xl text-gray-900 dark:text-white tracking-tight group-hover:text-primary transition-colors">
             {storeName}
           </span>
         </Link>
@@ -87,9 +87,9 @@ export default function Navbar({ storeName, logoUrl, isEcommerce = true }: Navba
             title={t.shop.cart}
             aria-label={t.shop.cart}
           >
-            <ShoppingCart size={21} className="transition-transform duration-200 group-hover:scale-110" />
+            <ShoppingCart size={21} className="transition-transform duration-200 " />
             {mounted && itemCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-primary text-white text-[10px] min-w-[20px] h-5 px-1.5 rounded-full flex items-center justify-center font-extrabold shadow-md border-2 border-white dark:border-gray-950 animate-in zoom-in">
+              <span className="absolute -top-1 -right-1 bg-primary text-white text-xs min-w-[20px] h-5 px-1.5 rounded-full flex items-center justify-center font-extrabold border-2 border-white dark:border-gray-950 animate-in ">
                 {itemCount}
               </span>
             )}
@@ -104,8 +104,8 @@ export default function Navbar({ storeName, logoUrl, isEcommerce = true }: Navba
               {isAdmin && (
                 <Link
                   href="/admin/dashboard"
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/10 text-primary hover:bg-primary/20 text-xs font-bold transition-all"
-                  title="Panel de Control CRM"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-primary hover:bg-primary/20 text-xs font-semibold transition-all"
+                  title={t.storefrontUi.crmPanelTitle}
                 >
                   <LayoutDashboard size={14} />
                   <span>CRM</span>
@@ -113,11 +113,11 @@ export default function Navbar({ storeName, logoUrl, isEcommerce = true }: Navba
               )}
               <Link
                 href="/mis-citas"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-violet-50/80 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300 hover:bg-violet-100 text-xs font-semibold transition-all"
-                title="Mis Citas"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/80 dark:bg-gray-800 text-primary dark:text-primary hover:bg-primary/10 text-xs font-semibold transition-all"
+                title={t.myAppointments.pageTitle}
               >
                 <Calendar size={13} />
-                <span>Mis Citas</span>
+                <span>{t.myAppointments.pageTitle}</span>
               </Link>
               {isEcommerce && (
               <Link
@@ -125,7 +125,7 @@ export default function Navbar({ storeName, logoUrl, isEcommerce = true }: Navba
                 className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gray-100/80 dark:bg-gray-900/80 hover:bg-gray-200/80 dark:hover:bg-gray-800 border border-gray-200/50 dark:border-gray-800 text-gray-700 dark:text-gray-300 text-xs font-semibold transition-all group"
                 title={t.shop.myOrders}
               >
-                <ClipboardList size={14} className="text-primary transition-transform duration-200 group-hover:scale-110" />
+                <ClipboardList size={14} className="text-primary transition-transform duration-200 " />
                 <span className="truncate max-w-[120px]">{userName}</span>
               </Link>
               )}
@@ -141,7 +141,7 @@ export default function Navbar({ storeName, logoUrl, isEcommerce = true }: Navba
           ) : (
             <Link
               href="/login"
-              className="hidden sm:inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-xs font-bold hover:opacity-95 shadow-sm shadow-primary/25 transition-all hover:shadow hover:-translate-y-0.5"
+              className="hidden sm:inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-xs font-semibold hover:opacity-95 shadow-sm transition-all hover:shadow "
             >
               <User size={14} />
               <span>{t.shop.enter}</span>
@@ -152,7 +152,7 @@ export default function Navbar({ storeName, logoUrl, isEcommerce = true }: Navba
           <button
             className="md:hidden p-2 rounded-xl text-gray-600 dark:text-gray-300 hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
             onClick={() => setOpen(!open)}
-            aria-label="Abrir menú"
+            aria-label={t.common.openMenu}
           >
             {open ? <X size={22} /> : <Menu size={22} />}
           </button>
@@ -161,7 +161,7 @@ export default function Navbar({ storeName, logoUrl, isEcommerce = true }: Navba
 
       {/* Mobile Drawer */}
       {open && (
-        <div className="md:hidden bg-white/95 dark:bg-gray-950/95 backdrop-blur-2xl border-t border-gray-100 dark:border-gray-800 px-6 py-6 flex flex-col gap-4 shadow-xl absolute w-full rounded-b-3xl animate-in slide-in-from-top-2">
+        <div className="md:hidden bg-white/95 dark:bg-gray-950/95 backdrop-blur-2xl border-t border-gray-100 dark:border-gray-800 px-6 py-6 flex flex-col gap-4 shadow-lg absolute w-full rounded-b-3xl animate-in ">
           <Link
             href="/#nosotros"
             onClick={() => setOpen(false)}
@@ -186,7 +186,7 @@ export default function Navbar({ storeName, logoUrl, isEcommerce = true }: Navba
           <Link
             href="/productos"
             onClick={() => setOpen(false)}
-            className="px-3 py-2 rounded-xl text-primary font-bold hover:bg-primary/10 transition-colors"
+            className="px-3 py-2 rounded-xl text-primary font-semibold hover:bg-primary/10 transition-colors"
           >
             {t.shop.store}
           </Link>
@@ -205,7 +205,7 @@ export default function Navbar({ storeName, logoUrl, isEcommerce = true }: Navba
               {t.shop.cart}
             </span>
             {mounted && itemCount > 0 && (
-              <span className="bg-primary text-white text-xs px-2.5 py-0.5 rounded-full font-bold">
+              <span className="bg-primary text-white text-xs px-2.5 py-0.5 rounded-full font-semibold">
                 {itemCount} {t.shop.cartItems}
               </span>
             )}
@@ -218,19 +218,19 @@ export default function Navbar({ storeName, logoUrl, isEcommerce = true }: Navba
                 <Link
                   href="/admin/dashboard"
                   onClick={() => setOpen(false)}
-                  className="flex items-center gap-2 px-3 py-2 rounded-xl bg-primary/10 text-primary font-bold text-sm"
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-100 dark:bg-gray-800 text-primary font-semibold text-sm"
                 >
                   <LayoutDashboard size={16} />
-                  <span>Panel CRM</span>
+                  <span>{t.storefrontUi.crmPanelShort}</span>
                 </Link>
               )}
               <Link
                 href="/mis-citas"
                 onClick={() => setOpen(false)}
-                className="flex items-center gap-2 px-3 py-2 rounded-xl text-violet-700 dark:text-violet-300 font-semibold hover:bg-violet-50 dark:hover:bg-violet-950/40 transition-colors"
+                className="flex items-center gap-2 px-3 py-2 rounded-xl text-primary dark:text-primary font-semibold hover:bg-primary/10 dark:hover:bg-secondary/40 transition-colors"
               >
                 <Calendar size={16} />
-                <span>Mis Citas</span>
+                <span>{t.myAppointments.pageTitle}</span>
               </Link>
               {isEcommerce && (
               <Link

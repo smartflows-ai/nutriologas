@@ -30,7 +30,7 @@ export default function HeroSection({ onWatchDemo, onGetStarted }: { onWatchDemo
     <section
       id="hero"
       className="relative min-h-screen flex items-center justify-center overflow-hidden"
-      style={{ background: "#07070f" }}
+      style={{ background: "var(--mk-bg)" }}
     >
       {/* Background grid */}
       <div
@@ -47,19 +47,19 @@ export default function HeroSection({ onWatchDemo, onGetStarted }: { onWatchDemo
       {/* Aurora orbs */}
       <div
         className="absolute top-[-20%] left-[-10%] w-[700px] h-[700px] rounded-full opacity-20 blur-[120px] z-0 animate-pulse"
-        style={{ background: "radial-gradient(circle, #7C3AED, transparent 70%)" }}
+        style={{ background: "radial-gradient(circle, var(--mk-violet), transparent 70%)" }}
       />
       <div
         className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] rounded-full opacity-15 blur-[120px] z-0"
         style={{
-          background: "radial-gradient(circle, #06B6D4, transparent 70%)",
+          background: "radial-gradient(circle, var(--mk-cyan), transparent 70%)",
           animation: "pulse 6s ease-in-out infinite 2s",
         }}
       />
       <div
         className="absolute top-[40%] left-[60%] w-[400px] h-[400px] rounded-full opacity-10 blur-[100px] z-0"
         style={{
-          background: "radial-gradient(circle, #4F46E5, transparent 70%)",
+          background: "radial-gradient(circle, var(--mk-indigo), transparent 70%)",
           animation: "pulse 8s ease-in-out infinite 1s",
         }}
       />
@@ -72,7 +72,7 @@ export default function HeroSection({ onWatchDemo, onGetStarted }: { onWatchDemo
           style={{
             width: `${2 + (i % 3)}px`,
             height: `${2 + (i % 3)}px`,
-            background: i % 3 === 0 ? "#7C3AED" : i % 3 === 1 ? "#06B6D4" : "#4F46E5",
+            background: i % 3 === 0 ? "var(--mk-violet)" : i % 3 === 1 ? "var(--mk-cyan)" : "var(--mk-indigo)",
             left: `${8 + i * 8}%`,
             top: `${15 + (i * 17) % 70}%`,
             opacity: 0.4 + (i % 4) * 0.15,
@@ -87,9 +87,9 @@ export default function HeroSection({ onWatchDemo, onGetStarted }: { onWatchDemo
           {/* Text side */}
           <div className="flex-1 text-center lg:text-left">
             {/* Badge */}
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-violet-500/30 bg-violet-500/10 backdrop-blur-sm mb-8">
-              <span className="w-2 h-2 rounded-full bg-violet-400 animate-pulse" />
-              <span className="text-xs font-semibold text-violet-300 uppercase tracking-widest">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-mk-violet/30 bg-mk-violet/10 backdrop-blur-sm mb-8">
+              <span className="w-2 h-2 rounded-full bg-mk-violet-light animate-pulse" />
+              <span className="text-xs font-semibold text-mk-violet-light uppercase tracking-widest">
                 {t.hero.badge}
               </span>
             </div>
@@ -100,7 +100,7 @@ export default function HeroSection({ onWatchDemo, onGetStarted }: { onWatchDemo
               <span
                 className="block"
                 style={{
-                  background: "linear-gradient(135deg, #A78BFA 0%, #60A5FA 50%, #06B6D4 100%)",
+                  background: "linear-gradient(135deg, var(--mk-violet-light) 0%, var(--mk-blue) 50%, var(--mk-cyan) 100%)",
                   WebkitBackgroundClip: "text",
                   WebkitTextFillColor: "transparent",
                   backgroundClip: "text",
@@ -138,7 +138,7 @@ export default function HeroSection({ onWatchDemo, onGetStarted }: { onWatchDemo
                 onClick={onGetStarted}
                 className="group relative inline-flex items-center gap-2.5 px-8 py-4 rounded-2xl text-base font-bold text-white overflow-hidden transition-all duration-300 hover:shadow-[0_0_30px_rgba(124,58,237,0.5)] hover:-translate-y-0.5"
                 style={{
-                  background: "linear-gradient(135deg, #7C3AED 0%, #4F46E5 100%)",
+                  background: "linear-gradient(135deg, var(--mk-violet) 0%, var(--mk-indigo) 100%)",
                 }}
               >
                 <span className="relative z-10">{t.hero.cta}</span>
@@ -153,7 +153,7 @@ export default function HeroSection({ onWatchDemo, onGetStarted }: { onWatchDemo
                 onClick={onWatchDemo}
                 className="group inline-flex items-center gap-3 px-8 py-4 rounded-2xl text-base font-bold text-white border border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20 transition-all duration-300 hover:-translate-y-0.5 backdrop-blur-sm"
               >
-                <span className="flex items-center justify-center w-8 h-8 rounded-full bg-white/10 group-hover:bg-violet-500/30 transition-all duration-300">
+                <span className="flex items-center justify-center w-8 h-8 rounded-full bg-white/10 group-hover:bg-mk-violet/30 transition-all duration-300">
                   <svg className="w-3 h-3 fill-white ml-0.5" viewBox="0 0 12 14">
                     <path d="M1 1l10 6L1 13V1z" />
                   </svg>
@@ -183,7 +183,7 @@ export default function HeroSection({ onWatchDemo, onGetStarted }: { onWatchDemo
             <div
               className="absolute w-80 h-80 rounded-full opacity-30 animate-spin"
               style={{
-                background: "conic-gradient(from 0deg, #7C3AED, #4F46E5, #06B6D4, #7C3AED)",
+                background: "conic-gradient(from 0deg, var(--mk-violet), var(--mk-indigo), var(--mk-cyan), var(--mk-violet))",
                 filter: "blur(40px)",
                 animationDuration: "8s",
               }}
@@ -195,7 +195,7 @@ export default function HeroSection({ onWatchDemo, onGetStarted }: { onWatchDemo
             >
               <Image
                 src="/newaigent-mascot.png"
-                alt="NewAigent AI mascot"
+                alt={t.common.mascotAlt}
                 width={380}
                 height={380}
                 className="drop-shadow-[0_0_60px_rgba(124,58,237,0.4)]"
@@ -218,7 +218,7 @@ export default function HeroSection({ onWatchDemo, onGetStarted }: { onWatchDemo
               }}
             >
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 text-violet-400" style={{ background: "rgba(124,58,237,0.2)", border: "1px solid rgba(124,58,237,0.3)" }}>
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 text-mk-violet-light" style={{ background: "rgba(124,58,237,0.2)", border: "1px solid rgba(124,58,237,0.3)" }}>
                   <Calendar size={15} />
                 </div>
                 <div>
@@ -240,14 +240,14 @@ export default function HeroSection({ onWatchDemo, onGetStarted }: { onWatchDemo
               }}
             >
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 text-violet-400" style={{ background: "rgba(124,58,237,0.2)", border: "1px solid rgba(124,58,237,0.3)" }}>
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 text-mk-violet-light" style={{ background: "rgba(124,58,237,0.2)", border: "1px solid rgba(124,58,237,0.3)" }}>
                   <Megaphone size={15} />
                 </div>
                 <div>
                   <p className="text-white text-xs font-bold leading-tight">{t.hero.card2Title}</p>
                   <p className="text-gray-500 text-[10px] mt-0.5">{t.hero.card2Sub}</p>
                 </div>
-                <span className="w-2 h-2 rounded-full bg-violet-400 flex-shrink-0 animate-pulse" />
+                <span className="w-2 h-2 rounded-full bg-mk-violet-light flex-shrink-0 animate-pulse" />
               </div>
             </div>
 
@@ -365,7 +365,7 @@ export default function HeroSection({ onWatchDemo, onGetStarted }: { onWatchDemo
 
         {/* Scroll indicator */}
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 opacity-40">
-          <span className="text-gray-500 text-xs uppercase tracking-widest">Scroll</span>
+          <span className="text-gray-500 text-xs uppercase tracking-widest">{t.common.scroll}</span>
           <div className="w-px h-10 bg-gradient-to-b from-gray-500 to-transparent" />
         </div>
       </div>

@@ -65,7 +65,8 @@ Human approval is **required** before:
 
 ## Constraints You Must Enforce
 
-- No Tailwind — vanilla CSS only.
+- Tailwind CSS is used. Tenant colors come from the theme tokens in `tailwind.config.ts`.
+- Tenant UI follows the minimal-ui spec (`.claude/skills/minimal-ui/references/style-spec.md`).
 - No `console.log` in committed code.
 - Every user-visible string uses `t('key')` + both locale files (`en.json`, `es.json`).
 - Build must pass `npm run build` with zero errors before any Code Reviewer approval.

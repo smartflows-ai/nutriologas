@@ -1,64 +1,16 @@
 "use client";
 // src/components/marketing/TestimonialsSection.tsx
 import { useTranslation } from "@/i18n";
-import { useState, useRef } from "react";
 import { Star } from "lucide-react";
 
+// Names, avatars and colors are fixed; role and quote come from the dictionary (testimonials.items).
 const testimonials = [
-  {
-    id: 1,
-    name: "Dr. Sofia Ramírez",
-    role: "Nutritionist, MexCity",
-    avatar: "SR",
-    color: "#7C3AED",
-    quote:
-      "NewAigent's social media agent posts daily content for my business while I'm seeing patients. My Instagram following grew 3x in just 2 months!",
-  },
-  {
-    id: 2,
-    name: "Carlos Mendez",
-    role: "Boutique Owner, Guadalajara",
-    avatar: "CM",
-    color: "#06B6D4",
-    quote:
-      "The WhatsApp sales agent was a game changer. It answers questions, shares product photos, and closes orders at 2am when I'm asleep. Wild.",
-  },
-  {
-    id: 3,
-    name: "Ana Torres",
-    role: "Yoga Studio Director",
-    avatar: "AT",
-    color: "#EC4899",
-    quote:
-      "Appointment scheduling used to eat 2 hours of my day. Now the AI handles it all. I just show up and teach. Honestly magic.",
-  },
-  {
-    id: 4,
-    name: "Miguel Fuentes",
-    role: "E-commerce Entrepreneur",
-    avatar: "MF",
-    color: "#F59E0B",
-    quote:
-      "I run 3 different online stores on the same NewAigent platform. Each has its own subdomain, brand, and AI agents. Insanely powerful for the price.",
-  },
-  {
-    id: 5,
-    name: "Laura Chen",
-    role: "Digital Agency, CDMX",
-    avatar: "LC",
-    color: "#4F46E5",
-    quote:
-      "We resell NewAigent to our clients under our own brand. The multi-tenant white-label feature is the reason we chose this over everything else.",
-  },
-  {
-    id: 6,
-    name: "Roberto Vega",
-    role: "Restaurant Chain Owner",
-    avatar: "RV",
-    color: "#10B981",
-    quote:
-      "Our AI agent posts daily specials, handles reservations, and sends WhatsApp reminders. Customer satisfaction scores went up 40% this quarter.",
-  },
+  { id: 1, name: "Dr. Sofia Ramírez", avatar: "SR", color: "var(--mk-violet)" },
+  { id: 2, name: "Carlos Mendez", avatar: "CM", color: "var(--mk-cyan)" },
+  { id: 3, name: "Ana Torres", avatar: "AT", color: "var(--mk-pink)" },
+  { id: 4, name: "Miguel Fuentes", avatar: "MF", color: "var(--mk-amber)" },
+  { id: 5, name: "Laura Chen", avatar: "LC", color: "var(--mk-indigo)" },
+  { id: 6, name: "Roberto Vega", avatar: "RV", color: "var(--mk-emerald)" },
 ];
 
 function StarRating() {
@@ -78,7 +30,7 @@ export default function TestimonialsSection() {
     <section
       id="testimonials"
       className="relative py-28 overflow-hidden"
-      style={{ background: "#0a0a14" }}
+      style={{ background: "var(--mk-surface)" }}
     >
       <div className="absolute top-0 left-0 right-0 h-px" style={{ background: "linear-gradient(90deg, transparent, rgba(124,58,237,0.5), transparent)" }} />
       <div className="absolute bottom-0 left-0 right-0 h-px" style={{ background: "linear-gradient(90deg, transparent, rgba(6,182,212,0.4), transparent)" }} />
@@ -96,7 +48,7 @@ export default function TestimonialsSection() {
             {t.testimonials.headline1}{" "}
             <span
               style={{
-                background: "linear-gradient(135deg, #A78BFA 0%, #06B6D4 100%)",
+                background: "linear-gradient(135deg, var(--mk-violet-light) 0%, var(--mk-cyan) 100%)",
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
                 backgroundClip: "text",
@@ -105,42 +57,45 @@ export default function TestimonialsSection() {
               {t.testimonials.headline2}
             </span>
           </h2>
-          <p className="text-gray-400 text-lg max-w-xl mx-auto">
+          <p className="text-white/60 text-lg max-w-xl mx-auto">
             {t.testimonials.subtitle}
           </p>
         </div>
 
         {/* Masonry-style grid */}
         <div className="columns-1 md:columns-2 lg:columns-3 gap-6 space-y-6">
-          {testimonials.map((t) => (
-            <div
-              key={t.id}
-              id={`testimonial-${t.id}`}
-              className="break-inside-avoid rounded-2xl p-6 border border-white/6 transition-all duration-300 hover:-translate-y-1 hover:border-white/12"
-              style={{ background: "#0d0d1a" }}
-            >
-              <StarRating />
-              <p className="text-gray-300 text-sm leading-relaxed mt-4 mb-6">
-                "{t.quote}"
-              </p>
-              <div className="flex items-center gap-3">
-                <div
-                  className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-black text-white flex-shrink-0"
-                  style={{ background: `linear-gradient(135deg, ${t.color}, ${t.color}80)` }}
-                >
-                  {t.avatar}
-                </div>
-                <div>
-                  <p className="text-white text-sm font-bold">{t.name}</p>
-                  <p className="text-gray-600 text-xs">{t.role}</p>
+          {testimonials.map((person, idx) => {
+            const item = t.testimonials.items[idx];
+            return (
+              <div
+                key={person.id}
+                id={`testimonial-${person.id}`}
+                className="break-inside-avoid rounded-2xl p-6 border border-white/10 transition-all duration-300 hover:-translate-y-1 hover:border-white/20"
+                style={{ background: "var(--mk-card)" }}
+              >
+                <StarRating />
+                <p className="text-white/70 text-sm leading-relaxed mt-4 mb-6">
+                  &ldquo;{item.quote}&rdquo;
+                </p>
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-black text-white flex-shrink-0"
+                    style={{ background: `linear-gradient(135deg, ${person.color}, ${person.color}80)` }}
+                  >
+                    {person.avatar}
+                  </div>
+                  <div>
+                    <p className="text-white text-sm font-bold">{person.name}</p>
+                    <p className="text-white/50 text-xs">{item.role}</p>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Social proof numbers */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-20 p-8 rounded-3xl border border-white/6" style={{ background: "#0d0d1a" }}>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-20 p-8 rounded-3xl border border-white/10" style={{ background: "var(--mk-card)" }}>
           {[
             { value: "500+", hasStar: false, label: t.testimonials.stats.businesses },
             { value: "10M+", hasStar: false, label: t.testimonials.stats.tasks },
@@ -151,7 +106,7 @@ export default function TestimonialsSection() {
               <div
                 className="text-3xl sm:text-4xl font-black mb-2 flex items-center justify-center gap-1.5"
                 style={{
-                  background: "linear-gradient(135deg, #A78BFA, #06B6D4)",
+                  background: "linear-gradient(135deg, var(--mk-violet-light), var(--mk-cyan))",
                   WebkitBackgroundClip: "text",
                   WebkitTextFillColor: "transparent",
                   backgroundClip: "text",
@@ -162,7 +117,7 @@ export default function TestimonialsSection() {
                   <Star size={24} className="fill-amber-400 text-amber-400 inline-block shrink-0 -mt-1" style={{ WebkitTextFillColor: "initial" }} />
                 )}
               </div>
-              <p className="text-gray-500 text-sm font-medium">{stat.label}</p>
+              <p className="text-white/50 text-sm font-medium">{stat.label}</p>
             </div>
           ))}
         </div>

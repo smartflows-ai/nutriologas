@@ -1,4 +1,6 @@
 "use client";
+
+import { useTranslation } from "@/i18n";
 // src/components/order/DownloadTicketButton.tsx
 
 import { Download } from "lucide-react";
@@ -8,6 +10,7 @@ interface DownloadTicketButtonProps {
 }
 
 export function DownloadTicketButton({ className = "" }: DownloadTicketButtonProps) {
+  const { t } = useTranslation();
   const baseStyles = "btn-primary flex items-center gap-2 text-sm";
 
   return (
@@ -16,7 +19,7 @@ export function DownloadTicketButton({ className = "" }: DownloadTicketButtonPro
       className={`${baseStyles} ${className}`}
     >
       <Download size={16} />
-      Descargar ticket
+      {t.storefrontUi.downloadTicket}
     </button>
   );
 }

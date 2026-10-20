@@ -3,9 +3,11 @@ import { redirect } from "next/navigation";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import TrialBanner from "@/components/admin/TrialBanner";
 import TrialExpiredGate from "@/components/admin/TrialExpiredGate";
+import { TenantMetaProvider } from "@/components/admin/TenantMeta";
 import { prisma } from "@/lib/db";
 import { getAppSession } from "@/lib/session";
 import { getTrialDaysLeft, isTenantOnTrial, isSubscriptionBlocked } from "@/lib/trial";
+import { themeColorVars } from "@/lib/theme-vars";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await getAppSession();
@@ -31,9 +33,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   const dynamicStyles = `
     :root {
-      --color-primary: ${pColor};
-      --color-secondary: ${sColor};
-      --color-accent: ${aColor};
+      ${Object.entries(themeColorVars({ primaryColor: pColor, secondaryColor: sColor, accentColor: aColor }))
+        .map(([key, value]) => `${key}: ${value};`)
+        .join("\n      ")}
       --font-family-base: ${fFamily};
     }
     body {
@@ -42,6 +44,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   `;
 
   return (
+    <TenantMetaProvider value={{ vertical: tenant?.vertical ?? "ECOMMERCE", isBookingEnabled: tenant?.isBookingEnabled ?? true }}>
     <div
       className="flex flex-col h-screen bg-slate-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 overflow-hidden"
       style={{ fontFamily: "var(--font-family-base), system-ui, sans-serif" }}
@@ -72,5 +75,6 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         </main>
       </div>
     </div>
+    </TenantMetaProvider>
   );
 }

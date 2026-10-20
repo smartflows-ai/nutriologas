@@ -1,11 +1,12 @@
 "use client";
 // src/components/chat/AssistantThinkingIndicator.tsx
 // Animated, progress-driven thinking bubble for the AI Assistant.
-// Rotates through dynamic business-aware status updates and motivational insights (like Claude / ChatGPT).
+// Rotates through business-aware status updates and motivational insights (like Claude / ChatGPT).
 
 import { useState, useEffect } from "react";
-import { Sparkles, Zap, Bot } from "lucide-react";
+import { Sparkles, Zap } from "lucide-react";
 import { useTranslation } from "@/i18n";
+import { fill } from "@/lib/utils";
 
 interface AssistantThinkingIndicatorProps {
   tenantName?: string;
@@ -59,85 +60,28 @@ export default function AssistantThinkingIndicator({
   businessInfo,
   tenantSlug,
 }: AssistantThinkingIndicatorProps) {
-  const { lang } = useTranslation();
-  const isEs = lang === "es";
+  const { t } = useTranslation();
   const [stepIndex, setStepIndex] = useState(0);
 
   const businessType = detectBusinessType(businessInfo, tenantName, tenantSlug);
-  const displayName = tenantName?.trim() || (isEs ? "tu negocio" : "your business");
+  const displayName = tenantName?.trim() || t.assistantThinking.fallbackName;
 
-  // Dynamic progress sequence: (1) Intent & Parse, (2) Domain Query, (3) Strategic Reasoning, (4) Executive Synthesis
-  const steps = isEs
-    ? [
-        {
-          badge: "Interpretando consulta",
-          message: "Analizando requerimientos y contexto de tu pregunta...",
-          motivation: "Tu tiempo es valioso; optimizando cada respuesta para tu equipo.",
-        },
-        businessType === "health_clinic"
-          ? {
-              badge: "Base de Datos Clínica",
-              message: `Consultando citas, pacientes y registros para ${displayName}...`,
-              motivation: "Tu dedicación transforma la calidad de vida de tus pacientes.",
-            }
-          : businessType === "store_ecommerce"
-          ? {
-              badge: "Inventario y Ventas",
-              message: `Analizando catálogo de productos y pedidos recientes de ${displayName}...`,
-              motivation: "Cada pedido representa un paso hacia la escala de tu marca.",
-            }
-          : {
-              badge: "Métricas Operativas",
-              message: `Cruzando datos y rendimiento en tiempo real de ${displayName}...`,
-              motivation: "Las mejores decisiones se toman con datos precisos y actualizados.",
-            },
-        {
-          badge: "Estrategia IA",
-          message: "Detectando tendencias clave y oportunidades de crecimiento...",
-          motivation: "Convirtiendo números y eventos en acciones de alto impacto.",
-        },
-        {
-          badge: "Sintetizando",
-          message: "Estructurando la recomendación ejecutiva final...",
-          motivation: "Tu visión de negocio potenciada con inteligencia artificial.",
-        },
-      ]
-    : [
-        {
-          badge: "Parsing intent",
-          message: "Analyzing inquiry context and parameters...",
-          motivation: "Technology working continuously to save you valuable time.",
-        },
-        businessType === "health_clinic"
-          ? {
-              badge: "Clinical Records",
-              message: `Reviewing appointments, patients, and schedule for ${displayName}...`,
-              motivation: "Your dedication transforms the well-being of your community.",
-            }
-          : businessType === "store_ecommerce"
-          ? {
-              badge: "Inventory & Orders",
-              message: `Auditing product catalog and sales trends for ${displayName}...`,
-              motivation: "Every customer order scales your brand forward.",
-            }
-          : {
-              badge: "Operations Engine",
-              message: `Cross-referencing live metrics and trends for ${displayName}...`,
-              motivation: "The greatest business moves start with clear, accurate data.",
-            },
-        {
-          badge: "AI Intelligence",
-          message: "Discovering growth patterns and high-value opportunities...",
-          motivation: "Transforming raw data into strategic business momentum.",
-        },
-        {
-          badge: "Synthesizing",
-          message: "Formulating executive recommendation...",
-          motivation: "Your business vision powered by advanced artificial intelligence.",
-        },
-      ];
+  // Progress sequence: (1) intent, (2) domain query, (3) strategic reasoning, (4) executive synthesis
+  const domainStep =
+    businessType === "health_clinic"
+      ? { badge: t.assistantThinking.clinicBadge, message: fill(t.assistantThinking.clinicMessage, { name: displayName }), motivation: t.assistantThinking.clinicMotivation }
+      : businessType === "store_ecommerce"
+      ? { badge: t.assistantThinking.storeBadge, message: fill(t.assistantThinking.storeMessage, { name: displayName }), motivation: t.assistantThinking.storeMotivation }
+      : { badge: t.assistantThinking.opsBadge, message: fill(t.assistantThinking.opsMessage, { name: displayName }), motivation: t.assistantThinking.opsMotivation };
 
-  // Rotate messages every 2.4 seconds
+  const steps = [
+    { badge: t.assistantThinking.intentBadge, message: t.assistantThinking.intentMessage, motivation: t.assistantThinking.intentMotivation },
+    domainStep,
+    { badge: t.assistantThinking.strategyBadge, message: t.assistantThinking.strategyMessage, motivation: t.assistantThinking.strategyMotivation },
+    { badge: t.assistantThinking.synthBadge, message: t.assistantThinking.synthMessage, motivation: t.assistantThinking.synthMotivation },
+  ];
+
+  // Advance one step every 2.4 seconds
   useEffect(() => {
     const timer = setInterval(() => {
       setStepIndex((prev) => (prev < steps.length - 1 ? prev + 1 : prev));
@@ -151,12 +95,12 @@ export default function AssistantThinkingIndicator({
   return (
     <div className="flex gap-3 items-start animate-fade-in">
       {/* Avatar with pulse */}
-      <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center flex-shrink-0 mt-0.5 shadow-sm">
+      <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-800 flex items-center justify-center flex-shrink-0 mt-0.5 shadow-sm">
         <Sparkles size={16} className="text-primary animate-pulse" />
       </div>
 
       {/* Bubble */}
-      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm min-w-[280px] max-w-lg transition-all duration-300">
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl rounded-tl-sm px-4 py-3 shadow-sm min-w-[280px] max-w-lg transition-all duration-300">
         {/* Header pill */}
         <div className="flex items-center justify-between gap-2 mb-1.5">
           <div className="flex items-center gap-1.5">
@@ -164,7 +108,7 @@ export default function AssistantThinkingIndicator({
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
             </span>
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-primary">
+            <span className="text-[11px] font-semibold text-primary">
               {currentStep.badge}
             </span>
           </div>
@@ -178,7 +122,7 @@ export default function AssistantThinkingIndicator({
                   i === stepIndex
                     ? "w-4 bg-primary"
                     : i < stepIndex
-                    ? "w-1.5 bg-primary/40"
+                    ? "w-1.5 bg-gray-100 dark:bg-gray-800"
                     : "w-1.5 bg-gray-200 dark:bg-gray-700"
                 }`}
               />
@@ -186,12 +130,12 @@ export default function AssistantThinkingIndicator({
           </div>
         </div>
 
-        {/* Dynamic Action Message */}
+        {/* Dynamic action message */}
         <p className="text-sm font-medium text-gray-800 dark:text-gray-100 leading-snug transition-all duration-200">
           {currentStep.message}
         </p>
 
-        {/* Motivational Insight Footer */}
+        {/* Motivational insight footer */}
         <div className="mt-2.5 pt-2 border-t border-gray-100 dark:border-gray-800/80 flex items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400">
           <Zap size={12} className="text-amber-500 shrink-0 fill-amber-500/20" />
           <span className="italic truncate">{currentStep.motivation}</span>

@@ -342,10 +342,10 @@ export default function SocialCampaignPage() {
   // ── Not connected ──────────────────────────────────────────────────────────
   if (!config) return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-8">
-      <div className="w-20 h-20 bg-primary/10 dark:bg-primary/20 rounded-3xl flex items-center justify-center mb-6">
+      <div className="w-20 h-20 bg-gray-100 dark:bg-gray-800 rounded-xl flex items-center justify-center mb-6">
         <Facebook className="w-10 h-10 text-primary" />
       </div>
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">{t.crm.social.notConnectedTitle}</h1>
+      <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-3">{t.crm.social.notConnectedTitle}</h1>
       <p className="text-gray-500 mb-8 max-w-sm">{t.crm.social.notConnectedDesc}</p>
       <a href="/admin/apps" className="btn-primary inline-flex items-center gap-2 px-6 py-3">
         <Facebook size={18} /> {t.crm.social.connectFacebook}
@@ -358,7 +358,7 @@ export default function SocialCampaignPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2.5">
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white flex items-center gap-2.5">
             <Globe className="text-primary" size={26} />
             {t.crm.social.title}
           </h1>
@@ -393,7 +393,7 @@ export default function SocialCampaignPage() {
         <div className="space-y-4">
           {/* Paused by credits alert banner */}
           {campaigns.some((c) => c.pausedByCredits) && (
-            <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
                   <Zap size={20} className="fill-amber-500" />
@@ -427,7 +427,7 @@ export default function SocialCampaignPage() {
           {campaigns.map((c) => {
             const isEnded = !!c.endDate && new Date(c.endDate) < new Date();
             return (
-              <div key={c.id} className={`bg-white dark:bg-gray-900 rounded-2xl border p-5 shadow-sm transition-all ${c.isActive && !isEnded ? "border-gray-200 dark:border-gray-800" : "border-gray-100 dark:border-gray-900 opacity-60"}`}>
+              <div key={c.id} className={`bg-white dark:bg-gray-900 rounded-xl border p-5 shadow-sm transition-all ${c.isActive && !isEnded ? "border-gray-200 dark:border-gray-800" : "border-gray-100 dark:border-gray-900 opacity-60"}`}>
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap mb-1">
@@ -583,11 +583,11 @@ export default function SocialCampaignPage() {
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-800">
                     <tr>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">{t.crm.social.colCampaign}</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">{t.crm.social.colContent}</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-48">{t.crm.social.colPlatforms}</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-32">{t.crm.social.colFreq}</th>
-                      <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-32">{t.crm.social.colDate}</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 ">{t.crm.social.colCampaign}</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 ">{t.crm.social.colContent}</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 w-48">{t.crm.social.colPlatforms}</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 w-32">{t.crm.social.colFreq}</th>
+                      <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 w-32">{t.crm.social.colDate}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -604,8 +604,8 @@ export default function SocialCampaignPage() {
                         <td className="px-4 py-4">
                           <div className="flex flex-wrap gap-1">
                             {h.platforms.map((p: string) => p === "FACEBOOK" ? 
-                              <span key={p} className="badge bg-blue-50 text-blue-600 dark:bg-blue-900/30 text-[10px]"><Facebook size={10} className="mr-1 inline" />Facebook</span> :
-                              <span key={p} className="badge bg-pink-50 text-pink-600 dark:bg-pink-900/30 text-[10px]"><Instagram size={10} className="mr-1 inline" />Instagram</span>
+                              <span key={p} className="badge bg-blue-50 text-blue-600 dark:bg-blue-900/30 text-xs"><Facebook size={10} className="mr-1 inline" />Facebook</span> :
+                              <span key={p} className="badge bg-pink-50 text-pink-600 dark:bg-pink-900/30 text-xs"><Instagram size={10} className="mr-1 inline" />Instagram</span>
                             )}
                           </div>
                         </td>
@@ -626,7 +626,7 @@ export default function SocialCampaignPage() {
 
       {/* ── FORM VIEW ──────────────────────────────────────────────────────── */}
       {view === "form" && (
-        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-6 shadow-sm space-y-6">
+        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6 shadow-sm space-y-6">
 
           {/* Back */}
           <button onClick={() => { resetForm(); setView("list"); }}
@@ -634,7 +634,7 @@ export default function SocialCampaignPage() {
             {t.crm.social.formBack}
           </button>
 
-          <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
             {editId ? t.crm.social.formEditTitle : t.crm.social.formNewTitle}
           </h2>
 
@@ -652,7 +652,7 @@ export default function SocialCampaignPage() {
             </label>
             <div className="flex gap-3">
               <button type="button" onClick={() => togglePlatform("FACEBOOK")}
-                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-medium transition-all ${formPlatforms.includes("FACEBOOK") ? "border-primary bg-primary/10 dark:bg-primary/20 text-primary" : "border-gray-200 dark:border-gray-700 text-gray-500"}`}>
+                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-medium transition-all ${formPlatforms.includes("FACEBOOK") ? "border-primary bg-gray-100 dark:bg-gray-800 text-primary" : "border-gray-200 dark:border-gray-700 text-gray-500"}`}>
                 <Facebook size={16} /> Facebook
                 {formPlatforms.includes("FACEBOOK") && <Check size={14} />}
               </button>
@@ -695,7 +695,7 @@ export default function SocialCampaignPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-64 overflow-y-auto pr-1">
                 {products.map(p => (
                   <button key={p.id} type="button" onClick={() => toggleProduct(p.id)}
-                    className={`flex items-center gap-3 text-left p-3 rounded-xl border-2 transition-all ${formProductIds.includes(p.id) ? "border-primary bg-primary/10 dark:bg-primary/20" : "border-gray-200 dark:border-gray-700 hover:border-gray-300"}`}>
+                    className={`flex items-center gap-3 text-left p-3 rounded-xl border-2 transition-all ${formProductIds.includes(p.id) ? "border-primary bg-gray-100 dark:bg-gray-800" : "border-gray-200 dark:border-gray-700 hover:border-gray-300"}`}>
                     {p.images?.[0] && (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={p.images[0]} alt={p.name} className="w-10 h-10 rounded-lg object-cover shrink-0" />
@@ -743,17 +743,17 @@ export default function SocialCampaignPage() {
                         onClick={() => setFormSelectedImageUrl(item.url)}
                         className={`group relative aspect-square rounded-xl overflow-hidden border-2 transition-all cursor-pointer ${
                           isSelected
-                            ? "border-primary ring-2 ring-primary/40 shadow-md scale-[1.02]"
+                            ? "border-primary ring-2 ring-primary/40 scale-[1.02]"
                             : "border-gray-200 dark:border-gray-700 hover:border-gray-400 opacity-80 hover:opacity-100"
                         }`}
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={item.url} alt={item.productName} className="w-full h-full object-cover" />
                         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-1.5 text-left opacity-0 group-hover:opacity-100 transition-opacity">
-                          <p className="text-[10px] text-white font-medium truncate leading-tight">{item.productName}</p>
+                          <p className="text-xs text-white font-medium truncate leading-tight">{item.productName}</p>
                         </div>
                         {isSelected && (
-                          <div className="absolute top-1.5 right-1.5 w-6 h-6 bg-primary text-white rounded-full flex items-center justify-center shadow-md">
+                          <div className="absolute top-1.5 right-1.5 w-6 h-6 bg-primary text-white rounded-full flex items-center justify-center ">
                             <Check size={14} className="stroke-[3]" />
                           </div>
                         )}
@@ -773,7 +773,7 @@ export default function SocialCampaignPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {GOALS.map(g => (
                 <button key={g.id} type="button" onClick={() => setFormGoal(g.id)}
-                  className={`text-left px-4 py-3 rounded-xl border text-sm transition-all ${formGoal === g.id ? "border-primary bg-primary/10 dark:bg-primary/20 text-primary" : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300"}`}>
+                  className={`text-left px-4 py-3 rounded-xl border text-sm transition-all ${formGoal === g.id ? "border-primary bg-gray-100 dark:bg-gray-800 text-primary" : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300"}`}>
                   <div className="font-medium">{g.label}</div>
                   <div className="text-xs opacity-70 mt-0.5">{g.desc}</div>
                 </button>
@@ -789,7 +789,7 @@ export default function SocialCampaignPage() {
             <div className="flex flex-wrap gap-2">
               {TONES.map(to => (
                 <button key={to.id} type="button" onClick={() => setFormTone(to.id)}
-                  className={`px-4 py-2 rounded-xl text-sm font-medium border transition-all ${formTone === to.id ? "border-primary bg-primary/10 dark:bg-primary/20 text-primary" : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300"}`}>
+                  className={`px-4 py-2 rounded-xl text-sm font-medium border transition-all ${formTone === to.id ? "border-primary bg-gray-100 dark:bg-gray-800 text-primary" : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300"}`}>
                   {to.label}
                 </button>
               ))}
@@ -804,7 +804,7 @@ export default function SocialCampaignPage() {
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {FREQUENCIES.map(f => (
                 <button key={f.id} type="button" onClick={() => setFormFrequency(f.id)}
-                  className={`text-left px-3 py-3 rounded-xl border text-sm transition-all ${formFrequency === f.id ? "border-primary bg-primary/10 dark:bg-primary/20 text-primary" : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300"}`}>
+                  className={`text-left px-3 py-3 rounded-xl border text-sm transition-all ${formFrequency === f.id ? "border-primary bg-gray-100 dark:bg-gray-800 text-primary" : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300"}`}>
                   <div className="font-medium">{f.label}</div>
                   <div className="text-xs opacity-70 mt-0.5">{f.desc}</div>
                 </button>
@@ -848,7 +848,7 @@ export default function SocialCampaignPage() {
                   key={example}
                   type="button"
                   onClick={() => setFormContext(example)}
-                  className="text-xs px-3 py-1.5 rounded-full border border-primary/30 text-primary bg-primary/10 hover:bg-primary/20 transition-colors text-left"
+                  className="text-xs px-3 py-1.5 rounded-full border border-gray-200 dark:border-gray-800 text-primary bg-gray-100 dark:bg-gray-800 hover:bg-primary/20 transition-colors text-left"
                 >
                   {example.length > 50 ? example.slice(0, 50) + "…" : example}
                 </button>
@@ -865,9 +865,9 @@ export default function SocialCampaignPage() {
           </div>
 
           {/* WhatMe notice */}
-          <div className="p-3 bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-900/30 rounded-xl flex items-start gap-2.5">
-            <MessageSquare size={16} className="text-green-600 dark:text-green-400 mt-0.5 shrink-0" />
-            <p className="text-xs text-green-700 dark:text-green-400 leading-relaxed" dangerouslySetInnerHTML={{ __html: t.crm.social.formWhatsappNote.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
+          <div className="p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl flex items-start gap-2.5">
+            <MessageSquare size={16} className="text-primary mt-0.5 shrink-0" />
+            <p className="text-xs text-primary leading-relaxed" dangerouslySetInnerHTML={{ __html: t.crm.social.formWhatsappNote.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
           </div>
 
           {/* Save */}
@@ -881,20 +881,20 @@ export default function SocialCampaignPage() {
       {/* ── DELETE CONFIRMATION MODAL ────────────────────────────────────── */}
       {confirmDelete && (
         <div
-          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
+          className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
           onClick={() => { if (!deleting) setConfirmDelete(null); }}
           role="dialog"
           aria-modal="true"
           aria-labelledby="delete-campaign-title"
         >
           <div
-            className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-sm p-7 text-center border border-gray-100 dark:border-gray-800 animate-in zoom-in-95 duration-200"
+            className="bg-white dark:bg-gray-900 rounded-xl shadow-lg w-full max-w-sm p-7 text-center border border-gray-100 dark:border-gray-800 animate-in duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="mx-auto w-14 h-14 rounded-full flex items-center justify-center mb-5 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 ring-4 ring-red-50 dark:ring-red-900/10">
+            <div className="mx-auto w-14 h-14 rounded-full flex items-center justify-center mb-5 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 ring-2 ring-red-50 dark:ring-red-900/10">
               <Trash2 size={24} />
             </div>
-            <h3 id="delete-campaign-title" className="text-lg font-bold text-gray-900 dark:text-white mb-2">
+            <h3 id="delete-campaign-title" className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
               {t.crm.social.modalDeleteTitle}
             </h3>
             <p className="text-gray-500 dark:text-gray-400 text-sm mb-2 leading-relaxed">
@@ -910,14 +910,14 @@ export default function SocialCampaignPage() {
               <button
                 disabled={deleting}
                 onClick={() => setConfirmDelete(null)}
-                className="flex-1 px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {t.crm.social.cancel}
               </button>
               <button
                 disabled={deleting}
                 onClick={confirmDeleteCampaign}
-                className="flex-1 flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-red-600 rounded-xl hover:bg-red-700 transition-all shadow-lg shadow-red-600/20 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
+                className="flex-1 flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-red-600 rounded-xl hover:bg-red-700 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {deleting ? (
                   <>
@@ -939,11 +939,11 @@ export default function SocialCampaignPage() {
       {/* ── POST DETAIL MODAL ────────────────────────────────────────────── */}
       {selectedPost && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 "
           onClick={() => setSelectedPost(null)}
         >
           <div
-            className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] flex flex-col"
+            className="bg-white dark:bg-gray-900 rounded-xl shadow-lg w-full max-w-lg mx-4 max-h-[90vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -957,15 +957,15 @@ export default function SocialCampaignPage() {
                     <Sparkles size={18} className="text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-bold text-gray-900 dark:text-white text-lg leading-tight">
+                    <h3 className="font-semibold text-gray-900 dark:text-white text-lg leading-tight">
                       {selectedPost.campaign?.name || t.crm.social.deletedCampaign}
                     </h3>
                     <div className="flex flex-wrap gap-1.5 mt-1.5">
                       {selectedPost.platforms.map((p: string) => p === "FACEBOOK" ?
-                        <span key={p} className="badge bg-blue-50 text-blue-600 dark:bg-blue-900/30 text-[10px]"><Facebook size={10} className="mr-1 inline" />Facebook</span> :
-                        <span key={p} className="badge bg-pink-50 text-pink-600 dark:bg-pink-900/30 text-[10px]"><Instagram size={10} className="mr-1 inline" />Instagram</span>
+                        <span key={p} className="badge bg-blue-50 text-blue-600 dark:bg-blue-900/30 text-xs"><Facebook size={10} className="mr-1 inline" />Facebook</span> :
+                        <span key={p} className="badge bg-pink-50 text-pink-600 dark:bg-pink-900/30 text-xs"><Instagram size={10} className="mr-1 inline" />Instagram</span>
                       )}
-                      <span className="badge bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-[10px]">
+                      <span className="badge bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-xs">
                         {FREQ_LABELS[selectedPost.frequency] || selectedPost.frequency}
                       </span>
                     </div>
@@ -1023,7 +1023,7 @@ export default function SocialCampaignPage() {
                   <div className="flex flex-wrap gap-2">
                     {selectedPost.postUrls?.facebook?.postUrl && (
                       <a href={selectedPost.postUrls.facebook.postUrl} target="_blank" rel="noreferrer"
-                        className="flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:underline">
+                        className="flex items-center gap-1.5 text-xs font-medium text-primary hover:underline">
                         <Facebook size={13} /> {t.crm.social.viewOnFacebook}
                       </a>
                     )}
@@ -1054,7 +1054,7 @@ export default function SocialCampaignPage() {
 
       {/* Notification toast */}
       {notif && (
-        <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-xl text-sm font-medium text-white animate-in slide-in-from-bottom-3 duration-300 ${notif.ok ? "bg-green-600" : "bg-red-600"}`}>
+        <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-lg text-sm font-medium animate-in duration-300 ${notif.ok ? "bg-green-50 text-green-800 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
           {notif.ok ? <Check size={16} /> : <X size={16} />}
           {notif.msg}
           <button onClick={() => setNotif(null)} className="ml-2 opacity-70 hover:opacity-100"><X size={14} /></button>

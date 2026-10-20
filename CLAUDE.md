@@ -121,6 +121,8 @@ src/
         tenant-context/ ← POST: Contexto completo del tenant para el agente WhatsApp (products, FAQs, reviews, waConfig)
         calendar/       ← GET availability / POST create-event desde n8n
         whatsapp/sync   ← POST: Sincronizar mensajes de WhatsApp desde Evolution API
+        bot/            ← POST: Herramientas del agente WhatsApp (context, availability, book, my-appointments, cancel, reschedule)
+        reminders/run   ← POST: Envía recordatorios de cita vencidos (llamado cada 15 min por n8n, sin LLM)
       admin/pacientes   ← GET: Lista de PatientProfiles para el CRM (filtrada por tenantId)
       tenants/          ← API de gestión de tenants
       tenants/business/ ← GET/PUT perfil del negocio. Slug es read-only.
@@ -196,6 +198,8 @@ El corazón del sistema. Cada negocio es un Tenant con:
 - `isAssistantEnabled` → toggle del chatbot IA por tenant
 - `isTriageEnabled` → toggle para habilitar el módulo de triage/pacientes (default: false)
 - `aiCreditLimitUsd` → override opcional del tope mensual de créditos IA (null = usa el del plan)
+- `remindersEnabled` → activa los recordatorios de cita por WhatsApp (default: true)
+- `reminderOffsetsMinutes` → minutos antes de la cita en que se envía recordatorio (default: `[1440, 120]` = 24 h y 2 h)
 
 ### User
 - Pertenece a un único tenant
@@ -224,6 +228,8 @@ El corazón del sistema. Cada negocio es un Tenant con:
 - `status` (`AppointmentStatus`) → `PENDING`, `CONFIRMED`, `COMPLETED`, `CANCELLED`, `NO_SHOW`
 - `notes` → motivo de consulta o notas proporcionadas por el paciente
 - `internalNotes` → notas clínicas o de atención visibles solo para el profesional (ADMIN)
+- `customerPhone` → número de WhatsApp del cliente; identifica al paciente en el bot
+- `remindersSent` (`Int[]`) → offsets (minutos) ya enviados como recordatorio; reprogramar la cita lo reinicia a `[]`
 
 ### Order + OrderItem
 - Estados: `PENDING → PAID → SHIPPED → DELIVERED | CANCELLED`
@@ -402,6 +408,45 @@ Las campañas sociales se ejecutan automáticamente en n8n bajo una estricta **a
 
 ---
 
+## Bot de WhatsApp con IA (n8n)
+
+Flujo: `local-utils/n8n-chat-workflow-v2.json` ("NewAigent - WhatsApp Bot (Chat)"). Documentación detallada: `local-utils/N8N_WHATSAPP_BOT_DOCUMENTATION.md`.
+
+- **Entrada**: Evolution API → webhook del workflow (`POST /:tenantSlug`) → guardas (`messages.upsert`, `fromMe = false`, texto y teléfono presentes).
+- **Tenant**: se resuelve desde el nombre de instancia de Evolution (`resolveBotTenant` en `src/lib/bot.ts`, busca `waInstanceName` o `waInstanceId`). Nunca se toma del modelo.
+- **Identidad del cliente**: su número de WhatsApp. `normalizeCustomerPhone` prefiere `remoteJidAlt`; un `@lid` sin alternativo se rechaza.
+- **Agente**: n8n Agent v2.2 con OpenRouter (cascada de modelos gratuitos, credencial de n8n), memoria Postgres `whatsapp_bot_memory` (ventana de 12 mensajes, clave `instancia:teléfono`) y 5 herramientas.
+- **Herramientas → endpoints internos** (`x-internal-key`):
+
+  | Herramienta | Endpoint |
+  |---|---|
+  | `check_availability` | `POST /api/internal/bot/availability` |
+  | `book_appointment` | `POST /api/internal/bot/book` |
+  | `list_my_appointments` | `POST /api/internal/bot/my-appointments` |
+  | `cancel_appointment` | `POST /api/internal/bot/cancel` |
+  | `reschedule_appointment` | `POST /api/internal/bot/reschedule` |
+
+  El contexto (servicios, precios, FAQs, `waContext`) llega con `POST /api/internal/bot/context`.
+- **Reglas de negocio**: los precios se pueden citar, nunca cambiar ni descontar. Citas entre 08:00 y 20:00 (-06:00), con duración por servicio. El conflicto revisa citas nativas y Google Calendar; si Google falla, solo se usa la base de datos.
+- **Privacidad**: el system prompt prohíbe mencionar formatos técnicos, IDs, herramientas, errores, infraestructura y datos de otros clientes. Es una guía para el modelo, no una garantía. El nodo `Clean Reply` quita saludos repetidos y es el único filtro de salida.
+- **Reporte de tokens**: `Collect Token Usage` suma el uso de todas las llamadas del agente y `Report Token Usage` lo envía a `POST /api/internal/tokens/report`, que lo cobra al tenant a tarifa retail. Si el proveedor no reporta uso, se estima (2,000 tokens de prompt por llamada más longitud de respuesta / 4).
+- **Reglas de n8n para este flujo**:
+  - En nodos Code y herramientas usar `$('Nodo').first().json`, no `$('Nodo').item`. Con `.item` falla con "No data found from `main` input" y la herramienta envía la instancia vacía.
+  - `$env` no está disponible en esta instancia de n8n. Los secretos van dentro del workflow.
+  - No activar "Require Specific Output Format" ni conectar un Output Parser al agente. El modelo gratuito no sigue ese esquema.
+
+---
+
+## Recordatorios de Citas (workflow separado, sin LLM)
+
+- **Workflow**: `local-utils/n8n-reminders-workflow.json`. Un Schedule Trigger cada 15 minutos llama a `POST /api/internal/reminders/run`.
+- **Configuración por tenant**: `remindersEnabled` y `reminderOffsetsMinutes` (default `[1440, 120]`).
+- **Regla de envío**: por cada cita con offsets ya alcanzados y no enviados, se manda un solo mensaje (el offset más cercano) y se marcan todos los alcanzados en `remindersSent`. Si el envío falla, no se marca y se reintenta en la siguiente corrida.
+- **Canal**: `sendWhatsAppMessage` (Evolution). Con la API oficial de Meta, un recordatorio fuera de la ventana de 24 h necesitará una plantilla aprobada.
+- **Pendiente**: aplicar la migración del schema (`npm run db:push`) y construir la pantalla del CRM para configurar los recordatorios.
+
+---
+
 ## Estándares de Vocabulario y White-Labeling
 
 Para mantener la calidad y el valor comercial de la plataforma, aplican las siguientes equivalencias obligatorias en interfaces de usuario y mensajes de error:
@@ -547,6 +592,10 @@ Luego acceder a `http://doctor.localhost:3000` para ver el tenant "doctor".
 - OXXO Pay requiere polling de webhooks de Conekta para confirmar pago
 
 ### Pendiente
+- **Migración del schema sin aplicar**: `remindersEnabled`, `reminderOffsetsMinutes` y `remindersSent` requieren `npm run db:push`. Confirmar antes de aplicar, porque el schema tiene otros cambios sin migrar.
+- **Secretos hardcodeados en workflows de n8n** (clave interna, API key de Evolution, clave de OpenRouter en la campaña social). Mover a credenciales cuando n8n lo permita, y rotarlos.
+- **Workflow social**: `Notify Error` usa `$env.WEBHOOK_URL`, que no está disponible en n8n. Si una publicación falla después de generar el texto, sus tokens no se reportan.
+- **Pantalla de recordatorios en el CRM**: no construida.
 - Row Level Security en Supabase (actualmente solo filtrado por app)
 - Rate limiting en `/api/chat`
 - Trial expiry gate: `TrialBanner` y `TrialExpiredGate` existen pero el gate de expiración del trial en el layout de admin aún no bloquea completamente todas las rutas
@@ -560,6 +609,8 @@ Luego acceder a `http://doctor.localhost:3000` para ver el tenant "doctor".
 - Permite al admin editar: nombre del negocio, logo (Cloudinary upload), número de WhatsApp, descripción del negocio (`businessInfo`).
 - **El `slug` (subdominio) es read-only y NUNCA debe ser editable** — identificador único del tenant, modificarlo rompería las URLs.
 - El formulario muestra los valores actuales como placeholder y etiqueta "Actual" para cada campo.
+- **El número de WhatsApp es obligatorio** y se guarda como `+<código de país><dígitos>` (8 a 15 dígitos). Lo usan WhatsApp, los recordatorios y el botón de la tienda. El formulario tiene un selector de código de país (predeterminado +52) y la API lo valida con `^\+\d{8,15}$`.
+- Helpers de teléfono en `src/lib/phone.ts` (`buildFullPhone`, `splitFullPhone`, `PHONE_COUNTRIES`). Úsalos en cualquier formulario nuevo que pida teléfono; no escribas otro parser.
 
 ---
 
@@ -576,6 +627,12 @@ Luego acceder a `http://doctor.localhost:3000` para ver el tenant "doctor".
   - Correcto: `<AlertTriangle size={16} className="text-amber-500" />`
   - Incorrecto: `⚠️ Advertencia`
 - Los botones de solo icono deben incluir `aria-label` para accesibilidad.
+
+### Estilo Minimalista en Pantallas del Tenant
+- Las pantallas del tenant (CRM, storefront, login/registro) siguen un estilo plano y neutral, tipo Claude o ChatGPT. Especificación en `.claude/skills/minimal-ui/references/style-spec.md`.
+- Sin gradientes, blur, sombras de color, escala al pasar el cursor ni etiquetas en mayúsculas. Los colores y la fuente del tenant se conservan.
+- Para auditar o reescribir estilos usa la skill `minimal-ui` (scripts en `local-utils/minimal-ui/`).
+- Las páginas de la marca oscura NewAigent (landing, legales, facturación, 404) no entran en este estilo.
 
 ### Seguir el Estilo del Tenant (Tema en Base de Datos)
 - Toda nueva página o componente del **storefront público** (`(public)/`) y del **CRM** (`admin/`) debe respetar el tema visual del tenant almacenado en la tabla `ThemeConfig` (`primaryColor`, `secondaryColor`, `accentColor`, `fontFamily`).
@@ -697,4 +754,9 @@ Luego acceder a `http://doctor.localhost:3000` para ver el tenant "doctor".
 - **Cierre Inmediato del Modal (`WhatsAppModal`)**:
   - Polling a 2 segundos en `/admin/apps`. Al detectar `status === "connected"`, muestra la confirmación visual de éxito y cierra el modal automáticamente en 1.2 segundos.
   - Al abrir el modal, realiza una verificación inmediata para auto-cerrarse si la sesión ya estaba vinculada.
+
+### Estado de la migración a WhatsApp Cloud API (Meta)
+
+- **Hoy**: todo el envío y la recepción pasan por Evolution API. `src/lib/whatsapp.ts` no tiene todavía soporte para la API oficial.
+- **Pendiente**: crear la app de Meta y la cuenta de WhatsApp Business, obtener el token de acceso permanente y el ID del número por tenant (se guardaría en `ConnectedApp.waInstanceId`), y aprobar las plantillas de recordatorio. Después, cambiar el envío y el webhook del workflow al formato de Meta.
 

@@ -32,6 +32,8 @@ Before marking a task `done`:
 - [ ] New components are named exports, under 500 lines.
 - [ ] Derived booleans are computed inline, not stored in state.
 - [ ] Hover/focus states implemented per Designer spec.
+- [ ] Minimal UI: uses the shared classes (`card`, `btn-primary`, `input`, `badge`), with no gradients, blur, colored shadows, hover scale, or uppercase labels (`.claude/skills/minimal-ui/references/style-spec.md`).
+- [ ] Tenant colors come from tokens only. `node local-utils/minimal-ui/audit.js` reports no auto-rule matches in the files you touched.
 - [ ] **No emoji characters** in JSX — use `lucide-react` icons (`import { IconName } from 'lucide-react'`).
 - [ ] Any test script, diagnostic utility, or non-production tool is placed in `local-utils/` (never in root, `scratch/`, or `src/`).
 

@@ -10,7 +10,7 @@ export default function ProductGallery({ name, images }: { name: string; images:
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="relative h-80 md:h-96 bg-gray-100 rounded-2xl overflow-hidden">
+      <div className="relative h-80 md:h-96 bg-gray-100 rounded-xl overflow-hidden">
         {main ? (
           <Image src={main} alt={name} fill className="object-cover" />
         ) : (

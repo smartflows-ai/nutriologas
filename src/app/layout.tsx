@@ -5,9 +5,11 @@ import { prisma } from "@/lib/db";
 import { getTenantSlug } from "@/lib/tenant";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { LanguageProvider } from "@/i18n";
+import { getTranslationServer } from "@/i18n/server";
 import { headers } from "next/headers";
 import { Lang } from "@/i18n/types";
 import { Toaster } from "sonner";
+import { themeColorVars } from "@/lib/theme-vars";
 
 // El tenant se resuelve en v1 con el slug por defecto.
 // En v2 se resolverá desde el subdominio via middleware.
@@ -46,15 +48,16 @@ export async function generateMetadata(): Promise<Metadata> {
   const slug = getTenantSlug();
   const isMarketing = !slug;
 
+  const t = getTranslationServer();
   const siteTitle = isMarketing ? "NewAigent" : name;
   const siteDescription = isMarketing
-    ? "NewAigent gives your business a personal army of AI agents — automating social media, sales, appointments, and more. Start free today."
-    : `Bienvenido a ${name}`;
+    ? t.seo.marketingDescription
+    : t.seo.tenantWelcome.replace("{name}", name);
 
   return {
     title: siteTitle,
     description: siteDescription,
-    keywords: ["AI agents", "business automation", "social media AI", "WhatsApp AI", "multi-tenant SaaS"],
+    keywords: t.seo.keywords,
     icons: {
       icon: [
         { url: '/favicon/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
@@ -87,9 +90,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       lang={initialLang}
       suppressHydrationWarning
       style={{
-        "--color-primary": theme.primaryColor,
-        "--color-secondary": theme.secondaryColor,
-        "--color-accent": theme.accentColor,
+        ...themeColorVars(theme),
         "--font-family-base": fFamily,
       } as React.CSSProperties}
     >

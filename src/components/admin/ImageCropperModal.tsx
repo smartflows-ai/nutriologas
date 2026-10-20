@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Cropper from "react-easy-crop";
 import type { Area } from "@/lib/image/crop";
 import { cropToBlob } from "@/lib/image/crop";
+import { useTranslation } from "@/i18n";
 
 export default function ImageCropperModal(props: {
   file: File;
@@ -13,6 +14,7 @@ export default function ImageCropperModal(props: {
   onConfirm: (croppedFile: File) => void;
 }) {
   const { file, title, aspect, onCancel, onConfirm } = props;
+  const { t } = useTranslation();
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
@@ -50,7 +52,7 @@ export default function ImageCropperModal(props: {
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden">
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg w-full max-w-2xl overflow-hidden">
         <div className="p-5 border-b flex items-center justify-between">
           <h3 className="font-semibold text-gray-900 dark:text-white">{title}</h3>
           <button type="button" onClick={onCancel} className="text-sm text-gray-500 hover:text-gray-900 dark:text-white">
@@ -71,7 +73,7 @@ export default function ImageCropperModal(props: {
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm">
-              Cargando imagen...
+              {t.adminUi.cropLoading}
             </div>
           )}
         </div>
@@ -93,7 +95,7 @@ export default function ImageCropperModal(props: {
             Cancelar
           </button>
           <button type="button" onClick={confirm} disabled={saving} className="btn-primary">
-            {saving ? "Guardando..." : "Usar imagen"}
+            {saving ? t.adminUi.cropSaving : t.adminUi.cropUse}
           </button>
         </div>
       </div>

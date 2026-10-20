@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { Star, LogIn } from "lucide-react";
 import Link from "next/link";
-import { formatDate } from "@/lib/utils";
+import { formatDate, localeFor, fill } from "@/lib/utils";
+import { useTranslation } from "@/i18n";
 import ReviewForm from "./ReviewForm";
 
 interface ReviewUser {
@@ -26,6 +27,8 @@ interface Props {
 }
 
 export default function ReviewSection({ productId, initialReviews }: Props) {
+  const { t, lang } = useTranslation();
+  const locale = localeFor(lang);
   const { data: session, status } = useSession();
   const [reviews, setReviews] = useState<Review[]>(initialReviews);
   const [hasReviewed, setHasReviewed] = useState(false);
@@ -63,8 +66,8 @@ export default function ReviewSection({ productId, initialReviews }: Props) {
     <section className="mt-14">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-          Reseñas ({reviews.length})
+        <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">
+          {fill(t.productUi.reviewsTitle, { count: reviews.length })}
         </h2>
         {avgRating && (
           <div className="flex items-center gap-2">
@@ -92,44 +95,40 @@ export default function ReviewSection({ productId, initialReviews }: Props) {
       {status === "loading" ? null : isCustomer && !hasReviewed ? (
         <ReviewForm productId={productId} onSuccess={handleReviewSuccess} />
       ) : isCustomer && hasReviewed ? (
-        <div className="card mb-6 bg-green-50 border border-green-100 text-green-700 text-sm flex items-center gap-2">
-          <Star size={16} className="fill-green-500 text-green-500 flex-shrink-0" />
-          Ya dejaste una reseña para este producto. ¡Gracias por tu opinión!
+        <div className="card mb-6 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-sm flex items-center gap-2">
+          <Star size={16} className="fill-emerald-500 text-emerald-500 flex-shrink-0" />
+          {t.productUi.alreadyReviewed}
         </div>
       ) : !isAdmin && status === "unauthenticated" ? (
         <div className="card mb-6 flex items-center justify-between gap-4 flex-wrap">
-          <p className="text-gray-600 dark:text-gray-400 text-sm">
-            ¿Ya probaste este producto? Inicia sesión para dejar tu reseña.
-          </p>
+          <p className="text-gray-600 dark:text-gray-400 text-sm">{t.productUi.loginToReview}</p>
           <Link
             href="/login"
             className="btn-primary flex items-center gap-2 text-sm px-4 py-2 whitespace-nowrap"
           >
-            <LogIn size={16} /> Iniciar sesión
+            <LogIn size={16} /> {t.productUi.loginCta}
           </Link>
         </div>
       ) : null}
 
       {/* Reviews list */}
       {reviews.length === 0 ? (
-        <p className="text-gray-400 text-sm py-4">
-          Aún no hay reseñas para este producto. ¡Sé el primero en opinar!
-        </p>
+        <p className="text-gray-400 text-sm py-4">{t.productUi.reviewsEmpty}</p>
       ) : (
         <div className="space-y-4">
           {reviews.map((review) => (
             <div key={review.id} className="card">
               <div className="flex items-center gap-3 mb-2">
                 {/* Avatar */}
-                <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary text-sm font-bold flex-shrink-0">
+                <div className="w-9 h-9 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-primary text-sm font-semibold flex-shrink-0">
                   {review.user.name?.charAt(0).toUpperCase() ?? "U"}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm text-gray-900 dark:text-white truncate">
-                    {review.user.name ?? "Usuario"}
+                    {review.user.name ?? t.productUi.anonymous}
                   </p>
                   <p className="text-xs text-gray-400">
-                    {formatDate(review.createdAt)}
+                    {formatDate(review.createdAt, locale)}
                   </p>
                 </div>
                 {/* Stars */}

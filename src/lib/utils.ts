@@ -6,12 +6,24 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatPrice(amount: number, currency = "MXN") {
-  return new Intl.NumberFormat("es-MX", { style: "currency", currency }).format(amount);
+export type AppLocale = "es-MX" | "en-US";
+
+// Maps the UI language to the Intl locale used for numbers and dates.
+export function localeFor(lang: string): AppLocale {
+  return lang === "en" ? "en-US" : "es-MX";
 }
 
-export function formatDate(date: Date | string) {
-  return new Intl.DateTimeFormat("es-MX", { dateStyle: "medium" }).format(new Date(date));
+// Fills {placeholders} in a translated string: fill(t.booking.successTitle, { name })
+export function fill(template: string, vars: Record<string, string | number>) {
+  return template.replace(/\{(\w+)\}/g, (match, key) => (key in vars ? String(vars[key]) : match));
+}
+
+export function formatPrice(amount: number, locale: string = "es-MX", currency = "MXN") {
+  return new Intl.NumberFormat(locale, { style: "currency", currency }).format(amount);
+}
+
+export function formatDate(date: Date | string, locale: string = "es-MX") {
+  return new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(new Date(date));
 }
 
 export function slugify(text: string) {

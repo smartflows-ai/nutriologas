@@ -8,7 +8,7 @@ import { CheckCircle, Clock, Truck, Package, XCircle } from "lucide-react";
 import PedidoStatusPolling from "./PedidoStatusPolling";
 import { PrintButton } from "@/components/order/PrintButton";
 import { DownloadTicketButton } from "@/components/order/DownloadTicketButton";
-import { getTranslationServer } from "@/i18n/server";
+import { getTranslationServer, getLocaleServer } from "@/i18n/server";
 import { Translations } from "@/i18n/types";
 
 const getStatusConfig = (t: Translations): Record<string, { label: string; class: string; icon: typeof CheckCircle }> => ({
@@ -45,6 +45,7 @@ export default async function PedidoPage({
   const isJustPaid = success === "true";
   const isPrintMode = print === "true";
   const t = getTranslationServer();
+  const locale = getLocaleServer();
 
   const order = await prisma.order.findFirst({
     where: { id, userId: session.user.id },
@@ -120,10 +121,10 @@ export default async function PedidoPage({
         className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-8"
       >
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-2xl font-semibold text-gray-900">
             {t.storefront.orders.orderHash}{order.id.slice(0, 8)}
           </h1>
-          <p className="text-gray-500 text-sm">{formatDate(order.createdAt)}</p>
+          <p className="text-gray-500 text-sm">{formatDate(order.createdAt, locale)}</p>
         </div>
         {!isPrintMode && (
           <PedidoStatusPolling
@@ -157,19 +158,19 @@ export default async function PedidoPage({
                   {item.product.name}
                 </p>
                 <p className="text-xs text-gray-400">
-                  {formatPrice(item.unitPrice)} &times; {item.quantity}
+                  {formatPrice(item.unitPrice, locale)} &times; {item.quantity}
                 </p>
               </div>
               <span className="font-semibold text-gray-900 text-sm flex-shrink-0">
-                {formatPrice(item.unitPrice * item.quantity)}
+                {formatPrice(item.unitPrice * item.quantity, locale)}
               </span>
             </div>
           ))}
         </div>
         <div className="border-t border-gray-200 mt-2 pt-4 flex justify-between">
           <span className="font-semibold text-gray-900">{t.storefront.cart.total}</span>
-          <span className="font-bold text-primary text-lg">
-            {formatPrice(order.total)}
+          <span className="font-semibold text-primary text-lg">
+            {formatPrice(order.total, locale)}
           </span>
         </div>
       </div>

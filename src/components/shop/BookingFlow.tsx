@@ -1,23 +1,21 @@
 "use client";
 // src/components/shop/BookingFlow.tsx
 import { useState, useEffect } from "react";
-import { 
-  Calendar as CalendarIcon, 
-  Clock, 
-  Check, 
-  ArrowRight, 
-  ArrowLeft, 
-  User, 
-  Mail, 
-  Phone, 
-  FileText, 
-  CheckCircle2, 
-  MessageCircle, 
-  Sparkles,
+import {
+  Clock,
+  ArrowRight,
+  User,
+  Mail,
+  Phone,
+  FileText,
+  CheckCircle2,
+  MessageCircle,
   ShieldCheck,
   AlertCircle
 } from "lucide-react";
-import { formatPrice } from "@/lib/utils";
+import { formatPrice, localeFor, fill } from "@/lib/utils";
+import { buildFullPhone, DEFAULT_DIAL_CODE, PHONE_COUNTRIES } from "@/lib/phone";
+import { useTranslation } from "@/i18n";
 import Link from "next/link";
 
 interface Props {
@@ -39,19 +37,22 @@ interface Props {
 }
 
 export default function BookingFlow({ product, tenant }: Props) {
-  // Generar próximos 14 días disponibles (excluyendo domingos)
+  const { t, lang } = useTranslation();
+  const locale = localeFor(lang);
+
+  // Next 21 days, excluding Sundays
   const availableDays = (() => {
     const days = [];
     const today = new Date();
     for (let i = 0; i < 21; i++) {
       const d = new Date(today);
       d.setDate(today.getDate() + i);
-      if (d.getDay() !== 0) { // Excluir domingo por default
+      if (d.getDay() !== 0) {
         days.push({
           dateStr: d.toISOString().split("T")[0],
-          dayName: d.toLocaleDateString("es-MX", { weekday: "short" }),
+          dayName: d.toLocaleDateString(locale, { weekday: "short" }),
           dayNum: d.getDate(),
-          monthName: d.toLocaleDateString("es-MX", { month: "short" }),
+          monthName: d.toLocaleDateString(locale, { month: "short" }),
         });
       }
     }
@@ -63,18 +64,19 @@ export default function BookingFlow({ product, tenant }: Props) {
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<string>("");
 
-  // Step 2: Patient Form
+  // Step 3: Patient form
   const [name, setName] = useState("");
+  const [dialCode, setDialCode] = useState(DEFAULT_DIAL_CODE);
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Step 3: Success Confirmation
+  // Success confirmation
   const [confirmedAppointment, setConfirmedAppointment] = useState<any | null>(null);
 
-  // Cargar slots disponibles cuando cambia la fecha
+  // Load available slots when the date changes
   useEffect(() => {
     if (!selectedDate) return;
     async function loadAvailability() {
@@ -96,11 +98,11 @@ export default function BookingFlow({ product, tenant }: Props) {
   const handleBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedDate || !selectedSlot) {
-      setError("Por favor selecciona una fecha y horario para tu cita.");
+      setError(t.booking.errorSelectDateTime);
       return;
     }
     if (!name || !phone || !email) {
-      setError("Por favor completa tu nombre, teléfono y correo electrónico.");
+      setError(t.booking.errorRequiredFields);
       return;
     }
 
@@ -116,7 +118,7 @@ export default function BookingFlow({ product, tenant }: Props) {
           productId: product.id,
           appointmentDate: appointmentDateTime,
           clientName: name,
-          clientPhone: phone,
+          clientPhone: buildFullPhone(dialCode, phone),
           clientEmail: email,
           notes: notes || undefined,
         }),
@@ -124,65 +126,77 @@ export default function BookingFlow({ product, tenant }: Props) {
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || "No se pudo agendar la cita.");
+        throw new Error(data.error || t.booking.errorSchedule);
       }
 
       setConfirmedAppointment(data);
     } catch (e: any) {
-      setError(e.message || "Error al confirmar la cita");
+      setError(e.message || t.booking.errorConfirm);
     } finally {
       setSubmitting(false);
     }
   };
 
-  // WhatsApp click handler
+  // WhatsApp confirmation link, prefilled with the booking details
   const getWhatsAppBookingLink = () => {
     if (!tenant.whatsappNumber) return "#";
     const cleanPhone = tenant.whatsappNumber.replace(/[^0-9]/g, "");
     const msg = encodeURIComponent(
-      `Hola ${tenant.name}, acabo de agendar una cita para "${product.name}" el día ${selectedDate} a las ${selectedSlot} hrs a nombre de ${name}. ¿Me podrían confirmar? Muchas gracias.`
+      fill(t.booking.whatsappMessage, {
+        business: tenant.name,
+        service: product.name,
+        date: selectedDate,
+        time: selectedSlot,
+        name,
+      })
     );
     return `https://wa.me/${cleanPhone}?text=${msg}`;
   };
 
-  // ── PANTALLA DE ÉXITO ───────────────────────────────────────
+  // ── Success screen ───────────────────────────────────────────
   if (confirmedAppointment) {
+    // The service name is bolded inside the sentence, so split the translated text around {service}
+    const [successBefore, successAfter = ""] = t.booking.successDesc.split("{service}");
     return (
       <div className="max-w-xl mx-auto py-12 px-4 animate-fade-in text-center">
-        <div className="w-20 h-20 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-emerald-500/10">
+        <div className="w-20 h-20 bg-gray-100 dark:bg-gray-800 text-primary rounded-xl flex items-center justify-center mx-auto mb-6 ">
           <CheckCircle2 size={44} />
         </div>
 
-        <span className="px-3.5 py-1 rounded-full text-xs font-bold bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-          Cita Registrada con Éxito
+        <span className="px-3.5 py-1 rounded-full text-xs font-semibold bg-gray-100 dark:bg-gray-800 text-primary border border-gray-200 dark:border-gray-800">
+          {t.booking.successBadge}
         </span>
 
         <h2 className="text-2xl md:text-3xl font-extrabold text-gray-900 dark:text-white mt-3">
-          ¡Nos vemos pronto, {name.split(" ")[0]}!
+          {fill(t.booking.successTitle, { name: name.split(" ")[0] })}
         </h2>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 max-w-md mx-auto">
-          Hemos recibido tu solicitud de cita para <strong className="text-gray-800 dark:text-gray-200">{product.name}</strong>. En breve recibirás confirmación.
+          {successBefore}
+          <strong className="text-gray-800 dark:text-gray-200">{product.name}</strong>
+          {successAfter}
         </p>
 
-        {/* Resumen de la cita */}
-        <div className="card p-6 my-8 text-left space-y-4 border border-violet-100 dark:border-violet-900/30 bg-violet-50/30 dark:bg-violet-950/20">
+        {/* Appointment summary */}
+        <div className="card p-6 my-8 text-left space-y-4 border border-primary/10 dark:border-primary/30 bg-gray-100 dark:bg-gray-800">
           <div className="flex justify-between items-center pb-3 border-b border-gray-100 dark:border-gray-800">
-            <span className="text-xs text-gray-500 uppercase font-bold tracking-wider">Servicio</span>
-            <span className="text-sm font-bold text-gray-900 dark:text-white">{product.name}</span>
+            <span className="text-xs text-gray-500 font-semibold ">{t.booking.summaryService}</span>
+            <span className="text-sm font-semibold text-gray-900 dark:text-white">{product.name}</span>
           </div>
           <div className="flex justify-between items-center pb-3 border-b border-gray-100 dark:border-gray-800">
-            <span className="text-xs text-gray-500 uppercase font-bold tracking-wider">Fecha y Hora</span>
-            <span className="text-sm font-bold text-violet-600 dark:text-violet-400">
-              {selectedDate} a las {selectedSlot} hrs
+            <span className="text-xs text-gray-500 font-semibold ">{t.booking.summaryDateTime}</span>
+            <span className="text-sm font-semibold text-primary">
+              {fill(t.booking.dateTimeValue, { date: selectedDate, time: selectedSlot })}
             </span>
           </div>
           <div className="flex justify-between items-center pb-3 border-b border-gray-100 dark:border-gray-800">
-            <span className="text-xs text-gray-500 uppercase font-bold tracking-wider">Duración</span>
-            <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">{product.durationMinutes || 30} minutos</span>
+            <span className="text-xs text-gray-500 font-semibold ">{t.booking.summaryDuration}</span>
+            <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+              {fill(t.booking.durationValue, { minutes: product.durationMinutes || 30 })}
+            </span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-xs text-gray-500 uppercase font-bold tracking-wider">Inversión</span>
-            <span className="text-base font-black text-gray-900 dark:text-white">{formatPrice(product.price)}</span>
+            <span className="text-xs text-gray-500 font-semibold ">{t.booking.summaryPrice}</span>
+            <span className="text-base font-semibold text-gray-900 dark:text-white">{formatPrice(product.price, locale)}</span>
           </div>
         </div>
 
@@ -192,35 +206,35 @@ export default function BookingFlow({ product, tenant }: Props) {
             href={getWhatsAppBookingLink()}
             target="_blank"
             rel="noopener noreferrer"
-            className="w-full py-4 px-6 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 hover:scale-[1.01] active:scale-[0.99] transition-all mb-4"
+            className="w-full py-4 px-6 rounded-xl bg-primary hover:bg-secondary text-white font-semibold text-sm flex items-center justify-center gap-2 transition-all mb-4"
           >
             <MessageCircle size={20} />
-            Confirmar de inmediato por WhatsApp
+            {t.booking.whatsappConfirm}
           </a>
         )}
 
         <div className="flex items-center justify-center gap-4 text-xs font-semibold text-gray-500 mt-6">
-          <Link href="/mis-citas" className="hover:text-violet-600 underline">
-            Ver en Mis Citas
+          <Link href="/mis-citas" className="hover:text-secondary underline">
+            {t.booking.viewMyAppointments}
           </Link>
           <span>•</span>
-          <Link href="/" className="hover:text-violet-600 underline">
-            Volver al inicio
+          <Link href="/" className="hover:text-secondary underline">
+            {t.booking.backHome}
           </Link>
         </div>
       </div>
     );
   }
 
-  // ── FORMULARIO DE AGENDAMIENTO ──────────────────────────────
+  // ── Booking form ─────────────────────────────────────────────
   return (
     <div className="max-w-4xl mx-auto py-8 px-4">
-      {/* Header Info */}
+      {/* Header info */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 pb-8 border-b border-gray-100 dark:border-gray-800 mb-8">
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <span className="px-3 py-1 rounded-full text-xs font-bold bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300 flex items-center gap-1.5">
-              <Clock size={13} /> {product.durationMinutes || 30} minutos de sesión
+            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 dark:bg-gray-800 text-primary dark:bg-gray-800 flex items-center gap-1.5">
+              <Clock size={13} /> {fill(t.booking.sessionDuration, { minutes: product.durationMinutes || 30 })}
             </span>
             {product.category && (
               <span className="text-xs text-gray-400 font-medium">
@@ -232,22 +246,22 @@ export default function BookingFlow({ product, tenant }: Props) {
             {product.name}
           </h1>
           <p className="text-gray-500 dark:text-gray-400 text-sm mt-1 max-w-xl">
-            {product.description || "Agenda tu consulta médica en línea con confirmación instantánea."}
+            {product.description || t.booking.defaultDescription}
           </p>
         </div>
 
-        <div className="text-left md:text-right flex-shrink-0 bg-gray-50 dark:bg-gray-900/60 p-4 rounded-2xl border border-gray-200 dark:border-gray-800">
-          <span className="text-xs text-gray-400 uppercase font-bold tracking-wider block">Costo de la consulta</span>
-          <span className="text-2xl font-black text-gray-900 dark:text-white">{formatPrice(product.price)}</span>
+        <div className="text-left md:text-right flex-shrink-0 bg-gray-50 dark:bg-gray-900/60 p-4 rounded-xl border border-gray-200 dark:border-gray-800">
+          <span className="text-xs text-gray-400 font-semibold block">{t.booking.costLabel}</span>
+          <span className="text-2xl font-semibold text-gray-900 dark:text-white">{formatPrice(product.price, locale)}</span>
         </div>
       </div>
 
       <form onSubmit={handleBookingSubmit} className="space-y-10">
-        {/* Paso 1: Seleccionar Fecha */}
+        {/* Step 1: Date */}
         <div>
-          <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
-            <span className="w-6 h-6 rounded-full bg-violet-600 text-white text-xs flex items-center justify-center font-bold">1</span>
-            Selecciona la fecha de tu cita
+          <h3 className="text-base font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
+            <span className="w-6 h-6 rounded-full bg-primary text-white text-xs flex items-center justify-center font-semibold">1</span>
+            {t.booking.step1}
           </h3>
 
           <div className="flex gap-2 overflow-x-auto pb-3 pt-1 scrollbar-none">
@@ -258,37 +272,37 @@ export default function BookingFlow({ product, tenant }: Props) {
                   type="button"
                   key={d.dateStr}
                   onClick={() => setSelectedDate(d.dateStr)}
-                  className={`flex flex-col items-center justify-center min-w-[70px] py-3.5 px-3 rounded-2xl border transition-all text-center flex-shrink-0 ${
+                  className={`flex flex-col items-center justify-center min-w-[70px] py-3.5 px-3 rounded-xl border transition-all text-center flex-shrink-0 ${
                     isSelected
-                      ? "bg-violet-600 text-white border-violet-600 shadow-md shadow-violet-600/30 scale-105"
-                      : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-800 hover:border-violet-500/50"
+                      ? "bg-primary text-white border-primary scale-105"
+                      : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-800 hover:border-primary/50"
                   }`}
                 >
-                  <span className="text-[10px] uppercase font-bold opacity-80">{d.dayName}</span>
-                  <span className="text-xl font-black my-0.5">{d.dayNum}</span>
-                  <span className="text-[10px] font-medium opacity-80">{d.monthName}</span>
+                  <span className="text-xs font-semibold opacity-80">{d.dayName}</span>
+                  <span className="text-xl font-semibold my-0.5">{d.dayNum}</span>
+                  <span className="text-xs font-medium opacity-80">{d.monthName}</span>
                 </button>
               );
             })}
           </div>
         </div>
 
-        {/* Paso 2: Seleccionar Horario */}
+        {/* Step 2: Time */}
         <div>
-          <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
-            <span className="w-6 h-6 rounded-full bg-violet-600 text-white text-xs flex items-center justify-center font-bold">2</span>
-            Selecciona un horario disponible
+          <h3 className="text-base font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
+            <span className="w-6 h-6 rounded-full bg-primary text-white text-xs flex items-center justify-center font-semibold">2</span>
+            {t.booking.step2}
           </h3>
 
           {loadingSlots ? (
             <div className="flex items-center gap-3 py-6 text-gray-400 text-xs">
-              <div className="w-5 h-5 border-2 border-violet-600 border-t-transparent rounded-full animate-spin" />
-              Verificando disponibilidad de horarios en la agenda...
+              <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              {t.booking.checkingAvailability}
             </div>
           ) : slots.length === 0 ? (
-            <div className="p-6 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 rounded-2xl text-amber-800 dark:text-amber-300 text-xs flex items-center gap-3">
+            <div className="p-6 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 rounded-xl text-amber-800 dark:text-amber-300 text-xs flex items-center gap-3">
               <AlertCircle size={18} className="flex-shrink-0" />
-              <span>No hay horarios disponibles para esta fecha. Por favor selecciona otro día en el calendario arriba.</span>
+              <span>{t.booking.noSlots}</span>
             </div>
           ) : (
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2.5">
@@ -299,13 +313,13 @@ export default function BookingFlow({ product, tenant }: Props) {
                     type="button"
                     key={slot}
                     onClick={() => setSelectedSlot(slot)}
-                    className={`py-3 px-2 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
+                    className={`py-3 px-2 rounded-xl text-xs font-semibold border transition-all flex items-center justify-center gap-1.5 ${
                       isSelected
-                        ? "bg-violet-600 text-white border-violet-600 shadow-md shadow-violet-600/25 scale-102"
-                        : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-800 hover:border-violet-500/50 hover:bg-violet-50/50 dark:hover:bg-violet-950/30"
+                        ? "bg-primary text-white border-primary scale-102"
+                        : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-800 hover:border-primary/50 hover:bg-primary/5"
                     }`}
                   >
-                    <Clock size={12} className={isSelected ? "text-white" : "text-violet-500"} />
+                    <Clock size={12} className={isSelected ? "text-white" : "text-primary"} />
                     {slot}
                   </button>
                 );
@@ -314,65 +328,79 @@ export default function BookingFlow({ product, tenant }: Props) {
           )}
         </div>
 
-        {/* Paso 3: Datos del Paciente */}
+        {/* Step 3: Patient details */}
         <div>
-          <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
-            <span className="w-6 h-6 rounded-full bg-violet-600 text-white text-xs flex items-center justify-center font-bold">3</span>
-            Datos del paciente
+          <h3 className="text-base font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
+            <span className="w-6 h-6 rounded-full bg-primary text-white text-xs flex items-center justify-center font-semibold">3</span>
+            {t.booking.step3}
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-gray-700 dark:text-gray-200 mb-1 flex items-center gap-1.5">
-                <User size={13} className="text-violet-600" /> Nombre completo *
+                <User size={13} className="text-primary" /> {t.booking.fullName}
               </label>
               <input
                 type="text"
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Ej. Ana Martínez"
+                placeholder={t.booking.fullNamePlaceholder}
                 className="input bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 text-sm"
               />
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-gray-700 dark:text-gray-200 mb-1 flex items-center gap-1.5">
-                <Phone size={13} className="text-violet-600" /> Teléfono WhatsApp *
+                <Phone size={13} className="text-primary" /> {t.booking.phone}
               </label>
-              <input
-                type="tel"
-                required
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="Ej. +52 55 1234 5678"
-                className="input bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 text-sm"
-              />
+              <div className="flex gap-2">
+                <select
+                  value={dialCode}
+                  onChange={(e) => setDialCode(e.target.value)}
+                  aria-label={t.booking.countryCode}
+                  className="input bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 text-sm w-28 shrink-0 px-2"
+                >
+                  {PHONE_COUNTRIES.map((c) => (
+                    <option key={c.iso} value={c.dial}>
+                      {c.iso} +{c.dial}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="tel"
+                  required
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder={t.booking.phonePlaceholder}
+                  className="input bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 text-sm min-w-0"
+                />
+              </div>
             </div>
 
             <div className="md:col-span-2">
               <label className="block text-xs font-semibold text-gray-700 dark:text-gray-200 mb-1 flex items-center gap-1.5">
-                <Mail size={13} className="text-violet-600" /> Correo electrónico *
+                <Mail size={13} className="text-primary" /> {t.booking.email}
               </label>
               <input
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="ejemplo@correo.com"
+                placeholder={t.booking.emailPlaceholder}
                 className="input bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 text-sm"
               />
             </div>
 
             <div className="md:col-span-2">
               <label className="block text-xs font-semibold text-gray-700 dark:text-gray-200 mb-1 flex items-center gap-1.5">
-                <FileText size={13} className="text-violet-600" /> Motivo de consulta o notas para el especialista (opcional)
+                <FileText size={13} className="text-primary" /> {t.booking.notes}
               </label>
               <textarea
                 rows={3}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Ej. Revisión anual, seguimiento de tratamiento, dudas sobre síntomas..."
+                placeholder={t.booking.notesPlaceholder}
                 className="input bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 text-sm resize-none"
               />
             </div>
@@ -380,32 +408,32 @@ export default function BookingFlow({ product, tenant }: Props) {
         </div>
 
         {error && (
-          <div className="p-4 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/40 rounded-2xl text-rose-600 text-xs flex items-center gap-2">
+          <div className="p-4 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/40 rounded-xl text-rose-600 text-xs flex items-center gap-2">
             <AlertCircle size={16} />
             <span>{error}</span>
           </div>
         )}
 
-        {/* Action Button */}
+        {/* Action button */}
         <div className="pt-4 border-t border-gray-100 dark:border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2 text-xs text-gray-500">
-            <ShieldCheck size={16} className="text-emerald-500" />
-            <span>Tus datos médicos se transmiten de forma 100% segura y privada.</span>
+            <ShieldCheck size={16} className="text-primary" />
+            <span>{t.booking.privacyNote}</span>
           </div>
 
           <button
             type="submit"
             disabled={submitting || !selectedSlot}
-            className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-violet-600 hover:bg-violet-700 text-white font-extrabold text-sm shadow-xl shadow-violet-600/25 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2"
+            className="w-full sm:w-auto px-8 py-4 rounded-xl bg-primary hover:bg-secondary text-white font-extrabold text-sm transition-all disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2"
           >
             {submitting ? (
               <>
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Agendando tu cita...
+                {t.booking.submitting}
               </>
             ) : (
               <>
-                Confirmar y Reservar Cita
+                {t.booking.submit}
                 <ArrowRight size={18} />
               </>
             )}

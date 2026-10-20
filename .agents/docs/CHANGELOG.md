@@ -4,6 +4,49 @@ All notable changes to Presto AI are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased] — 2026-10-20
+
+### Changed
+- **Minimal UI for tenant screens**: CRM, storefront and login/registro follow a flat, neutral style (spec in `.claude/skills/minimal-ui/references/style-spec.md`). Shared classes `card`, `btn-primary`, `btn-secondary`, `btn-ghost`, `input` and `badge` no longer use gradients, blur, heavy shadows, hover scale or uppercase labels. Tenant colors and font are unchanged.
+- **Tools**: `local-utils/minimal-ui/audit.js` (read-only report) and `restyle.js` (dry run by default, `--write` to apply).
+- **Agent prompts**: Designer, Dev, Code Reviewer, Tester and Orchestrator prompts now include the minimal UI rules.
+- **Resource forms as modals**: FAQ, carrusel and productos/servicios use the shared `FormPanel` modal (`src/components/admin/FormPanel.tsx`). Productos fields follow the tenant's `vertical` and `isBookingEnabled` (`src/lib/product-form-profiles.ts`, provided through `TenantMetaProvider`).
+- **Confirmations**: `ConfirmModal` replaces the inline confirm in `admin/apps` and uses the tenant primary color for the confirm action.
+- **Tenant styling of remaining screens**: `TrialBanner`, `CreditsDrawer`, `admin/citas` KPI cards and action buttons, storefront footer, booking CTA, `admin/apps` integration cards, social campaign toast and setup page, `CampaignMetrics` and `CalendarView` use tenant tokens (`primary`, `secondary`, `accent`) and neutral surfaces instead of hardcoded colors or gradients.
+- **Phone numbers with country code**: the booking form (`src/components/shop/BookingFlow.tsx`) and `/admin/negocio` have a country code selector. The number is stored as `+<dial><digits>` (default `+52`) via `buildFullPhone` and `splitFullPhone` in `src/lib/phone.ts`. A number typed with a leading `+` overrides the selector.
+
+### Added
+- **WhatsApp AI Bot (n8n)**: `local-utils/n8n-chat-workflow-v2.json` answers questions about services and prices, checks availability, books, lists, cancels, and reschedules appointments. The tenant is resolved from the Evolution instance name. Backed by new internal routes `POST /api/internal/bot/{context,availability,book,my-appointments,cancel,reschedule}` (`src/lib/bot.ts`).
+- **Appointment reminders**: `POST /api/internal/reminders/run` sends one reminder per appointment for the closest reached offset. Driven by `local-utils/n8n-reminders-workflow.json`, which runs every 15 minutes and does not use an LLM.
+- **Reminder settings on Tenant**: `remindersEnabled`, `reminderOffsetsMinutes` (default 24 h and 2 h). `Appointment.remindersSent` tracks what was sent.
+- **Bot token reporting**: the bot reports its model usage to `POST /api/internal/tokens/report`, so the tenant's credits reflect bot usage.
+- **Bot workflow documentation**: `local-utils/N8N_WHATSAPP_BOT_DOCUMENTATION.md`.
+- **Workflow check script**: `local-utils/check-n8n-workflow.js` validates connections and node references.
+- **Country code helper**: `src/lib/phone.ts` (`PHONE_COUNTRIES`, `DEFAULT_DIAL_CODE`, `buildFullPhone`, `splitFullPhone`).
+- **Minimal UI skill**: `.claude/skills/minimal-ui/` (SKILL.md, `references/style-spec.md`) and scripts in `local-utils/minimal-ui/`.
+
+### Changed
+- `PATCH /api/tenants/business`: `whatsappNumber` is required and must be `+` followed by 8 to 15 digits. The business profile page enforces the same rule. Existing tenants without a number must add one on their next save.
+- `createCalendarEvent` adds attendees only when an attendee email is given.
+- Google Calendar: `updateCalendarEvent` (reschedule) and `deleteCalendarEvent` (cancel). A missing event (404/410) is not an error on delete.
+- Bot prompt: greets only on the first message, lists services when asked for prices, and follows privacy rules that keep technical details and other customers' data out of replies.
+
+### Fixed
+- Bot tools failed with "Instancia de WhatsApp no encontrada". Tool and code nodes read the webhook data with `$('Extract Message').item`, which n8n cannot resolve there. They now use `.first().json`.
+- The agent failed with "Received tool input did not match expected schema" when an output parser was connected. The bot no longer uses one.
+- Replies sent by the bot could be logged as empty in the conversation history.
+- Booking form: the phone field now validates the number on submit (country code plus digits) instead of accepting any text.
+
+### Pending
+- `npm run db:push` is needed for the reminder fields. Not applied yet.
+- WhatsApp Cloud API (Meta) migration is not started in code.
+- Dark mode contrast with a very dark tenant primary (for example `#000000`): the sidebar title, the active nav icon, the booking step numbers and the selected booking date lose contrast on the dark background. Decide between automatic text color and a lightened primary on dark surfaces, or fix only these spots.
+- Four photo overlays (carousel, product card, social campaign image) keep their gradient scrim on purpose. Confirm with the user before removing.
+- Social campaign "Nueva campaña" is still a page view, not a modal.
+- Visual check pending in light and dark mode at 375 px, with a non-black primary and a custom font.
+
+---
+
 ## [2.1] — 2026-10-17
 
 ### Added

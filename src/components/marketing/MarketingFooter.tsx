@@ -10,7 +10,7 @@ export default function MarketingFooter() {
     <footer
       className="relative border-t overflow-hidden"
       style={{
-        background: "#05050d",
+        background: "var(--mk-deep)",
         borderColor: "rgba(255,255,255,0.05)",
       }}
     >
@@ -35,7 +35,7 @@ export default function MarketingFooter() {
                 />
               </div>
               <span className="text-white font-bold text-lg">
-                New<span className="text-violet-400">Aigent</span>
+                New<span className="text-mk-violet-light">Aigent</span>
               </span>
             </div>
             <p className="text-gray-600 text-sm leading-relaxed max-w-[220px]">

@@ -35,12 +35,15 @@
 | Unified Scheduling Hub & External Sync | ✅ `/admin/citas` single unified list + mini-calendar with Google Calendar & Outlook external normalization |
 | WhatsApp Instant Handshake & Invariants | ✅ Evolution API v2 flags (`MESSAGES_UPSERT`, `webhookBase64`, `rejectCall`, `alwaysOnline`, etc.), non-disruptive polling, auto-closing QR modal |
 | Business Verticals & Service Booking | ✅ `BusinessVertical` (`HEALTH`, `PETS_HOTEL`, `TOURISM`), `/agendar/[slug]`, `/mis-citas`, guest booking fail-safe |
+| WhatsApp AI Bot (n8n) | 🟡 Built, pending live test. Tenant by Evolution instance, booking/cancel/reschedule via `/api/internal/bot/*`, bot token reporting. Free OpenRouter models for now |
+| Appointment Reminders | 🟡 Built, pending DB migration. Separate workflow, no LLM, configurable offsets per tenant. CRM settings screen not built |
+| WhatsApp Cloud API (Meta) | ⏳ Not started in code. Evolution API still in use |
 
 ---
 
 ## Active Sprint Goal
 
-Maintain documentation currency (`spec.md`, `CLAUDE.md`, `project_context.md`, `ledger.md`) and verify seamless operations of Unified Scheduling Hub, Evolution API v2 flags, and multi-vertical service bookings.
+Get the WhatsApp AI bot and appointment reminders working end to end: apply the pending schema migration, run a live booking, cancel, and reschedule test on a test number, and confirm the bot's token usage lands in the tenant ledger. After that, decide when to start the WhatsApp Cloud API (Meta) migration.
 
 ---
 

@@ -54,22 +54,21 @@ export default async function ProductosPage({ searchParams }: { searchParams: { 
   const pageTitle = activeCategory
     ? activeCategory
     : isHealth
-    ? "Servicios y Consultas"
+    ? t.storefrontUi.servicesAndConsults
     : isBooking
-    ? "Nuestros Servicios"
+    ? t.storefrontUi.ourServices
     : t.storefront.catalog.allProducts;
   const pageSubtitle = isHealth
-    ? "Agenda tu consulta médica o procedimiento especializado con"
+    ? t.storefrontUi.healthCatalogSub
     : isBooking
-    ? "Explora nuestros servicios y reserva tu horario con"
+    ? t.storefrontUi.serviceCatalogSub
     : t.storefront.catalog.exploreCatalog;
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#07070f]">
+    <div className="min-h-screen bg-slate-50 dark:bg-gray-950">
       {/* ── Premium E-Commerce Header ───────────────────────────────────────── */}
       <div className="relative overflow-hidden bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 pt-24 pb-12 sm:pt-32 sm:pb-16 shadow-sm">
         {/* Soft background glow based on DB Theme variable */}
-        <div className="absolute top-0 inset-x-0 h-40 bg-gradient-to-b from-[var(--color-primary)]/15 to-transparent pointer-events-none" />
         
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 flex flex-col items-start">
           {/* Breadcrumbs */}
@@ -77,7 +76,7 @@ export default async function ProductosPage({ searchParams }: { searchParams: { 
             <Link href="/" className="hover:text-[var(--color-primary)] transition-colors flex items-center gap-1.5"><Home size={14}/> {t.storefront.catalog.home}</Link>
             <ChevronRight size={14} className="text-gray-400" />
             <span className="text-gray-900 dark:text-white font-semibold">
-              {isHealth ? "Consultas y Servicios" : isBooking ? "Servicios" : t.storefront.catalog.products}
+              {isHealth ? t.storefrontUi.consultsAndServices : isBooking ? t.storefrontUi.services : t.storefront.catalog.products}
             </span>
             {activeCategory && (
               <>
@@ -87,11 +86,11 @@ export default async function ProductosPage({ searchParams }: { searchParams: { 
             )}
           </nav>
 
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-gray-900 dark:text-white tracking-tight leading-[1.1] mb-4">
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-semibold text-gray-900 dark:text-white tracking-tight leading-[1.1] mb-4">
             {pageTitle}
           </h1>
           <p className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl">
-            {pageSubtitle} <span className="font-bold text-[var(--color-primary)]">{tenantName}</span>.
+            {pageSubtitle} <span className="font-semibold text-[var(--color-primary)]">{tenantName}</span>.
           </p>
         </div>
       </div>
@@ -103,18 +102,18 @@ export default async function ProductosPage({ searchParams }: { searchParams: { 
           {/* ── SIDEBAR (Left Column) ────────────────────────────────────────── */}
           {categories.length > 0 && (
             <aside className="lg:w-64 shrink-0">
-              <div className="sticky top-28 bg-white dark:bg-gray-900 rounded-[2rem] border border-gray-100 dark:border-gray-800 p-6 shadow-sm">
+              <div className="sticky top-28 bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-6 shadow-sm">
                 <div className="flex items-center gap-3 mb-6 relative">
                   <div className="bg-[var(--color-primary)]/10 p-2 rounded-lg text-[var(--color-primary)]">
                     <SlidersHorizontal size={18} />
                   </div>
-                  <h2 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">{t.storefront.catalog.categories}</h2>
+                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white tracking-tight">{t.storefront.catalog.categories}</h2>
                 </div>
                 
                 <div className="flex flex-col gap-1.5">
                   <Link 
                     href="/productos" 
-                    className={`block px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${!activeCategory ? "bg-[var(--color-primary)] text-white shadow-md shadow-[var(--color-primary)]/20 translate-x-1" : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-[var(--color-primary)]"}`}
+                    className={`block px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${!activeCategory ? "bg-[var(--color-primary)] text-white shadow-[var(--color-primary)]/20 translate-x-1" : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-[var(--color-primary)]"}`}
                   >
                     {t.storefront.catalog.allDepartments}
                   </Link>
@@ -122,7 +121,7 @@ export default async function ProductosPage({ searchParams }: { searchParams: { 
                     <Link 
                       key={cat} 
                       href={`/productos?category=${encodeURIComponent(cat)}`} 
-                      className={`block px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${activeCategory === cat ? "bg-[var(--color-primary)] text-white shadow-md shadow-[var(--color-primary)]/20 translate-x-1" : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-[var(--color-primary)]"}`}
+                      className={`block px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${activeCategory === cat ? "bg-[var(--color-primary)] text-white shadow-[var(--color-primary)]/20 translate-x-1" : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-[var(--color-primary)]"}`}
                     >
                       {cat}
                     </Link>
@@ -135,9 +134,9 @@ export default async function ProductosPage({ searchParams }: { searchParams: { 
           {/* ── PRODUCT GRID (Right Column) ─────────────────────────────────── */}
           <section className="flex-1 min-w-0">
             {/* Meta Utility Bar */}
-            <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/50 dark:bg-gray-900/50 p-4 rounded-2xl border border-gray-200/50 dark:border-gray-800/50">
+            <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/50 dark:bg-gray-900/50 p-4 rounded-xl border border-gray-200/50 dark:border-gray-800/50">
               <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                {t.storefront.catalog.showing} <span className="font-bold text-gray-900 dark:text-white">{products.length}</span> {products.length === 1 ? t.storefront.catalog.result : t.storefront.catalog.results}
+                {t.storefront.catalog.showing} <span className="font-semibold text-gray-900 dark:text-white">{products.length}</span> {products.length === 1 ? t.storefront.catalog.result : t.storefront.catalog.results}
               </p>
               
               <ProductSort />
@@ -145,15 +144,15 @@ export default async function ProductosPage({ searchParams }: { searchParams: { 
 
             {/* Grid */}
             {products.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 lg:py-32 bg-white dark:bg-gray-900 border border-dashed border-gray-200 dark:border-gray-800 rounded-[2rem] text-center px-4">
+              <div className="flex flex-col items-center justify-center py-20 lg:py-32 bg-white dark:bg-gray-900 border border-dashed border-gray-200 dark:border-gray-800 rounded-xl text-center px-4">
                 <div className="bg-gray-50 dark:bg-gray-800 p-6 rounded-full mb-6">
                   <PackageX size={48} className="text-gray-400 dark:text-gray-500" />
                 </div>
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2 tracking-tight">{t.storefront.catalog.noProducts}</h3>
+                <h3 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2 tracking-tight">{t.storefront.catalog.noProducts}</h3>
                 <p className="text-gray-500 max-w-sm mb-6 font-medium">
                   {t.storefront.catalog.tryAnotherCategory}
                 </p>
-                <a href="/productos" className="bg-[var(--color-primary)] text-white hover:brightness-110 px-8 py-3.5 rounded-xl font-bold shadow-lg shadow-[var(--color-primary)]/20 transition-all active:scale-95">
+                <a href="/productos" className="bg-[var(--color-primary)] text-white hover:brightness-110 px-8 py-3.5 rounded-xl font-semibold shadow-[var(--color-primary)]/20 transition-all ">
                   {t.storefront.catalog.viewAllCatalog}
                 </a>
               </div>

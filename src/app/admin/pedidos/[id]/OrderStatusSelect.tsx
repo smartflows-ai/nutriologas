@@ -3,14 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, X, RefreshCw, AlertCircle } from "lucide-react";
+import { useTranslation } from "@/i18n";
+import { fill } from "@/lib/utils";
 
-const STATUSES = [
-  { value: "PENDING",   label: "Pendiente" },
-  { value: "PAID",      label: "Pagado" },
-  { value: "SHIPPED",   label: "Enviado" },
-  { value: "DELIVERED",  label: "Entregado" },
-  { value: "CANCELLED", label: "Cancelado" },
-];
 
 export default function OrderStatusSelect({
   orderId,
@@ -19,6 +14,14 @@ export default function OrderStatusSelect({
   orderId: string;
   currentStatus: string;
 }) {
+  const { t } = useTranslation();
+  const STATUSES = [
+    { value: "PENDING", label: t.orderDetail.statusPending },
+    { value: "PAID", label: t.orderDetail.statusPaid },
+    { value: "SHIPPED", label: t.orderDetail.statusShipped },
+    { value: "DELIVERED", label: t.orderDetail.statusDelivered },
+    { value: "CANCELLED", label: t.orderDetail.statusCancelled },
+  ];
   const [status, setStatus] = useState(currentStatus);
   const [saving, setSaving] = useState(false);
   const [notificationState, setNotificationState] = useState<{ title: string; message: string; type: "error" | "success" } | null>(null);
@@ -26,7 +29,7 @@ export default function OrderStatusSelect({
 
   const handleChange = async (newStatus: string) => {
     if (newStatus === status) return;
-    if (newStatus === "CANCELLED" && !confirm("¿Cancelar este pedido? Se restaurará el stock si estaba pendiente.")) return;
+    if (newStatus === "CANCELLED" && !confirm(t.orderDetail.cancelConfirm)) return;
 
     setSaving(true);
     try {
@@ -38,16 +41,16 @@ export default function OrderStatusSelect({
       if (!res.ok) {
         const data = await res.json();
         setNotificationState({
-          title: "Error al actualizar",
-          message: data.error ?? "No se pudo cambiar el estado del pedido.",
+          title: t.orderDetail.updateError,
+          message: data.error ?? t.orderDetail.updateErrorFallback,
           type: "error"
         });
         return;
       }
       setStatus(newStatus);
       setNotificationState({
-        title: "Estado actualizado",
-        message: `El pedido ahora está marcado como ${STATUSES.find(s => s.value === newStatus)?.label}.`,
+        title: t.orderDetail.updated,
+        message: fill(t.orderDetail.updatedMsg, { status: STATUSES.find(s => s.value === newStatus)?.label ?? newStatus }),
         type: "success"
       });
       router.refresh();
@@ -58,14 +61,14 @@ export default function OrderStatusSelect({
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-3 p-2 bg-gray-50 dark:bg-gray-950 rounded-2xl border border-gray-100 dark:border-gray-800">
-        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-2">Estado del Pedido</label>
+      <div className="flex items-center gap-3 p-2 bg-gray-50 dark:bg-gray-950 rounded-xl border border-gray-100 dark:border-gray-800">
+        <label className="text-xs font-semibold text-gray-400 pl-2">{t.orderDetail.statusLabel}</label>
         <div className="relative flex-1">
           <select
             value={status}
             onChange={(e) => handleChange(e.target.value)}
             disabled={saving}
-            className="w-full bg-white dark:bg-gray-900 border-none rounded-xl py-2 px-3 text-sm font-bold text-gray-900 dark:text-white focus:ring-2 focus:ring-primary/20 appearance-none pr-8 cursor-pointer shadow-sm"
+            className="w-full bg-white dark:bg-gray-900 border-none rounded-xl py-2 px-3 text-sm font-semibold text-gray-900 dark:text-white focus:ring-2 focus:ring-primary/20 appearance-none pr-8 cursor-pointer shadow-sm"
           >
             {STATUSES.map((s) => (
               <option key={s.value} value={s.value}>{s.label}</option>
@@ -79,18 +82,18 @@ export default function OrderStatusSelect({
 
        {/* Custom Notification Modal (Inline style simple) */}
        {notificationState && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[70] flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-sm p-8 text-center border border-gray-100 dark:border-gray-800">
+        <div className="fixed inset-0 bg-black/40 z-[70] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg w-full max-w-sm p-8 text-center border border-gray-100 dark:border-gray-800">
             <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-6 ${notificationState.type === 'error' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
               {notificationState.type === 'error' ? <X size={32} /> : <Check size={32} />}
             </div>
-            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{notificationState.title}</h3>
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">{notificationState.title}</h3>
             <p className="text-gray-500 text-sm mb-8 leading-relaxed">{notificationState.message}</p>
             <button
-              className="px-6 py-3 w-full text-sm font-bold text-white bg-gray-900 dark:bg-gray-800 rounded-2xl hover:bg-gray-800 dark:hover:bg-gray-700 transition-all shadow-lg active:scale-95"
+              className="px-6 py-3 w-full text-sm font-semibold text-white bg-gray-900 dark:bg-gray-800 rounded-xl hover:bg-gray-800 dark:hover:bg-gray-700 transition-all "
               onClick={() => setNotificationState(null)}
             >
-              Entendido
+              {t.integrationsUi.understood}
             </button>
           </div>
         </div>

@@ -376,3 +376,58 @@ Decisions made:
 
 
 
+
+
+## 2026-10-20 — Architect & Dev — WhatsApp AI Bot and Separate Reminders Workflow
+
+**Pipeline**: Architect Design → Dev Implementation → Docs.
+
+**Decisions made:**
+- **Reminders in their own workflow, no LLM.** Deterministic sending every 15 minutes. The bot's chat workflow stays focused on conversation.
+- **Patient identity is the WhatsApp number.** Bookings and changes require the number that made the booking.
+- **Prices can be quoted, never changed or discounted.** The prompt and the backend both enforce it; the price comes from the Product record.
+- **Reminder offsets configured per tenant in the CRM** (`reminderOffsetsMinutes`, default 24 h and 2 h). One message per run, all reached offsets marked as sent.
+- **Free OpenRouter models kept for now** for the bot. Quality checks on tool calling are the open risk.
+- **Secrets stay hardcoded in the n8n workflows** because this n8n instance has no environment variables or credentials for those values. Rotate them when that changes.
+- **Evolution API kept.** Migration to WhatsApp Cloud API (Meta) is planned, not started.
+
+**Lessons learned:**
+1. In n8n, `$('Node').item` fails inside tool and Code nodes with "No data found from `main` input". Use `$('Node').first().json`.
+2. `$env` is not available in this n8n instance.
+3. A connected output parser makes free models fail with "Received tool input did not match expected schema". Keep the agent without one.
+4. Tool results and old memory influence the model. Clear the test session's memory after changing the prompt, or the model copies the old replies.
+5. Apply `npm run db:push` before activating the reminders workflow.
+
+**Open items:** live test of the bot end to end, reminder migration, CRM reminder settings, Meta migration.
+
+## 2026-10-20 — Designer & Dev — Minimal UI skill and tenant restyle
+
+**Decision:** Tenant screens (CRM, storefront, login/registro) move to a flat, neutral style like Claude or ChatGPT. The tenant's saved colors and font are kept. Dark NewAigent brand pages (landing, legal, billing, 404) are out of scope.
+
+**What was built:**
+- Skill `.claude/skills/minimal-ui/` with `references/style-spec.md`.
+- `local-utils/minimal-ui/audit.js` (report) and `restyle.js` (codemod, dry run by default). Scope and rules in `config.js`.
+- Shared classes in `src/app/globals.css` (`btn-*`, `input`, `card`, `badge`) rewritten to the spec.
+
+**Lessons:**
+- Tenant colors must be applied as tokens (`primary`, `secondary`, `accent`) with opacity modifiers. Decorative gradients and tinted panels were the main source of visual noise.
+- Codemod rules must match whole class tokens. Removing a class leaves extra spaces, so the script collapses double spaces only on changed lines.
+- Status colors (paid, error, pending) and third-party brand colors (Facebook, Instagram, Google, WhatsApp, PayPal) stay as they are.
+
+**Open:** manual items from the audit (gradients, tinted icon circles and badges) need a per-screen decision.
+
+## 2026-10-20 — Dev — Country code selector and mandatory WhatsApp number
+
+**Decision:** Clients and the tenant store phone numbers as `+<dial><digits>`. The WhatsApp number of the business is required, because WhatsApp, reminders and the storefront button depend on it.
+
+**What changed:**
+- `src/lib/phone.ts`: country list, `buildFullPhone` (builds `+CC...`, a leading `+` overrides the selector) and `splitFullPhone` (splits a stored number for editing; numbers without `+` fall back to +52).
+- `BookingFlow.tsx` and `/admin/negocio`: country selector next to the phone input.
+- `PATCH /api/tenants/business`: `whatsappNumber` is required, format `^\+\d{8,15}$`.
+- Business page: required field and the same check before submit.
+
+**Lessons:**
+- Keep one parser and one formatter for phone numbers. Two copies would drift.
+- `formatWhatsAppNumber` in `src/lib/whatsapp.ts` still treats a 10-digit number as Mexican. Numbers stored with `+CC` pass through it unchanged, so only old numbers rely on that default.
+
+**Open:** existing tenants without a number must add one on their next save. The reminder and bot flows were not tested with the new format.

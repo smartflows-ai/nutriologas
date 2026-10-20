@@ -4,6 +4,7 @@ import { signIn } from "next-auth/react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { loginSchema, type LoginInput } from "@/lib/validations";
+import { translateValidation } from "@/i18n/validation";
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -36,7 +37,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 px-4">
       <div className="card w-full max-w-sm">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2 text-center">{t.auth.loginTitle}</h1>
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2 text-center">{t.auth.loginTitle}</h1>
         <p className="text-gray-500 text-sm text-center mb-6">{t.auth.loginSubtitle}</p>
 
         <button
@@ -56,12 +57,12 @@ export default function LoginPage() {
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{t.auth.emailLabel}</label>
             <input {...register("email")} type="email" className="input" placeholder={t.auth.phEmail} />
-            {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
+            {errors.email && <p className="text-red-500 text-xs mt-1">{translateValidation(t, errors.email.message)}</p>}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{t.auth.passwordLabel}</label>
             <input {...register("password")} type="password" className="input" placeholder={t.auth.phPassword} />
-            {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
+            {errors.password && <p className="text-red-500 text-xs mt-1">{translateValidation(t, errors.password.message)}</p>}
           </div>
           {error && <p className="text-red-500 text-sm">{error}</p>}
           <button type="submit" disabled={loading} className="btn-primary w-full py-3">

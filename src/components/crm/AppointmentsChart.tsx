@@ -60,15 +60,15 @@ export default function AppointmentsChart({ days }: { days: string[] }) {
       <AreaChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
         <defs>
           <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.2} />
-            <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+            <stop offset="5%" stopColor="var(--color-primary)" stopOpacity={0.2} />
+            <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0} />
           </linearGradient>
         </defs>
         <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
         <XAxis dataKey="date" tick={{ fontSize: 12 }} />
         <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
         <Tooltip formatter={(v: number) => [v, t.crm.charts.appointments]} />
-        <Area type="monotone" dataKey="count" stroke="#8b5cf6" strokeWidth={2} fill="url(#colorCount)" />
+        <Area type="monotone" dataKey="count" stroke="var(--color-primary)" strokeWidth={2} fill="url(#colorCount)" />
       </AreaChart>
     </ResponsiveContainer>
   );

@@ -2,7 +2,7 @@
 // src/app/admin/reviews/page.tsx
 import { useState, useEffect } from "react";
 import { Star, Eye, EyeOff } from "lucide-react";
-import { formatDate } from "@/lib/utils";
+import { formatDate, localeFor } from "@/lib/utils";
 import Pagination from "@/components/admin/Pagination";
 import { useTranslation } from "@/i18n";
 
@@ -12,7 +12,8 @@ interface Review {
 }
 
 export default function ReviewsPage() {
-  const { t } = useTranslation();
+  const { t, lang } = useTranslation();
+  const locale = localeFor(lang);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [filter, setFilter] = useState<"all" | "1" | "2" | "3" | "4" | "5">("all");
   const [page, setPage] = useState(1);
@@ -52,7 +53,7 @@ export default function ReviewsPage() {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2.5">
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white flex items-center gap-2.5">
           <Star className="text-primary fill-primary/20" size={26} />
           {t.crm.reviews.title}
         </h1>
@@ -69,7 +70,7 @@ export default function ReviewsPage() {
             onClick={() => handleFilterChange(f)} 
             className={`px-3.5 py-1.5 rounded-xl text-sm font-medium border transition-all ${
               filter === f 
-                ? "bg-primary text-white border-primary shadow-sm shadow-primary/20" 
+                ? "bg-primary text-white border-primary shadow-sm " 
                 : "border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 hover:border-primary/50 hover:text-gray-900 dark:hover:text-white"
             }`}
           >
@@ -88,7 +89,7 @@ export default function ReviewsPage() {
       <div className="space-y-3 relative">
         {loading && (
           <div className="absolute inset-x-0 -top-4 flex justify-center z-10">
-              <div className="bg-white dark:bg-gray-800 shadow-md rounded-full px-4 py-1 flex items-center gap-2 border border-gray-100 dark:border-gray-700">
+              <div className="bg-white dark:bg-gray-800 rounded-full px-4 py-1 flex items-center gap-2 border border-gray-100 dark:border-gray-700">
                 <div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                 <span className="text-xs font-medium text-gray-500">{t.crm.reviews.loading}</span>
               </div>
@@ -100,10 +101,10 @@ export default function ReviewsPage() {
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-3 mb-1 flex-wrap">
-                  <span className="font-semibold text-gray-900 dark:text-white text-sm">{review.user.name ?? "Usuario"}</span>
+                  <span className="font-semibold text-gray-900 dark:text-white text-sm">{review.user.name ?? t.productUi.anonymous}</span>
                   <span className="text-xs text-gray-400">{t.crm.reviews.inProduct}</span>
                   <span className="text-sm text-primary font-medium truncate">{review.product.name}</span>
-                  <span className="text-xs text-gray-400">{formatDate(review.createdAt)}</span>
+                  <span className="text-xs text-gray-400">{formatDate(review.createdAt, locale)}</span>
                 </div>
                 <div className="flex mb-2">
                   {[1,2,3,4,5].map((s) => <Star key={s} size={14} className={s <= review.rating ? "fill-yellow-400 text-yellow-400" : "text-gray-300"} />)}

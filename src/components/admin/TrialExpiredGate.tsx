@@ -19,8 +19,8 @@ export default function TrialExpiredGate({ status }: { status: string }) {
   return (
     <>
       <div
-        className="fixed inset-0 z-[500] flex items-center justify-center p-6"
-        style={{ background: "rgba(7,7,15,0.97)", backdropFilter: "blur(12px)" }}
+        className="fixed inset-0 z-[500] flex items-center justify-center p-6 bg-mk-bg/95"
+        style={{ backdropFilter: "blur(12px)" }}
       >
         <div className="max-w-md w-full text-center">
           <div className="flex justify-center mb-8">
@@ -35,9 +35,9 @@ export default function TrialExpiredGate({ status }: { status: string }) {
             />
           </div>
 
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-red-500/10 border border-red-500/20 mb-6">
-            <ShieldAlert size={14} className="text-red-400" />
-            <span className="text-red-400 text-xs font-bold uppercase tracking-wider">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-mk-red/10 border border-mk-red/20 mb-6">
+            <ShieldAlert size={14} className="text-mk-red" />
+            <span className="text-mk-red text-xs font-bold uppercase tracking-wider">
               {isCanceled ? t.admin.canceledBadge : t.admin.trialExpiredBadge}
             </span>
           </div>
@@ -45,21 +45,20 @@ export default function TrialExpiredGate({ status }: { status: string }) {
           <h2 className="text-3xl font-black text-white mb-4 tracking-tight">
             {isCanceled ? t.admin.canceledTitle : t.admin.trialExpiredTitle}
           </h2>
-          <p className="text-gray-400 text-base mb-8 leading-relaxed">
+          <p className="text-white/60 text-base mb-8 leading-relaxed">
             {isCanceled ? t.admin.canceledDesc : t.admin.trialExpiredDesc}
           </p>
 
           <button
             onClick={() => setCheckoutOpen(true)}
-            className="w-full py-4 rounded-2xl font-black text-white text-base mb-4 transition-all duration-300 hover:shadow-[0_0_30px_rgba(124,58,237,0.5)] hover:-translate-y-0.5 cursor-pointer flex items-center justify-center gap-2"
-            style={{ background: "linear-gradient(135deg, #7C3AED 0%, #4F46E5 100%)" }}
+            className="mk-btn-primary w-full py-4 rounded-2xl font-black text-base mb-4 hover:shadow-[0_0_30px_rgba(124,58,237,0.5)] cursor-pointer"
           >
             {t.admin.upgradeButton}
           </button>
 
-          <p className="text-gray-600 text-sm">
+          <p className="text-white/40 text-sm">
             {t.admin.needHelp}{" "}
-            <a href="mailto:info@newaigent.com" className="text-violet-400 hover:text-violet-300 font-semibold">
+            <a href="mailto:info@newaigent.com" className="text-mk-violet-light hover:text-white font-semibold">
               info@newaigent.com
             </a>
           </p>

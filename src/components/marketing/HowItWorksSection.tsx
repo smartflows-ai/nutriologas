@@ -11,22 +11,22 @@ export default function HowItWorksSection() {
       number: "01",
       title: t.howItWorks.step1Title,
       description: t.howItWorks.step1Desc,
-      icon: <Rocket className="w-7 h-7 text-violet-400" />,
-      color: "#7C3AED",
+      icon: <Rocket className="w-7 h-7 text-mk-violet-light" />,
+      color: "var(--mk-violet)",
     },
     {
       number: "02",
       title: t.howItWorks.step2Title,
       description: t.howItWorks.step2Desc,
       icon: <Bot className="w-7 h-7 text-cyan-400" />,
-      color: "#06B6D4",
+      color: "var(--mk-cyan)",
     },
     {
       number: "03",
       title: t.howItWorks.step3Title,
       description: t.howItWorks.step3Desc,
       icon: <Zap className="w-7 h-7 text-indigo-400" />,
-      color: "#4F46E5",
+      color: "var(--mk-indigo)",
     },
   ];
 
@@ -34,7 +34,7 @@ export default function HowItWorksSection() {
     <section
       id="how-it-works"
       className="relative py-28 overflow-hidden"
-      style={{ background: "#0a0a14" }}
+      style={{ background: "var(--mk-surface)" }}
     >
       {/* Top & bottom borders */}
       <div className="absolute top-0 left-0 right-0 h-px" style={{ background: "linear-gradient(90deg, transparent, rgba(6,182,212,0.5), transparent)" }} />
@@ -43,7 +43,7 @@ export default function HowItWorksSection() {
       {/* Background glow */}
       <div
         className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] rounded-full opacity-10 blur-[100px] pointer-events-none"
-        style={{ background: "radial-gradient(ellipse, #4F46E5, transparent 70%)" }}
+        style={{ background: "radial-gradient(ellipse, var(--mk-indigo), transparent 70%)" }}
       />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
@@ -56,7 +56,7 @@ export default function HowItWorksSection() {
             {t.howItWorks.headline1}{" "}
             <span
               style={{
-                background: "linear-gradient(135deg, #06B6D4 0%, #7C3AED 100%)",
+                background: "linear-gradient(135deg, var(--mk-cyan) 0%, var(--mk-violet) 100%)",
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
                 backgroundClip: "text",
@@ -143,7 +143,7 @@ export default function HowItWorksSection() {
         <div className="text-center mt-16">
           <a
             href="#pricing"
-            className="inline-flex items-center gap-2 text-violet-400 font-semibold text-base hover:text-violet-300 transition-colors group"
+            className="inline-flex items-center gap-2 text-mk-violet-light font-semibold text-base hover:text-mk-violet-light transition-colors group"
           >
             <span>{t.howItWorks.bottomCta}</span>
             <ArrowRight size={16} className="transition-transform duration-200 group-hover:translate-x-1" />

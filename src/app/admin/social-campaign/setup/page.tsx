@@ -37,25 +37,25 @@ export default function SocialCampaignSetupPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center p-6">
-      <div className="bg-gray-900 border border-yellow-500/40 rounded-2xl p-8 w-full max-w-lg">
+    <div className="min-h-screen bg-slate-50 dark:bg-gray-950 flex items-center justify-center p-6">
+      <div className="card w-full max-w-lg p-8">
         <div className="flex items-center gap-2 mb-1">
-          <span className="bg-yellow-500 text-black text-xs font-bold px-2 py-0.5 rounded">DEV ONLY</span>
-          <h1 className="text-white text-xl font-bold">Setup Manual — Social Campaign</h1>
+          <span className="bg-yellow-500 text-black text-xs font-semibold px-2 py-0.5 rounded">DEV ONLY</span>
+          <h1 className="text-gray-900 dark:text-white text-xl font-semibold">Setup Manual — Social Campaign</h1>
         </div>
-        <p className="text-gray-400 text-sm mb-6">
+        <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">
           Pega el Page Access Token obtenido desde el{" "}
-          <a href="https://developers.facebook.com/tools/explorer" target="_blank" className="text-blue-400 underline">
+          <a href="https://developers.facebook.com/tools/explorer" target="_blank" className="text-primary underline">
             Graph API Explorer
           </a>
-          . Usa <code className="bg-gray-800 px-1 rounded">/me/accounts</code> para obtener el token de página.
+          . Usa <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">/me/accounts</code> para obtener el token de página.
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="text-gray-300 text-sm font-medium block mb-1">Page Access Token *</label>
+            <label className="text-gray-700 dark:text-gray-200 text-sm font-medium block mb-1">Page Access Token *</label>
             <textarea
-              className="w-full bg-gray-800 text-white text-xs rounded-lg p-3 border border-gray-700 focus:border-blue-500 outline-none resize-none"
+              className="input w-full text-xs resize-none"
               rows={4}
               placeholder="EAAxxxxx..."
               value={pageAccessToken}
@@ -64,10 +64,10 @@ export default function SocialCampaignSetupPage() {
             />
           </div>
           <div>
-            <label className="text-gray-300 text-sm font-medium block mb-1">Page ID *</label>
+            <label className="text-gray-700 dark:text-gray-200 text-sm font-medium block mb-1">Page ID *</label>
             <input
               type="text"
-              className="w-full bg-gray-800 text-white text-sm rounded-lg px-3 py-2 border border-gray-700 focus:border-blue-500 outline-none"
+              className="input w-full"
               placeholder="122096156570879629"
               value={pageId}
               onChange={(e) => setPageId(e.target.value)}
@@ -75,10 +75,10 @@ export default function SocialCampaignSetupPage() {
             />
           </div>
           <div>
-            <label className="text-gray-300 text-sm font-medium block mb-1">Page Name</label>
+            <label className="text-gray-700 dark:text-gray-200 text-sm font-medium block mb-1">Page Name</label>
             <input
               type="text"
-              className="w-full bg-gray-800 text-white text-sm rounded-lg px-3 py-2 border border-gray-700 focus:border-blue-500 outline-none"
+              className="input w-full"
               placeholder="Smart Flows"
               value={pageName}
               onChange={(e) => setPageName(e.target.value)}
@@ -88,14 +88,14 @@ export default function SocialCampaignSetupPage() {
           <button
             type="submit"
             disabled={status === "loading"}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold py-2.5 rounded-lg transition"
+            className="btn-primary w-full py-2.5 disabled:opacity-50"
           >
             {status === "loading" ? "Guardando..." : "Guardar Token"}
           </button>
         </form>
 
         {msg && (
-          <p className={`mt-4 text-sm ${status === "ok" ? "text-green-400" : "text-red-400"}`}>
+          <p className={`mt-4 text-sm ${status === "ok" ? "text-primary" : "text-red-600 dark:text-red-400"}`}>
             {msg}
           </p>
         )}

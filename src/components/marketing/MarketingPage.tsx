@@ -25,7 +25,7 @@ export default function MarketingPage() {
       id="marketing-root"
       className="min-h-screen"
       style={{
-        background: "#07070f",
+        background: "var(--mk-bg)",
         fontFamily: "'Inter', 'Space Grotesk', system-ui, sans-serif",
       }}
     >

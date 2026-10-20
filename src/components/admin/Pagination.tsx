@@ -41,7 +41,7 @@ export default function Pagination({
             href={`${baseUrl}?${params.toString()}`}
             className={`w-9 h-9 flex items-center justify-center rounded-lg text-sm font-medium transition-colors ${
               isActive
-                ? "bg-primary text-white shadow-sm shadow-primary/20"
+                ? "bg-primary text-white shadow-sm "
                 : "bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-400 hover:border-primary/50 hover:text-primary"
             }`}
           >
@@ -55,7 +55,7 @@ export default function Pagination({
             onClick={() => onPageChange?.(i)}
             className={`w-9 h-9 flex items-center justify-center rounded-lg text-sm font-medium transition-colors ${
               isActive
-                ? "bg-primary text-white shadow-sm shadow-primary/20"
+                ? "bg-primary text-white shadow-sm "
                 : "bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-400 hover:border-primary/50 hover:text-primary"
             }`}
           >

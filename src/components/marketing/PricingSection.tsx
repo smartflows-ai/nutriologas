@@ -3,31 +3,54 @@
 import { useState, useEffect } from "react";
 import OnboardingModal from "./OnboardingModal";
 import { useTranslation } from "@/i18n";
-import { Check, Star } from "lucide-react";
+import { localeFor } from "@/lib/utils";
+import { Check, Star, Stethoscope, ShoppingBag, PawPrint, Plane } from "lucide-react";
 
 type PlanKey = "STARTER" | "PRO";
+type Vertical = "HEALTH" | "ECOMMERCE" | "VETERINARY" | "TOURISM";
+type PriceSlot = "starter" | "pro" | "enterprise";
+
+interface PriceBlock {
+  monthlyPrice: number;
+  annualPrice: number;
+  currency: string;
+}
 
 interface DynamicPricing {
-  es: {
-    starter: { monthlyPrice: number; annualPrice: number; currency: string };
-    pro: { monthlyPrice: number; annualPrice: number; currency: string };
-    enterprise: { monthlyPrice: number; annualPrice: number; currency: string };
-  };
-  en: {
-    starter: { monthlyPrice: number; annualPrice: number; currency: string };
-    pro: { monthlyPrice: number; annualPrice: number; currency: string };
-    enterprise: { monthlyPrice: number; annualPrice: number; currency: string };
-  };
+  es: Record<PriceSlot, PriceBlock>;
+  en: Record<PriceSlot, PriceBlock>;
 }
+
+// Fallback prices, used until /api/billing/prices responds. [monthly, annual] per language.
+const FALLBACK_PRICES: Record<Vertical, { starter: [number, number]; pro: [number, number] }> = {
+  ECOMMERCE: { starter: [500, 375], pro: [1500, 1000] },
+  HEALTH: { starter: [500, 375], pro: [800, 600] },
+  VETERINARY: { starter: [500, 375], pro: [1000, 800] },
+  TOURISM: { starter: [500, 375], pro: [1200, 950] },
+};
+const FALLBACK_ENTERPRISE: [number, number] = [3999, 2999];
+const FALLBACK_EN: Record<string, [number, number]> = {
+  "starter:ECOMMERCE": [29, 19], "pro:ECOMMERCE": [79, 59],
+  "starter:HEALTH": [29, 19], "pro:HEALTH": [45, 35],
+  "starter:VETERINARY": [29, 19], "pro:VETERINARY": [55, 42],
+  "starter:TOURISM": [29, 19], "pro:TOURISM": [65, 50],
+  "enterprise:": [199, 149],
+};
+
+const VERTICAL_ICONS: { id: Vertical; icon: typeof Stethoscope }[] = [
+  { id: "HEALTH", icon: Stethoscope },
+  { id: "ECOMMERCE", icon: ShoppingBag },
+  { id: "VETERINARY", icon: PawPrint },
+  { id: "TOURISM", icon: Plane },
+];
 
 export default function PricingSection() {
   const [annual, setAnnual] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<PlanKey>("STARTER");
-  const [selectedVertical, setSelectedVertical] = useState<"HEALTH" | "ECOMMERCE" | "VETERINARY" | "TOURISM">("HEALTH");
+  const [selectedVertical, setSelectedVertical] = useState<Vertical>("HEALTH");
   const { t, lang } = useTranslation();
-
-  // Language is managed by LanguageProvider
+  const locale = localeFor(lang);
   const isEs = lang === "es";
 
   const [prices, setPrices] = useState<DynamicPricing | null>(null);
@@ -40,256 +63,66 @@ export default function PricingSection() {
           setPrices(data);
         }
       })
-      .catch(() => { /* fail silently — pricing defaults are used as fallback */ });
+      .catch(() => { /* fail silently: fallback prices are used */ });
   }, []);
 
   const langKey = isEs ? "es" : "en";
-  const currentPrices = prices?.[langKey];
+  const fallbackCurrency = isEs ? "MXN" : "USD";
 
-  const starterMonthly = currentPrices?.starter.monthlyPrice ?? (isEs ? 500 : 29);
-  const starterAnnual = currentPrices?.starter.annualPrice ?? (isEs ? 375 : 19);
-  const starterCurrency = currentPrices?.starter.currency ?? (isEs ? "MXN" : "USD");
+  // Price for a plan slot: API value when loaded, otherwise the fallback table for the active language
+  const priceFor = (slot: PriceSlot, vertical: Vertical) => {
+    const api = prices?.[langKey]?.[slot];
+    if (api) return { monthly: api.monthlyPrice, annual: api.annualPrice, currency: api.currency };
+    const fallbackKey = slot === "enterprise" ? "enterprise:" : `${slot}:${vertical}`;
+    const [monthly, annualPrice] = isEs
+      ? slot === "enterprise" ? FALLBACK_ENTERPRISE : FALLBACK_PRICES[vertical][slot]
+      : FALLBACK_EN[fallbackKey];
+    return { monthly, annual: annualPrice, currency: fallbackCurrency };
+  };
 
-  const proMonthly = currentPrices?.pro.monthlyPrice ?? (isEs ? 1500 : 79);
-  const proAnnual = currentPrices?.pro.annualPrice ?? (isEs ? 1000 : 59);
-  const proCurrency = currentPrices?.pro.currency ?? (isEs ? "MXN" : "USD");
-
-  const enterpriseMonthly = currentPrices?.enterprise.monthlyPrice ?? (isEs ? 3999 : 199);
-  const enterpriseAnnual = currentPrices?.enterprise.annualPrice ?? (isEs ? 2999 : 149);
-  const enterpriseCurrency = currentPrices?.enterprise.currency ?? (isEs ? "MXN" : "USD");
-
-  // Definición dinámica de planes por vertical
+  // Plans for the selected vertical. ECOMMERCE keeps the original copy keys; other verticals use the dictionary.
   const getVerticalPlans = () => {
-    if (selectedVertical === "HEALTH") {
-      return [
-        {
-          id: "starter" as PlanKey,
-          name: "Base",
-          tagline: "Para consultorios y especialistas que inician",
-          monthlyPrice: isEs ? 500 : 29,
-          annualPrice: isEs ? 375 : 19,
-          currency: starterCurrency,
-          color: "#06B6D4",
-          glow: "rgba(6,182,212,0.15)",
-          popular: false,
-          features: [
-            "Catálogo de servicios y consultas",
-            "Chat Newy AI Copilot integrado",
-            "Sincronización con Google Calendar",
-            "WhatsApp con respuestas automáticas",
-            "Valoraciones y reviews de pacientes",
-            "Soporte por correo y WhatsApp",
-          ],
-          cta: t.pricing.startTrial,
-          planKey: "STARTER" as PlanKey,
-        },
-        {
-          id: "pro" as PlanKey,
-          name: "Clínica & Salud",
-          tagline: "Agenda médica completa + Triage automatizado",
-          monthlyPrice: isEs ? 800 : 45,
-          annualPrice: isEs ? 600 : 35,
-          currency: starterCurrency,
-          color: "#7C3AED",
-          glow: "rgba(124,58,237,0.25)",
-          popular: true,
-          features: [
-            "Todo lo del Plan Base incluido",
-            "Agenda médica y reserva de citas en línea",
-            "Triage inteligente de pacientes vía WhatsApp",
-            "Recordatorios y confirmaciones automáticas",
-            "Historial médico y notas clínicas internas",
-            "Campañas automáticas en Facebook e Instagram",
-            "Copiloto Newy AI para preguntas médicas de CRM",
-          ],
-          cta: t.pricing.startTrial,
-          planKey: "PRO" as PlanKey,
-        },
-        {
-          id: "enterprise",
-          name: "Red Hospitalaria",
-          tagline: "Múltiples consultorios, doctores y sucursales",
-          monthlyPrice: enterpriseMonthly,
-          annualPrice: enterpriseAnnual,
-          currency: enterpriseCurrency,
-          color: "#4F46E5",
-          glow: "rgba(79,70,229,0.15)",
-          popular: false,
-          features: [
-            "Doctores y consultorios ilimitados",
-            "Dominio personalizado (clinicaginesalud.com)",
-            "Integraciones dedicadas con ERP y laboratorios",
-            "Gerente de cuenta y onboarding presencial",
-            "SLA de 99.9% garantizado",
-          ],
-          cta: t.pricing.contactSales,
-          planKey: null,
-        },
-      ];
-    }
+    const isEcommerce = selectedVertical === "ECOMMERCE";
+    const planCopy = (slot: PriceSlot) => {
+      if (isEcommerce) {
+        if (slot === "starter") return { name: "Starter", tagline: t.pricing.starterTagline, features: t.pricing.starterFeatures };
+        if (slot === "pro") return { name: "Pro", tagline: t.pricing.proTagline, features: t.pricing.proFeatures };
+        return { name: "Enterprise", tagline: t.pricing.enterpriseTagline, features: t.pricing.enterpriseFeatures };
+      }
+      const copy = t.pricing.verticals[selectedVertical][slot];
+      return { name: copy.name, tagline: copy.tagline, features: copy.features ?? t.pricing.enterpriseFeatures };
+    };
 
-    if (selectedVertical === "VETERINARY") {
-      return [
-        {
-          id: "starter" as PlanKey,
-          name: "Base",
-          tagline: "Para veterinarios y tiendas de mascotas",
-          monthlyPrice: isEs ? 500 : 29,
-          annualPrice: isEs ? 375 : 19,
-          currency: starterCurrency,
-          color: "#06B6D4",
-          glow: "rgba(6,182,212,0.15)",
-          popular: false,
-          features: [
-            "Catálogo de productos y consultas",
-            "WhatsApp Business con respuestas IA",
-            "Google Calendar integrado",
-            "Control de clientes y valoraciones",
-          ],
-          cta: t.pricing.startTrial,
-          planKey: "STARTER" as PlanKey,
-        },
-        {
-          id: "pro" as PlanKey,
-          name: "Veterinaria & Hotel",
-          tagline: "Gestión de mascotas, hotel/pensión y grooming",
-          monthlyPrice: isEs ? 1000 : 55,
-          annualPrice: isEs ? 800 : 42,
-          currency: starterCurrency,
-          color: "#10B981",
-          glow: "rgba(16,185,129,0.25)",
-          popular: true,
-          features: [
-            "Perfiles de mascotas (raza, edad, cuidados)",
-            "Reservas para Hotel Canino y Pensión de mascotas",
-            "Citas para consultas médicas y estética/grooming",
-            "Recordatorios de vacunación por WhatsApp",
-            "Campañas automáticas en Facebook & Instagram",
-            "Multi-especialistas y doctores veterinarios",
-          ],
-          cta: t.pricing.startTrial,
-          planKey: "PRO" as PlanKey,
-        },
-        {
-          id: "enterprise",
-          name: "Cadena Veterinaria",
-          tagline: "Para franquicias y hospitales 24 horas",
-          monthlyPrice: enterpriseMonthly,
-          annualPrice: enterpriseAnnual,
-          currency: enterpriseCurrency,
-          color: "#4F46E5",
-          glow: "rgba(79,70,229,0.15)",
-          popular: false,
-          features: t.pricing.enterpriseFeatures,
-          cta: t.pricing.contactSales,
-          planKey: null,
-        },
-      ];
-    }
+    const build = (slot: PriceSlot, look: { color: string; glow: string; popular: boolean }) => {
+      const copy = planCopy(slot);
+      const price = priceFor(slot, selectedVertical);
+      return {
+        id: slot,
+        name: copy.name,
+        tagline: copy.tagline,
+        features: copy.features,
+        monthlyPrice: price.monthly,
+        annualPrice: price.annual,
+        currency: price.currency,
+        color: look.color,
+        glow: look.glow,
+        popular: look.popular,
+        planKey: slot === "enterprise" ? null : (slot === "starter" ? "STARTER" : "PRO") as PlanKey | null,
+        cta: slot === "enterprise" ? t.pricing.contactSales : t.pricing.startTrial,
+      };
+    };
 
-    if (selectedVertical === "TOURISM") {
-      return [
-        {
-          id: "starter" as PlanKey,
-          name: "Base",
-          tagline: "Para guías y agencias locales",
-          monthlyPrice: isEs ? 500 : 29,
-          annualPrice: isEs ? 375 : 19,
-          currency: starterCurrency,
-          color: "#06B6D4",
-          glow: "rgba(6,182,212,0.15)",
-          popular: false,
-          features: [
-            "Catálogo de paquetes y tours",
-            "WhatsApp para dudas frecuentes",
-            "Reviews y fotos de viajeros",
-            "Soporte estándar",
-          ],
-          cta: t.pricing.startTrial,
-          planKey: "STARTER" as PlanKey,
-        },
-        {
-          id: "pro" as PlanKey,
-          name: "Agencia de Viajes",
-          tagline: "Tours enriquecidos, leads y gestión de comisiones",
-          monthlyPrice: isEs ? 1200 : 65,
-          annualPrice: isEs ? 950 : 50,
-          currency: starterCurrency,
-          color: "#F59E0B",
-          glow: "rgba(245,158,11,0.25)",
-          popular: true,
-          features: [
-            "Fichas de tours (itinerarios, salidas, inclusiones)",
-            "Captación y calificación de leads por WhatsApp",
-            "Control de cupos y disponibilidad por fecha",
-            "Asignación de agentes y control de comisiones",
-            "Campañas automáticas para turismo en Meta",
-            "Newy AI responde dudas de itinerarios 24/7",
-          ],
-          cta: t.pricing.startTrial,
-          planKey: "PRO" as PlanKey,
-        },
-        {
-          id: "enterprise",
-          name: "Operador Mayorista",
-          tagline: "Grandes volúmenes de reservación y grupos",
-          monthlyPrice: enterpriseMonthly,
-          annualPrice: enterpriseAnnual,
-          currency: enterpriseCurrency,
-          color: "#4F46E5",
-          glow: "rgba(79,70,229,0.15)",
-          popular: false,
-          features: t.pricing.enterpriseFeatures,
-          cta: t.pricing.contactSales,
-          planKey: null,
-        },
-      ];
-    }
+    const proLook = {
+      ECOMMERCE: { color: "var(--mk-violet)", glow: "rgba(124,58,237,0.2)" },
+      HEALTH: { color: "var(--mk-violet)", glow: "rgba(124,58,237,0.25)" },
+      VETERINARY: { color: "var(--mk-emerald)", glow: "rgba(16,185,129,0.25)" },
+      TOURISM: { color: "var(--mk-amber)", glow: "rgba(245,158,11,0.25)" },
+    }[selectedVertical];
 
-    // Default E-COMMERCE
     return [
-      {
-        id: "starter" as PlanKey,
-        name: "Starter",
-        tagline: t.pricing.starterTagline,
-        monthlyPrice: starterMonthly,
-        annualPrice: starterAnnual,
-        currency: starterCurrency,
-        color: "#06B6D4",
-        glow: "rgba(6,182,212,0.15)",
-        popular: false,
-        features: t.pricing.starterFeatures,
-        cta: t.pricing.startTrial,
-        planKey: "STARTER" as PlanKey,
-      },
-      {
-        id: "pro" as PlanKey,
-        name: "Pro",
-        tagline: t.pricing.proTagline,
-        monthlyPrice: proMonthly,
-        annualPrice: proAnnual,
-        currency: proCurrency,
-        color: "#7C3AED",
-        glow: "rgba(124,58,237,0.2)",
-        popular: true,
-        features: t.pricing.proFeatures,
-        cta: t.pricing.startTrial,
-        planKey: "PRO" as PlanKey,
-      },
-      {
-        id: "enterprise",
-        name: "Enterprise",
-        tagline: t.pricing.enterpriseTagline,
-        monthlyPrice: enterpriseMonthly,
-        annualPrice: enterpriseAnnual,
-        currency: enterpriseCurrency,
-        color: "#4F46E5",
-        glow: "rgba(79,70,229,0.15)",
-        popular: false,
-        features: t.pricing.enterpriseFeatures,
-        cta: t.pricing.contactSales,
-        planKey: null,
-      },
+      build("starter", { color: "var(--mk-cyan)", glow: "rgba(6,182,212,0.15)", popular: false }),
+      build("pro", { ...proLook, popular: true }),
+      build("enterprise", { color: "var(--mk-indigo)", glow: "rgba(79,70,229,0.15)", popular: false }),
     ];
   };
 
@@ -297,7 +130,7 @@ export default function PricingSection() {
 
   const handlePlanClick = (plan: typeof plans[number]) => {
     if (!plan.planKey) {
-      window.location.href = "mailto:info@newaigent.com?subject=Enterprise%20Plan%20Inquiry";
+      window.location.href = `mailto:info@newaigent.com?subject=${encodeURIComponent(t.pricing.enterpriseSubject)}`;
       return;
     }
     setSelectedPlan(plan.planKey);
@@ -309,23 +142,23 @@ export default function PricingSection() {
       <section
         id="pricing"
         className="relative py-28 overflow-hidden"
-        style={{ background: "#07070f" }}
+        style={{ background: "var(--mk-bg)" }}
       >
         {/* Background orbs */}
         <div
           className="absolute top-0 right-0 w-[500px] h-[500px] rounded-full opacity-10 blur-[120px] pointer-events-none"
-          style={{ background: "radial-gradient(circle, #7C3AED, transparent 70%)" }}
+          style={{ background: "radial-gradient(circle, var(--mk-violet), transparent 70%)" }}
         />
         <div
           className="absolute bottom-0 left-0 w-[400px] h-[400px] rounded-full opacity-10 blur-[100px] pointer-events-none"
-          style={{ background: "radial-gradient(circle, #06B6D4, transparent 70%)" }}
+          style={{ background: "radial-gradient(circle, var(--mk-cyan), transparent 70%)" }}
         />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           {/* Header */}
           <div className="text-center mb-16">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-violet-500/30 bg-violet-500/10 mb-6">
-              <span className="text-xs font-bold text-violet-300 uppercase tracking-widest">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-mk-violet/30 bg-mk-violet/10 mb-6">
+              <span className="text-xs font-bold text-mk-violet-light uppercase tracking-widest">
                 {t.pricing.badge}
               </span>
             </div>
@@ -333,7 +166,7 @@ export default function PricingSection() {
               {t.pricing.headline1}{" "}
               <span
                 style={{
-                  background: "linear-gradient(135deg, #A78BFA 0%, #06B6D4 100%)",
+                  background: "linear-gradient(135deg, var(--mk-violet-light) 0%, var(--mk-cyan) 100%)",
                   WebkitBackgroundClip: "text",
                   WebkitTextFillColor: "transparent",
                   backgroundClip: "text",
@@ -342,42 +175,37 @@ export default function PricingSection() {
                 {t.pricing.headline2}
               </span>
             </h2>
-            <p className="text-gray-400 text-lg max-w-xl mx-auto mb-10">
+            <p className="text-white/60 text-lg max-w-xl mx-auto mb-10">
               {t.pricing.subtitle}
             </p>
 
-            {/* Vertical Tabs Selector */}
+            {/* Vertical tabs selector */}
             <div className="flex flex-wrap items-center justify-center gap-2 mb-8 max-w-2xl mx-auto">
-              {[
-                { id: "HEALTH", label: "Salud & Clínicas", icon: "🏥" },
-                { id: "ECOMMERCE", label: "Tienda / E-Commerce", icon: "🛒" },
-                { id: "VETERINARY", label: "Veterinarias", icon: "🐾" },
-                { id: "TOURISM", label: "Agencias de Viaje", icon: "✈️" },
-              ].map((v) => (
+              {VERTICAL_ICONS.map((v) => (
                 <button
                   key={v.id}
-                  onClick={() => setSelectedVertical(v.id as any)}
+                  onClick={() => setSelectedVertical(v.id)}
                   className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 border ${
                     selectedVertical === v.id
-                      ? "bg-violet-600/20 text-white border-violet-500 shadow-[0_0_20px_rgba(124,58,237,0.3)] scale-105"
-                      : "bg-[#0d0d1a] text-gray-400 border-white/10 hover:border-white/20 hover:text-white"
+                      ? "bg-mk-violet/20 text-white border-mk-violet shadow-[0_0_20px_rgba(124,58,237,0.3)] scale-105"
+                      : "bg-mk-card text-white/60 border-white/10 hover:border-white/20 hover:text-white"
                   }`}
                 >
-                  <span className="text-sm">{v.icon}</span>
-                  <span>{v.label}</span>
+                  <v.icon size={14} />
+                  <span>{t.pricing.verticalTabs[v.id]}</span>
                 </button>
               ))}
             </div>
 
             {/* Billing toggle */}
-            <div className="inline-flex items-center gap-4 bg-[#0d0d1a] border border-white/10 rounded-2xl p-1.5">
+            <div className="inline-flex items-center gap-4 bg-mk-card border border-white/10 rounded-2xl p-1.5">
               <button
                 id="billing-monthly"
                 onClick={() => setAnnual(false)}
                 className={`px-5 py-2 rounded-xl text-sm font-semibold transition-all duration-200 ${
                   !annual
-                    ? "bg-violet-600 text-white shadow-[0_0_20px_rgba(124,58,237,0.4)]"
-                    : "text-gray-400 hover:text-white"
+                    ? "bg-mk-violet text-white shadow-[0_0_20px_rgba(124,58,237,0.4)]"
+                    : "text-white/60 hover:text-white"
                 }`}
               >
                 {t.pricing.monthly}
@@ -387,12 +215,12 @@ export default function PricingSection() {
                 onClick={() => setAnnual(true)}
                 className={`px-5 py-2 rounded-xl text-sm font-semibold transition-all duration-200 ${
                   annual
-                    ? "bg-violet-600 text-white shadow-[0_0_20px_rgba(124,58,237,0.4)]"
-                    : "text-gray-400 hover:text-white"
+                    ? "bg-mk-violet text-white shadow-[0_0_20px_rgba(124,58,237,0.4)]"
+                    : "text-white/60 hover:text-white"
                 }`}
               >
                 {t.pricing.annual}
-                <span className="ml-2 text-[10px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full border border-green-500/30">
+                <span className="ml-2 text-[10px] bg-mk-emerald/20 text-mk-emerald px-1.5 py-0.5 rounded-full border border-mk-emerald/30">
                   {t.pricing.save}
                 </span>
               </button>
@@ -408,8 +236,8 @@ export default function PricingSection() {
                 className="relative rounded-3xl p-8 border flex flex-col transition-all duration-300 hover:-translate-y-2"
                 style={{
                   background: plan.popular
-                    ? `radial-gradient(ellipse at top, ${plan.glow} 0%, #0d0d1a 60%)`
-                    : "#0d0d1a",
+                    ? `radial-gradient(ellipse at top, ${plan.glow} 0%, var(--mk-card) 60%)`
+                    : "var(--mk-card)",
                   borderColor: plan.popular ? plan.color + "60" : "rgba(255,255,255,0.08)",
                   boxShadow: plan.popular ? `0 0 60px ${plan.glow}` : "none",
                 }}
@@ -417,8 +245,8 @@ export default function PricingSection() {
                 {/* Popular badge */}
                 {plan.popular && (
                   <div
-                    className="absolute -top-4 left-1/2 -translate-x-1/2 px-5 py-1.5 rounded-full text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5 shadow-lg shadow-violet-500/20"
-                    style={{ background: `linear-gradient(135deg, ${plan.color}, #4F46E5)` }}
+                    className="absolute -top-4 left-1/2 -translate-x-1/2 px-5 py-1.5 rounded-full text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5 shadow-lg"
+                    style={{ background: `linear-gradient(135deg, ${plan.color}, var(--mk-indigo))` }}
                   >
                     <Star size={12} className="fill-white text-white" />
                     <span>{t.pricing.mostPopular}</span>
@@ -430,22 +258,22 @@ export default function PricingSection() {
                   <h3 className="text-xl font-black mb-1" style={{ color: plan.color }}>
                     {plan.name}
                   </h3>
-                  <p className="text-gray-500 text-sm">{plan.tagline}</p>
+                  <p className="text-white/50 text-sm">{plan.tagline}</p>
                 </div>
 
                 {/* Price */}
                 <div className="mb-8">
                   <div className="flex items-end gap-1">
                     <span className="text-5xl font-black text-white transition-all duration-300">
-                      ${(annual ? plan.annualPrice : plan.monthlyPrice).toLocaleString()}
+                      ${(annual ? plan.annualPrice : plan.monthlyPrice).toLocaleString(locale)}
                     </span>
-                    <span className="text-gray-500 mb-2 text-sm">
-                      {plan.currency ? `${plan.currency} ` : (isEs ? "MXN " : "USD ")}{t.pricing.perMonth}
+                    <span className="text-white/50 mb-2 text-sm">
+                      {plan.currency || fallbackCurrency} {t.pricing.perMonth}
                     </span>
                   </div>
                   {annual && plan.monthlyPrice > plan.annualPrice && (
-                    <p className="text-green-400 text-xs font-semibold mt-1">
-                      {t.pricing.billedAnnually}{((plan.monthlyPrice - plan.annualPrice) * 12).toLocaleString()} {plan.currency}{t.pricing.savePerYear}
+                    <p className="text-mk-emerald text-xs font-semibold mt-1">
+                      {t.pricing.billedAnnually}{((plan.monthlyPrice - plan.annualPrice) * 12).toLocaleString(locale)} {plan.currency}{t.pricing.savePerYear}
                     </p>
                   )}
                 </div>
@@ -460,7 +288,7 @@ export default function PricingSection() {
                       >
                         <Check size={10} strokeWidth={3} />
                       </span>
-                      <span className="text-gray-400 text-sm">{feature}</span>
+                      <span className="text-white/60 text-sm">{feature}</span>
                     </li>
                   ))}
                 </ul>
@@ -473,7 +301,7 @@ export default function PricingSection() {
                   style={
                     plan.popular
                       ? {
-                          background: `linear-gradient(135deg, ${plan.color}, #4F46E5)`,
+                          background: `linear-gradient(135deg, ${plan.color}, var(--mk-indigo))`,
                           color: "white",
                           boxShadow: `0 8px 30px ${plan.glow}`,
                         }
@@ -490,7 +318,7 @@ export default function PricingSection() {
             ))}
           </div>
 
-          <p className="text-center text-gray-600 text-sm mt-10">
+          <p className="text-center text-white/40 text-sm mt-10">
             {t.pricing.finePrint}
           </p>
         </div>

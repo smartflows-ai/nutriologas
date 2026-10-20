@@ -2,33 +2,29 @@
 
 import { useEffect, useState, useRef } from "react";
 import { CheckCircle, Clock, Truck, Package, XCircle } from "lucide-react";
+import { useTranslation } from "@/i18n";
 
 const STATUS_CONFIG: Record<
   string,
-  { label: string; class: string; icon: typeof CheckCircle }
+  { class: string; icon: typeof CheckCircle }
 > = {
   PENDING: {
-    label: "Pendiente de pago",
     class: "text-yellow-600",
     icon: Clock,
   },
   PAID: {
-    label: "Pagado",
     class: "text-green-600",
     icon: CheckCircle,
   },
   SHIPPED: {
-    label: "Enviado",
     class: "text-blue-600",
     icon: Truck,
   },
   DELIVERED: {
-    label: "Entregado",
     class: "text-purple-600",
     icon: Package,
   },
   CANCELLED: {
-    label: "Cancelado",
     class: "text-red-600",
     icon: XCircle,
   },
@@ -47,6 +43,14 @@ export default function PedidoStatusPolling({
   const [lastChecked, setLastChecked] = useState<Date>(new Date());
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  const { t } = useTranslation();
+  const STATUS_LABEL: Record<string, string> = {
+    PENDING: t.storefrontUi.orderPending,
+    PAID: t.orderDetail.statusPaid,
+    SHIPPED: t.orderDetail.statusShipped,
+    DELIVERED: t.orderDetail.statusDelivered,
+    CANCELLED: t.orderDetail.statusCancelled,
+  };
   const config = STATUS_CONFIG[status] ?? STATUS_CONFIG.PENDING;
   const StatusIcon = config.icon;
 
@@ -103,7 +107,7 @@ export default function PedidoStatusPolling({
   return (
     <div className={`flex items-center gap-2 ${config.class}`}>
       <StatusIcon size={20} />
-      <span className="font-semibold">{config.label}</span>
+      <span className="font-semibold">{STATUS_LABEL[status] ?? STATUS_LABEL.PENDING}</span>
       {status === "PENDING" && (
         <span className="text-xs text-gray-400 ml-2">
           Actualizado: {lastChecked.toLocaleTimeString()}

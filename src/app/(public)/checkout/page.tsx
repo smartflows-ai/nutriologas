@@ -1,7 +1,7 @@
 "use client";
 // src/app/(public)/checkout/page.tsx
 import { useCartStore } from "@/store/cart";
-import { formatPrice } from "@/lib/utils";
+import { formatPrice, localeFor } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -25,7 +25,8 @@ const STORAGE_KEY = "conekta_checkout_pending";
 export default function CheckoutPage() {
   const { items, total, clearCart } = useCartStore();
   const router = useRouter();
-  const { t } = useTranslation();
+  const { t, lang } = useTranslation();
+  const locale = localeFor(lang);
 
   const [method, setMethod] = useState<Method>("card");
   const [stage, setStage] = useState<Stage>("select");
@@ -143,7 +144,7 @@ export default function CheckoutPage() {
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Error al iniciar el pago");
+      if (!res.ok) throw new Error(data.error ?? t.storefrontUi.startPaymentError);
 
       // Store in localStorage to persist across page reloads
       const checkoutData = {
@@ -224,7 +225,7 @@ export default function CheckoutPage() {
   // ── Method selector ─────────────────────────────────────
   return (
     <div className="max-w-3xl mx-auto px-4 py-10">
-      <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">{t.storefront.checkout.title}</h1>
+      <h1 className="text-3xl font-semibold text-gray-900 dark:text-white mb-8">{t.storefront.checkout.title}</h1>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Payment methods */}
         <div>
@@ -245,7 +246,7 @@ export default function CheckoutPage() {
                 id: "paypal" as Method,
                 label: "PayPal",
                 icon: (
-                  <span className="font-bold text-blue-600 text-sm">PP</span>
+                  <span className="font-semibold text-blue-600 text-sm">PP</span>
                 ),
               },
             ].map((m) => (
@@ -254,7 +255,7 @@ export default function CheckoutPage() {
                 onClick={() => setMethod(m.id)}
                 className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-colors text-left ${
                   method === m.id
-                    ? "border-primary bg-primary/5"
+                    ? "border-primary bg-gray-50 dark:bg-gray-900"
                     : "border-gray-200 hover:border-gray-300"
                 }`}
               >
@@ -272,7 +273,7 @@ export default function CheckoutPage() {
               disabled={loading}
               className="btn-primary w-full py-3"
             >
-              {loading ? t.storefront.checkout.preparingPayment : `${t.storefront.checkout.pay} ${formatPrice(total())}`}
+              {loading ? t.storefront.checkout.preparingPayment : `${t.storefront.checkout.pay} ${formatPrice(total(), locale)}`}
             </button>
           ) : (
             <PayPalScriptProvider
@@ -323,13 +324,13 @@ export default function CheckoutPage() {
             {items.map((item) => (
               <div key={item.id} className="flex justify-between text-gray-600 dark:text-gray-400">
                 <span className="truncate flex-1 mr-2">{item.name} ×{item.quantity}</span>
-                <span>{formatPrice(item.price * item.quantity)}</span>
+                <span>{formatPrice(item.price * item.quantity, locale)}</span>
               </div>
             ))}
           </div>
-          <div className="border-t mt-4 pt-4 flex justify-between font-bold">
+          <div className="border-t mt-4 pt-4 flex justify-between font-semibold">
             <span>{t.storefront.checkout.total}</span>
-            <span className="text-primary">{formatPrice(total())}</span>
+            <span className="text-primary">{formatPrice(total(), locale)}</span>
           </div>
         </div>
       </div>

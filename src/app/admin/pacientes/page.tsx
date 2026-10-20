@@ -53,7 +53,7 @@ export default function PacientesPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2.5">
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white flex items-center gap-2.5">
             <Activity className="text-primary" size={26} />
             {t.crm.triage.title}
           </h1>
@@ -62,26 +62,26 @@ export default function PacientesPage() {
       </div>
 
         {patients.length === 0 ? (
-          <div className="text-center py-20 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm">
+          <div className="text-center py-20 bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm">
             <User size={48} className="mx-auto text-gray-300 mb-4" />
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{t.crm.triage.noPatientsTitle}</h2>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">{t.crm.triage.noPatientsTitle}</h2>
             <p className="text-gray-500">{t.crm.triage.noPatientsDesc}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {patients.map(patient => (
-              <div key={patient.id} className="card hover:shadow-lg transition-shadow bg-white dark:bg-gray-900 overflow-hidden relative">
+              <div key={patient.id} className="card transition-shadow bg-white dark:bg-gray-900 overflow-hidden relative">
                 {patient.isTriageComplete && (
-                  <div className="absolute top-0 right-0 bg-green-500 text-white text-[10px] font-bold px-3 py-1 rounded-bl-lg uppercase tracking-wider">
+                  <div className="absolute top-0 right-0 bg-primary text-white text-xs font-semibold px-3 py-1 rounded-bl-lg ">
                     {t.crm.triage.complete}
                   </div>
                 )}
                 <div className="flex items-center gap-4 mb-6">
-                  <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center text-primary flex-shrink-0">
+                  <div className="w-12 h-12 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center text-primary flex-shrink-0">
                     <User size={24} />
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-900 dark:text-white text-lg">{patient.user.name}</h3>
+                    <h3 className="font-semibold text-gray-900 dark:text-white text-lg">{patient.user.name}</h3>
                     <div className="flex items-center gap-2 text-xs text-gray-500">
                       <span>{patient.remoteJid ? patient.remoteJid.replace("@s.whatsapp.net", "") : patient.user.email}</span>
                       <span>•</span>
@@ -95,20 +95,20 @@ export default function PacientesPage() {
                   <div className="grid grid-cols-3 gap-3 mb-6">
                     {patient.age ? (
                       <div className="bg-gray-50 dark:bg-gray-800/60 p-3 rounded-xl text-center border border-gray-100 dark:border-gray-800">
-                        <span className="block text-xs text-gray-500 uppercase font-semibold mb-1">{t.crm.triage.age}</span>
-                        <span className="font-bold text-gray-900 dark:text-white">{patient.age} {t.crm.triage.years}</span>
+                        <span className="block text-xs text-gray-500 font-semibold mb-1">{t.crm.triage.age}</span>
+                        <span className="font-semibold text-gray-900 dark:text-white">{patient.age} {t.crm.triage.years}</span>
                       </div>
                     ) : null}
                     {patient.weightKg ? (
                       <div className="bg-gray-50 dark:bg-gray-800/60 p-3 rounded-xl text-center border border-gray-100 dark:border-gray-800">
-                        <span className="block text-xs text-gray-500 uppercase font-semibold mb-1">{t.crm.triage.weight}</span>
-                        <span className="font-bold text-gray-900 dark:text-white">{patient.weightKg}</span>
+                        <span className="block text-xs text-gray-500 font-semibold mb-1">{t.crm.triage.weight}</span>
+                        <span className="font-semibold text-gray-900 dark:text-white">{patient.weightKg}</span>
                       </div>
                     ) : null}
                     {patient.heightCm ? (
                       <div className="bg-gray-50 dark:bg-gray-800/60 p-3 rounded-xl text-center border border-gray-100 dark:border-gray-800">
-                        <span className="block text-xs text-gray-500 uppercase font-semibold mb-1">{t.crm.triage.height}</span>
-                        <span className="font-bold text-gray-900 dark:text-white">{patient.heightCm}</span>
+                        <span className="block text-xs text-gray-500 font-semibold mb-1">{t.crm.triage.height}</span>
+                        <span className="font-semibold text-gray-900 dark:text-white">{patient.heightCm}</span>
                       </div>
                     ) : null}
                   </div>
@@ -116,9 +116,9 @@ export default function PacientesPage() {
 
                 <div className="space-y-3 text-sm">
                   {patient.goals && (
-                    <div className="bg-violet-50/50 dark:bg-violet-950/20 p-3.5 rounded-xl border border-violet-100/80 dark:border-violet-900/30">
-                      <h4 className="flex items-center gap-2 font-semibold text-violet-900 dark:text-violet-300 mb-1">
-                        <Target size={15} className="text-violet-500"/> {t.crm.triage.goals}
+                    <div className="bg-gray-100 dark:bg-gray-800 p-3.5 rounded-xl border border-primary/80 dark:border-primary/30">
+                      <h4 className="flex items-center gap-2 font-semibold text-primary dark:text-primary mb-1">
+                        <Target size={15} className="text-primary"/> {t.crm.triage.goals}
                       </h4>
                       <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed">{patient.goals}</p>
                     </div>
@@ -132,17 +132,17 @@ export default function PacientesPage() {
                     </div>
                   )}
                   {patient.medicalHistory && (
-                    <div className="bg-blue-50/50 dark:bg-blue-950/20 p-3.5 rounded-xl border border-blue-100/80 dark:border-blue-900/30">
-                      <h4 className="flex items-center gap-2 font-semibold text-blue-900 dark:text-blue-300 mb-1">
-                        <Activity size={15} className="text-blue-500"/> {t.crm.triage.medicalHistory}
+                    <div className="bg-gray-50 dark:bg-gray-900 p-3.5 rounded-xl border border-gray-200 dark:border-gray-800">
+                      <h4 className="flex items-center gap-2 font-semibold text-secondary mb-1">
+                        <Activity size={15} className="text-secondary"/> {t.crm.triage.medicalHistory}
                       </h4>
                       <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed">{patient.medicalHistory}</p>
                     </div>
                   )}
                   {patient.medications && (
-                    <div className="bg-emerald-50/50 dark:bg-emerald-950/20 p-3.5 rounded-xl border border-emerald-100/80 dark:border-emerald-900/30">
-                      <h4 className="flex items-center gap-2 font-semibold text-emerald-900 dark:text-emerald-300 mb-1">
-                        <Pill size={15} className="text-emerald-500"/> {t.crm.triage.medications}
+                    <div className="bg-gray-50 dark:bg-gray-900 p-3.5 rounded-xl border border-gray-200 dark:border-gray-800">
+                      <h4 className="flex items-center gap-2 font-semibold text-primary mb-1">
+                        <Pill size={15} className="text-primary"/> {t.crm.triage.medications}
                       </h4>
                       <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed">{patient.medications}</p>
                     </div>

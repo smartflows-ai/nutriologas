@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { useTranslation } from "@/i18n";
+import { buildFullPhone, splitFullPhone, DEFAULT_DIAL_CODE, PHONE_COUNTRIES } from "@/lib/phone";
 
 export default function BusinessProfilePage() {
   const { t } = useTranslation();
@@ -32,6 +33,7 @@ export default function BusinessProfilePage() {
   const [slug, setSlug] = useState("");
   const [customDomain, setCustomDomain] = useState<string | null>(null);
   const [name, setName] = useState("");
+  const [dialCode, setDialCode] = useState(DEFAULT_DIAL_CODE);
   const [whatsappNumber, setWhatsappNumber] = useState("");
   const [businessInfo, setBusinessInfo] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
@@ -63,7 +65,9 @@ export default function BusinessProfilePage() {
         setSlug(currentSlug);
         setCustomDomain(currentCustomDomain);
         setName(currentName);
-        setWhatsappNumber(currentWhatsapp);
+        const { dial, local } = splitFullPhone(currentWhatsapp);
+        setDialCode(dial);
+        setWhatsappNumber(local);
         setBusinessInfo(currentInfo);
         setLogoUrl(currentLogo);
 
@@ -75,7 +79,7 @@ export default function BusinessProfilePage() {
         });
       } catch (err) {
         console.error("Error loading business profile:", err);
-        setError("Error al cargar la información del negocio");
+        setError(t.businessUi.loadError);
       } finally {
         setLoading(false);
       }
@@ -95,7 +99,7 @@ export default function BusinessProfilePage() {
     if (!file) return;
 
     if (file.size > 5 * 1024 * 1024) {
-      alert("El archivo supera el límite de 5MB");
+      alert(t.businessUi.fileTooLarge);
       return;
     }
 
@@ -113,14 +117,14 @@ export default function BusinessProfilePage() {
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || "Error al subir logotipo");
+        throw new Error(errData.error || t.businessUi.logoUploadError);
       }
 
       const data = await res.json();
       setLogoUrl(data.url);
     } catch (err: any) {
       console.error("Logo upload error:", err);
-      setError(err.message || "Error al subir la imagen");
+      setError(err.message || t.businessUi.imageUploadError);
     } finally {
       setUploadingLogo(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -138,6 +142,12 @@ export default function BusinessProfilePage() {
       return;
     }
 
+    const fullWhatsapp = buildFullPhone(dialCode, whatsappNumber);
+    if (!/^\+\d{8,15}$/.test(fullWhatsapp)) {
+      setError(t.crm.business.whatsappRequired);
+      return;
+    }
+
     try {
       setSaving(true);
       setError(null);
@@ -147,7 +157,7 @@ export default function BusinessProfilePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: name.trim(),
-          whatsappNumber: whatsappNumber.trim(),
+          whatsappNumber: fullWhatsapp,
           businessInfo: businessInfo.trim(),
           logoUrl: logoUrl.trim() || null,
         }),
@@ -160,7 +170,7 @@ export default function BusinessProfilePage() {
 
       setInitialData({
         name: name.trim(),
-        whatsappNumber: whatsappNumber.trim(),
+        whatsappNumber: fullWhatsapp,
         businessInfo: businessInfo.trim(),
         logoUrl: logoUrl.trim(),
       });
@@ -178,7 +188,7 @@ export default function BusinessProfilePage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-3">
         <Loader2 className="animate-spin text-primary" size={32} />
-        <p className="text-sm text-gray-500 dark:text-gray-400">Cargando perfil del negocio...</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">{t.businessUi.loading}</p>
       </div>
     );
   }
@@ -187,7 +197,7 @@ export default function BusinessProfilePage() {
     <div className="max-w-4xl mx-auto pb-12">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2.5">
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white flex items-center gap-2.5">
           <Building2 className="text-primary" size={26} />
           {t.crm.business.title}
         </h1>
@@ -197,10 +207,10 @@ export default function BusinessProfilePage() {
       </div>
 
       {/* Domain Info Card (Read-only) */}
-      <div className="mb-8 p-5 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900/80 dark:to-gray-800/50 rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm">
+      <div className="mb-8 p-5 bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-start gap-3.5">
-            <div className="p-2.5 bg-primary/10 dark:bg-primary/20 rounded-xl text-primary mt-0.5">
+            <div className="p-2.5 bg-gray-100 dark:bg-gray-800 rounded-xl text-primary mt-0.5">
               <Globe size={22} />
             </div>
             <div>
@@ -227,7 +237,7 @@ export default function BusinessProfilePage() {
               href={storefrontUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 dark:bg-primary/20 dark:hover:bg-primary/30 transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium text-primary bg-gray-100 dark:bg-gray-800 hover:bg-primary/20 dark:bg-gray-800 dark:hover:bg-primary/30 transition-colors"
             >
               <span>{t.crm.business.visitSite}</span>
               <ExternalLink size={14} />
@@ -243,7 +253,7 @@ export default function BusinessProfilePage() {
       {/* Main Profile Form */}
       <form onSubmit={handleSubmit} className="space-y-8">
         {/* Brand Section Card */}
-        <div className="p-6 bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm space-y-6">
+        <div className="p-6 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm space-y-6">
           <div className="flex items-center gap-2.5 pb-4 border-b border-gray-100 dark:border-gray-800">
             <Sparkles size={20} className="text-primary" />
             <div>
@@ -264,23 +274,23 @@ export default function BusinessProfilePage() {
 
             <div className="flex flex-col sm:flex-row sm:items-center gap-5">
               {/* Preview Circle / Box */}
-              <div className="relative w-24 h-24 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex items-center justify-center overflow-hidden shrink-0 group">
+              <div className="relative w-24 h-24 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex items-center justify-center overflow-hidden shrink-0 group">
                 {logoUrl ? (
                   <div className="relative w-full h-full p-2 flex items-center justify-center">
                     <img
                       src={logoUrl}
-                      alt="Logo preview"
+                      alt={t.businessUi.logoPreviewAlt}
                       className="max-h-full max-w-full object-contain"
                     />
                   </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center text-gray-400 dark:text-gray-500">
                     <Building2 size={30} className="stroke-[1.5]" />
-                    <span className="text-[10px] mt-1 font-medium">Sin logo</span>
+                    <span className="text-xs mt-1 font-medium">{t.businessUi.noLogo}</span>
                   </div>
                 )}
                 {uploadingLogo && (
-                  <div className="absolute inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center">
+                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
                     <Loader2 size={24} className="animate-spin text-white" />
                   </div>
                 )}
@@ -351,7 +361,7 @@ export default function BusinessProfilePage() {
         </div>
 
         {/* Contact Section Card */}
-        <div className="p-6 bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm space-y-4">
+        <div className="p-6 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm space-y-4">
           <div className="flex items-center gap-2.5 pb-4 border-b border-gray-100 dark:border-gray-800">
             <Phone size={20} className="text-primary" />
             <div>
@@ -375,13 +385,28 @@ export default function BusinessProfilePage() {
                 </span>
               )}
             </div>
-            <input
-              type="text"
-              value={whatsappNumber}
-              onChange={(e) => setWhatsappNumber(e.target.value)}
-              placeholder={initialData.whatsappNumber || t.crm.business.whatsappPlaceholder}
-              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
-            />
+            <div className="flex gap-2">
+              <select
+                value={dialCode}
+                onChange={(e) => setDialCode(e.target.value)}
+                aria-label={t.crm.business.countryCode}
+                className="w-28 shrink-0 px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
+              >
+                {PHONE_COUNTRIES.map((c) => (
+                  <option key={c.iso} value={c.dial}>
+                    {c.iso} +{c.dial}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="tel"
+                required
+                value={whatsappNumber}
+                onChange={(e) => setWhatsappNumber(e.target.value)}
+                placeholder={t.crm.business.whatsappPlaceholder}
+                className="min-w-0 w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
+              />
+            </div>
             <p className="text-xs text-gray-400 dark:text-gray-500">
               {t.crm.business.whatsappHint}
             </p>
@@ -389,7 +414,7 @@ export default function BusinessProfilePage() {
         </div>
 
         {/* AI Knowledge & Description Card */}
-        <div className="p-6 bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm space-y-4">
+        <div className="p-6 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm space-y-4">
           <div className="flex items-center gap-2.5 pb-4 border-b border-gray-100 dark:border-gray-800">
             <Bot size={20} className="text-primary" />
             <div>
@@ -448,7 +473,7 @@ export default function BusinessProfilePage() {
           <button
             type="submit"
             disabled={saving || uploadingLogo}
-            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white bg-primary hover:bg-primary/90 focus:outline-hidden focus:ring-2 focus:ring-primary/30 shadow-md shadow-primary/20 transition-all disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white bg-primary hover:bg-primary/90 focus:outline-hidden focus:ring-2 focus:ring-primary/30 transition-all disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
           >
             {saving ? (
               <>

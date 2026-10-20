@@ -134,15 +134,15 @@ export default function WhatsAppPage() {
       }
       setConfirmDelete(null);
       setNotificationState({
-        title: "Conversación eliminada",
+        title: t.whatsappUi.deletedTitle,
         message: t.crm.whatsapp.modalDeleteDesc2,
         type: "success",
       });
     } catch (error) {
       setConfirmDelete(null);
       setNotificationState({
-        title: "Error",
-        message: "Error al borrar la conversación. Intenta de nuevo.",
+        title: t.whatsappUi.errorTitle,
+        message: t.whatsappUi.deleteError,
         type: "error",
       });
     } finally {
@@ -164,15 +164,15 @@ export default function WhatsAppPage() {
       });
       if (res.ok) {
         setNotificationState({
-          title: "¡Configuración guardada!",
-          message: "Los cambios en la IA de WhatsApp se han aplicado correctamente.",
+          title: t.whatsappUi.savedTitle,
+          message: t.whatsappUi.savedMsg,
           type: "success"
         });
       }
     } catch (error) {
       setNotificationState({
-        title: "Error al guardar",
-        message: "Ocurrió un problema técnico. Por favor intenta de nuevo.",
+        title: t.whatsappUi.saveErrorTitle,
+        message: t.whatsappUi.saveErrorMsg,
         type: "error"
       });
     } finally {
@@ -180,16 +180,16 @@ export default function WhatsAppPage() {
     }
   };
 
-  if (loading) return <div className="p-8 text-center text-gray-500">Cargando WhatsApp...</div>;
+  if (loading) return <div className="p-8 text-center text-gray-500">{t.whatsappUi.loading}</div>;
 
   if (!config) {
     return (
       <div className="p-8 max-w-2xl mx-auto text-center">
         <div className="bg-white dark:bg-gray-900 rounded-xl p-12 shadow-sm border border-gray-100">
-          <MessageSquare className="w-16 h-16 text-green-500 mx-auto mb-6 opacity-20" />
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">{t.crm.whatsapp.notConnected}</h1>
+          <MessageSquare className="w-16 h-16 text-primary mx-auto mb-6 opacity-20" />
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">{t.crm.whatsapp.notConnected}</h1>
           <p className="text-gray-600 dark:text-gray-400 mb-8">{t.crm.whatsapp.notConnectedDesc}</p>
-          <a href="/admin/apps" className="inline-flex items-center gap-2 bg-green-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-green-700 transition-colors">
+          <a href="/admin/apps" className="inline-flex items-center gap-2 bg-primary text-white px-6 py-3 rounded-lg font-medium hover:bg-secondary transition-colors">
             {t.crm.whatsapp.goToApps}
           </a>
         </div>
@@ -204,7 +204,7 @@ export default function WhatsAppPage() {
         <div className="flex items-center gap-3">
           <MessageSquare className="text-primary shrink-0" size={26} />
           <div>
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white leading-none">{t.crm.whatsapp.title}</h1>
+            <h1 className="text-xl font-semibold text-gray-900 dark:text-white leading-none">{t.crm.whatsapp.title}</h1>
             <p className="text-sm text-green-600 dark:text-green-400 font-medium mt-1">● {t.crm.whatsapp.connected} {config.waPhoneNumber}</p>
           </div>
         </div>
@@ -221,13 +221,13 @@ export default function WhatsAppPage() {
           )}
           <button
             onClick={() => { setActiveTab("chats"); setSelectedChat(null); }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'chats' ? 'bg-green-50 text-green-700' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100'}`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'chats' ? 'bg-gray-100 dark:bg-gray-800 text-primary' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100'}`}
           >
             <MessageSquare className="w-4 h-4" /> {t.crm.whatsapp.tabChats}
           </button>
           <button
             onClick={() => setActiveTab("settings")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'settings' ? 'bg-green-50 text-green-700' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100'}`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'settings' ? 'bg-gray-100 dark:bg-gray-800 text-primary' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100'}`}
           >
             <Settings className="w-4 h-4" /> {t.crm.whatsapp.tabSettings}
           </button>
@@ -241,7 +241,7 @@ export default function WhatsAppPage() {
             ${chatListCollapsed ? 'hidden' : selectedChat ? 'hidden md:flex' : 'flex'}
           `}>
             <div className="p-4 border-b border-gray-100">
-              <button onClick={fetchData} className="w-full flex items-center justify-center gap-2 text-xs text-gray-400 hover:text-green-600 transition-colors">
+              <button onClick={fetchData} className="w-full flex items-center justify-center gap-2 text-xs text-gray-400 hover:text-secondary transition-colors">
                 <RefreshCw className="w-3 h-3" /> {t.crm.whatsapp.updateList}
               </button>
             </div>
@@ -253,13 +253,13 @@ export default function WhatsAppPage() {
                   <div key={chat.id} className="relative group border-b border-gray-50">
                     <button
                       onClick={() => setSelectedChat(chat)}
-                      className={`w-full p-4 pr-12 flex items-center gap-3 hover:bg-gray-50 dark:bg-gray-950 transition-colors text-left ${selectedChat?.id === chat.id ? 'bg-green-50' : ''}`}
+                      className={`w-full p-4 pr-12 flex items-center gap-3 hover:bg-gray-50 dark:bg-gray-950 transition-colors text-left ${selectedChat?.id === chat.id ? 'bg-gray-100 dark:bg-gray-800' : ''}`}
                     >
                       <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0 text-gray-400">
                         <User className="w-6 h-6" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-bold text-gray-900 dark:text-white truncate">{chat.pushName || chat.remoteJid.split('@')[0]}</p>
+                        <p className="font-semibold text-gray-900 dark:text-white truncate">{chat.pushName || chat.remoteJid.split('@')[0]}</p>
                         <div className="text-sm text-gray-500 line-clamp-1 break-all">
                           <ReactMarkdown
                             components={{
@@ -299,11 +299,11 @@ export default function WhatsAppPage() {
                   <button onClick={() => setSelectedChat(null)} className="md:hidden p-2 text-gray-400">
                     <ChevronLeft className="w-6 h-6" />
                   </button>
-                  <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center text-green-600">
+                  <div className="w-10 h-10 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center text-primary">
                     <User className="w-5 h-5" />
                   </div>
                   <div>
-                    <p className="font-bold text-gray-900 dark:text-white">{selectedChat.pushName || "Cliente"}</p>
+                    <p className="font-semibold text-gray-900 dark:text-white">{selectedChat.pushName || t.whatsappUi.client}</p>
                     <p className="text-xs text-gray-500">{selectedChat.remoteJid.split('@')[0]}</p>
                   </div>
                 </div>
@@ -316,14 +316,14 @@ export default function WhatsAppPage() {
                 >
                   {messages.map((msg, i) => (
                     <div key={msg.id || i} className={`flex ${msg.fromMe ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[85%] md:max-w-[75%] px-4 py-2 rounded-2xl text-sm shadow-sm ${msg.fromMe ? 'bg-green-600 text-white rounded-tr-none' : 'bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 rounded-tl-none border border-gray-100'}`}>
+                      <div className={`max-w-[85%] md:max-w-[75%] px-4 py-2 rounded-xl text-sm shadow-sm ${msg.fromMe ? 'bg-primary text-white rounded-tr-none' : 'bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 rounded-tl-none border border-gray-100'}`}>
                         <div className="prose-chat break-words">
                           <ReactMarkdown 
                             remarkPlugins={[remarkGfm]}
                             components={{
                               p: ({node, ...props}) => <p className="whitespace-pre-wrap mb-1 last:mb-0 leading-relaxed" {...props} />,
                               a: ({node, ...props}) => <a className="underline font-medium hover:opacity-80 break-all" target="_blank" rel="noopener noreferrer" {...props} />,
-                              strong: ({node, ...props}) => <strong className="font-bold" {...props} />,
+                              strong: ({node, ...props}) => <strong className="font-semibold" {...props} />,
                               em: ({node, ...props}) => <em className="italic" {...props} />,
                               del: ({node, ...props}) => <del className="line-through opacity-70" {...props} />,
                               ul: ({node, ...props}) => <ul className="list-disc pl-4 my-1 space-y-1" {...props} />,
@@ -337,7 +337,7 @@ export default function WhatsAppPage() {
                             {parseWhatsAppToMarkdown(msg.content)}
                           </ReactMarkdown>
                         </div>
-                        <p className={`text-[10px] mt-1 text-right ${msg.fromMe ? 'text-green-100' : 'text-gray-400'}`}>
+                        <p className={`text-xs mt-1 text-right ${msg.fromMe ? 'text-primary' : 'text-gray-400'}`}>
                           {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </p>
                       </div>
@@ -348,7 +348,7 @@ export default function WhatsAppPage() {
                 
                 {/* Info Footer */}
                 <div className="p-3 bg-gray-50 dark:bg-gray-950 border-t border-gray-100 text-center">
-                  <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">{t.crm.whatsapp.autoReplyInfo}</p>
+                  <p className="text-xs text-gray-400 font-semibold">{t.crm.whatsapp.autoReplyInfo}</p>
                 </div>
               </>
             ) : (
@@ -362,20 +362,20 @@ export default function WhatsAppPage() {
       ) : (
         /* Settings Tab */
         <div className="flex-1 overflow-y-auto p-8 max-w-5xl mx-auto w-full">
-          <form onSubmit={handleSaveConfig} className="bg-white dark:bg-gray-950 p-8 md:p-10 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-800 space-y-10">
+          <form onSubmit={handleSaveConfig} className="bg-white dark:bg-gray-950 p-8 md:p-10 rounded-xl border border-gray-100 dark:border-gray-800 space-y-10">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
               {/* Left Side: Parameters */}
               <div className="space-y-8">
                 <div>
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-2">
-                    <RefreshCw className="w-5 h-5 text-green-500" /> {t.crm.whatsapp.settingsTitle}
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-2">
+                    <RefreshCw className="w-5 h-5 text-primary" /> {t.crm.whatsapp.settingsTitle}
                   </h3>
                   <p className="text-sm text-gray-500 mb-8 font-medium">{t.crm.whatsapp.settingsDesc}</p>
                   
-                  <div className="bg-gray-50 dark:bg-gray-900 p-6 rounded-2xl border border-gray-100 dark:border-gray-800">
+                  <div className="bg-gray-50 dark:bg-gray-900 p-6 rounded-xl border border-gray-100 dark:border-gray-800">
                     <div className="flex items-center justify-between mb-6">
-                      <label className="text-sm font-bold text-gray-700 dark:text-gray-300">{t.crm.whatsapp.tempLabel}</label>
-                      <span className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-3 py-1 rounded-full text-xs font-bold ring-1 ring-green-200 dark:ring-green-800">
+                      <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t.crm.whatsapp.tempLabel}</label>
+                      <span className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-3 py-1 rounded-full text-xs font-semibold ring-1 ring-green-200 dark:ring-green-800">
                         {config.waTemperature}
                       </span>
                     </div>
@@ -383,21 +383,21 @@ export default function WhatsAppPage() {
                       type="range" min="0" max="1" step="0.1" 
                       value={config.waTemperature}
                       onChange={(e) => setConfig({ ...config, waTemperature: parseFloat(e.target.value) })}
-                      className="w-full h-2 bg-gray-200 dark:bg-gray-800 rounded-lg appearance-none cursor-pointer accent-green-600 mb-2"
+                      className="w-full h-2 bg-gray-200 dark:bg-gray-800 rounded-lg appearance-none cursor-pointer accent-primary mb-2"
                     />
-                    <div className="flex justify-between text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                    <div className="flex justify-between text-xs text-gray-400 font-semibold ">
                       <span>{t.crm.whatsapp.conservative}</span>
                       <span>{t.crm.whatsapp.creative}</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="p-6 bg-green-50 dark:bg-green-900/10 rounded-2xl border border-green-100 dark:border-green-900/20">
-                  <h4 className="text-sm font-bold text-green-800 dark:text-green-400 flex items-center gap-2 mb-2">
-                    <Lightbulb size={16} className="text-green-600 dark:text-green-400" />
+                <div className="p-6 bg-gray-100 dark:bg-gray-800 rounded-xl border border-primary/10 dark:border-primary/20">
+                  <h4 className="text-sm font-semibold text-primary dark:text-primary flex items-center gap-2 mb-2">
+                    <Lightbulb size={16} className="text-primary dark:text-primary" />
                     <span>{t.crm.whatsapp.tipTitle}</span>
                   </h4>
-                  <p className="text-xs text-green-700 dark:text-green-500 leading-relaxed">
+                  <p className="text-xs text-primary dark:text-primary leading-relaxed">
                     {t.crm.whatsapp.tipDesc}
                   </p>
                 </div>
@@ -406,19 +406,19 @@ export default function WhatsAppPage() {
               {/* Right Side: Identity */}
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-2">
-                    <Bot className="w-5 h-5 text-green-500" /> {t.crm.whatsapp.identityTitle}
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-2">
+                    <Bot className="w-5 h-5 text-primary" /> {t.crm.whatsapp.identityTitle}
                   </h3>
                   <p className="text-sm text-gray-500 mb-4 font-medium">{t.crm.whatsapp.identityDesc}</p>
                   
                   <textarea 
-                    className="w-full h-64 p-5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl focus:ring-4 focus:ring-green-500/10 focus:border-green-500 outline-none text-gray-700 dark:text-gray-200 font-mono text-sm shadow-inner transition-all"
+                    className="w-full h-64 p-5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none text-gray-700 dark:text-gray-200 font-mono text-sm shadow-inner transition-all"
                     placeholder={t.crm.whatsapp.identityPlaceholder}
                     value={config.waContext || ""}
                     onChange={(e) => setConfig({ ...config, waContext: e.target.value })}
                   />
-                  <div className="mt-2 flex items-center gap-2 text-[10px] text-gray-400">
-                    <Check className="w-3 h-3 text-green-500" /> {t.crm.whatsapp.identityNote}
+                  <div className="mt-2 flex items-center gap-2 text-xs text-gray-400">
+                    <Check className="w-3 h-3 text-primary" /> {t.crm.whatsapp.identityNote}
                   </div>
                 </div>
               </div>
@@ -427,7 +427,7 @@ export default function WhatsAppPage() {
             <div className="pt-10 border-t border-gray-100 dark:border-gray-800">
               <button 
                 type="submit" disabled={saving}
-                className="w-full md:w-auto md:px-12 bg-green-600 text-white py-4 rounded-2xl font-bold hover:bg-green-700 hover:scale-[1.01] active:scale-95 transition-all flex items-center justify-center gap-3 shadow-xl shadow-green-600/20 disabled:opacity-50"
+                className="w-full md:w-auto md:px-12 bg-primary text-white py-4 rounded-xl font-semibold hover:bg-secondary transition-all flex items-center justify-center gap-3 disabled:opacity-50"
               >
                 {saving ? (
                   <RefreshCw className="w-5 h-5 animate-spin" />
@@ -446,20 +446,20 @@ export default function WhatsAppPage() {
       {/* Delete Confirmation Modal */}
       {confirmDelete && (
         <div
-          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-in fade-in duration-200"
+          className="fixed inset-0 bg-black/40 z-[60] flex items-center justify-center p-4 animate-in fade-in duration-200"
           onClick={() => { if (!deleting) setConfirmDelete(null); }}
           role="dialog"
           aria-modal="true"
           aria-labelledby="delete-chat-title"
         >
           <div
-            className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-sm p-8 text-center border border-gray-100 dark:border-gray-800 animate-in zoom-in-95 duration-200"
+            className="bg-white dark:bg-gray-900 rounded-xl shadow-lg w-full max-w-sm p-8 text-center border border-gray-100 dark:border-gray-800 animate-in duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-6 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 ring-4 ring-red-50 dark:ring-red-900/10">
+            <div className="mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-6 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 ring-2 ring-red-50 dark:ring-red-900/10">
               <Trash2 size={28} />
             </div>
-            <h3 id="delete-chat-title" className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+            <h3 id="delete-chat-title" className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
               {t.crm.whatsapp.modalDeleteTitle}
             </h3>
             <p className="text-gray-500 dark:text-gray-400 text-sm mb-2 leading-relaxed">
@@ -475,14 +475,14 @@ export default function WhatsAppPage() {
               <button
                 disabled={deleting}
                 onClick={() => setConfirmDelete(null)}
-                className="flex-1 px-6 py-3 text-sm font-bold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 rounded-2xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 px-6 py-3 text-sm font-semibold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {t.crm.whatsapp.cancel}
               </button>
               <button
                 disabled={deleting}
                 onClick={confirmDeleteChat}
-                className="flex-1 flex items-center justify-center gap-2 px-6 py-3 text-sm font-bold text-white bg-red-600 rounded-2xl hover:bg-red-700 transition-all shadow-lg shadow-red-600/20 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
+                className="flex-1 flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-white bg-red-600 rounded-xl hover:bg-red-700 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {deleting ? (
                   <>
@@ -503,18 +503,18 @@ export default function WhatsAppPage() {
 
       {/* Custom Notification Modal */}
        {notificationState && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-sm p-8 text-center border border-gray-100 dark:border-gray-800">
+        <div className="fixed inset-0 bg-black/40 z-[60] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg w-full max-w-sm p-8 text-center border border-gray-100 dark:border-gray-800">
             <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-6 ${notificationState.type === 'error' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
               {notificationState.type === 'error' ? <X size={32} /> : <Check size={32} />}
             </div>
-            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{notificationState.title}</h3>
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">{notificationState.title}</h3>
             <p className="text-gray-500 text-sm mb-8 leading-relaxed">{notificationState.message}</p>
             <button
-              className="px-6 py-3 w-full text-sm font-bold text-white bg-gray-900 dark:bg-gray-800 rounded-2xl hover:bg-gray-800 dark:hover:bg-gray-700 transition-all shadow-lg active:scale-95"
+              className="px-6 py-3 w-full text-sm font-semibold text-white bg-gray-900 dark:bg-gray-800 rounded-xl hover:bg-gray-800 dark:hover:bg-gray-700 transition-all "
               onClick={() => setNotificationState(null)}
             >
-              Entendido
+              {t.integrationsUi.understood}
             </button>
           </div>
         </div>

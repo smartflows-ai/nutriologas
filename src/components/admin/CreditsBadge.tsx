@@ -63,14 +63,14 @@ export default function CreditsBadge() {
     ? "text-red-600 dark:text-red-400"
     : isWarning
     ? "text-amber-600 dark:text-amber-400"
-    : "text-gray-500 dark:text-gray-400";
+    : "text-primary";
 
   return (
     <>
       <button
         id="credits-badge-btn"
         onClick={() => setDrawerOpen(true)}
-        className="w-full group rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-3 hover:border-primary/40 hover:bg-primary/5 transition-all duration-200 text-left"
+        className="w-full group rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-3 hover:border-primary/40 hover:bg-primary/5 transition-all duration-200 text-left"
       >
         {/* Header row */}
         <div className="flex items-center justify-between mb-2">
@@ -102,13 +102,13 @@ export default function CreditsBadge() {
         </div>
 
         {/* Amount text */}
-        <div className={`flex justify-between text-[10px] font-medium ${textColor}`}>
+        <div className={`flex justify-between text-xs font-medium ${textColor}`}>
           <span>${status.usedUsd.toFixed(3)} {t.crm.credits.used}</span>
           <span>${status.limitUsd.toFixed(2)} {t.crm.credits.limit}</span>
         </div>
 
         {isExhausted && (
-          <p className="mt-1.5 text-[10px] text-red-500 font-semibold text-center leading-tight">
+          <p className="mt-1.5 text-xs text-red-500 font-semibold text-center leading-tight">
             {t.crm.credits.exhaustedTitle} — {t.crm.credits.recharge}
           </p>
         )}

@@ -58,22 +58,22 @@ export default async function TenantPage() {
   const isHealth = tenant?.vertical === "HEALTH";
   const isBooking = tenant?.isBookingEnabled || isHealth;
   const sectionTitle = isHealth
-    ? "Servicios y Consultas"
+    ? t.storefrontUi.servicesAndConsults
     : isBooking
-    ? "Nuestros Servicios"
+    ? t.storefrontUi.ourServices
     : t.storefront.home.ourProducts;
   const sectionDesc = isHealth
-    ? "Agenda tu consulta médica o procedimiento especializado con nuestros especialistas."
+    ? t.storefrontUi.healthSectionDesc
     : isBooking
-    ? "Descubre nuestros servicios profesionales y agenda tu cita en línea."
+    ? t.storefrontUi.serviceSectionDesc
     : t.storefront.home.discoverProducts;
-  const catalogBtnText = isHealth || isBooking ? "Ver Servicios" : t.storefront.home.viewCatalog;
+  const catalogBtnText = isHealth || isBooking ? t.storefrontUi.viewServices : t.storefront.home.viewCatalog;
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-gray-950 font-sans selection:bg-primary/20">
       {/* Carrusel */}
       {tenant?.carouselImages && tenant.carouselImages.length > 0 && (
-        <div className="shadow-lg shadow-gray-200/30">
+        <div className=" shadow-gray-200/30">
           <HeroCarousel images={tenant.carouselImages} />
         </div>
       )}
@@ -87,14 +87,14 @@ export default async function TenantPage() {
           
           <div className="mx-auto max-w-5xl px-6 lg:px-8 relative z-10">
             <div className="bg-white/70 dark:bg-gray-900/40 backdrop-blur-3xl border border-white dark:border-gray-800 shadow-[0_8px_40px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_40px_rgb(255,255,255,0.02)] rounded-[3rem] p-10 sm:p-16 lg:p-20 flex flex-col items-center text-center">
-              <span className="inline-flex items-center rounded-full px-4 py-1.5 text-sm font-bold text-[var(--color-primary)] bg-[var(--color-primary)]/10 ring-1 ring-inset ring-[var(--color-primary)]/30 mb-8 uppercase tracking-widest shadow-[0_0_20px_var(--color-primary)]/10">
+              <span className="inline-flex items-center rounded-full px-4 py-1.5 text-sm font-semibold text-[var(--color-primary)] bg-[var(--color-primary)]/10 ring-1 ring-inset ring-[var(--color-primary)]/30 mb-8 shadow-[0_0_20px_var(--color-primary)]/10">
                 {t.storefront.home.aboutUs}
               </span>
-              <h2 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-br from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 mb-8 leading-[1.1]">
+              <h2 className="text-4xl sm:text-5xl lg:text-6xl font-semibold tracking-tight text-gray-900 dark:text-white mb-8 leading-[1.1]">
                 {t.storefront.home.welcomeTo} {tenant.name}
               </h2>
               <div className="max-w-3xl border-t border-gray-100 dark:border-gray-800 pt-8">
-                <p className="text-xl sm:text-2xl leading-relaxed text-gray-700 dark:text-gray-300 font-medium tracking-wide">
+                <p className="text-xl sm:text-2xl leading-relaxed text-gray-700 dark:text-gray-300 font-medium ">
                   {tenant.businessInfo}
                 </p>
               </div>
@@ -104,17 +104,17 @@ export default async function TenantPage() {
       )}
 
       {/* Productos destacados */}
-      <section id="servicios" className="py-24 sm:py-32 bg-white dark:bg-[#07070f] relative overflow-hidden">
+      <section id="servicios" className="py-24 sm:py-32 bg-white dark:bg-gray-950 relative overflow-hidden">
         {/* Subtle top border gradient */}
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[var(--color-primary)]/20 to-transparent" />
+        <div className="absolute top-0 left-0 right-0 h-px bg-gray-200 dark:bg-gray-800" />
         
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-6">
             <div className="max-w-2xl">
-              <h2 className="text-4xl sm:text-5xl font-black text-gray-900 dark:text-white tracking-tight mb-4">{sectionTitle}</h2>
+              <h2 className="text-4xl sm:text-5xl font-semibold text-gray-900 dark:text-white tracking-tight mb-4">{sectionTitle}</h2>
               <p className="text-lg text-gray-500 dark:text-gray-400">{sectionDesc}</p>
             </div>
-            <Link href="/productos" className="inline-flex items-center justify-center gap-2 bg-[var(--color-primary)] hover:bg-[var(--color-primary)]/90 text-white shadow-lg shadow-[var(--color-primary)]/25 px-8 py-4 rounded-2xl font-bold transition-all hover:-translate-y-1 hover:shadow-[var(--color-primary)]/40 whitespace-nowrap">
+            <Link href="/productos" className="inline-flex items-center justify-center gap-2 bg-[var(--color-primary)] hover:bg-[var(--color-primary)]/90 text-white shadow-[var(--color-primary)]/25 px-8 py-4 rounded-xl font-semibold transition-all hover:shadow-[var(--color-primary)]/40 whitespace-nowrap">
               {catalogBtnText} <span aria-hidden="true">&rarr;</span>
             </Link>
           </div>
@@ -132,15 +132,15 @@ export default async function TenantPage() {
         <section id="faq" className="py-24 sm:py-32 bg-slate-50 dark:bg-gray-950 relative">
           <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 relative z-10">
             <div className="text-center mb-16">
-              <span className="inline-flex items-center rounded-full px-4 py-1.5 text-sm font-bold text-[var(--color-primary)] bg-[var(--color-primary)]/10 ring-1 ring-inset ring-[var(--color-primary)]/20 mb-6 uppercase tracking-widest">{t.storefront.home.help}</span>
-              <h2 className="text-4xl sm:text-5xl font-black tracking-tight text-gray-900 dark:text-white">{t.storefront.home.faq}</h2>
+              <span className="inline-flex items-center rounded-full px-4 py-1.5 text-sm font-semibold text-[var(--color-primary)] bg-[var(--color-primary)]/10 ring-1 ring-inset ring-[var(--color-primary)]/20 mb-6 ">{t.storefront.home.help}</span>
+              <h2 className="text-4xl sm:text-5xl font-semibold tracking-tight text-gray-900 dark:text-white">{t.storefront.home.faq}</h2>
               <p className="mt-6 text-xl text-gray-600 dark:text-gray-400 font-medium">{t.storefront.home.faqDesc}</p>
             </div>
             
             <div className="space-y-6">
               {tenant.faqs.map((faq: any) => (
-                <details key={faq.id} className="group bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:hover:shadow-[0_8px_30px_rgb(255,255,255,0.01)] transition-all duration-300 overflow-hidden [&_summary::-webkit-details-marker]:hidden">
-                  <summary className="flex cursor-pointer items-center justify-between gap-4 p-8 text-gray-900 dark:text-white font-bold text-xl select-none outline-none">
+                <details key={faq.id} className="group bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:hover:shadow-[0_8px_30px_rgb(255,255,255,0.01)] transition-all duration-300 overflow-hidden [&_summary::-webkit-details-marker]:hidden">
+                  <summary className="flex cursor-pointer items-center justify-between gap-4 p-8 text-gray-900 dark:text-white font-semibold text-xl select-none outline-none">
                     {faq.question}
                     <span className="shrink-0 transition-transform duration-500 group-open:rotate-180 bg-gray-50 dark:bg-gray-800 text-gray-400 dark:text-gray-500 rounded-full p-3 group-hover:text-[var(--color-primary)] group-open:bg-[var(--color-primary)]/10 group-open:text-[var(--color-primary)]">
                       <svg xmlns="http://www.w3.org/2000/svg" className="size-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

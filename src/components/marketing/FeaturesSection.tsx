@@ -7,69 +7,6 @@ import {
 } from "lucide-react";
 import { useTranslation } from "@/i18n";
 
-const features = [
-  {
-    id: "social",
-    icon: <Megaphone size={22} />,
-    title: "Social Media AI Agent",
-    description:
-      "Posts to Facebook & Instagram daily — copy, image, caption — all generated in your brand voice. Your followers grow while you're with clients.",
-    color: "#7C3AED",
-    glow: "rgba(124,58,237,0.2)",
-    tag: "Most Popular",
-  },
-  {
-    id: "sales",
-    icon: <MessageSquare size={22} />,
-    title: "WhatsApp Sales Agent",
-    description:
-      "Responds instantly, sends product photos, answers objections, and takes orders. You get the sale notification. The agent did the work.",
-    color: "#25D366",
-    glow: "rgba(37,211,102,0.2)",
-    tag: null,
-  },
-  {
-    id: "catalog",
-    icon: <Package size={22} />,
-    title: "Smart Product Catalog",
-    description:
-      "Your store stays current, SEO-optimized, and conversion-ready. The AI flags what's trending and what needs a push.",
-    color: "#06B6D4",
-    glow: "rgba(6,182,212,0.2)",
-    tag: null,
-  },
-  {
-    id: "crm",
-    icon: <BarChart2 size={22} />,
-    title: "Business Analytics",
-    description:
-      "Stop guessing. Know exactly what's working — which posts drove sales, which agents converted most, where to invest next week.",
-    color: "#F59E0B",
-    glow: "rgba(245,158,11,0.2)",
-    tag: null,
-  },
-  {
-    id: "multitenant",
-    icon: <Building2 size={22} />,
-    title: "White-Label Multi-Tenant",
-    description:
-      "Your clients get their own branded store, their own agents, their own domain. You deliver the whole package under your name.",
-    color: "#4F46E5",
-    glow: "rgba(79,70,229,0.2)",
-    tag: "Enterprise",
-  },
-  {
-    id: "appointments",
-    icon: <Calendar size={22} />,
-    title: "Appointment Scheduler",
-    description:
-      "Patients book themselves. Reminders go out automatically. No-shows drop. You just show up.",
-    color: "#EC4899",
-    glow: "rgba(236,72,153,0.2)",
-    tag: null,
-  },
-];
-
 export default function FeaturesSection() {
   const [hovered, setHovered] = useState<string | null>(null);
   const { t } = useTranslation();
@@ -80,7 +17,7 @@ export default function FeaturesSection() {
       icon: <Megaphone size={22} />,
       title: t.features.social.title,
       description: t.features.social.description,
-      color: "#7C3AED",
+      color: "var(--mk-violet)",
       glow: "rgba(124,58,237,0.2)",
       tag: t.features.social.tag,
     },
@@ -98,7 +35,7 @@ export default function FeaturesSection() {
       icon: <Package size={22} />,
       title: t.features.catalog.title,
       description: t.features.catalog.description,
-      color: "#06B6D4",
+      color: "var(--mk-cyan)",
       glow: "rgba(6,182,212,0.2)",
       tag: null,
     },
@@ -107,7 +44,7 @@ export default function FeaturesSection() {
       icon: <BarChart2 size={22} />,
       title: t.features.analytics.title,
       description: t.features.analytics.description,
-      color: "#F59E0B",
+      color: "var(--mk-amber)",
       glow: "rgba(245,158,11,0.2)",
       tag: null,
     },
@@ -116,7 +53,7 @@ export default function FeaturesSection() {
       icon: <Building2 size={22} />,
       title: t.features.whiteLabel.title,
       description: t.features.whiteLabel.description,
-      color: "#4F46E5",
+      color: "var(--mk-indigo)",
       glow: "rgba(79,70,229,0.2)",
       tag: t.features.whiteLabel.tag,
     },
@@ -125,7 +62,7 @@ export default function FeaturesSection() {
       icon: <Calendar size={22} />,
       title: t.features.appointments.title,
       description: t.features.appointments.description,
-      color: "#EC4899",
+      color: "var(--mk-pink)",
       glow: "rgba(236,72,153,0.2)",
       tag: null,
     },
@@ -135,7 +72,7 @@ export default function FeaturesSection() {
     <section
       id="features"
       className="relative py-28 overflow-hidden"
-      style={{ background: "#07070f" }}
+      style={{ background: "var(--mk-bg)" }}
     >
       {/* Subtle gradient top */}
       <div
@@ -146,14 +83,14 @@ export default function FeaturesSection() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center mb-20">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-violet-500/30 bg-violet-500/10 mb-6">
-            <span className="text-xs font-bold text-violet-300 uppercase tracking-widest">{t.features.badge}</span>
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-mk-violet/30 bg-mk-violet/10 mb-6">
+            <span className="text-xs font-bold text-mk-violet-light uppercase tracking-widest">{t.features.badge}</span>
           </div>
           <h2 className="text-4xl sm:text-5xl font-black text-white mb-6 tracking-tight">
             {t.features.headline1}{" "}
             <span
               style={{
-                background: "linear-gradient(135deg, #A78BFA 0%, #06B6D4 100%)",
+                background: "linear-gradient(135deg, var(--mk-violet-light) 0%, var(--mk-cyan) 100%)",
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
                 backgroundClip: "text",
@@ -178,8 +115,8 @@ export default function FeaturesSection() {
               className="relative group cursor-default rounded-2xl p-6 border transition-all duration-300"
               style={{
                 background: hovered === feature.id
-                  ? `radial-gradient(ellipse at top left, ${feature.glow} 0%, #0d0d1a 60%)`
-                  : "#0d0d1a",
+                  ? `radial-gradient(ellipse at top left, ${feature.glow} 0%, var(--mk-card) 60%)`
+                  : "var(--mk-card)",
                 borderColor: hovered === feature.id ? feature.color + "50" : "rgba(255,255,255,0.06)",
                 transform: hovered === feature.id ? "translateY(-4px)" : "translateY(0)",
                 boxShadow: hovered === feature.id ? `0 20px 40px ${feature.glow}` : "none",

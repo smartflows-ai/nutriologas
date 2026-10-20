@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Star, Clock, Calendar } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
+import { getLocaleServer, getTranslationServer } from "@/i18n/server";
 import AddToCartButton from "@/components/shop/AddToCartButton";
 import ProductGallery from "@/components/shop/ProductGallery";
 import ReviewSection from "@/components/shop/ReviewSection";
@@ -34,6 +35,8 @@ export default async function ProductoPage({
   params: { slug: string };
 }) {
   const product = await getProduct(params.slug);
+  const locale = getLocaleServer();
+  const t = getTranslationServer();
   if (!product || !product.isActive) notFound();
 
   const isService = product.itemType === "SERVICE" || product.requiresBooking;
@@ -61,7 +64,7 @@ export default async function ProductoPage({
 
         {/* Info */}
         <div className="flex flex-col">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-3">
+          <h1 className="text-3xl font-semibold text-gray-900 dark:text-white mb-3">
             {product.name}
           </h1>
 
@@ -92,25 +95,25 @@ export default async function ProductoPage({
 
           <div className="mt-auto">
             {isService && (
-              <div className="flex items-center gap-3 mb-4 p-3.5 rounded-2xl bg-[var(--color-primary)]/10 border border-[var(--color-primary)]/20 text-[var(--color-primary)]">
+              <div className="flex items-center gap-3 mb-4 p-3.5 rounded-xl bg-[var(--color-primary)]/10 border border-[var(--color-primary)]/20 text-[var(--color-primary)]">
                 <Clock size={18} />
-                <span className="text-sm font-bold">
+                <span className="text-sm font-semibold">
                   Duración estimada: {product.durationMinutes ?? 30} minutos
                 </span>
               </div>
             )}
 
-            <p className="text-3xl font-bold text-primary mb-4">
-              {formatPrice(product.price)}
+            <p className="text-3xl font-semibold text-primary mb-4">
+              {formatPrice(product.price, locale)}
             </p>
 
             {isService ? (
               <Link
                 href={`/agendar/${product.slug}`}
-                className="w-full py-4 px-6 rounded-2xl bg-[var(--color-primary)] hover:bg-[var(--color-primary)]/90 text-white font-bold text-base flex items-center justify-center gap-2.5 shadow-lg shadow-[var(--color-primary)]/25 transition-all hover:shadow-[var(--color-primary)]/40 hover:-translate-y-0.5"
+                className="w-full py-4 px-6 rounded-xl bg-[var(--color-primary)] hover:bg-[var(--color-primary)]/90 text-white font-semibold text-base flex items-center justify-center gap-2.5 shadow-[var(--color-primary)]/25 transition-all hover:shadow-[var(--color-primary)]/40 "
               >
                 <Calendar size={18} />
-                Agendar Cita Online
+                {t.storefrontUi.agendaCta}
               </Link>
             ) : product.stock > 0 ? (
               <>
@@ -129,7 +132,7 @@ export default async function ProductoPage({
                 </p>
               </>
             ) : (
-              <p className="text-red-500 font-medium">Producto agotado</p>
+              <p className="text-red-500 font-medium">{t.storefrontUi.productSoldOut}</p>
             )}
           </div>
         </div>

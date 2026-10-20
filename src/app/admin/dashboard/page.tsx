@@ -124,7 +124,7 @@ async function getDashboardData(tenantId: string, rangeStr: string) {
   };
 }
 
-import { getTranslationServer } from "@/i18n/server";
+import { getTranslationServer, getLocaleServer } from "@/i18n/server";
 import { CalendarCheck } from "lucide-react";
 
 export default async function DashboardPage({ searchParams }: { searchParams: { range?: string; subscribed?: string } }) {
@@ -133,11 +133,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
   const range = searchParams.range || "7d";
   const data = await getDashboardData(tenantId, range);
   const t = getTranslationServer();
+  const locale = getLocaleServer();
 
   const metrics = [
-    { label: t.crm.dashboard.revenue, value: formatPrice(data.revenue), sub: `${data.orderCount} ${t.crm.dashboard.ordersLabel}`, icon: TrendingUp, color: "bg-green-50 text-green-600" },
-    { label: t.crm.dashboard.totalCustomers, value: data.totalCustomers.toString(), sub: `+${data.newCustomers} ${t.crm.dashboard.inPeriod}`, icon: Users, color: "bg-blue-50 text-blue-600" },
-    { label: "Citas de Hoy", value: data.todayAppointments.toString(), sub: `${data.pendingAppointments} pendientes por confirmar`, icon: CalendarCheck, color: "bg-violet-50 text-violet-600" },
+    { label: t.crm.dashboard.revenue, value: formatPrice(data.revenue, locale), sub: `${data.orderCount} ${t.crm.dashboard.ordersLabel}`, icon: TrendingUp, color: "bg-gray-100 dark:bg-gray-800 text-primary" },
+    { label: t.crm.dashboard.totalCustomers, value: data.totalCustomers.toString(), sub: `+${data.newCustomers} ${t.crm.dashboard.inPeriod}`, icon: Users, color: "bg-gray-100 dark:bg-gray-800 text-secondary" },
+    { label: t.adminUi.todayAppointments, value: data.todayAppointments.toString(), sub: `${data.pendingAppointments} ${t.adminUi.pendingConfirm}`, icon: CalendarCheck, color: "bg-gray-100 dark:bg-gray-800 text-primary" },
     { label: t.crm.dashboard.avgReviews, value: data.avgRating ? data.avgRating.toFixed(1) : "—", sub: `${data.reviewCount} ${t.crm.dashboard.reviewsLabel}`, icon: Star, color: "bg-yellow-50 text-yellow-600" },
   ];
 
@@ -146,11 +147,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
       {searchParams?.subscribed === "true" && (
         <div className="mb-6 p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 flex items-center justify-between text-emerald-800 dark:text-emerald-200 shadow-sm animate-fade-in">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/60 flex items-center justify-center text-emerald-600 dark:text-emerald-400 font-bold text-sm">
+            <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/60 flex items-center justify-center text-emerald-600 dark:text-emerald-400 font-semibold text-sm">
               ✓
             </div>
             <div>
-              <p className="text-sm font-bold">¡Suscripción activada con éxito!</p>
+              <p className="text-sm font-semibold">¡Suscripción activada con éxito!</p>
               <p className="text-xs text-emerald-600 dark:text-emerald-400">
                 Tu plan ha sido confirmado y todas las funciones de NewAigent están desbloqueadas sin restricciones.
               </p>
@@ -161,7 +162,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
 
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2.5">
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white flex items-center gap-2.5">
             <BarChart3 className="text-primary" size={26} />
             {t.crm.dashboard.title}
           </h1>
@@ -179,7 +180,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
               <span className="text-sm text-gray-500">{m.label}</span>
               <span className={`p-2 rounded-lg ${m.color}`}><m.icon size={18} /></span>
             </div>
-            <p className="text-2xl font-bold text-gray-900 dark:text-white">{m.value}</p>
+            <p className="text-2xl font-semibold text-gray-900 dark:text-white">{m.value}</p>
             <p className="text-xs text-gray-400 mt-1">{m.sub}</p>
           </div>
         ))}
@@ -214,7 +215,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
                   <p className="font-medium text-gray-900 dark:text-white truncate">{order.user.name ?? order.user.email}</p>
                   <p className="text-gray-400 text-xs">{order.items.length} {t.crm.dashboard.productsLabel}</p>
                 </div>
-                <span className="font-semibold text-primary flex-shrink-0">{formatPrice(order.total)}</span>
+                <span className="font-semibold text-primary flex-shrink-0">{formatPrice(order.total, locale)}</span>
               </div>
             ))}
             {data.recentOrders.length === 0 && <p className="text-sm text-gray-400 text-center py-8">{t.crm.dashboard.noOrdersYet}</p>}

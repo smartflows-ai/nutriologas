@@ -1,7 +1,7 @@
 "use client";
 // src/app/(public)/carrito/page.tsx
 import { useCartStore } from "@/store/cart";
-import { formatPrice } from "@/lib/utils";
+import { formatPrice, localeFor } from "@/lib/utils";
 import { Trash2, Plus, Minus, ShoppingBag } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -13,7 +13,8 @@ export default function CarritoPage() {
   const { items, removeItem, updateQuantity, total, clearCart } = useCartStore();
   const { status } = useSession();
   const router = useRouter();
-  const { t } = useTranslation();
+  const { t, lang } = useTranslation();
+  const locale = localeFor(lang);
 
   const handleCheckout = () => {
     if (status === "authenticated") {
@@ -27,7 +28,7 @@ export default function CarritoPage() {
     return (
       <div className="max-w-2xl mx-auto px-4 py-20 text-center">
         <ShoppingBag size={64} className="mx-auto text-gray-300 mb-4" />
-        <h1 className="text-2xl font-bold text-gray-700 dark:text-gray-200 mb-2">{t.storefront.cart.emptyTitle}</h1>
+        <h1 className="text-2xl font-semibold text-gray-700 dark:text-gray-200 mb-2">{t.storefront.cart.emptyTitle}</h1>
         <p className="text-gray-500 mb-8">{t.storefront.cart.emptyDesc}</p>
         <Link href="/productos" className="btn-primary">{t.storefront.cart.viewProducts}</Link>
       </div>
@@ -36,7 +37,7 @@ export default function CarritoPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-10">
-      <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">{t.storefront.cart.title}</h1>
+      <h1 className="text-3xl font-semibold text-gray-900 dark:text-white mb-8">{t.storefront.cart.title}</h1>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Items */}
         <div className="lg:col-span-2 space-y-4">
@@ -47,7 +48,7 @@ export default function CarritoPage() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-gray-900 dark:text-white truncate">{item.name}</p>
-                <p className="text-primary font-bold">{formatPrice(item.price)}</p>
+                <p className="text-primary font-semibold">{formatPrice(item.price, locale)}</p>
                 <div className="flex items-center gap-3 mt-2">
                   <button onClick={() => updateQuantity(item.id, item.quantity - 1)} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-100"><Minus size={14} /></button>
                   <span className="font-medium w-6 text-center">{item.quantity}</span>
@@ -55,7 +56,7 @@ export default function CarritoPage() {
                 </div>
               </div>
               <div className="flex flex-col items-end justify-between">
-                <p className="font-bold text-gray-900 dark:text-white">{formatPrice(item.price * item.quantity)}</p>
+                <p className="font-semibold text-gray-900 dark:text-white">{formatPrice(item.price * item.quantity, locale)}</p>
                 <button onClick={() => removeItem(item.id)} className="text-red-400 hover:text-red-600"><Trash2 size={18} /></button>
               </div>
             </div>
@@ -65,15 +66,15 @@ export default function CarritoPage() {
 
         {/* Resumen */}
         <div className="card h-fit sticky top-24">
-          <h2 className="font-bold text-lg text-gray-900 dark:text-white mb-4">{t.storefront.cart.summary}</h2>
+          <h2 className="font-semibold text-lg text-gray-900 dark:text-white mb-4">{t.storefront.cart.summary}</h2>
           <div className="space-y-2 text-sm mb-4">
             <div className="flex justify-between text-gray-600 dark:text-gray-400">
               <span>{t.storefront.cart.subtotal} ({items.reduce((s, i) => s + i.quantity, 0)} {t.storefront.cart.items})</span>
-              <span>{formatPrice(total())}</span>
+              <span>{formatPrice(total(), locale)}</span>
             </div>
-            <div className="border-t pt-2 flex justify-between font-bold text-base">
+            <div className="border-t pt-2 flex justify-between font-semibold text-base">
               <span>{t.storefront.cart.total}</span>
-              <span className="text-primary">{formatPrice(total())}</span>
+              <span className="text-primary">{formatPrice(total(), locale)}</span>
             </div>
           </div>
           <button onClick={handleCheckout} className="btn-primary block text-center w-full py-3">{t.storefront.cart.proceedToPayment}</button>

@@ -20,22 +20,22 @@ Your job is to translate approved BA specs and Architect component maps into a p
 ## Design System (Presto AI)
 
 ### Tone
-Modern · dark-first · glassmorphism accents · premium feel.  
-Users should be wowed on first glance. Avoid generic/plain colors.
+Minimalist, flat and neutral, like Claude or ChatGPT. The tenant's brand color is the only accent. Full spec: `.claude/skills/minimal-ui/references/style-spec.md`.  
+No gradients, glassmorphism, blur, colored shadows, or hover scale. Tenant colors and font come from ThemeConfig and are never hardcoded.
 
 ### Tokens (defined in `src/index.css`)
 - Read existing CSS variables before inventing new ones.
 - If a new token is needed, document it here and Dev adds it to `index.css`.
 
 ### Typography
-- Google Fonts: **Inter** (body), **Outfit** (headings).
+- Font: the tenant font (`--font-family-base`), inherited from the layout. Do not set fonts per component.
 - No browser-default sans-serif.
 
 ### Animations
-- Hover effects on all interactive elements.
-- Transitions: 200–300 ms ease.
+- Hover effects change color or opacity only. No lift or scale.
+- Transitions: 150 ms, color and opacity.
 - Loading states: spinning ring or shimmer skeleton — never blank white.
-- Use `framer-motion` for enter/exit animations on modals and panels.
+- Use `animate-in fade-in` for enter animations on modals and panels. Do not add framer-motion.
 
 ### Icons
 - **Never specify emoji characters** as UI elements (`📋`, `✅`, `⚠️`, `⭐`, etc.).

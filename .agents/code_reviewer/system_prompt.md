@@ -40,7 +40,8 @@ Your job is to review **how** something was built — construction quality, stan
 - [ ] New `t()` keys exist in **both** `en.json` and `es.json`.
 
 ### Style / Design System
-- [ ] No ad-hoc magic color values — uses CSS tokens from `index.css`.
+- [ ] No ad-hoc color values. Tenant colors come from tokens (`primary`, `secondary`, `accent`).
+- [ ] Minimal UI spec followed (`.claude/skills/minimal-ui/references/style-spec.md`): no gradients, blur, colored shadows, hover scale, or uppercase micro labels.
 - [ ] New components < 500 lines.
 - [ ] `Room.jsx` still < 2000 lines.
 

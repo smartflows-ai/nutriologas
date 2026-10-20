@@ -1,7 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Trash2, Plus, GripVertical, Check, Pencil, Eye, EyeOff, X, HelpCircle } from "lucide-react";
+import { Trash2, Plus, GripVertical, Check, Pencil, Eye, EyeOff, HelpCircle } from "lucide-react";
 import { useTranslation } from "@/i18n";
+import FormPanel from "@/components/admin/FormPanel";
 
 interface FAQ {
   id: string;
@@ -120,7 +121,7 @@ export default function FAQPage() {
     <div>
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2.5">
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white flex items-center gap-2.5">
             <HelpCircle className="text-primary" size={26} />
             {t.crm.faq.title}
           </h1>
@@ -129,7 +130,7 @@ export default function FAQPage() {
         {!showAddForm && (
           <button 
             onClick={() => setShowAddForm(true)}
-            className="btn-primary flex items-center gap-2 shadow-lg shadow-primary/20"
+            className="btn-primary flex items-center gap-2 "
           >
             <Plus size={18} /> {t.crm.faq.newQuestionBtn}
           </button>
@@ -138,22 +139,7 @@ export default function FAQPage() {
 
       {/* Agregar FAQ */}
       {showAddForm && (
-        <div className="card mb-8 border-primary/20 bg-primary/5 animate-in fade-in slide-in-from-top-4 duration-300">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="font-bold text-gray-900 dark:text-white flex items-center gap-2 text-lg">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <Plus size={18} className="text-primary" />
-              </div> 
-              {t.crm.faq.addTitle}
-            </h2>
-            <button 
-              onClick={() => setShowAddForm(false)}
-              className="p-2 hover:bg-white dark:hover:bg-gray-800 rounded-full text-gray-400 transition-colors"
-            >
-              <X size={20} />
-            </button>
-          </div>
-          
+        <FormPanel icon={<Plus size={18} className="text-primary" />} title={t.crm.faq.addTitle} onClose={() => setShowAddForm(false)}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <div className="space-y-1.5">
               <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200">{t.crm.faq.questionLabel}</label>
@@ -179,7 +165,7 @@ export default function FAQPage() {
              <button
               onClick={addFaq}
               disabled={!newQuestion.trim() || !newAnswer.trim() || adding}
-              className="btn-primary flex items-center justify-center gap-2 px-6 h-11 font-bold shadow-lg shadow-primary/20"
+              className="btn-primary flex items-center justify-center gap-2 px-6 h-11 font-semibold "
             >
               {adding ? (
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -193,17 +179,17 @@ export default function FAQPage() {
               {t.crm.faq.cancelBtn}
             </button>
           </div>
-        </div>
+        </FormPanel>
       )}
 
       {/* Lista de FAQs */}
       <div>
-        <h2 className="font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
+        <h2 className="font-semibold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
             <Check size={18} className="text-gray-500" />
           </div>
           {t.crm.faq.listTitle} ({faqs.length})
-          <span className="text-[10px] font-bold text-primary uppercase tracking-wider bg-primary/10 px-2.5 py-1 rounded-full border border-primary/20">
+          <span className="text-xs font-semibold text-primary bg-gray-100 dark:bg-gray-800 px-2.5 py-1 rounded-full border border-gray-200 dark:border-gray-800">
             {t.crm.faq.dragReorder}
           </span>
         </h2>
@@ -260,7 +246,7 @@ export default function FAQPage() {
                         <p className={`text-sm font-semibold ${!faq.isActive ? "text-gray-400 line-through" : "text-gray-900 dark:text-white"}`}>
                           {faq.question}
                         </p>
-                        <span className={`badge text-[10px] ${faq.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                        <span className={`badge text-xs ${faq.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
                           {faq.isActive ? t.crm.faq.visible : t.crm.faq.hidden}
                         </span>
                       </div>
@@ -275,21 +261,21 @@ export default function FAQPage() {
                   <div className="flex flex-col gap-1 flex-shrink-0 justify-start">
                     <button
                       onClick={() => toggleActive(faq)}
-                      title={faq.isActive ? "Ocultar" : "Mostrar"}
+                      title={faq.isActive ? t.adminUi.faqHide : t.adminUi.faqShow}
                       className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-primary transition-colors flex justify-center"
                     >
                       {faq.isActive ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
                     <button
                       onClick={() => startEditing(faq)}
-                      title="Editar"
+                      title={t.adminUi.faqEdit}
                       className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-primary transition-colors flex justify-center"
                     >
                       <Pencil size={16} />
                     </button>
                     <button
                       onClick={() => deleteFaq(faq.id)}
-                      title="Eliminar"
+                      title={t.adminUi.faqDelete}
                       className="p-2 rounded-lg hover:bg-red-50 text-gray-500 hover:text-red-500 transition-colors flex justify-center"
                     >
                       <Trash2 size={16} />
