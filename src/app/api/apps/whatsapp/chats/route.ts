@@ -22,6 +22,8 @@ export async function GET(req: NextRequest) {
         pushName: true,
         lastMessage: true,
         updatedAt: true,
+        botEnabled: true,
+        botPausedReason: true,
       }
     });
 

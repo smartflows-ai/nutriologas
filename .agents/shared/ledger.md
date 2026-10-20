@@ -449,3 +449,13 @@ Decisions made:
 **Lesson:** Building a time with a `Z` suffix stored a 17:00 slot as 11:00 in Mexico, and availability then blocked the wrong hour. A second bug was similar: the admin card showed the account email, not the email the patient typed. Store what the patient typed in its own column.
 
 **Open:** Existing web bookings made before the time fix are 6 hours early. Not corrected yet.
+
+## 2026-10-20 — Dev — Per-contact bot switch and owner replies
+
+**Decision:** The bot's own reply is stored under a `bot-` key before it is sent. Evolution's echo of that reply is recognized by content within 60 s for the same contact (JID or alt JID), and an echo neither stores a second row nor pauses the bot. Any other `fromMe` message is the owner writing to the contact, so it pauses the bot.
+
+**Decision:** A chat with no row is answered. The contact-status check fails open only for that case; a failed call stops the workflow run, which is a known gap.
+
+**Lesson:** Matching the echo by key alone fails: the bot's reply and its echo have different keys. Storing the reply first and matching by content keeps the pause logic correct without relying on Evolution's key format.
+
+**Open:** Echo matching for `@lid` contacts depends on Evolution sending `remoteJidAlt`. Verify with a real event before relying on it.

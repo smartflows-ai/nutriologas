@@ -191,6 +191,8 @@ model WhatsAppChat {
   pushName    String?
   lastMessage String?  @db.Text
   unreadCount Int      @default(0)
+  botEnabled  Boolean  @default(true)  // false: the AI bot does not answer this contact
+  botPausedReason String? // "manual" (owner switched it off) | "owner_reply" (owner wrote to the contact)
   updatedAt   DateTime @updatedAt
 
   messages    WhatsAppMessage[]

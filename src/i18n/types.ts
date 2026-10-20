@@ -575,6 +575,16 @@ export interface Translations {
       deleteChat: string;
       selectChat: string;
       autoReplyInfo: string;
+      botToggleLabel: string;
+      botOnState: string;
+      botOffState: string;
+      botBadge: string;
+      botPausedByOwner: string;
+      botPausedManual: string;
+      resumeBot: string;
+      composerPlaceholder: string;
+      composerHint: string;
+      sendMessage: string;
       notConnected: string;
       notConnectedDesc: string;
       goToApps: string;
@@ -1356,6 +1366,10 @@ export interface Translations {
     date_invalid: string;
     slot_unavailable: string;
     calendar_sync_failed: string;
+    whatsapp_chat_not_found: string;
+    whatsapp_message_required: string;
+    whatsapp_send_failed: string;
+    whatsapp_invalid_body: string;
     cart_empty: string;
     product_unavailable: string;
     insufficient_stock: string;

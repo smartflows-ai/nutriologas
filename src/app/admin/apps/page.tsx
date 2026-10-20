@@ -46,7 +46,7 @@ const FEATURES: FeatureDef[] = [
     icon: <CalendarIcon size={22} />,
     providers: [
       { id: "GOOGLE", name: "Google", connectUrl: "/api/apps/oauth/google/start" },
-      { id: "MICROSOFT", name: "Outlook", connectUrl: "/api/apps/oauth/microsoft/start" },
+      // { id: "MICROSOFT", name: "Outlook", connectUrl: "/api/apps/oauth/microsoft/start" },
     ]
   },
   {

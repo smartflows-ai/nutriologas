@@ -60,8 +60,10 @@ export async function sendWhatsAppMessage({
       return { success: false, reason: "WhatsApp no está conectado para este negocio" };
     }
 
-    const recipient = formatWhatsAppNumber(to);
-    if (!recipient || recipient.length < 8) {
+    // A full JID (contact chats, including @lid contacts) is sent as-is; a phone number is normalized.
+    const isJid = to.includes("@");
+    const recipient = isJid ? to.trim() : formatWhatsAppNumber(to);
+    if (!recipient || (!isJid && recipient.length < 8)) {
       return { success: false, reason: "Número de teléfono inválido" };
     }
 

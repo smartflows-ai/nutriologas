@@ -1,12 +1,13 @@
 // src/lib/appointments-service.ts
 // One booking pipeline for the web agenda and the WhatsApp bot:
-// conflict check, then the DB row, then the mirror event on the connected calendar.
-import { AppointmentStatus } from "@prisma/client";
+// conflict check under a per-day lock, then the DB row, then the mirror event on the connected calendar.
+import { AppointmentStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import {
   CalendarLink,
   dateKeyInClinicZone,
-  getBusyPeriods,
+  getExternalBusyPeriods,
+  getNativeBusyPeriods,
   isSlotFree,
   syncCalendarCreate,
   syncCalendarDelete,
@@ -46,6 +47,21 @@ function endOf(start: Date, durationMinutes: number): Date {
   return new Date(start.getTime() + durationMinutes * 60000);
 }
 
+/**
+ * Runs fn in a transaction that holds a lock on one tenant's clinic day. Two bookings for the same
+ * day queue behind each other, so the conflict check and the write happen as one step.
+ */
+async function lockDay<T>(
+  tenantId: string,
+  date: string,
+  fn: (tx: Prisma.TransactionClient) => Promise<T>
+): Promise<T> {
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${tenantId}:${date}`}))`;
+    return fn(tx);
+  });
+}
+
 async function linkCreated(id: string, link: CalendarLink) {
   return prisma.appointment.update({
     where: { id },
@@ -56,37 +72,31 @@ async function linkCreated(id: string, link: CalendarLink) {
 
 export async function createAppointment(input: CreateAppointmentInput): Promise<CreateAppointmentResult> {
   const end = endOf(input.appointmentDate, input.durationMinutes);
-  const busy = await getBusyPeriods(input.tenantId, dateKeyInClinicZone(input.appointmentDate));
-  if (!isSlotFree(busy, input.appointmentDate, end)) {
-    return { ok: false, reason: "slot_unavailable" };
-  }
+  const date = dateKeyInClinicZone(input.appointmentDate);
+  // Calendar lookup is a network call, so it runs before the lock is taken.
+  const external = await getExternalBusyPeriods(input.tenantId, date);
 
-  const base = {
-    tenantId: input.tenantId,
-    userId: input.userId,
-    productId: input.productId,
-    appointmentDate: input.appointmentDate,
-    durationMinutes: input.durationMinutes,
-    notes: input.notes,
-    status: input.status,
-  };
+  const created = await lockDay(input.tenantId, date, async (tx) => {
+    const native = await getNativeBusyPeriods(tx, input.tenantId, date);
+    if (!isSlotFree([...native, ...external], input.appointmentDate, end)) return null;
 
-  let created;
-  try {
-    created = await prisma.appointment.create({
+    return tx.appointment.create({
       data: {
-        ...base,
+        tenantId: input.tenantId,
+        userId: input.userId,
+        productId: input.productId,
+        appointmentDate: input.appointmentDate,
+        durationMinutes: input.durationMinutes,
+        notes: input.notes,
+        status: input.status,
         customerName: input.customerName,
         customerPhone: input.customerPhone,
         customerEmail: input.customerEmail,
       },
       include: appointmentInclude,
     });
-  } catch (err: any) {
-    // Databases without the customer columns still accept the booking; the phone and name stay in notes.
-    console.warn("[appointments] Fallback create without direct customer columns:", err?.message);
-    created = await prisma.appointment.create({ data: base, include: appointmentInclude });
-  }
+  });
+  if (!created) return { ok: false, reason: "slot_unavailable" };
 
   const synced = await syncCalendarCreate(input.tenantId, {
     summary: input.calendar.summary,
@@ -112,24 +122,29 @@ export interface RescheduleInput {
 export async function rescheduleAppointment(input: RescheduleInput) {
   const { appointment } = input;
   const end = endOf(input.newStart, appointment.durationMinutes);
+  const date = dateKeyInClinicZone(input.newStart);
+  const external = input.checkConflicts ? await getExternalBusyPeriods(input.tenantId, date) : [];
 
-  if (input.checkConflicts) {
-    const busy = await getBusyPeriods(input.tenantId, dateKeyInClinicZone(input.newStart));
-    const free = isSlotFree(busy, input.newStart, end, {
-      appointmentId: appointment.id,
-      externalEventId: appointment.externalEventId,
+  const updated = await lockDay(input.tenantId, date, async (tx) => {
+    if (input.checkConflicts) {
+      const native = await getNativeBusyPeriods(tx, input.tenantId, date);
+      const free = isSlotFree([...native, ...external], input.newStart, end, {
+        appointmentId: appointment.id,
+        externalEventId: appointment.externalEventId,
+      });
+      if (!free) return null;
+    }
+
+    return tx.appointment.update({
+      where: { id: appointment.id },
+      data: {
+        appointmentDate: input.newStart,
+        remindersSent: [], // a new time gets its own reminders
+      },
+      include: appointmentInclude,
     });
-    if (!free) return { ok: false as const, reason: "slot_unavailable" as const };
-  }
-
-  const updated = await prisma.appointment.update({
-    where: { id: appointment.id },
-    data: {
-      appointmentDate: input.newStart,
-      remindersSent: [], // a new time gets its own reminders
-    },
-    include: appointmentInclude,
   });
+  if (!updated) return { ok: false as const, reason: "slot_unavailable" as const };
 
   await syncCalendarUpdate(input.tenantId, appointment, { start: input.newStart, end });
   return { ok: true as const, appointment: updated };

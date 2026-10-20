@@ -2,7 +2,7 @@
 // Keeps the tenant's connected calendar (Google or Outlook) in step with native appointments.
 // The DB row is the source of truth. The sync helpers are best-effort: a calendar failure is
 // logged and never fails a booking.
-import { AppProvider } from "@prisma/client";
+import { AppProvider, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getAppToken, getConnectedProvider } from "@/lib/connected-apps";
 import { createCalendarEvent, deleteCalendarEvent, fetchCalendarEvents, updateCalendarEvent } from "@/lib/google-calendar";
@@ -56,27 +56,25 @@ export function dateKeyInClinicZone(date: Date): string {
   return date.toLocaleDateString("en-CA", { timeZone: "America/Mexico_City" });
 }
 
-/**
- * Busy periods for one day: active native appointments plus events on the tenant's connected
- * calendar. Calendar failures fall back to the DB only.
- */
-export async function getBusyPeriods(tenantId: string, date: string): Promise<BusyPeriod[]> {
+/** Active native appointments for one clinic day. Pass a transaction client to read under a lock. */
+export async function getNativeBusyPeriods(
+  db: Pick<Prisma.TransactionClient, "appointment">,
+  tenantId: string,
+  date: string
+): Promise<BusyPeriod[]> {
   const dayStart = new Date(`${date}T00:00:00${BOT_TIMEZONE_OFFSET}`);
   const dayEnd = new Date(`${date}T23:59:59${BOT_TIMEZONE_OFFSET}`);
 
-  const [appointments, externalBusy] = await Promise.all([
-    prisma.appointment.findMany({
-      where: {
-        tenantId,
-        status: { in: [...ACTIVE_APPOINTMENT_STATUSES] },
-        appointmentDate: { gte: dayStart, lte: dayEnd },
-      },
-      select: { id: true, externalEventId: true, appointmentDate: true, durationMinutes: true },
-    }),
-    fetchExternalBusy(tenantId, dayStart, dayEnd, date),
-  ]);
+  const appointments = await db.appointment.findMany({
+    where: {
+      tenantId,
+      status: { in: [...ACTIVE_APPOINTMENT_STATUSES] },
+      appointmentDate: { gte: dayStart, lte: dayEnd },
+    },
+    select: { id: true, externalEventId: true, appointmentDate: true, durationMinutes: true },
+  });
 
-  const periods: BusyPeriod[] = appointments.map((a) => {
+  return appointments.map((a) => {
     const start = a.appointmentDate.getTime();
     return {
       start,
@@ -85,8 +83,25 @@ export async function getBusyPeriods(tenantId: string, date: string): Promise<Bu
       externalEventId: a.externalEventId ?? undefined,
     };
   });
+}
 
-  return [...periods, ...externalBusy];
+/** Events on the tenant's connected calendar for one clinic day. Failures return no events. */
+export async function getExternalBusyPeriods(tenantId: string, date: string): Promise<BusyPeriod[]> {
+  const dayStart = new Date(`${date}T00:00:00${BOT_TIMEZONE_OFFSET}`);
+  const dayEnd = new Date(`${date}T23:59:59${BOT_TIMEZONE_OFFSET}`);
+  return fetchExternalBusy(tenantId, dayStart, dayEnd, date);
+}
+
+/**
+ * Busy periods for one day: active native appointments plus events on the tenant's connected
+ * calendar. Calendar failures fall back to the DB only.
+ */
+export async function getBusyPeriods(tenantId: string, date: string): Promise<BusyPeriod[]> {
+  const [native, external] = await Promise.all([
+    getNativeBusyPeriods(prisma, tenantId, date),
+    getExternalBusyPeriods(tenantId, date),
+  ]);
+  return [...native, ...external];
 }
 
 async function fetchExternalBusy(tenantId: string, dayStart: Date, dayEnd: Date, date: string): Promise<BusyPeriod[]> {

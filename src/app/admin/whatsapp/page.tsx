@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { MessageSquare, Settings, Send, User, Bot, RefreshCw, ChevronLeft, X, Check, PanelLeftClose, PanelLeftOpen, Trash2, Lightbulb } from "lucide-react";
+import { MessageSquare, Settings, Send, User, Bot, BotOff, RefreshCw, ChevronLeft, X, Check, PanelLeftClose, PanelLeftOpen, Trash2, Lightbulb } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useTranslation } from "@/i18n";
+import { translateApiError } from "@/i18n/validation";
 
 // WhatsApp text formatting normalizer to Standard Markdown
 const parseWhatsAppToMarkdown = (text: string) => {
@@ -32,6 +33,15 @@ export default function WhatsAppPage() {
   const [notificationState, setNotificationState] = useState<{ title: string; message: string; type: "error" | "success" } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ chat: any } | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [botBusy, setBotBusy] = useState(false);
+  const [draft, setDraft] = useState("");
+  const botOn = selectedChat?.botEnabled !== false;
+
+  // A draft belongs to one chat.
+  useEffect(() => {
+    setDraft("");
+  }, [selectedChat?.id]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const isAtBottomRef = useRef(true);
@@ -112,6 +122,61 @@ export default function WhatsAppPage() {
       }
     } catch (error) {
       console.error("Error fetching messages:", error);
+    }
+  };
+
+  // Applies a chat update (flags, last message) to the list and to the open chat.
+  const mergeChatState = (update: { id: string } & Record<string, any>) => {
+    setChats(prev => prev.map(c => (c.id === update.id ? { ...c, ...update } : c)));
+    setSelectedChat((prev: any) => (prev?.id === update.id ? { ...prev, ...update } : prev));
+  };
+
+  const showError = (code: string | undefined) => {
+    setNotificationState({
+      title: t.whatsappUi.errorTitle,
+      message: translateApiError(t, code) || t.whatsappUi.errorTitle,
+      type: "error",
+    });
+  };
+
+  const toggleBot = async () => {
+    if (!selectedChat) return;
+    setBotBusy(true);
+    try {
+      const res = await fetch(`/api/apps/whatsapp/chats/${selectedChat.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ botEnabled: !botOn }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      mergeChatState(data.chat);
+    } catch (error: any) {
+      showError(error?.message);
+    } finally {
+      setBotBusy(false);
+    }
+  };
+
+  const sendMessage = async () => {
+    const text = draft.trim();
+    if (!selectedChat || !text || sending) return;
+    setSending(true);
+    try {
+      const res = await fetch(`/api/apps/whatsapp/chats/${selectedChat.id}/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setMessages(prev => [...prev, data.message]);
+      setDraft("");
+      mergeChatState({ ...data.chat, lastMessage: text });
+    } catch (error: any) {
+      showError(error?.message);
+    } finally {
+      setSending(false);
     }
   };
 
@@ -260,6 +325,12 @@ export default function WhatsAppPage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-gray-900 dark:text-white truncate">{chat.pushName || chat.remoteJid.split('@')[0]}</p>
+                        {chat.botEnabled === false && (
+                          <span className="inline-flex items-center gap-1 text-xs text-gray-500 mb-0.5">
+                            <BotOff size={12} aria-hidden="true" />
+                            {t.crm.whatsapp.botBadge}
+                          </span>
+                        )}
                         <div className="text-sm text-gray-500 line-clamp-1 break-all">
                           <ReactMarkdown
                             components={{
@@ -306,6 +377,20 @@ export default function WhatsAppPage() {
                     <p className="font-semibold text-gray-900 dark:text-white">{selectedChat.pushName || t.whatsappUi.client}</p>
                     <p className="text-xs text-gray-500">{selectedChat.remoteJid.split('@')[0]}</p>
                   </div>
+                  <div className="ml-auto flex items-center gap-3">
+                    <span className="text-xs text-gray-500">{botOn ? t.crm.whatsapp.botOnState : t.crm.whatsapp.botOffState}</span>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={botOn}
+                      aria-label={t.crm.whatsapp.botToggleLabel}
+                      onClick={toggleBot}
+                      disabled={botBusy}
+                      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${botOn ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-700'}`}
+                    >
+                      <span className={`inline-block h-5 w-5 rounded-full bg-white transition-transform ${botOn ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Messages List */}
@@ -346,9 +431,52 @@ export default function WhatsAppPage() {
                   <div ref={messagesEndRef} />
                 </div>
                 
-                {/* Info Footer */}
-                <div className="p-3 bg-gray-50 dark:bg-gray-950 border-t border-gray-100 text-center">
-                  <p className="text-xs text-gray-400 font-semibold">{t.crm.whatsapp.autoReplyInfo}</p>
+                {/* Composer: the owner can write to the contact; sending pauses the bot */}
+                <div className="p-3 bg-gray-50 dark:bg-gray-950 border-t border-gray-100 space-y-2">
+                  {!botOn && (
+                    <div className="flex items-center justify-between gap-3 text-xs text-gray-500">
+                      <span className="flex items-center gap-1.5">
+                        <BotOff size={12} aria-hidden="true" />
+                        {selectedChat.botPausedReason === "owner_reply" ? t.crm.whatsapp.botPausedByOwner : t.crm.whatsapp.botPausedManual}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={toggleBot}
+                        disabled={botBusy}
+                        className="text-primary underline underline-offset-2 disabled:opacity-50"
+                      >
+                        {t.crm.whatsapp.resumeBot}
+                      </button>
+                    </div>
+                  )}
+                  <form onSubmit={(e) => { e.preventDefault(); sendMessage(); }} className="flex items-end gap-2">
+                    <textarea
+                      value={draft}
+                      onChange={(e) => setDraft(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          sendMessage();
+                        }
+                      }}
+                      rows={1}
+                      maxLength={4096}
+                      disabled={sending}
+                      placeholder={t.crm.whatsapp.composerPlaceholder}
+                      aria-label={t.crm.whatsapp.composerPlaceholder}
+                      className="flex-1 resize-none rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-60"
+                    />
+                    <button
+                      type="submit"
+                      disabled={sending || !draft.trim()}
+                      aria-label={t.crm.whatsapp.sendMessage}
+                      title={t.crm.whatsapp.sendMessage}
+                      className="p-2.5 rounded-lg bg-primary text-white disabled:opacity-50"
+                    >
+                      <Send className="w-4 h-4" />
+                    </button>
+                  </form>
+                  <p className="text-[11px] text-gray-400">{t.crm.whatsapp.composerHint}</p>
                 </div>
               </>
             ) : (

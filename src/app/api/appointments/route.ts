@@ -196,12 +196,15 @@ export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     let tenantId: string | null = (session?.user as any)?.tenantId ?? null;
-    let userId: string | null = session?.user?.id ?? null;
+    // A logged-in customer owns the booking. An admin session books for the customer typed in the form,
+    // so the booking goes to a guest account from that email and never lands under the admin account.
+    const isAdminSession = (session?.user as any)?.role === "ADMIN";
+    let userId: string | null = isAdminSession ? null : session?.user?.id ?? null;
 
     const host = req.headers.get("host") || "";
     const tenantSlug = resolveTenantSlug(host);
     const tenant = await prisma.tenant.findFirst({
-      where: tenantId 
+      where: tenantId
         ? { id: tenantId } 
         : { OR: [{ slug: tenantSlug }, { customDomain: tenantSlug }] },
       select: { id: true, name: true, whatsappNumber: true },

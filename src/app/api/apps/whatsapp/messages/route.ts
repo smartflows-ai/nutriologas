@@ -16,13 +16,14 @@ export async function GET(req: NextRequest) {
   if (!chatId) return Response.json({ error: "chatId es requerido" }, { status: 400 });
 
   try {
-    const messages = await prisma.whatsAppMessage.findMany({
+    // Newest 50 messages, returned oldest-first so the chat reads top to bottom.
+    const newest = await prisma.whatsAppMessage.findMany({
       where: { chatId, tenantId },
-      orderBy: { timestamp: "asc" },
-      take: 50, // Solo los últimos 50 para empezar
+      orderBy: { timestamp: "desc" },
+      take: 50,
     });
 
-    return Response.json({ messages });
+    return Response.json({ messages: newest.reverse() });
   } catch (error: any) {
     console.error("Error loading WhatsApp messages:", error);
     return Response.json({ error: error.message }, { status: 500 });

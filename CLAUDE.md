@@ -430,6 +430,7 @@ Flujo: `local-utils/n8n-chat-workflow-v2.json` ("NewAigent - WhatsApp Bot (Chat)
   | `reschedule_appointment` | `POST /api/internal/bot/reschedule` |
 
   El contexto (servicios, precios, FAQs, `waContext`) llega con `POST /api/internal/bot/context`.
+- **Bot por contacto**: `WhatsAppChat.botEnabled` (default `true`) y `botPausedReason` (`manual` o `owner_reply`). El CRM lo cambia con `PATCH /api/apps/whatsapp/chats/[id]` y el dueño escribe con `POST /api/apps/whatsapp/chats/[id]/send` (la escritura pausa el bot). n8n consulta `POST /api/internal/bot/contact-status` antes de ejecutar el agente. Ver `local-utils/N8N_WHATSAPP_BOT_DOCUMENTATION.md`, sección "Bot apagado por contacto".
 - **Reglas de negocio**: los precios se pueden citar, nunca cambiar ni descontar. Citas entre 08:00 y 20:00 (-06:00), con duración por servicio. El conflicto revisa citas nativas y el calendario conectado (Google u Outlook, `getBusyPeriods` en `src/lib/calendar-sync.ts`); si el calendario falla, solo se usa la base de datos. La web y el bot crean citas con el mismo servicio (`src/lib/appointments-service.ts`).
 - **Horas del paciente**: son hora de Mexico. Se construyen con `clinicDateTime()` (`src/lib/clinic-time.ts`, offset `-06:00`) y se leen con `clinicTimeOf()`. Nunca usar sufijo `Z` para una hora elegida por el paciente.
 - **Privacidad**: el system prompt prohíbe mencionar formatos técnicos, IDs, herramientas, errores, infraestructura y datos de otros clientes. Es una guía para el modelo, no una garantía. El nodo `Clean Reply` quita saludos repetidos y es el único filtro de salida.
@@ -596,9 +597,8 @@ Luego acceder a `http://doctor.localhost:3000` para ver el tenant "doctor".
 - OXXO Pay requiere polling de webhooks de Conekta para confirmar pago
 
 ### Pendiente
-- **Migración del schema sin aplicar**: `remindersEnabled`, `reminderOffsetsMinutes` y `remindersSent` requieren `npm run db:push`. Confirmar antes de aplicar, porque el schema tiene otros cambios sin migrar. Lo mismo aplica a `externalProvider`, `externalEventId` y `customerEmail` de `Appointment`; después correr `local-utils/backfill-appointment-calendar-links.mjs`.
-- **Citas web anteriores al fix de hora**: se guardaron con hora UTC (6 horas adelantadas). No se han corregido.
-- **Concurrencia al agendar**: dos reservas simultáneas en el mismo horario pueden pasar la revisión de conflictos a la vez. Falta un candado o restricción en la base de datos.
+- **Migración del schema sin aplicar**: `WhatsAppChat.botEnabled` y `botPausedReason` requieren `npm run db:push`. Confirmar antes de aplicar.
+- **Citas web anteriores al fix de hora**: se guardaron con hora UTC (6 horas adelantadas). Corregir con `local-utils/shift-web-appointments-utc-fix.mjs` (primero sin `--write`) y mover a mano los eventos del calendario que se listen.
 - **Secretos hardcodeados en workflows de n8n** (clave interna, API key de Evolution, clave de OpenRouter en la campaña social). Mover a credenciales cuando n8n lo permita, y rotarlos.
 - **Workflow social**: `Notify Error` usa `$env.WEBHOOK_URL`, que no está disponible en n8n. Si una publicación falla después de generar el texto, sus tokens no se reportan.
 - **Pantalla de recordatorios en el CRM**: no construida.

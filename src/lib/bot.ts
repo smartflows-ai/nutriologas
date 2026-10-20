@@ -92,3 +92,13 @@ export function formatSlotTime(date: Date): string {
     hour12: true,
   });
 }
+
+/**
+ * All chat JIDs that can belong to one contact: its phone JID, the raw JID and the alt JID.
+ */
+export function contactJids(digits: string | null, remoteJid: unknown, remoteJidAlt: unknown): string[] {
+  const candidates = [digits ? `${digits}@s.whatsapp.net` : null, remoteJid, remoteJidAlt];
+  return Array.from(
+    new Set(candidates.filter((jid): jid is string => typeof jid === "string" && jid.includes("@")))
+  );
+}

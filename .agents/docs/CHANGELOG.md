@@ -37,12 +37,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Outlook card** is visible again in `/admin/apps`. It shows a reconnect notice when the stored connection lacks write access (`integrationsUi.outlookReconnect`).
 - **API error code** `calendar_sync_failed` (HTTP 502), translated in `t.apiErrors`.
 
+- **Per-contact bot switch**: `WhatsAppChat.botEnabled` and `botPausedReason`. CRM toggle in the chat header (`PATCH /api/apps/whatsapp/chats/[id]`), owner send box (`POST /api/apps/whatsapp/chats/[id]/send`), and n8n check `POST /api/internal/bot/contact-status`. Owner messages from the phone pause the bot too. The bot's own replies (and their echoes) do not.
+- **n8n workflow nodes**: `Get Contact Status`, `Guard: Bot Enabled`, `Guard: Owner Message`, `Store Owner Message`.
+- **Shift script** `local-utils/shift-web-appointments-utc-fix.mjs` (dry run by default, `--write` to apply).
+- **Booking lock**: `pg_advisory_xact_lock` per tenant and clinic day in `src/lib/appointments-service.ts`.
 ### Changed
 - `PATCH /api/tenants/business`: `whatsappNumber` is required and must be `+` followed by 8 to 15 digits. The business profile page enforces the same rule. Existing tenants without a number must add one on their next save.
 - `createCalendarEvent` adds attendees only when an attendee email is given.
 - Google Calendar: `updateCalendarEvent` (reschedule) and `deleteCalendarEvent` (cancel). A missing event (404/410) is not an error on delete.
 - Bot prompt: greets only on the first message, lists services when asked for prices, and follows privacy rules that keep technical details and other customers' data out of replies.
 
+- Web availability uses the same busy check as booking (native appointments and the connected calendar).
+- A logged-in admin's web booking goes to a guest account from the form email. Logged-in customers keep their own bookings.
+- `sendWhatsAppMessage` accepts a full JID, so `@lid` chats can receive replies.
+- n8n: the bot records its reply before sending it, and the send reads the text from `Clean Reply`.
 - `POST /api/appointments` and the bot `book` route use the shared service. Web bookings check conflicts against native rows and the connected calendar and return 409 `slot_unavailable` on a conflict.
 - `PATCH /api/appointments/[id]`: a date change moves the mirror event and restarts reminders (admin edits skip the conflict check). CANCELLED or NO_SHOW deletes the mirror event.
 - `DELETE /api/appointments/[id]` deletes the mirror event before the row and returns 502 `calendar_sync_failed` if that fails.
@@ -73,10 +81,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Visual check pending in light and dark mode at 375 px, with a non-black primary and a custom font.
 - `npm run db:push` also adds `externalProvider`, `externalEventId` and `customerEmail` to `Appointment`. After it runs, execute `node local-utils/backfill-appointment-calendar-links.mjs`.
 - Outlook connections made before this change must be reconnected to enable event sync.
-- Web bookings made before the clinic-time fix are stored 6 hours early. They are not corrected yet.
+- Web bookings made before the clinic-time fix are stored 6 hours early. Correct them with `local-utils/shift-web-appointments-utc-fix.mjs` (dry run first).
+- `npm run db:push` is needed for `WhatsAppChat.botEnabled` and `botPausedReason`. Not applied yet.
+- Re-import `local-utils/n8n-chat-workflow-v2.json` into n8n. The file is not tracked by git; the pre-change copy is only in the session scratchpad.
 - Web bookings made before the notes change keep the old "Motivo" text.
-- Two simultaneous bookings for the same slot can both pass the conflict check.
-- Open decision: bookings made while logged in are linked to the session account. Should a booking for someone else link to the admin account at all?
 
 ---
 

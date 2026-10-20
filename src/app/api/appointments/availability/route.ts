@@ -1,8 +1,8 @@
 // src/app/api/appointments/availability/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { fetchExternalAppointments } from "@/lib/external-calendar";
-import { CLINIC_TIME_OFFSET, clinicTimeOf } from "@/lib/clinic-time";
+import { clinicDateTime } from "@/lib/clinic-time";
+import { getBusyPeriods, isSlotFree } from "@/lib/calendar-sync";
 
 import { resolveTenantSlug } from "@/lib/tenant";
 import { apiError } from "@/lib/api-errors";
@@ -69,61 +69,13 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Consultar citas existentes para ese día
-    const startOfDay = new Date(`${dateStr}T00:00:00.000${CLINIC_TIME_OFFSET}`);
-    const endOfDay = new Date(`${dateStr}T23:59:59.999${CLINIC_TIME_OFFSET}`);
-
-    const existingAppointments = await prisma.appointment.findMany({
-      where: {
-        tenantId: tenant.id,
-        productId,
-        status: { notIn: ["CANCELLED"] },
-        appointmentDate: {
-          gte: startOfDay,
-          lte: endOfDay,
-        },
-      },
-      select: { appointmentDate: true },
+    // Same rule as booking: a slot is free only when no native appointment or calendar event overlaps it.
+    const busy = await getBusyPeriods(tenant.id, dateStr);
+    const availableSlots = baseSlots.filter((time) => {
+      const start = new Date(clinicDateTime(dateStr, time));
+      const end = new Date(start.getTime() + duration * 60000);
+      return isSlotFree(busy, start, end);
     });
-
-    const occupiedHours = new Set(
-      existingAppointments.map((a) => clinicTimeOf(new Date(a.appointmentDate)))
-    );
-
-    try {
-      const externalAppts = await fetchExternalAppointments(
-        tenant.id, 
-        startOfDay.toISOString(), 
-        endOfDay.toISOString()
-      );
-      
-      externalAppts.forEach(app => {
-        const d = new Date(app.appointmentDate);
-        const startTime = clinicTimeOf(d);
-        const [startHour, startMinute] = startTime.split(":").map(Number);
-
-        // Mark the start time as occupied
-        occupiedHours.add(startTime);
-
-        // Also mark subsequent slots based on duration to prevent overlapping
-        const appDuration = app.durationMinutes || 30;
-        let currentMinutes = startHour * 60 + startMinute;
-        const endMinutes = currentMinutes + appDuration;
-        
-        // Mark every slot that starts within the duration of this appointment
-        // We check every 15-minute interval as that's a common minimum slot size
-        for (let m = currentMinutes + 15; m < endMinutes; m += 15) {
-          const h = Math.floor(m / 60).toString().padStart(2, "0");
-          const min = (m % 60).toString().padStart(2, "0");
-          occupiedHours.add(`${h}:${min}`);
-        }
-      });
-    } catch (extErr) {
-      console.warn("[GET /api/appointments/availability] External calendar sync error:", extErr);
-    }
-
-    // Filtrar slots libres
-    const availableSlots = baseSlots.filter((slot) => !occupiedHours.has(slot));
 
     return NextResponse.json({
       productId: product.id,
