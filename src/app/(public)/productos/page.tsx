@@ -159,7 +159,7 @@ export default async function ProductosPage({ searchParams }: { searchParams: { 
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6 lg:gap-8">
                 {products.map((product) => (
-                  <ProductCard key={product.id} product={product} />
+                  <ProductCard key={product.id} product={product} bookingEnabled={!!isBookingEnabled} />
                 ))}
               </div>
             )}

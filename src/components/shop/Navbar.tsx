@@ -161,7 +161,7 @@ export default function Navbar({ storeName, logoUrl, isEcommerce = true }: Navba
 
       {/* Mobile Drawer */}
       {open && (
-        <div className="md:hidden bg-white/95 dark:bg-gray-950/95 backdrop-blur-2xl border-t border-gray-100 dark:border-gray-800 px-6 py-6 flex flex-col gap-4 shadow-lg absolute w-full rounded-b-3xl animate-in ">
+        <div className="md:hidden bg-white/95 dark:bg-gray-950/95 border-t border-gray-100 dark:border-gray-800 px-6 py-6 flex flex-col gap-4 shadow-lg absolute w-full rounded-xl animate-in ">
           <Link
             href="/#nosotros"
             onClick={() => setOpen(false)}

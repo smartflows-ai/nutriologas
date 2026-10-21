@@ -48,11 +48,6 @@ export default function AdminLoading() {
           </div>
         </div>
       </div>
-      
-      {/* Premium Gradient Shimmer Overlay */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden z-50">
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 dark:via-white/5 to-transparent -translate-x-full animate-shimmer skew-x-12" />
-      </div>
     </div>
   );
 }

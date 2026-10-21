@@ -5,6 +5,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { createAppointment } from "@/lib/appointments-service";
 import { buildSlot, formatSlotTime, isInternalKeyValid, resolveBotTenant } from "@/lib/bot";
+import { isBookable } from "@/lib/bookable";
 
 export async function POST(req: NextRequest) {
   if (!isInternalKeyValid(req)) return Response.json({ error: "No autorizado" }, { status: 401 });
@@ -27,12 +28,18 @@ export async function POST(req: NextRequest) {
 
   const product = await prisma.product.findFirst({
     where: { id: productId, tenantId: bot.tenantId, isActive: true, deletedAt: null },
-    select: { id: true, name: true, durationMinutes: true },
+    select: { id: true, name: true, durationMinutes: true, requiresBooking: true },
   });
   if (!product) return Response.json({ success: false, error: "Servicio no encontrado" }, { status: 404 });
+  if (!isBookable(product, bot)) {
+    return Response.json(
+      { success: false, error: "not_bookable", message: "Este artículo no se agenda con cita." },
+      { status: 400 }
+    );
+  }
 
   const duration = product.durationMinutes ?? 30;
-  const slot = buildSlot(date, time, duration);
+  const slot = buildSlot(date, time, duration, bot.businessHours);
   if (!slot) {
     return Response.json(
       { success: false, error: "Fecha u hora fuera del horario de atención" },

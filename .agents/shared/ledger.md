@@ -465,3 +465,29 @@ Decisions made:
 **Decision:** If the contact-status or pending check fails, the n8n run stops and the bot does not answer. Only an explicit `botEnabled: true` lets it reply.
 
 **Lesson:** The pause check was returning 404 in production because the route had not been deployed. `onError: continueRegularOutput` hid that, and the bot kept answering paused contacts. A fail-open check hides exactly the failure it exists to catch. `local-utils/check-prod-routes.mjs` now lists the routes the workflows need.
+
+## 2026-10-20 — Dev — One booking schedule and bookable items
+
+**Decision:** Booking hours come from one weekly schedule on the tenant (`businessHours`), used by the web and the bot. Only items with `isBookable` (tenant booking on and `requiresBooking`) can be booked. Other items are information only.
+
+**Lesson:** Hours were hard-coded in two places and disagreed: the web used Mon-Sat 09-18 and the bot used every day 08-20. A 1000-minute service showed slots on the web and none in the bot, which is correct, because no start time fits. The web list ignored the duration. The bot prompt was also stored whole in chat memory on every turn, so the 12-message window held mostly prompt copies and customer names dropped out.
+
+**Open:** `npm run db:push` for `Tenant.businessHours` has not been run. Run `local-utils/backfill-requires-booking.mjs` before deploying. Test the bot with a 1000-minute service and with an information-only item after deploy.
+
+## 2026-10-21 — Dev — Patient history by phone key
+
+**Decision:** A patient is the phone digits of the tenant's visits, normalized to `52` + 10 digits. `Appointment.patientKey` stores it, so the patient list is one grouped query. Clinical notes are one row per visit (`AppointmentNote`) and keep the patient key.
+
+**Lesson:** Two phone formats for one person (`+52...`, `521...`, and 10 digits with no country code) split the history, so the key rule has to cover all three. In PostgreSQL, `'D'` did not strip the `+` in our setup; `'[^0-9]'` works. Test the SQL in a rolled-back transaction before the real statement, and print the groups it produces.
+
+**Open:** The `appointments.patientKey` column, its index and the backfill are not applied yet; the patient page and the notes saves need them. Restart the dev server after the statements run.
+
+## 2026-10-21 — Dev — Credit handling, owner alerts, shared OpenRouter balance
+
+**Decision:** All tenants share one OpenRouter account with no per-tenant key. Reordered `OPENROUTER_MODELS` to try free models first and paid models last, since a $10 top-up permanently raises the account-wide free-model cap (50 to 1000 requests/day) and Claude Sonnet 4.5's real cost already equals its retail billing rate (zero margin). Added a credit gate to the WhatsApp bot (`bot/context` returns `creditExhausted`; n8n's "Guard: Credits OK" skips the LLM call and sends a fixed degrade reply once a tenant's monthly credits are exhausted) and an error branch on "Bot Agent" (`onError: continueErrorOutput`) so a total model-cascade failure sends the customer a fixed apology instead of silence.
+
+**Lesson:** The `isPaused` block in `recordTokenUsage` looked like a one-shot gate but isn't — it re-asserts `isPaused: true` on every call while exhausted, so a notification added there needs to compare the ledger's *prior* `isPaused` value first, not just the current exhausted status, or it fires on every message instead of once per billing period.
+
+**Open:** Owner alerts go to `Tenant.whatsappNumber` (the business's own WhatsApp, no separate owner-phone field exists). Bot-failure alert cooldown is 60 minutes (`Tenant.botFailureAlertedAt`). No per-tenant OpenRouter key exists; revisit only if one noisy tenant starts starving others of the shared real-dollar balance.
+
+**Follow-up:** The social campaign workflow (`n8n-social-campaign-workflow.json`) had the same silent-failure shape: its "Notify Error" node posted to `$env.WEBHOOK_URL`, which this n8n instance never exposes, so a failed post never reached anyone despite `neverError: true` hiding that fact. Fixed by pointing it at a new `POST /api/internal/campaigns/alert-failure`, reusing `notifyTenantOwner` and throttling with the campaign's existing `lastErrorAt` field instead of adding a new column.

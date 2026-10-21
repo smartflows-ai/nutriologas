@@ -121,7 +121,8 @@ src/
         tenant-context/ ← POST: Contexto completo del tenant para el agente WhatsApp (products, FAQs, reviews, waConfig)
         calendar/       ← GET availability / POST create-event desde n8n
         whatsapp/sync   ← POST: Sincronizar mensajes de WhatsApp desde Evolution API
-        bot/            ← POST: Herramientas del agente WhatsApp (context, availability, book, my-appointments, cancel, reschedule)
+        bot/            ← POST: Herramientas del agente WhatsApp (context, availability, book, my-appointments, cancel, reschedule, alert-failure)
+        campaigns/alert-failure ← POST: Avisa al dueño por WhatsApp cuando una campaña social falla al publicar
         reminders/run   ← POST: Envía recordatorios de cita vencidos (llamado cada 15 min por n8n, sin LLM)
       admin/pacientes   ← GET: Lista de PatientProfiles para el CRM (filtrada por tenantId)
       tenants/          ← API de gestión de tenants
@@ -198,8 +199,10 @@ El corazón del sistema. Cada negocio es un Tenant con:
 - `isAssistantEnabled` → toggle del chatbot IA por tenant
 - `isTriageEnabled` → toggle para habilitar el módulo de triage/pacientes (default: false)
 - `aiCreditLimitUsd` → override opcional del tope mensual de créditos IA (null = usa el del plan)
+- `botFailureAlertedAt` → última vez que se avisó al dueño que el bot de WhatsApp falló (cooldown de 60 min, ver §"Alertas al Dueño del Tenant")
 - `remindersEnabled` → activa los recordatorios de cita por WhatsApp (default: true)
 - `reminderOffsetsMinutes` → minutos antes de la cita en que se envía recordatorio (default: `[1440, 120]` = 24 h y 2 h)
+- `businessHours` → horario semanal de atención (JSON, por día una lista de bloques `{start, end}`; lista vacía = cerrado; varios bloques por día = hora de comer). Lo edita el admin en `/admin/negocio`. Null en el campo = horario por defecto (lunes a sábado 09:00 a 18:00). Lo leen la web y el bot a través de `src/lib/business-hours.ts`. Pendiente: `npm run db:push`.
 
 ### User
 - Pertenece a un único tenant
@@ -212,7 +215,7 @@ El corazón del sistema. Cada negocio es un Tenant con:
 - Tenant-scoped
 - `itemType` (`ItemType`) → `PHYSICAL`, `SERVICE`, `PACKAGE`, `SUBSCRIPTION`
 - `durationMinutes` → duración estimada en minutos para citas/consultas (default: 30)
-- `requiresBooking` → boolean que activa el botón "Agendar Cita" y selector de agenda
+- `requiresBooking` → boolean. Con `Tenant.isBookingEnabled` forma la regla `isBookable` (`src/lib/bookable.ts`): solo los artículos agendables tienen fecha y horario; los demás son solo información (precio y descripción).
 - `capacity` → cupo máximo para servicios grupales o tours
 - `serviceConfig` → configuración JSON (horarios específicos, requisitos, etc.)
 - `isActive` → visible en storefront
@@ -229,6 +232,7 @@ El corazón del sistema. Cada negocio es un Tenant con:
 - `notes` → motivo de consulta o notas proporcionadas por el paciente
 - `internalNotes` → notas clínicas o de atención visibles solo para el profesional (ADMIN)
 - `customerPhone` → número de WhatsApp del cliente; identifica al paciente en el bot
+- `patientKey` → dígitos del teléfono normalizados a `52` + 10 dígitos (`src/lib/patient-key.ts`). Agrupa las visitas de un paciente en `/admin/historial`. Lo fija `createAppointment` en cada reserva.
 - `customerEmail` → email que escribió el cliente al agendar (puede diferir del email de la cuenta vinculada)
 - `externalProvider` (`AppProvider`) y `externalEventId` → calendario (`GOOGLE` o `MICROSOFT`) y id del evento que replica la cita; `null` si no hay calendario conectado
 - `googleEventId` → legado, reemplazado por `externalEventId`; se elimina tras correr `local-utils/backfill-appointment-calendar-links.mjs`
@@ -296,12 +300,12 @@ Cada tenant cuenta con un presupuesto mensual de gasto en créditos de IA ($15 U
 ### 2. Stack de Modelos en Cascada (5 Niveles)
 Para maximizar la monetización de créditos ($15 por Starter) y garantizar 100% de disponibilidad, las llamadas se ejecutan en cascada via `src/lib/ai/openrouter.ts`.
 El orden real se configura en la env var `OPENROUTER_MODELS` (lista separada por comas).
-Configuracion actual de produccion:
-1. `anthropic/claude-sonnet-4.5` (Pago: $3.00 in / $15.00 out) — Principal para tool use y español natural.
-2. `openai/gpt-4o` (Pago: $2.50 in / $10.00 out) — Respaldo de pago si Anthropic tiene saturación.
-3. `nvidia/nemotron-3-super-120b-a12b:free` (Gratuito: $0.00) — Fallback rápido de NVIDIA.
-4. `google/gemma-4-31b-it:free` (Gratuito: $0.00) — Fallback Google open-weights.
-5. `openrouter/free` (Gratuito: $0.00) — Red de seguridad final, selección automática de OpenRouter.
+Configuracion actual de produccion (modelos gratuitos primero, pagados como último recurso — ver §6 "Balance compartido de OpenRouter"):
+1. `nvidia/nemotron-3-super-120b-a12b:free` (Gratuito: $0.00) — Principal.
+2. `google/gemma-4-31b-it:free` (Gratuito: $0.00) — Fallback Google open-weights.
+3. `openrouter/free` (Gratuito: $0.00) — Selección automática de OpenRouter.
+4. `anthropic/claude-sonnet-4.5` (Pago: $3.00 in / $15.00 out) — Respaldo de pago solo si todos los modelos gratuitos fallan o están saturados.
+5. `openai/gpt-4o` (Pago: $2.50 in / $10.00 out) — Último respaldo de pago.
 
 ### 3. Modelo de Negocio: Doble Contabilidad y Arbitraje SaaS
 El tenant siempre paga por **unidades de servicio de la plataforma** a la tarifa estándar de retail:
@@ -315,6 +319,7 @@ El tenant siempre paga por **unidades de servicio de la plataforma** a la tarifa
 
 ### 4. Enforcing y Auto-Pausa
 - **Chatbot (`POST /api/chat`)**: Valida créditos antes de invocar OpenRouter. Si se agotaron, devuelve `402 Payment Required` con `{ error: "credit_exhausted" }`. El frontend muestra un toast de error, deshabilita el input y muestra un banner de recarga.
+- **Bot de WhatsApp**: `POST /api/internal/bot/context` incluye `creditExhausted` (de `getCreditStatus()`) en cada mensaje. El nodo "Guard: Credits OK" del workflow lo revisa antes de invocar al agente: si el tenant ya agotó su límite mensual, se omite la llamada al modelo (ningún costo real adicional) y se envía una respuesta fija de degradación en vez de la del LLM — nunca silencio, nunca gasto sin tope.
 - **Campañas Sociales (`GET /api/campaigns/social/due`)**: Cuando los créditos se agotan, `pauseCampaignsForTenant()` marca `isActive = false, pausedByCredits = true`. El endpoint `due` excluye automáticamente estas campañas para que n8n no genere posts sin saldo.
 - **Deducción de Tokens en Webhook Social (`POST /api/webhooks/social-campaign`)**: Cuando n8n publica un post (`social_campaign_posted`), envía `tokenUsage: { promptTokens, completionTokens, model }`. El webhook invoca atómicamente `recordTokenUsage()` debitando créditos a tarifa retail ($3.00/$15.00 por 1M) sin importar si el modelo fue gratuito, y almacena el registro en `SocialPost.postUrls.aiTokens`.
 - **Reporte Externo (`POST /api/internal/tokens/report`)**: Permite a n8n o workflows de WhatsApp reportar consumo de tokens directamente con `x-internal-key`.
@@ -323,6 +328,19 @@ El tenant siempre paga por **unidades de servicio de la plataforma** a la tarifa
 - El admin hace clic en "Recargar créditos" en el sidebar (`CreditsBadge`) o en el drawer (`CreditsDrawer`).
 - Se genera una sesión de Stripe Checkout (`POST /api/credits`).
 - El webhook de Stripe (`checkout.session.completed`) procesa la recarga mediante `rechargeCredits(tenantId, amountUsd)`: incrementa `creditLimitUsd` en el ledger activo y reactiva automáticamente todas las campañas (`resumeCampaignsForTenant()`).
+
+### 6. Alertas al Dueño del Tenant
+No existe correo ni Slack en la plataforma; el único canal es el propio WhatsApp del negocio (`Tenant.whatsappNumber`), vía `notifyTenantOwner()` (`src/lib/whatsapp.ts`, reutiliza `sendWhatsAppMessage`). Dos disparadores:
+- **Créditos agotados**: dentro de `recordTokenUsage()` (`src/lib/credits.ts`), en la transición `isPaused` false→true (una sola vez por periodo; se compara el estado previo del ledger para no repetir el aviso en cada mensaje posterior).
+- **Falla total del bot de WhatsApp**: si el agente de n8n falla con todos los modelos de la cascada (nodo "Bot Agent" con `onError: continueErrorOutput`), el workflow envía al cliente una respuesta fija de disculpa (en vez del silencio total de antes) y llama a `POST /api/internal/bot/alert-failure`, que avisa al dueño con un cooldown de 60 minutos (`Tenant.botFailureAlertedAt`) para no saturarlo durante una caída prolongada.
+- **Falla de una campaña social**: el nodo `Notify Error` de `local-utils/n8n-social-campaign-workflow.json` llama a `POST /api/internal/campaigns/alert-failure`, que avisa al dueño (cooldown de 60 minutos, usando `SocialCampaign.lastErrorAt` que ya existía). Antes este nodo posteaba a `$env.WEBHOOK_URL`, que no existe en esta instancia de n8n, así que nunca avisaba a nadie.
+
+### 7. Balance Compartido de OpenRouter
+Todos los tenants comparten **una sola cuenta/API key de OpenRouter** — no hay clave por tenant. Agregar crédito real a esa cuenta (p. ej. $10 USD) desbloquea permanentemente el límite diario de modelos gratuitos de la cuenta completa (de 50 a 1000 solicitudes/día) y además queda disponible como saldo gastable cada vez que se usa un modelo de pago (Claude, GPT-4o). Para estirar ese saldo compartido entre todos los tenants:
+- La cascada prioriza modelos gratuitos (ver §2); los de pago quedan como último recurso, cuando OpenRouter responde 402/429/5xx en los gratuitos (`src/lib/ai/openrouter.ts` ya reintenta el siguiente modelo automáticamente, sin lógica adicional).
+- No existe una verificación previa de saldo real antes de cada llamada (agregaría latencia a cada turno); se confía en la respuesta 402 de OpenRouter para saltar a otro modelo.
+- `node local-utils/check_shared_balance.js` suma `realProviderCostUsd` de todos los tenants (periodo actual y total histórico) para vigilar manualmente el saldo compartido. Es una herramienta de operador, nunca se muestra al tenant.
+- Una clave de OpenRouter por tenant queda como opción futura, solo si la plataforma crece lo suficiente para que un tenant ruidoso agote el saldo de los demás.
 
 
 ---
@@ -431,10 +449,12 @@ Flujo: `local-utils/n8n-chat-workflow-v2.json` ("NewAigent - WhatsApp Bot (Chat)
 
   El contexto (servicios, precios, FAQs, `waContext`) llega con `POST /api/internal/bot/context`.
 - **Bot por contacto**: `WhatsAppChat.botEnabled` (default `true`) y `botPausedReason` (`manual` o `owner_reply`). El CRM lo cambia con `PATCH /api/apps/whatsapp/chats/[id]` y el dueño escribe con `POST /api/apps/whatsapp/chats/[id]/send` (la escritura pausa el bot). n8n consulta `POST /api/internal/bot/contact-status` antes de ejecutar el agente. Ver `local-utils/N8N_WHATSAPP_BOT_DOCUMENTATION.md`, sección "Bot apagado por contacto".
-- **Reglas de negocio**: los precios se pueden citar, nunca cambiar ni descontar. Citas entre 08:00 y 20:00 (-06:00), con duración por servicio. El conflicto revisa citas nativas y el calendario conectado (Google u Outlook, `getBusyPeriods` en `src/lib/calendar-sync.ts`); si el calendario falla, solo se usa la base de datos. La web y el bot crean citas con el mismo servicio (`src/lib/appointments-service.ts`).
+- **Reglas de negocio**: los precios se pueden citar, nunca cambiar ni descontar. Citas dentro del horario semanal del negocio (`Tenant.businessHours`, `src/lib/business-hours.ts`, hora de Mexico), con duración por servicio. Solo se agendan artículos `isBookable`. El conflicto revisa citas nativas y el calendario conectado (Google u Outlook, `getBusyPeriods` en `src/lib/calendar-sync.ts`); si el calendario falla, solo se usa la base de datos. La web y el bot crean citas con el mismo servicio (`src/lib/appointments-service.ts`).
 - **Horas del paciente**: son hora de Mexico. Se construyen con `clinicDateTime()` (`src/lib/clinic-time.ts`, offset `-06:00`) y se leen con `clinicTimeOf()`. Nunca usar sufijo `Z` para una hora elegida por el paciente.
 - **Privacidad**: el system prompt prohíbe mencionar formatos técnicos, IDs, herramientas, errores, infraestructura y datos de otros clientes. Es una guía para el modelo, no una garantía. El nodo `Clean Reply` quita saludos repetidos y es el único filtro de salida.
 - **Reporte de tokens**: `Collect Token Usage` suma el uso de todas las llamadas del agente y `Report Token Usage` lo envía a `POST /api/internal/tokens/report`, que lo cobra al tenant a tarifa retail. Si el proveedor no reporta uso, se estima (2,000 tokens de prompt por llamada más longitud de respuesta / 4).
+- **Créditos agotados**: el nodo "Guard: Credits OK" revisa `creditExhausted` (de `POST /api/internal/bot/context`) antes de llegar al agente. Si el tenant ya agotó su límite mensual, se salta la llamada al modelo y se envía una respuesta fija de degradación.
+- **Falla total de la cascada**: el nodo "Bot Agent" tiene `onError: continueErrorOutput`; si fallan todos los modelos, esa rama envía al cliente una respuesta fija de disculpa (en vez de silencio) y llama a `POST /api/internal/bot/alert-failure` para avisar al dueño (cooldown de 60 min, ver §"Alertas al Dueño del Tenant" en la sección de créditos).
 - **Reglas de n8n para este flujo**:
   - En nodos Code y herramientas usar `$('Nodo').first().json`, no `$('Nodo').item`. Con `.item` falla con "No data found from `main` input" y la herramienta envía la instancia vacía.
   - `$env` no está disponible en esta instancia de n8n. Los secretos van dentro del workflow.
@@ -600,7 +620,7 @@ Luego acceder a `http://doctor.localhost:3000` para ver el tenant "doctor".
 - **Migración del schema sin aplicar**: `WhatsAppChat.botEnabled` y `botPausedReason` requieren `npm run db:push`. Confirmar antes de aplicar.
 - **Citas web anteriores al fix de hora**: se guardaron con hora UTC (6 horas adelantadas). Corregir con `local-utils/shift-web-appointments-utc-fix.mjs` (primero sin `--write`) y mover a mano los eventos del calendario que se listen.
 - **Secretos hardcodeados en workflows de n8n** (clave interna, API key de Evolution, clave de OpenRouter en la campaña social). Mover a credenciales cuando n8n lo permita, y rotarlos.
-- **Workflow social**: `Notify Error` usa `$env.WEBHOOK_URL`, que no está disponible en n8n. Si una publicación falla después de generar el texto, sus tokens no se reportan.
+- **Workflow social**: si una publicación falla después de generar el texto, sus tokens no se reportan.
 - **Pantalla de recordatorios en el CRM**: no construida.
 - Row Level Security en Supabase (actualmente solo filtrado por app)
 - Rate limiting en `/api/chat`

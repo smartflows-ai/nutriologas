@@ -51,6 +51,23 @@ export default function WhatsAppPage() {
     fetchData();
   }, []);
 
+  // Keep the chat list (and the open chat's bot state) current without a manual refresh.
+  useEffect(() => {
+    const timer = setInterval(async () => {
+      try {
+        const res = await fetch("/api/apps/whatsapp/chats");
+        if (!res.ok) return;
+        const data = await res.json();
+        const fresh: any[] = data.chats || [];
+        setChats(fresh);
+        setSelectedChat((prev: any) => (prev ? fresh.find((c) => c.id === prev.id) ?? prev : prev));
+      } catch (error) {
+        console.error("Error refreshing chats:", error);
+      }
+    }, 5000);
+    return () => clearInterval(timer);
+  }, []);
+
   useEffect(() => {
     if (selectedChat) {
       // Reset scroll state when switching chats
@@ -105,6 +122,8 @@ export default function WhatsAppPage() {
       if (chatsRes.ok) {
         const data = await chatsRes.json();
         setChats(data.chats || []);
+        // The open chat follows the list, so a pause from the phone shows in the header too.
+        setSelectedChat((prev: any) => (prev ? (data.chats || []).find((c: any) => c.id === prev.id) ?? prev : prev));
       }
     } catch (error) {
       console.error("Error fetching data:", error);

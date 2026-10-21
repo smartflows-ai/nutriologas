@@ -2,7 +2,7 @@
 // src/app/admin/citas/page.tsx
 // Centralized Agenda & Scheduling Hub: one unified view with all appointments
 // (native CRM bookings, WhatsApp reservations, and Google / Outlook Calendar events combined)
-import { useState, useEffect, Suspense, useMemo } from "react";
+import { useState, useEffect, useRef, Suspense, useMemo } from "react";
 import {
   Calendar as CalendarIcon,
   Clock,
@@ -10,7 +10,6 @@ import {
   Phone,
   Mail,
   CheckCircle2,
-  XCircle,
   Check,
   Search,
   MessageSquare,
@@ -22,6 +21,7 @@ import { formatPrice, localeFor, fill } from "@/lib/utils";
 import { useTranslation } from "@/i18n";
 import { translateApiError } from "@/i18n/validation";
 import Pagination from "@/components/admin/Pagination";
+import VisitNoteDialog from "@/components/admin/VisitNoteDialog";
 import { toast } from "sonner";
 import Link from "next/link";
 
@@ -212,7 +212,6 @@ function CitasContent() {
   const [searchTerm, setSearchTerm] = useState("");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [editingNotesId, setEditingNotesId] = useState<string | null>(null);
-  const [internalNoteDraft, setInternalNoteDraft] = useState("");
   const [hasCalendarIntegration, setHasCalendarIntegration] = useState(false);
 
   const STATUS_LABEL: Record<string, string> = {
@@ -232,9 +231,15 @@ function CitasContent() {
       .catch(() => {});
   }, []);
 
+  // Set when the last load was triggered by an update (refreshKey), not by a filter change.
+  const lastRefreshKey = useRef(refreshKey);
+
   // Loads the viewed month with the current filters. Stale responses are ignored.
   useEffect(() => {
     let ignore = false;
+    // An update only refreshes the list: keep the rows on screen instead of showing the full loader.
+    const isUpdateRefresh = lastRefreshKey.current !== refreshKey;
+    lastRefreshKey.current = refreshKey;
     const params = new URLSearchParams({
       month: `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}`,
       status: activeTab,
@@ -244,7 +249,7 @@ function CitasContent() {
     if (selectedDate) params.set("day", selectedDate);
     if (searchTerm.trim()) params.set("q", searchTerm.trim());
 
-    setLoading(true);
+    if (!isUpdateRefresh) setLoading(true);
     const timer = setTimeout(async () => {
       try {
         const res = await fetch(`/api/appointments?${params.toString()}`);
@@ -320,23 +325,6 @@ function CitasContent() {
       toast.error(t.agenda.toastUpdateErrorNet);
     } finally {
       setUpdatingId(null);
-    }
-  };
-
-  const saveInternalNotes = async (id: string) => {
-    try {
-      const res = await fetch(`/api/appointments/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ internalNotes: internalNoteDraft }),
-      });
-      if (res.ok) {
-        setRefreshKey((k) => k + 1);
-        setEditingNotesId(null);
-        toast.success(t.agenda.toastNotesSaved);
-      }
-    } catch {
-      toast.error(t.agenda.toastNotesError);
     }
   };
 
@@ -611,7 +599,7 @@ function CitasContent() {
                       {appt.internalNotes && (
                         <div className="rounded-lg border border-gray-200 dark:border-gray-800 dark:border-primary/30 px-3 py-2.5">
                           <p className="text-xs font-medium text-primary mb-1">{t.agenda.clinicalNotes}</p>
-                          <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line break-words">{appt.internalNotes}</p>
+                          <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line break-words line-clamp-3">{appt.internalNotes}</p>
                         </div>
                       )}
                     </div>
@@ -627,7 +615,6 @@ function CitasContent() {
                           <button
                             onClick={() => {
                               setEditingNotesId(appt.id);
-                              setInternalNoteDraft(appt.internalNotes || "");
                             }}
                             className="text-xs text-primary hover:underline flex items-center gap-1 font-semibold"
                           >
@@ -719,43 +706,14 @@ function CitasContent() {
         </div>
       </div>
 
-      {/* ── Clinical notes modal ── */}
-      {editingNotesId && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-gray-900 rounded-xl max-w-lg w-full p-6 shadow-lg border border-gray-100 dark:border-gray-800 animate-in ">
-            <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-gray-800">
-              <h3 className="font-semibold text-gray-900 dark:text-white text-base flex items-center gap-2">
-                <MessageSquare size={18} className="text-primary" />
-                {t.agenda.notesModalTitle}
-              </h3>
-              <button
-                onClick={() => setEditingNotesId(null)}
-                className="p-1 rounded-lg text-gray-400 hover:text-gray-600 transition-colors"
-                aria-label={t.common.close}
-              >
-                <XCircle size={18} />
-              </button>
-            </div>
-            <div className="py-4 space-y-2">
-              <p className="text-xs text-gray-500">{t.agenda.notesPrivate}</p>
-              <textarea
-                rows={5}
-                value={internalNoteDraft}
-                onChange={(e) => setInternalNoteDraft(e.target.value)}
-                placeholder={t.agenda.notesPlaceholder}
-                className="w-full text-xs p-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 focus:bg-white dark:focus:bg-gray-900 text-gray-800 dark:text-gray-100 outline-none focus:ring-2 focus:ring-primary"
-              />
-            </div>
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <button onClick={() => setEditingNotesId(null)} className="px-4 py-2 rounded-xl text-xs font-semibold text-gray-500 hover:bg-gray-100 transition-colors">
-                {t.agenda.cancel}
-              </button>
-              <button onClick={() => saveInternalNotes(editingNotesId)} className="btn-primary text-xs px-5 py-2">
-                {t.agenda.save}
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* ── Clinical notes (shared with the patient page) ── */}
+      {editingNotesId && items.find((a) => a.id === editingNotesId) && (
+        <VisitNoteDialog
+          visitId={editingNotesId}
+          initialText={items.find((a) => a.id === editingNotesId)?.internalNotes || ""}
+          onClose={() => setEditingNotesId(null)}
+          onSaved={() => setRefreshKey((k) => k + 1)}
+        />
       )}
     </div>
   );

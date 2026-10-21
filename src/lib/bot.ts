@@ -4,10 +4,9 @@
 // never from model output or request input the model can influence.
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
+import { BusinessHours, formatBusinessHours, parseBusinessHours, slotWithinHours } from "@/lib/business-hours";
 
 export const BOT_TIMEZONE_OFFSET = "-06:00"; // America/Mexico_City (CST)
-export const BOT_DAY_START = "08:00";
-export const BOT_DAY_END = "20:00";
 
 export const ACTIVE_APPOINTMENT_STATUSES = ["PENDING", "CONFIRMED"] as const;
 
@@ -20,6 +19,9 @@ export interface BotTenant {
   businessInfo: string | null;
   waContext: string | null;
   waTemperature: number;
+  isBookingEnabled: boolean;
+  businessHours: BusinessHours;
+  businessHoursText: string;
 }
 
 export function isInternalKeyValid(req: NextRequest): boolean {
@@ -37,18 +39,24 @@ export async function resolveBotTenant(instance: unknown): Promise<BotTenant | n
     select: {
       waContext: true,
       waTemperature: true,
-      tenant: { select: { id: true, name: true, businessInfo: true } },
+      tenant: {
+        select: { id: true, name: true, businessInfo: true, isBookingEnabled: true, businessHours: true },
+      },
     },
   });
 
   if (!app) return null;
 
+  const businessHours = parseBusinessHours(app.tenant.businessHours);
   return {
     tenantId: app.tenant.id,
     tenantName: app.tenant.name,
     businessInfo: app.tenant.businessInfo,
     waContext: app.waContext,
     waTemperature: app.waTemperature ?? 0.7,
+    isBookingEnabled: app.tenant.isBookingEnabled,
+    businessHours,
+    businessHoursText: formatBusinessHours(businessHours),
   };
 }
 
@@ -68,19 +76,16 @@ export function normalizeCustomerPhone(remoteJid?: string | null, remoteJidAlt?:
 
 /**
  * Builds start/end for a slot in Mexico City time. Returns null if the input is malformed
- * or the slot falls outside business hours.
+ * or the session does not fit the business's opening hours for that day.
  */
-export function buildSlot(date: string, time: string, durationMinutes: number) {
+export function buildSlot(date: string, time: string, durationMinutes: number, hours: BusinessHours) {
   if (!DATE_REGEX.test(date) || !TIME_REGEX.test(time)) return null;
+  if (!slotWithinHours(hours, date, time, durationMinutes)) return null;
 
   const start = new Date(`${date}T${time}:00${BOT_TIMEZONE_OFFSET}`);
   if (isNaN(start.getTime())) return null;
 
   const end = new Date(start.getTime() + durationMinutes * 60000);
-  const dayStart = new Date(`${date}T${BOT_DAY_START}:00${BOT_TIMEZONE_OFFSET}`).getTime();
-  const dayEnd = new Date(`${date}T${BOT_DAY_END}:00${BOT_TIMEZONE_OFFSET}`).getTime();
-
-  if (start.getTime() < dayStart || end.getTime() > dayEnd) return null;
   return { start, end };
 }
 

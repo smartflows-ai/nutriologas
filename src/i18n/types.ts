@@ -241,6 +241,7 @@ export interface Translations {
     appsSection: string;
     dashboard: string;
     appointments: string;
+    patientHistory: string;
     patients: string;
     orders: string;
     products: string;
@@ -502,6 +503,25 @@ export interface Translations {
       savingBtn: string;
       savedSuccess: string;
       saveError: string;
+      hoursSection: string;
+      hoursSectionDesc: string;
+      hoursClosed: string;
+      hoursFrom: string;
+      hoursTo: string;
+      hoursInvalidRange: string;
+      hoursOverlap: string;
+      hoursAddBlock: string;
+      hoursRemoveBlock: string;
+      hoursHint: string;
+      hoursDays: {
+        monday: string;
+        tuesday: string;
+        wednesday: string;
+        thursday: string;
+        friday: string;
+        saturday: string;
+        sunday: string;
+      };
     };
     apps: {
       title: string;
@@ -755,6 +775,34 @@ export interface Translations {
       noAppointments: string;
       loading: string;
       error: string;
+    };
+    history: {
+      title: string;
+      subtitle: string;
+      searchPlaceholder: string;
+      colPatient: string;
+      colVisits: string;
+      colNotes: string;
+      colLastVisit: string;
+      colNextVisit: string;
+      noVisit: string;
+      loading: string;
+      empty: string;
+      emptySearch: string;
+      back: string;
+      summary: string;
+      timelineTitle: string;
+      noNote: string;
+      noService: string;
+      phone: string;
+      emails: string;
+      noEmail: string;
+      reason: string;
+      clinicalNote: string;
+      editNote: string;
+      orphanNotes: string;
+      showMore: string;
+      showLess: string;
     };
     triage: {
       title: string;
@@ -1101,6 +1149,11 @@ export interface Translations {
     reopen: string;
     notesModalTitle: string;
     notesPrivate: string;
+    patientHistory: string;
+    historyEmpty: string;
+    historyThisVisit: string;
+    notLinked: string;
+    viewFullHistory: string;
     notesPlaceholder: string;
     save: string;
     suspense: string;
@@ -1161,6 +1214,8 @@ export interface Translations {
     durationPlaceholder: string;
     bookingEnable: string;
     bookingEnableDesc: string;
+    durationTooLong: string;
+    saveError: string;
     specialty: string;
     specialtyPlaceholder: string;
     capacity: string;
@@ -1370,6 +1425,11 @@ export interface Translations {
     whatsapp_message_required: string;
     whatsapp_send_failed: string;
     whatsapp_invalid_body: string;
+    not_bookable: string;
+    phone_required: string;
+    patient_not_found: string;
+    outside_business_hours: string;
+    business_hours_invalid: string;
     cart_empty: string;
     product_unavailable: string;
     insufficient_stock: string;

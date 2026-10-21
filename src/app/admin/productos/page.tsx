@@ -7,12 +7,13 @@ import { productSchema, type ProductInput } from "@/lib/validations";
 import { translateValidation } from "@/i18n/validation";
 import { formatPrice, localeFor, fill } from "@/lib/utils";
 import { getProductFormProfile, type ProductFormType } from "@/lib/product-form-profiles";
-import { Plus, Pencil, Trash2, X, Check, Package, UploadCloud, ImageIcon, Calendar, Clock } from "lucide-react";
+import { Plus, Pencil, Trash2, X, Check, Package, UploadCloud, ImageIcon, Calendar, Clock, AlertTriangle } from "lucide-react";
 import ImageCropperModal from "@/components/admin/ImageCropperModal";
 import FormPanel from "@/components/admin/FormPanel";
 import Pagination from "@/components/admin/Pagination";
 import { useTenantMeta } from "@/components/admin/TenantMeta";
 import { useTranslation } from "@/i18n";
+import { longestBlockMinutes, parseBusinessHours } from "@/lib/business-hours";
 
 interface Product {
   id: string;
@@ -49,6 +50,9 @@ export default function ProductosPage() {
   const [uploadError, setUploadError] = useState<string>("");
   const [images, setImages] = useState<string[]>([]);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
+  // Longest open block of the business week, in minutes. Null until the hours load.
+  const [longestBlock, setLongestBlock] = useState<number | null>(null);
+  const [saveError, setSaveError] = useState("");
 
   const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<ProductInput>({
     resolver: zodResolver(productSchema),
@@ -62,6 +66,8 @@ export default function ProductosPage() {
   });
 
   const selectedItemType = (watch("itemType") || "PHYSICAL") as ProductFormType;
+  const durationValue = watch("durationMinutes");
+  const bookingValue = watch("requiresBooking");
   // Offer the profile's types, plus the saved type if it falls outside them (e.g. an older service in a store with booking off).
   const typeOptions: ProductFormType[] = profile.types.includes(selectedItemType) ? profile.types : [...profile.types, selectedItemType];
 
@@ -81,6 +87,15 @@ export default function ProductosPage() {
   };
 
   useEffect(() => { fetchProducts(page); }, [page]);
+
+  useEffect(() => {
+    fetch("/api/tenants/business")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data) setLongestBlock(longestBlockMinutes(parseBusinessHours(data.businessHours)));
+      })
+      .catch((e) => console.error("Error loading business hours:", e));
+  }, []);
 
   const openCreate = () => {
     setEditing(null);
@@ -156,10 +171,21 @@ export default function ProductosPage() {
     setLoading(true);
     const url = editing ? `/api/products/${editing.id}` : "/api/products";
     const method = editing ? "PUT" : "POST";
-    await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...data, images }) });
-    setOpen(false);
-    setLoading(false);
-    fetchProducts(page);
+    try {
+      const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...data, images }) });
+      if (!res.ok) {
+        setSaveError(t.productsAdmin.saveError);
+        return;
+      }
+      setSaveError("");
+      setOpen(false);
+      fetchProducts(page);
+    } catch (e) {
+      console.error("Error saving product:", e);
+      setSaveError(t.productsAdmin.saveError);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const deleteProduct = async (id: string) => {
@@ -321,6 +347,12 @@ export default function ProductosPage() {
                           <Clock size={13} className="text-primary" /> {t.productsAdmin.duration}
                         </label>
                         <input {...register("durationMinutes", { setValueAs: toNumberOrNull })} type="number" placeholder={t.productsAdmin.durationPlaceholder} className="input bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800" />
+                        {bookingValue && longestBlock !== null && typeof durationValue === "number" && durationValue > longestBlock && (
+                          <p className="flex items-start gap-1.5 text-xs text-amber-700 dark:text-amber-400 mt-1.5">
+                            <AlertTriangle size={14} className="shrink-0 mt-px" />
+                            <span>{fill(t.productsAdmin.durationTooLong, { minutes: String(longestBlock) })}</span>
+                          </p>
+                        )}
                       </>
                     )}
                   </div>
@@ -358,6 +390,7 @@ export default function ProductosPage() {
               </div>
             </div>
 
+            {saveError && <p className="text-sm text-red-600 dark:text-red-400 mb-3">{saveError}</p>}
             <div className="flex gap-4 pt-6 border-t border-gray-100 dark:border-gray-800">
               <button type="button" onClick={() => setOpen(false)} className="btn-ghost flex-1 py-3 font-semibold text-gray-600">{t.crm.products.modal.cancel}</button>
               <button type="submit" disabled={loading} className="btn-primary flex-[2] py-3 flex items-center justify-center gap-2 font-semibold ">

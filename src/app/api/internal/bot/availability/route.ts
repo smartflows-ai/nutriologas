@@ -1,15 +1,11 @@
 // src/app/api/internal/bot/availability/route.ts
-// POST: Free slots for a service on a given day (native appointments + Google Calendar).
+// POST: Free slots for a service on a given day (native appointments + connected calendar),
+// using the business's weekly opening hours.
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import {
-  BOT_DAY_END,
-  BOT_DAY_START,
-  BOT_TIMEZONE_OFFSET,
-  buildSlot,
-  isInternalKeyValid,
-  resolveBotTenant,
-} from "@/lib/bot";
+import { buildSlot, isInternalKeyValid, resolveBotTenant } from "@/lib/bot";
+import { daySlots } from "@/lib/business-hours";
+import { isBookable } from "@/lib/bookable";
 import { getBusyPeriods, isSlotFree } from "@/lib/calendar-sync";
 
 export async function POST(req: NextRequest) {
@@ -25,30 +21,29 @@ export async function POST(req: NextRequest) {
 
   const product = await prisma.product.findFirst({
     where: { id: productId, tenantId: bot.tenantId, isActive: true, deletedAt: null },
-    select: { name: true, durationMinutes: true },
+    select: { name: true, durationMinutes: true, requiresBooking: true },
   });
   if (!product) return Response.json({ error: "Servicio no encontrado" }, { status: 404 });
+  if (!isBookable(product, bot)) {
+    return Response.json(
+      { success: false, error: "not_bookable", message: "Este artículo no se agenda con cita." },
+      { status: 400 }
+    );
+  }
 
   const duration = product.durationMinutes ?? 30;
   const busy = await getBusyPeriods(bot.tenantId, date);
 
-  // Candidate slots step by the service duration, like the web booking flow.
-  const [startH, startM] = BOT_DAY_START.split(":").map(Number);
-  const [endH, endM] = BOT_DAY_END.split(":").map(Number);
-  const dayStartMin = startH * 60 + startM;
-  const dayEndMin = endH * 60 + endM;
-
-  const availableSlots: string[] = [];
-  for (let current = dayStartMin; current + duration <= dayEndMin; current += duration) {
-    const time = `${String(Math.floor(current / 60)).padStart(2, "0")}:${String(current % 60).padStart(2, "0")}`;
-    const slot = buildSlot(date, time, duration);
-    if (slot && isSlotFree(busy, slot.start, slot.end)) availableSlots.push(time);
-  }
+  const candidates = daySlots(bot.businessHours, date, duration);
+  const availableSlots = candidates.filter((time) => {
+    const slot = buildSlot(date, time, duration, bot.businessHours);
+    return slot !== null && isSlotFree(busy, slot.start, slot.end);
+  });
 
   // Past slots on today's date are not offered.
   const now = Date.now();
   const offered = availableSlots.filter((time) => {
-    const slot = buildSlot(date, time, duration);
+    const slot = buildSlot(date, time, duration, bot.businessHours);
     return slot ? slot.start.getTime() > now : false;
   });
 
@@ -56,7 +51,7 @@ export async function POST(req: NextRequest) {
     success: true,
     serviceName: product.name,
     date,
-    timezone: `America/Mexico_City (UTC${BOT_TIMEZONE_OFFSET})`,
+    timezone: "America/Mexico_City (UTC-06:00)",
     durationMinutes: duration,
     availableSlots: offered,
     message:

@@ -7,6 +7,7 @@
 
 import { prisma } from "@/lib/db";
 import { CreditExhaustedError } from "@/lib/credits-error";
+import { notifyTenantOwner } from "@/lib/whatsapp";
 
 // ── Plan limits (USD per month) ─────────────────────────────────────────────
 export const PLAN_CREDIT_LIMITS: Record<string, number> = {
@@ -218,6 +219,16 @@ export async function recordTokenUsage(
 
   // Atomic increment via Prisma
   const periodStart = currentPeriodStart();
+
+  // Read the prior isPaused state so the owner alert below only fires once,
+  // on the false→true crossing — recordTokenUsage runs on every message, and
+  // the ledger update further down re-asserts isPaused=true every time.
+  const priorLedger = await (prisma as any).aiTokenLedger.findUnique({
+    where: { tenantId_periodStart: { tenantId, periodStart } },
+    select: { isPaused: true },
+  });
+  const wasAlreadyPaused = priorLedger?.isPaused ?? false;
+
   await (prisma as any).aiTokenLedger.update({
     where: { tenantId_periodStart: { tenantId, periodStart } },
     data: {
@@ -241,6 +252,13 @@ export async function recordTokenUsage(
       where: { tenantId_periodStart: { tenantId, periodStart } },
       data: { isPaused: true, pausedAt: new Date() },
     });
+
+    if (!wasAlreadyPaused) {
+      await notifyTenantOwner(
+        tenantId,
+        `Tus créditos de IA de este mes se agotaron (usaste $${updatedStatus.usedUsd.toFixed(2)} de $${updatedStatus.limitUsd.toFixed(2)}). El asistente de WhatsApp seguirá respondiendo en modo limitado. Puedes ampliar tu límite desde el panel.`,
+      );
+    }
   }
 
   return updatedStatus;

@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
   }
 
   const duration = appointment.durationMinutes;
-  const slot = buildSlot(date, time, duration);
+  const slot = buildSlot(date, time, duration, bot.businessHours);
   if (!slot) {
     return Response.json(
       { success: false, error: "Fecha u hora fuera del horario de atención" },

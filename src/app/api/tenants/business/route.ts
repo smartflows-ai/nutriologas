@@ -3,7 +3,13 @@ import { NextResponse } from "next/server";
 import { getAppSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 import { apiError } from "@/lib/api-errors";
+import {
+  businessHoursSchema,
+  isDefaultBusinessHours,
+  parseBusinessHours,
+} from "@/lib/business-hours";
 
 const updateBusinessSchema = z.object({
   name: z.string().trim().min(2, "Name must be at least 2 characters").max(80, "Name cannot exceed 80 characters"),
@@ -11,6 +17,7 @@ const updateBusinessSchema = z.object({
   whatsappNumber: z.string().trim().regex(/^\+\d{8,15}$/, "WhatsApp number must include the country code"),
   businessInfo: z.string().trim().max(3000, "Description cannot exceed 3000 characters").nullable().optional(),
   logoUrl: z.string().trim().nullable().optional(),
+  businessHours: businessHoursSchema.optional(),
 });
 
 export async function GET() {
@@ -30,6 +37,7 @@ export async function GET() {
         logoUrl: true,
         whatsappNumber: true,
         businessInfo: true,
+        businessHours: true,
       },
     });
 
@@ -44,6 +52,7 @@ export async function GET() {
       logoUrl: tenant.logoUrl,
       whatsappNumber: tenant.whatsappNumber,
       businessInfo: tenant.businessInfo,
+      businessHours: parseBusinessHours(tenant.businessHours),
       tenant,
     });
   } catch (error) {
@@ -70,7 +79,15 @@ export async function PATCH(req: Request) {
       );
     }
 
-    const { name, whatsappNumber, businessInfo, logoUrl } = parsed.data;
+    const { name, whatsappNumber, businessInfo, logoUrl, businessHours } = parsed.data;
+
+    // Stored as NULL when it equals the default schedule, so later default changes still apply.
+    const hoursData =
+      businessHours === undefined
+        ? undefined
+        : isDefaultBusinessHours(businessHours)
+          ? Prisma.DbNull
+          : businessHours;
 
     const updated = await prisma.tenant.update({
       where: { id: tenantId },
@@ -79,6 +96,7 @@ export async function PATCH(req: Request) {
         whatsappNumber,
         businessInfo: businessInfo ?? "",
         logoUrl: logoUrl || null,
+        ...(hoursData !== undefined ? { businessHours: hoursData } : {}),
       },
       select: {
         name: true,
@@ -87,11 +105,13 @@ export async function PATCH(req: Request) {
         logoUrl: true,
         whatsappNumber: true,
         businessInfo: true,
+        businessHours: true,
       },
     });
 
     return NextResponse.json({
       ...updated,
+      businessHours: parseBusinessHours(updated.businessHours),
       tenant: updated,
       message: "Business information updated"
     });

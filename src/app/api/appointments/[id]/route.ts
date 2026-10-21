@@ -7,6 +7,7 @@ import { sendWhatsAppMessage } from "@/lib/whatsapp";
 import { apiError } from "@/lib/api-errors";
 import { cancelAppointment, rescheduleAppointment } from "@/lib/appointments-service";
 import { syncCalendarDelete } from "@/lib/calendar-sync";
+import { saveVisitNote } from "@/lib/appointment-notes";
 
 export async function PATCH(
   req: NextRequest,
@@ -77,6 +78,11 @@ export async function PATCH(
         user: { select: { name: true, email: true } },
       },
     });
+
+    // The visit's note also goes into the patient's history (one row per visit).
+    if (isAdmin && internalNotes !== undefined) {
+      await saveVisitNote(updated, String(internalNotes ?? ""), session.user.name ?? null);
+    }
 
     let whatsappSent = false;
     let whatsappReason: string | undefined;

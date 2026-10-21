@@ -16,6 +16,7 @@ import {
 import { formatPrice, localeFor, fill } from "@/lib/utils";
 import { buildFullPhone, DEFAULT_DIAL_CODE, PHONE_COUNTRIES } from "@/lib/phone";
 import { clinicDateTime } from "@/lib/clinic-time";
+import { BusinessHours, blocksForDate } from "@/lib/business-hours";
 import { useTranslation } from "@/i18n";
 import { translateApiError } from "@/i18n/validation";
 import Link from "next/link";
@@ -36,22 +37,25 @@ interface Props {
     whatsappNumber: string | null;
     logoUrl: string | null;
   };
+  businessHours: BusinessHours;
 }
 
-export default function BookingFlow({ product, tenant }: Props) {
+export default function BookingFlow({ product, tenant, businessHours }: Props) {
   const { t, lang } = useTranslation();
   const locale = localeFor(lang);
 
-  // Next 21 days, excluding Sundays
+  // Next 21 days, only the days the business is open (its weekly hours).
   const availableDays = (() => {
     const days = [];
     const today = new Date();
     for (let i = 0; i < 21; i++) {
       const d = new Date(today);
       d.setDate(today.getDate() + i);
-      if (d.getDay() !== 0) {
+      // Local calendar date. toISOString() would give the UTC date, which can be a day ahead in the evening.
+      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      if (blocksForDate(businessHours, dateStr).length > 0) {
         days.push({
-          dateStr: d.toISOString().split("T")[0],
+          dateStr,
           dayName: d.toLocaleDateString(locale, { weekday: "short" }),
           dayNum: d.getDate(),
           monthName: d.toLocaleDateString(locale, { month: "short" }),

@@ -13,12 +13,45 @@ import {
   Loader2,
   Phone,
   Bot,
-  Sparkles
+  Sparkles,
+  Clock,
+  Plus,
 } from "lucide-react";
 import Image from "next/image";
 import { useTranslation } from "@/i18n";
 import { buildFullPhone, splitFullPhone, DEFAULT_DIAL_CODE, PHONE_COUNTRIES } from "@/lib/phone";
 import { translateApiError } from "@/i18n/validation";
+import {
+  BusinessHours,
+  DEFAULT_BUSINESS_HOURS,
+  DayHours,
+  Weekday,
+  parseBusinessHours,
+} from "@/lib/business-hours";
+
+// Monday first, as most businesses read a week.
+const DAY_ORDER: Weekday[] = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+const DEFAULT_BLOCK: DayHours = { start: "09:00", end: "18:00" };
+const MAX_BLOCKS = 4; // keep in sync with MAX_BLOCKS_PER_DAY in src/lib/business-hours.ts
+
+// A block needs both times and a closing time after the opening time.
+const isInvalidBlock = (block: DayHours) => !block.start || !block.end || block.start >= block.end;
+
+// Blocks of one day must not share time; compared in time order.
+const blocksOverlap = (blocks: DayHours[]) => {
+  const sorted = [...blocks].sort((a, b) => (a.start < b.start ? -1 : 1));
+  return sorted.some((block, i) => i > 0 && sorted[i - 1].end > block.start);
+};
+
+// A new block starts where the last one ends and lasts an hour, so it does not overlap by default.
+const nextBlock = (blocks: DayHours[]): DayHours => {
+  const last = blocks[blocks.length - 1];
+  if (!last) return DEFAULT_BLOCK;
+  const [h, m] = last.end.split(":").map(Number);
+  const endMinutes = Math.min(h * 60 + m + 60, 23 * 60 + 59);
+  const end = `${String(Math.floor(endMinutes / 60)).padStart(2, "0")}:${String(endMinutes % 60).padStart(2, "0")}`;
+  return { start: last.end, end };
+};
 
 export default function BusinessProfilePage() {
   const { t } = useTranslation();
@@ -38,6 +71,7 @@ export default function BusinessProfilePage() {
   const [whatsappNumber, setWhatsappNumber] = useState("");
   const [businessInfo, setBusinessInfo] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
+  const [hours, setHours] = useState<BusinessHours>(DEFAULT_BUSINESS_HOURS);
 
   // Store initial saved values to display as reference and placeholders
   const [initialData, setInitialData] = useState<{
@@ -71,6 +105,7 @@ export default function BusinessProfilePage() {
         setWhatsappNumber(local);
         setBusinessInfo(currentInfo);
         setLogoUrl(currentLogo);
+        setHours(parseBusinessHours(data.businessHours));
 
         setInitialData({
           name: currentName,
@@ -136,6 +171,18 @@ export default function BusinessProfilePage() {
     setLogoUrl("");
   };
 
+  const setBlocks = (weekday: Weekday, blocks: DayHours[]) => {
+    setHours((prev) => ({ ...prev, [weekday]: blocks }));
+  };
+
+  const updateBlock = (weekday: Weekday, index: number, patch: Partial<DayHours>) => {
+    setBlocks(weekday, hours[weekday].map((block, i) => (i === index ? { ...block, ...patch } : block)));
+  };
+
+  const removeBlock = (weekday: Weekday, index: number) => {
+    setBlocks(weekday, hours[weekday].filter((_, i) => i !== index));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
@@ -146,6 +193,15 @@ export default function BusinessProfilePage() {
     const fullWhatsapp = buildFullPhone(dialCode, whatsappNumber);
     if (!/^\+\d{8,15}$/.test(fullWhatsapp)) {
       setError(t.crm.business.whatsappRequired);
+      return;
+    }
+
+    if (DAY_ORDER.some((weekday) => hours[weekday].some(isInvalidBlock))) {
+      setError(t.crm.business.hoursInvalidRange);
+      return;
+    }
+    if (DAY_ORDER.some((weekday) => blocksOverlap(hours[weekday]))) {
+      setError(t.crm.business.hoursOverlap);
       return;
     }
 
@@ -161,6 +217,7 @@ export default function BusinessProfilePage() {
           whatsappNumber: fullWhatsapp,
           businessInfo: businessInfo.trim(),
           logoUrl: logoUrl.trim() || null,
+          businessHours: hours,
         }),
       });
 
@@ -450,6 +507,95 @@ export default function BusinessProfilePage() {
               {t.crm.business.infoHint}
             </p>
           </div>
+        </div>
+
+        {/* Business hours: one weekly schedule for the storefront and the WhatsApp bot */}
+        <div className="p-6 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm space-y-4">
+          <div className="flex items-center gap-2.5 pb-4 border-b border-gray-100 dark:border-gray-800">
+            <Clock size={20} className="text-primary" />
+            <div>
+              <h2 className="font-semibold text-gray-900 dark:text-white text-base">
+                {t.crm.business.hoursSection}
+              </h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {t.crm.business.hoursSectionDesc}
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {DAY_ORDER.map((weekday) => {
+              const blocks = hours[weekday];
+              const dayName = t.crm.business.hoursDays[weekday];
+              const isOpen = blocks.length > 0;
+              return (
+                <div key={weekday} className="flex flex-wrap items-start gap-3">
+                  <label className="flex items-center gap-2 w-36 pt-2 text-sm font-medium text-gray-900 dark:text-white cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isOpen}
+                      onChange={() => setBlocks(weekday, isOpen ? [] : [DEFAULT_BLOCK])}
+                      className="w-4 h-4 accent-primary rounded cursor-pointer"
+                    />
+                    {dayName}
+                  </label>
+
+                  {isOpen ? (
+                    <div className="flex-1 min-w-[16rem] space-y-2">
+                      {blocks.map((block, index) => (
+                        <div key={index} className="flex flex-wrap items-center gap-2">
+                          <input
+                            type="time"
+                            aria-label={`${dayName}: ${t.crm.business.hoursFrom} ${index + 1}`}
+                            value={block.start}
+                            onChange={(e) => updateBlock(weekday, index, { start: e.target.value })}
+                            className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                          />
+                          <span className="text-xs text-gray-400 dark:text-gray-500">{t.crm.business.hoursTo}</span>
+                          <input
+                            type="time"
+                            aria-label={`${dayName}: ${t.crm.business.hoursTo} ${index + 1}`}
+                            value={block.end}
+                            onChange={(e) => updateBlock(weekday, index, { end: e.target.value })}
+                            className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                          />
+                          {blocks.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => removeBlock(weekday, index)}
+                              aria-label={`${dayName}: ${t.crm.business.hoursRemoveBlock} ${index + 1}`}
+                              className="p-2 rounded-lg text-gray-400 hover:text-red-600 dark:hover:text-red-400 cursor-pointer"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          )}
+                          {isInvalidBlock(block) && (
+                            <span className="text-xs text-red-600 dark:text-red-400">{t.crm.business.hoursInvalidRange}</span>
+                          )}
+                        </div>
+                      ))}
+                      {blocks.length < MAX_BLOCKS && (
+                        <button
+                          type="button"
+                          onClick={() => setBlocks(weekday, [...blocks, nextBlock(blocks)])}
+                          className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline cursor-pointer"
+                        >
+                          <Plus size={14} />
+                          {t.crm.business.hoursAddBlock}
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="pt-2 text-xs text-gray-400 dark:text-gray-500">{t.crm.business.hoursClosed}</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <p className="text-xs text-gray-400 dark:text-gray-500">
+            {t.crm.business.hoursHint}
+          </p>
         </div>
 
         {/* Feedback alert (Error) */}

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Star, ShoppingCart, Calendar, Clock } from "lucide-react";
 import { useCartStore } from "@/store/cart";
 import { formatPrice, localeFor, fill } from "@/lib/utils";
+import { isBookable } from "@/lib/bookable";
 import { toast } from "@/hooks/useToast";
 import { useTranslation } from "@/i18n";
 
@@ -22,11 +23,11 @@ interface Product {
   requiresBooking?: boolean;
 }
 
-export default function ProductCard({ product }: { product: Product }) {
+export default function ProductCard({ product, bookingEnabled }: { product: Product; bookingEnabled: boolean }) {
   const { t, lang } = useTranslation();
   const locale = localeFor(lang);
   const addItem = useCartStore((s) => s.addItem);
-  const isBooking = product.requiresBooking || product.itemType === "SERVICE";
+  const isBooking = isBookable({ requiresBooking: product.requiresBooking ?? false }, { isBookingEnabled: bookingEnabled });
 
   const handleAdd = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -60,7 +61,7 @@ export default function ProductCard({ product }: { product: Product }) {
         )}
 
         {/* Subtle gradient to frame the image and button */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+        <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
 
         {/* Hover CTA overlay (desktop) */}
         <div className="absolute inset-x-0 bottom-0 p-4 opacity-0 group-hover:opacity-100 transition-all duration-300 ease-out left-0 right-0 hidden md:block z-10">

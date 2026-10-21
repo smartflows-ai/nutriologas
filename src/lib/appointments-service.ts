@@ -3,6 +3,7 @@
 // conflict check under a per-day lock, then the DB row, then the mirror event on the connected calendar.
 import { AppointmentStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { patientKeyOf } from "@/lib/patient-key";
 import {
   CalendarLink,
   dateKeyInClinicZone,
@@ -91,6 +92,7 @@ export async function createAppointment(input: CreateAppointmentInput): Promise<
         status: input.status,
         customerName: input.customerName,
         customerPhone: input.customerPhone,
+        patientKey: patientKeyOf(input.customerPhone),
         customerEmail: input.customerEmail,
       },
       include: appointmentInclude,

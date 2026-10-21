@@ -7,7 +7,11 @@ import { resolveTenantSlug } from "@/lib/tenant";
 import { apiError } from "@/lib/api-errors";
 
 import { createAppointment } from "@/lib/appointments-service";
-import { linkedEventKeys } from "@/lib/calendar-sync";
+import { dateKeyInClinicZone, linkedEventKeys } from "@/lib/calendar-sync";
+import { clinicTimeOf } from "@/lib/clinic-time";
+import { patientKeyOf } from "@/lib/patient-key";
+import { parseBusinessHours, slotWithinHours } from "@/lib/business-hours";
+import { isBookable } from "@/lib/bookable";
 import { dropLinkedExternal, fetchExternalAppointments } from "@/lib/external-calendar";
 
 const MONTH_RE = /^\d{4}-\d{2}$/;
@@ -207,7 +211,7 @@ export async function POST(req: NextRequest) {
       where: tenantId
         ? { id: tenantId } 
         : { OR: [{ slug: tenantSlug }, { customDomain: tenantSlug }] },
-      select: { id: true, name: true, whatsappNumber: true },
+      select: { id: true, name: true, whatsappNumber: true, isBookingEnabled: true, businessHours: true },
     });
 
     if (!tenant) return apiError("tenant_not_found", 404);
@@ -219,6 +223,10 @@ export async function POST(req: NextRequest) {
     if (!productId || !appointmentDate) {
       return apiError("service_and_date_required", 400);
     }
+    // The phone is the patient's identity (visit history), so every booking needs a usable one.
+    if (!patientKeyOf(clientPhone)) {
+      return apiError("phone_required", 400);
+    }
 
     // Verificar que el producto exista y pertenezca al tenant
     const product = await prisma.product.findFirst({
@@ -227,6 +235,12 @@ export async function POST(req: NextRequest) {
 
     if (!product) {
       return apiError("product_not_found", 404);
+    }
+
+    // Public bookings only: the item must be sold by appointment and the time must be inside business hours.
+    // Admin-created appointments are not restricted.
+    if (!isAdminSession && !isBookable(product, tenant)) {
+      return apiError("not_bookable", 400);
     }
 
     // Resolver usuario: si está logueado usar su cuenta, sino crear o buscar usuario cliente
@@ -260,6 +274,14 @@ export async function POST(req: NextRequest) {
     }
 
     const duration = product.durationMinutes || 30;
+
+    if (!isAdminSession) {
+      const hours = parseBusinessHours(tenant.businessHours);
+      const day = dateKeyInClinicZone(apptDate);
+      if (!slotWithinHours(hours, day, clinicTimeOf(apptDate), duration)) {
+        return apiError("outside_business_hours", 400);
+      }
+    }
 
     // Notes hold only the patient's reason. Name and phone live in their own columns.
     const reason = notes?.trim() || null;

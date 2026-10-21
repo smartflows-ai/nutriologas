@@ -23,7 +23,8 @@ import {
   Facebook,
   Globe,
   Building2,
-  CalendarCheck
+  CalendarCheck,
+  ClipboardList
 } from "lucide-react";
 import SignOutButton from "@/components/admin/SignOutButton";
 import CreditsBadge from "@/components/admin/CreditsBadge";
@@ -77,7 +78,7 @@ export default function AdminSidebar({
       title: t.admin.generalSection,
       items: [
         { href: "/admin/dashboard", label: t.admin.dashboard, icon: LayoutDashboard },
-        { href: "/admin/citas", label: t.admin.appointments, icon: CalendarCheck, isBooking: true },
+        { href: "/admin/historial", label: t.admin.patientHistory, icon: ClipboardList, isBooking: true },
         { href: "/admin/pedidos", label: t.admin.orders, icon: ShoppingBag, isOrders: true },
         { href: "/admin/productos", label: isHealth ? t.adminUi.servicesNav : t.admin.products, icon: Package },
         { href: "/admin/reviews", label: t.admin.reviews, icon: Star },
@@ -96,6 +97,7 @@ export default function AdminSidebar({
       title: t.admin.appsSection,
       items: [
         { href: "/admin/apps", label: t.admin.store, icon: Plug },
+        { href: "/admin/citas", label: t.admin.appointments, icon: CalendarCheck, isBooking: true },
         { href: "/admin/asistente", label: t.admin.aiAssistant, icon: Bot, isAssistant: true },
         { href: "/admin/whatsapp", label: t.admin.whatsapp, icon: MessageSquare, providersReq: ["WHATSAPP"] },
         { href: "/admin/social-campaign", label: t.admin.socialCampaigns, icon: Globe, providersReq: ["FACEBOOK"] },

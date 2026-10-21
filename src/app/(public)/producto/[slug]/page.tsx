@@ -9,6 +9,7 @@ import AddToCartButton from "@/components/shop/AddToCartButton";
 import ProductGallery from "@/components/shop/ProductGallery";
 import ReviewSection from "@/components/shop/ReviewSection";
 import { getTenantSlug } from "@/lib/tenant";
+import { isBookable } from "@/lib/bookable";
 
 async function getProduct(slug: string) {
   const tenantSlug = getTenantSlug();
@@ -17,7 +18,7 @@ async function getProduct(slug: string) {
     where: { OR: [{ slug: tenantSlug }, { customDomain: tenantSlug }] },
   });
   if (!tenant) return null;
-  return prisma.product.findUnique({
+  const product = await prisma.product.findUnique({
     where: { tenantId_slug: { tenantId: tenant.id, slug } },
     include: {
       reviews: {
@@ -27,6 +28,8 @@ async function getProduct(slug: string) {
       },
     },
   });
+  if (!product) return null;
+  return { ...product, bookable: isBookable(product, tenant) };
 }
 
 export default async function ProductoPage({
@@ -39,7 +42,7 @@ export default async function ProductoPage({
   const t = getTranslationServer();
   if (!product || !product.isActive) notFound();
 
-  const isService = product.itemType === "SERVICE" || product.requiresBooking;
+  const isService = product.bookable;
 
   const avgRating =
     product.reviews.length > 0

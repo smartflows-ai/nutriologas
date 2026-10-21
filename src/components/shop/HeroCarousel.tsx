@@ -31,7 +31,7 @@ export default function HeroCarousel({ images }: { images: CarouselImage[] }) {
               priority
             />
             {/* Subtle gradient overlay to make things feel premium */}
-            <div className="absolute inset-0 bg-gradient-to-t from-gray-900/80 via-gray-900/20 to-transparent pointer-events-none" />
+            <div className="absolute inset-0 bg-gray-900/40 pointer-events-none" />
           </div>
         ))}
       </div>

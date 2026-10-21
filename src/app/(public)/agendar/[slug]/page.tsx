@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { getTenantSlug } from "@/lib/tenant";
 import BookingFlow from "@/components/shop/BookingFlow";
+import { parseBusinessHours } from "@/lib/business-hours";
 
 export default async function AgendarPage({
   params,
@@ -19,6 +20,7 @@ export default async function AgendarPage({
       whatsappNumber: true,
       logoUrl: true,
       isBookingEnabled: true,
+      businessHours: true,
     },
   });
 
@@ -48,6 +50,7 @@ export default async function AgendarPage({
           whatsappNumber: tenant.whatsappNumber,
           logoUrl: tenant.logoUrl,
         }}
+        businessHours={parseBusinessHours(tenant.businessHours)}
       />
     </div>
   );

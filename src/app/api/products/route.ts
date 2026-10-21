@@ -61,9 +61,18 @@ export async function POST(req: Request) {
 
   const tenantId = (session.user as any).tenantId;
   const body = await req.json();
-  const data = productSchema.parse(body);
+  const parsed = productSchema.safeParse(body);
+  if (!parsed.success) return Response.json({ error: "validation_failed" }, { status: 400 });
+  const data = parsed.data;
 
-  const slug = slugify(data.name);
+  // Deleted products keep their row (soft delete) and their slug, so a slug can be taken by a deleted item.
+  const baseSlug = slugify(data.name);
+  const taken = await prisma.product.findUnique({
+    where: { tenantId_slug: { tenantId, slug: baseSlug } },
+    select: { id: true },
+  });
+  const slug = taken ? `${baseSlug}-${Date.now().toString(36)}` : baseSlug;
+
   const product = await prisma.product.create({
     data: {
       ...data,
