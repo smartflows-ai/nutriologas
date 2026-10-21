@@ -50,8 +50,10 @@ export async function GET(req: NextRequest) {
 
     // Same rule as booking: a slot is free only when no native appointment or calendar event overlaps it.
     const busy = await getBusyPeriods(tenant.id, dateStr);
+    const now = Date.now();
     const availableSlots = candidates.filter((time) => {
       const start = new Date(clinicDateTime(dateStr, time));
+      if (start.getTime() <= now) return false;
       const end = new Date(start.getTime() + duration * 60000);
       return isSlotFree(busy, start, end);
     });

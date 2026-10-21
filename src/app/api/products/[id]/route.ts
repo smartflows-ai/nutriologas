@@ -45,11 +45,21 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     }
   }
 
-  // Soft delete
+  const [orderItems, reviews, appointments] = await Promise.all([
+    prisma.orderItem.count({ where: { productId: params.id } }),
+    prisma.review.count({ where: { productId: params.id } }),
+    prisma.appointment.count({ where: { productId: params.id } }),
+  ]);
+
+  if (orderItems + reviews + appointments === 0) {
+    await prisma.product.delete({ where: { id: params.id, tenantId } });
+    return Response.json({ ok: true, deleted: "hard" });
+  }
+
   await prisma.product.update({
     where: { id: params.id, tenantId },
     data: { deletedAt: new Date(), isActive: false, images: [] },
   });
 
-  return Response.json({ ok: true });
+  return Response.json({ ok: true, deleted: "soft" });
 }

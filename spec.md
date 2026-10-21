@@ -58,21 +58,23 @@ Tenants customize their branding via `/admin/apariencia`. The system enforces th
 
 ### 4.1 Prioritized 5-Model Fallback Cascade & Cost Model
 
-To balance **token budget monetization** (ensuring tenants utilize their $15 monthly allowance) with **100% platform uptime**, NewAigent executes all AI requests through a prioritized 5-model cascade via [openrouter.ts](file:///d:/Documents/Projects/smartflows/nutriologas/src/lib/ai/openrouter.ts):
+NewAigent executes all AI requests through a prioritized 5-model cascade via [openrouter.ts](file:///d:/Documents/Projects/smartflows/nutriologas/src/lib/ai/openrouter.ts). Free models come first, so the shared OpenRouter balance is spent only when every free model fails:
 
 | Priority | Model ID | Tier | Rate (per 1M Tokens) | Purpose |
 |---|---|---|---|---|
-| **1 (Primary)** | `anthropic/claude-sonnet-4.5` | Paid | $3.00 in / $15.00 out | Primary intelligence driver, flawless Spanish CRM tool calling, drives healthy $15 budget utilization. |
-| **2 (Backup)** | `openai/gpt-4o` | Paid | $2.50 in / $10.00 out | Paid flagship failover if Anthropic queues are congested; maintains spending velocity. |
-| **3 (Fallback)** | `nvidia/nemotron-3-super-120b-a12b:free` | Free | **$0.00** | Ultra-fast NVIDIA zero-cost fallback. |
-| **4 (Fallback)** | `google/gemma-4-31b-it:free` | Free | **$0.00** | Google open-weights fallback. |
-| **5 (Anchor)** | `openrouter/free` | Free | **$0.00** | Final safety net — OpenRouter automatic free model selection. |
+| **1 (Primary)** | `nvidia/nemotron-3-super-120b-a12b:free` | Free | **$0.00** | Fast zero-cost driver; uses the free daily quota that the $10 top-up raised to 1000 requests/day. |
+| **2 (Fallback)** | `google/gemma-4-31b-it:free` | Free | **$0.00** | Google open-weights fallback. |
+| **3 (Fallback)** | `openrouter/free` | Free | **$0.00** | OpenRouter automatic free model selection. |
+| **4 (Paid backup)** | `anthropic/claude-sonnet-4.5` | Paid | $3.00 in / $15.00 out | Paid intelligence if every free model fails; flawless Spanish CRM tool calling. Costs the platform its full retail rate (no margin). |
+| **5 (Paid backup)** | `openai/gpt-4o` | Paid | $2.50 in / $10.00 out | Last paid failover. |
 
 > ⚠️ **Config**: The actual model cascade order is driven by the `OPENROUTER_MODELS` environment variable (comma-separated list). Always verify `.env` against this table.
+>
+> **Shared balance**: all tenants (CRM assistant, WhatsApp bot, social campaigns) use one OpenRouter account and key. There is no per-tenant key. `local-utils/check_shared_balance.js` shows the real spend across tenants.
 
 #### Failover Mechanics
 1. **OpenRouter Protocol**: Passes the remaining models in the `models` payload array for automatic edge-level routing.
-2. **Client-side Cascade Loop**: Catches retryable HTTP error codes (`429 Too Many Requests`, `500`, `502`, `503`, `504`) and immediately advances to the next model in the cascade.
+2. **Client-side Cascade Loop**: Catches retryable HTTP error codes (`402 Payment Required`, `429 Too Many Requests`, `500`, `502`, `503`, `504`) and immediately advances to the next model in the cascade. Network errors also advance.
 3. **Dynamic Cost Accounting**: `computeTokenCost(prompt, completion, modelId)` detects the responding model. Free models (*:free) record **$0.00 USD** to protect tenant balances, while Claude and GPT-4o apply their respective rates.
 
 
@@ -141,6 +143,14 @@ model AiTokenLedger {
    - Authenticated via `x-internal-key` header.
    - Allows external automations (WhatsApp AI responses, auto-replies) to report token consumption.
    - Triggers campaign auto-pause if external spend breaches the limit.
+3a. **WhatsApp Bot Credit Gate (`POST /api/internal/bot/context`)**:
+   - Returns `creditExhausted` from `getCreditStatus()` on every customer message.
+   - The n8n node "Guard: Credits OK" skips the agent when `creditExhausted` is true, so no model is called. The customer gets a fixed degrade reply, logged in the chat history. No token report is sent, because no tokens were spent.
+3b. **Owner Alerts**:
+   - Alerts go to the tenant's own WhatsApp number (`Tenant.whatsappNumber`) through `notifyTenantOwner()` (`src/lib/whatsapp.ts`). There is no email or Slack channel.
+   - Credits exhausted: sent once per billing period, on the `isPaused` false→true transition inside `recordTokenUsage()`.
+   - Bot total cascade failure: "Bot Agent" uses `onError: continueErrorOutput`. The customer gets an apology reply, and `POST /api/internal/bot/alert-failure` alerts the owner. Throttled to once per 60 minutes using `Tenant.botFailureAlertedAt`.
+   - Social campaign post failure: "Notify Error" in the social workflow calls `POST /api/internal/campaigns/alert-failure`. Throttled to once per 60 minutes using `SocialCampaign.lastErrorAt`.
 4. **Social Campaign Webhook Token Accounting (`POST /api/webhooks/social-campaign`)**:
    - Triggered when automated campaigns publish a post (`social_campaign_posted`).
    - Receives `tokenUsage: { promptTokens, completionTokens, model }` in the webhook payload.
@@ -413,6 +423,9 @@ All endpoints under `/api/internal/` are excluded from tenant middleware and aut
 | `/api/internal/calendar/availability` | GET | n8n | Query calendar free/busy slots |
 | `/api/internal/calendar/create-event` | POST | n8n | Create calendar event |
 | `/api/internal/whatsapp/sync` | POST | Evolution API webhook | Sync incoming WhatsApp messages to DB |
+| `/api/internal/bot/context` | POST | n8n (WhatsApp bot) | Tenant context for the agent: catalog with `bookable`, FAQs, opening hours, 14-day `calendarText`, `creditExhausted` |
+| `/api/internal/bot/alert-failure` | POST | n8n (WhatsApp bot) | Alert the owner that the bot's model cascade failed (60-minute cooldown) |
+| `/api/internal/campaigns/alert-failure` | POST | n8n (social campaigns) | Alert the owner that a scheduled post failed (60-minute cooldown) |
 
 ---
 
@@ -425,7 +438,11 @@ All endpoints under `/api/internal/` are excluded from tenant middleware and aut
 - `TOURISM`: Tour itineraries, client allocations, and custom travel experiences.
 
 ### 17.2 Service Booking Invariants
-- Services are represented in the `Product` table with `isBookingEnabled: true` and `durationMinutes: Int`.
+- Services are represented in the `Product` table with `requiresBooking: true` and `durationMinutes: Int`. An item is bookable only when `Tenant.isBookingEnabled` and `requiresBooking` are both true (`isBookable`, `src/lib/bookable.ts`). Other items are information only: price and description, no date, no booking.
+- Opening hours are one weekly schedule per tenant (`Tenant.businessHours`, edited in `/admin/negocio`). Each day has a list of blocks; an empty list means closed; several blocks give a lunch break. The web and the bot read the same schedule (`src/lib/business-hours.ts`). A slot must fit entirely inside one block.
+- Past times are never booked. `POST /api/appointments` returns `date_in_past` for every creator, admins included. The web availability hides slots that already started, and the bot's availability and booking routes apply the same rule.
+- Deleting a product is a hard delete only when no `OrderItem`, `Review` or `Appointment` references it. Otherwise it is a soft delete (`deletedAt`, hidden from the catalog and the bot), so appointment and order history keep their links.
+- The bot uses a server-generated 14-day calendar (`calendarText`) for weekdays and dates. The model does not compute weekdays.
 - Storefront routes appointment booking through `/agendar/[slug]`, presenting an interactive 21-day timeline with automatic slot allocation.
 - Guest booking is supported via `POST /api/appointments`: patient contact details are persisted to `customerName` and `customerPhone`, and duplicated inside `notes` for fail-safe retrieval.
 - Patients review, monitor, and cancel their bookings via `/mis-citas`.

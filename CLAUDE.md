@@ -219,7 +219,8 @@ El corazón del sistema. Cada negocio es un Tenant con:
 - `capacity` → cupo máximo para servicios grupales o tours
 - `serviceConfig` → configuración JSON (horarios específicos, requisitos, etc.)
 - `isActive` → visible en storefront
-- `deletedAt` → soft delete
+- `deletedAt` → soft delete. `DELETE /api/products/[id]` borra de verdad solo si ningún `OrderItem`, `Review` ni `Appointment` apunta al producto; si alguno existe, queda oculto (soft delete) para conservar el historial de citas y pedidos.
+- `GET /api/products/categories` (admin) → categorías distintas del tenant para el autocompletado del formulario de productos (`<datalist>`).
 - `images[]` → URLs de Cloudinary
 
 ### Appointment
@@ -455,6 +456,8 @@ Flujo: `local-utils/n8n-chat-workflow-v2.json` ("NewAigent - WhatsApp Bot (Chat)
 - **Reporte de tokens**: `Collect Token Usage` suma el uso de todas las llamadas del agente y `Report Token Usage` lo envía a `POST /api/internal/tokens/report`, que lo cobra al tenant a tarifa retail. Si el proveedor no reporta uso, se estima (2,000 tokens de prompt por llamada más longitud de respuesta / 4).
 - **Créditos agotados**: el nodo "Guard: Credits OK" revisa `creditExhausted` (de `POST /api/internal/bot/context`) antes de llegar al agente. Si el tenant ya agotó su límite mensual, se salta la llamada al modelo y se envía una respuesta fija de degradación.
 - **Falla total de la cascada**: el nodo "Bot Agent" tiene `onError: continueErrorOutput`; si fallan todos los modelos, esa rama envía al cliente una respuesta fija de disculpa (en vez de silencio) y llama a `POST /api/internal/bot/alert-failure` para avisar al dueño (cooldown de 60 min, ver §"Alertas al Dueño del Tenant" en la sección de créditos).
+- **Calendario para el agente**: `POST /api/internal/bot/context` devuelve `calendarText` (próximos 14 días con día de la semana, fecha y horario, generado por `upcomingCalendarText()` en `src/lib/business-hours.ts`). El prompt lo usa para nombrar días y fechas; el modelo no debe calcular días de la semana por su cuenta.
+- **Horas pasadas**: no se crean citas en horas que ya pasaron (`POST /api/appointments` responde `date_in_past`, para todos los creadores; el bot y la disponibilidad web también lo filtran).
 - **Reglas de n8n para este flujo**:
   - En nodos Code y herramientas usar `$('Nodo').first().json`, no `$('Nodo').item`. Con `.item` falla con "No data found from `main` input" y la herramienta envía la instancia vacía.
   - `$env` no está disponible en esta instancia de n8n. Los secretos van dentro del workflow.

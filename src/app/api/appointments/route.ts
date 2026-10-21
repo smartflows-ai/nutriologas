@@ -273,6 +273,10 @@ export async function POST(req: NextRequest) {
       return apiError("date_invalid", 400);
     }
 
+    if (apptDate.getTime() <= Date.now()) {
+      return apiError("date_in_past", 400);
+    }
+
     const duration = product.durationMinutes || 30;
 
     if (!isAdminSession) {

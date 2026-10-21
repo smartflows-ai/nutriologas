@@ -146,3 +146,25 @@ export function formatBusinessHours(hours: BusinessHours): string {
     })
     .join("\n");
 }
+
+const CALENDAR_DAYS = 14;
+
+function clinicDateKey(now: Date): string {
+  return now.toLocaleDateString("en-CA", { timeZone: "America/Mexico_City" });
+}
+
+/** Next days in the clinic zone with weekday, date and hours, so the bot never works out weekdays itself. */
+export function upcomingCalendarText(hours: BusinessHours, now: Date = new Date()): string {
+  const [y, m, d] = clinicDateKey(now).split("-").map(Number);
+  const lines: string[] = [];
+  for (let i = 0; i < CALENDAR_DAYS; i++) {
+    const day = new Date(Date.UTC(y, m - 1, d + i));
+    const key = day.toISOString().slice(0, 10);
+    const weekday = WEEKDAYS[day.getUTCDay()];
+    const blocks = hours[weekday];
+    const label = `${SPANISH_DAY_NAMES[weekday]} ${day.getUTCDate()} de ${day.toLocaleDateString("es-MX", { timeZone: "UTC", month: "long" })}`;
+    const hoursText = blocks.length > 0 ? blocks.map((b) => `${b.start} a ${b.end}`).join(", ") : "cerrado";
+    lines.push(`- ${label} (${key}${i === 0 ? ", hoy" : i === 1 ? ", mañana" : ""}): ${hoursText}`);
+  }
+  return lines.join("\n");
+}

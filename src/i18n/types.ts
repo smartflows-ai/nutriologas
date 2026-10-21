@@ -1429,6 +1429,7 @@ export interface Translations {
     phone_required: string;
     patient_not_found: string;
     outside_business_hours: string;
+    date_in_past: string;
     business_hours_invalid: string;
     cart_empty: string;
     product_unavailable: string;

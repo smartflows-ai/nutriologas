@@ -1509,6 +1509,7 @@ export const en: Translations = {
     phone_required: "Enter a valid WhatsApp number to book.",
     patient_not_found: "We could not find this patient.",
     outside_business_hours: "That time is outside business hours.",
+    date_in_past: "That time has already passed.",
     business_hours_invalid: "The schedule is not valid. The closing time must be after the opening time.",
     cart_empty: "Your cart is empty.",
     product_unavailable: "One or more products are no longer available.",

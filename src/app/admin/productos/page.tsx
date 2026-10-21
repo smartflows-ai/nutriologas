@@ -88,6 +88,16 @@ export default function ProductosPage() {
 
   useEffect(() => { fetchProducts(page); }, [page]);
 
+  const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
+  useEffect(() => {
+    fetch("/api/products/categories")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.categories) setCategoryOptions(data.categories);
+      })
+      .catch((e) => console.error("Error loading categories:", e));
+  }, []);
+
   useEffect(() => {
     fetch("/api/tenants/business")
       .then((res) => (res.ok ? res.json() : null))
@@ -377,7 +387,10 @@ export default function ProductosPage() {
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1.5">{selectedItemType === "SERVICE" ? t.productsAdmin.specialty : t.crm.products.modal.category}</label>
-                  <input {...register("category")} className="input bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800" placeholder={selectedItemType === "SERVICE" ? t.productsAdmin.specialtyPlaceholder : ""} />
+                  <input {...register("category")} list="product-category-options" autoComplete="off" className="input bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800" placeholder={selectedItemType === "SERVICE" ? t.productsAdmin.specialtyPlaceholder : ""} />
+                  <datalist id="product-category-options">
+                    {categoryOptions.map((c) => <option key={c} value={c} />)}
+                  </datalist>
                 </div>
 
                 <div className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 select-none cursor-pointer" onClick={() => (document.getElementById('isActive') as HTMLInputElement).click()}>

@@ -4,7 +4,7 @@
 // never from model output or request input the model can influence.
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import { BusinessHours, formatBusinessHours, parseBusinessHours, slotWithinHours } from "@/lib/business-hours";
+import { BusinessHours, formatBusinessHours, parseBusinessHours, slotWithinHours, upcomingCalendarText } from "@/lib/business-hours";
 
 export const BOT_TIMEZONE_OFFSET = "-06:00"; // America/Mexico_City (CST)
 
@@ -22,6 +22,7 @@ export interface BotTenant {
   isBookingEnabled: boolean;
   businessHours: BusinessHours;
   businessHoursText: string;
+  calendarText: string;
 }
 
 export function isInternalKeyValid(req: NextRequest): boolean {
@@ -57,6 +58,7 @@ export async function resolveBotTenant(instance: unknown): Promise<BotTenant | n
     isBookingEnabled: app.tenant.isBookingEnabled,
     businessHours,
     businessHoursText: formatBusinessHours(businessHours),
+    calendarText: upcomingCalendarText(businessHours),
   };
 }
 

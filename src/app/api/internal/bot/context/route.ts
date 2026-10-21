@@ -42,6 +42,7 @@ export async function POST(req: NextRequest) {
     waContext: bot.waContext,
     waTemperature: bot.waTemperature,
     businessHoursText: bot.businessHoursText,
+    calendarText: bot.calendarText,
     creditExhausted: creditStatus.isExhausted,
     // Read-only catalog: the agent may quote these prices but cannot change them.
     // bookable = sold by appointment; false means information only (no date, no booking tools).

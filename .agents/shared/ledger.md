@@ -491,3 +491,11 @@ Decisions made:
 **Open:** Owner alerts go to `Tenant.whatsappNumber` (the business's own WhatsApp, no separate owner-phone field exists). Bot-failure alert cooldown is 60 minutes (`Tenant.botFailureAlertedAt`). No per-tenant OpenRouter key exists; revisit only if one noisy tenant starts starving others of the shared real-dollar balance.
 
 **Follow-up:** The social campaign workflow (`n8n-social-campaign-workflow.json`) had the same silent-failure shape: its "Notify Error" node posted to `$env.WEBHOOK_URL`, which this n8n instance never exposes, so a failed post never reached anyone despite `neverError: true` hiding that fact. Fixed by pointing it at a new `POST /api/internal/campaigns/alert-failure`, reusing `notifyTenantOwner` and throttling with the campaign's existing `lastErrorAt` field instead of adding a new column.
+
+## 2026-10-21 — Dev — Bot dates, past hours, product delete and categories
+
+**Decision:** The bot never works out weekdays. `bot/context` sends a 14-day calendar with weekday, date and hours, and the prompt uses it. No appointment is created at a time that already passed, for any creator. Deleting a service removes the row only when no order, review or appointment points to it.
+
+**Lesson:** The model guessed weekdays from a date string and quoted wrong days (Friday 24 for Friday 23; a closed Tuesday that was open). Give the model the calendar computed in code. Also, the web POST had no past-time check; server rules must cover every creator, not just the bot routes.
+
+**Open:** A booking made by the bot on 2026-10-24 22:20 UTC is stored on the wrong day and hour compared with what the customer was told. Check the n8n execution for the `book_appointment` input before moving it. Re-import the workflow and deploy the latest commits for the prompt and context changes to reach production.
