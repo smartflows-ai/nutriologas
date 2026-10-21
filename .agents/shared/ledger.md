@@ -459,3 +459,9 @@ Decisions made:
 **Lesson:** Matching the echo by key alone fails: the bot's reply and its echo have different keys. Storing the reply first and matching by content keeps the pause logic correct without relying on Evolution's key format.
 
 **Open:** Echo matching for `@lid` contacts depends on Evolution sending `remoteJidAlt`. Verify with a real event before relying on it.
+
+## 2026-10-20 — Dev — Fail closed on the bot pause check
+
+**Decision:** If the contact-status or pending check fails, the n8n run stops and the bot does not answer. Only an explicit `botEnabled: true` lets it reply.
+
+**Lesson:** The pause check was returning 404 in production because the route had not been deployed. `onError: continueRegularOutput` hid that, and the bot kept answering paused contacts. A fail-open check hides exactly the failure it exists to catch. `local-utils/check-prod-routes.mjs` now lists the routes the workflows need.

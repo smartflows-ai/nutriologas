@@ -47,6 +47,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Google Calendar: `updateCalendarEvent` (reschedule) and `deleteCalendarEvent` (cancel). A missing event (404/410) is not an error on delete.
 - Bot prompt: greets only on the first message, lists services when asked for prices, and follows privacy rules that keep technical details and other customers' data out of replies.
 
+- n8n bot checks fail closed. `Get Contact Status`, `Get Pending Messages` and both guards stop the run when a check fails, instead of letting the bot answer.
+- **Route check** `local-utils/check-prod-routes.mjs` probes every API route the workflows call. Run it after each deploy.
 - Web availability uses the same busy check as booking (native appointments and the connected calendar).
 - A logged-in admin's web booking goes to a guest account from the form email. Logged-in customers keep their own bookings.
 - `sendWhatsAppMessage` accepts a full JID, so `@lid` chats can receive replies.
