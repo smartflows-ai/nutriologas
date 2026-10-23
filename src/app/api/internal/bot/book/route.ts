@@ -22,8 +22,11 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
-  if (customerEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) {
-    return Response.json({ success: false, error: "Formato de email inválido" }, { status: 400 });
+  if (!customerEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) {
+    return Response.json(
+      { success: false, error: "email_required", message: "Pide al cliente un correo electrónico válido para enviarle la invitación." },
+      { status: 400 }
+    );
   }
 
   const product = await prisma.product.findFirst({
@@ -51,7 +54,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Guest account per phone number, same pattern as the web booking flow.
-  const email = customerEmail?.toLowerCase().trim() || `wa_${customerPhone}@booking.local`;
+  const email = customerEmail.toLowerCase().trim();
   let user = await prisma.user.findFirst({ where: { tenantId: bot.tenantId, email } });
   if (!user) {
     user = await prisma.user.create({
@@ -68,13 +71,13 @@ export async function POST(req: NextRequest) {
     status: "CONFIRMED",
     customerName,
     customerPhone,
-    customerEmail: customerEmail?.toLowerCase().trim() || null,
+    customerEmail: email,
     notes: notes?.trim() || null,
     calendar: {
       summary: `Cita: ${product.name} - ${customerName}`,
       description: `${notes?.trim() || "Cita agendada por WhatsApp"}
 Tel: ${customerPhone}`,
-      attendeeEmail: customerEmail || "",
+      attendeeEmail: email,
     },
   });
   if (!result.ok) {
