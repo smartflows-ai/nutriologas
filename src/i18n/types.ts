@@ -4,6 +4,16 @@ export type Lang = "en" | "es";
 type PlanCopy = { name: string; tagline: string; features?: string[] };
 
 export interface Translations {
+  customerMessages: {
+    locale: string;
+    reminderTemplate: string;
+    confirmationTemplate: string;
+    cancellationTemplate: string;
+    plainFooter: string;
+    confirmedReply: string;
+    ownerConfirmedText: string;
+    confirmationLanguageName: string;
+  };
   nav: {
     features: string;
     howItWorks: string;
@@ -510,6 +520,34 @@ export interface Translations {
       hoursTo: string;
       hoursInvalidRange: string;
       hoursOverlap: string;
+      reminderSection: string;
+      reminderSectionDesc: string;
+      reminderEnabledLabel: string;
+      reminderModeLabel: string;
+      reminderModeDayBefore: string;
+      reminderModeSameDay: string;
+      reminderSendTimeLabel: string;
+      confirmationRequiredLabel: string;
+      confirmationRequiredHint: string;
+      deadlineHoursLabel: string;
+      reminderTemplateLabel: string;
+      confirmationTemplateLabel: string;
+      cancellationTemplateLabel: string;
+      templateDefaultHint: string;
+      templateInsertLabel: string;
+      tokenService: string;
+      tokenDate: string;
+      tokenTime: string;
+      tokenDeadline: string;
+      tokenBusiness: string;
+      messageLanguageLabel: string;
+      messageLanguageHint: string;
+      messagesSection: string;
+      messagesSectionDesc: string;
+      saveMessagesBtn: string;
+      saveRemindersBtn: string;
+      savedReminders: string;
+      reminderLoadError: string;
       hoursAddBlock: string;
       hoursRemoveBlock: string;
       hoursHint: string;
@@ -590,6 +628,15 @@ export interface Translations {
       hideList: string;
       tabChats: string;
       tabSettings: string;
+      tabConfirmations: string;
+      confirmationsDesc: string;
+      confirmationsEmpty: string;
+      confirmationsDeadline: string;
+      confirmationsConfirm: string;
+      confirmationsRelease: string;
+      confirmationsReleaseHint: string;
+      confirmationsActionError: string;
+      confirmationsLoadError: string;
       updateList: string;
       noChats: string;
       deleteChat: string;
@@ -1430,6 +1477,10 @@ export interface Translations {
     patient_not_found: string;
     outside_business_hours: string;
     date_in_past: string;
+    confirmation_missing_deadline: string;
+    confirmation_missing_si: string;
+    template_too_long: string;
+    reminder_settings_invalid: string;
     business_hours_invalid: string;
     cart_empty: string;
     product_unavailable: string;

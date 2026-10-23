@@ -35,7 +35,15 @@ model Tenant {
   aiCreditLimitUsd   Float?  // Override per-tenant AI credit cap (null = use plan default)
   botFailureAlertedAt DateTime? // Last time the owner was alerted that the WhatsApp bot's model cascade failed (throttles repeat alerts)
   remindersEnabled       Boolean @default(true)   // Recordatorios de cita por WhatsApp
-  reminderOffsetsMinutes Int[]   @default([1440, 120]) // Minutos antes de la cita (1440 = 24 h, 120 = 2 h)
+  reminderOffsetsMinutes Int[]   @default([1440, 120]) // Legacy: ya no se usa (reemplazado por reminderMode)
+  reminderMode              String  @default("DAY_BEFORE") // DAY_BEFORE | SAME_DAY
+  reminderSendTime          String  @default("09:00") // HH:mm, hora de Mexico
+  confirmationRequired      Boolean @default(true)
+  confirmationDeadlineHours Int     @default(2)
+  reminderTemplate          String?
+  confirmationTemplate      String?
+  cancellationTemplate      String?
+  messageLanguage           String  @default("es") // Idioma de los mensajes al cliente: es | en
   businessHours          Json?   // Horario semanal de atención (null = horario por defecto, ver src/lib/business-hours.ts)
   appointmentNotes       AppointmentNote[]
 
@@ -511,6 +519,7 @@ model AiTokenLedger {
   // Token count breakdown for display
   promptTokens        Int      @default(0)
   completionTokens    Int      @default(0)
+  reminderCount       Int      @default(0)
 
   // Credit limit for this period (USD) — copied from plan at period creation
   creditLimitUsd      Float    @default(15.0)
@@ -552,7 +561,10 @@ model Appointment {
   externalProvider AppProvider?     // GOOGLE | MICROSOFT: calendario que replica esta cita
   externalEventId String?           // id del evento en ese calendario
   googleEventId   String?           // legacy: reemplazado por externalEventId tras el backfill
-  remindersSent   Int[]             @default([]) // Offsets (minutos) ya enviados como recordatorio
+  remindersSent   Int[]             @default([]) // Legacy: ya no se usa
+  reminderSentAt      DateTime?
+  customerConfirmedAt DateTime?
+  autoReleasedAt      DateTime?
 
   appointmentDate DateTime          // fecha y hora de la cita
   durationMinutes Int               // duración en minutos

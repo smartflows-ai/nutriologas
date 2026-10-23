@@ -6,6 +6,9 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useTranslation } from "@/i18n";
 import { translateApiError } from "@/i18n/validation";
+import PendingConfirmations from "@/components/admin/PendingConfirmations";
+import ReminderMessagesCard from "@/components/admin/ReminderMessagesCard";
+import ReminderSettingsCard from "@/components/admin/ReminderSettingsCard";
 
 // WhatsApp text formatting normalizer to Standard Markdown
 const parseWhatsAppToMarkdown = (text: string) => {
@@ -22,7 +25,7 @@ const parseWhatsAppToMarkdown = (text: string) => {
 
 export default function WhatsAppPage() {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<"chats" | "settings">("chats");
+  const [activeTab, setActiveTab] = useState<"chats" | "confirmations" | "settings">("chats");
   const [selectedChat, setSelectedChat] = useState<any>(null);
   const [chats, setChats] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
@@ -310,6 +313,12 @@ export default function WhatsAppPage() {
             <MessageSquare className="w-4 h-4" /> {t.crm.whatsapp.tabChats}
           </button>
           <button
+            onClick={() => { setActiveTab("confirmations"); setSelectedChat(null); }}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'confirmations' ? 'bg-gray-100 dark:bg-gray-800 text-primary' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100'}`}
+          >
+            <Check className="w-4 h-4" /> {t.crm.whatsapp.tabConfirmations}
+          </button>
+          <button
             onClick={() => setActiveTab("settings")}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'settings' ? 'bg-gray-100 dark:bg-gray-800 text-primary' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100'}`}
           >
@@ -506,6 +515,10 @@ export default function WhatsAppPage() {
             )}
           </div>
         </div>
+      ) : activeTab === "confirmations" ? (
+        <div className="flex-1 overflow-y-auto p-8 max-w-5xl mx-auto w-full">
+          <PendingConfirmations />
+        </div>
       ) : (
         /* Settings Tab */
         <div className="flex-1 overflow-y-auto p-8 max-w-5xl mx-auto w-full">
@@ -587,6 +600,11 @@ export default function WhatsAppPage() {
               </button>
             </div>
           </form>
+
+          <div className="mt-8 space-y-8">
+            <ReminderSettingsCard />
+            <ReminderMessagesCard />
+          </div>
         </div>
       )}
 

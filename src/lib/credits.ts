@@ -241,27 +241,65 @@ export async function recordTokenUsage(
   });
 
   const updatedStatus = await getCreditStatus(tenantId, planId);
-
-  // Auto-pause campaigns if credit limit just crossed
-  if (updatedStatus.isExhausted) {
-
-    await pauseCampaignsForTenant(tenantId);
-
-    // Mark ledger as paused
-    await (prisma as any).aiTokenLedger.update({
-      where: { tenantId_periodStart: { tenantId, periodStart } },
-      data: { isPaused: true, pausedAt: new Date() },
-    });
-
-    if (!wasAlreadyPaused) {
-      await notifyTenantOwner(
-        tenantId,
-        `Tus créditos de IA de este mes se agotaron (usaste $${updatedStatus.usedUsd.toFixed(2)} de $${updatedStatus.limitUsd.toFixed(2)}). El asistente de WhatsApp seguirá respondiendo en modo limitado. Puedes ampliar tu límite desde el panel.`,
-      );
-    }
-  }
-
+  await applyExhaustion(tenantId, periodStart, updatedStatus, wasAlreadyPaused);
   return updatedStatus;
+}
+
+export function reminderCostUsd(): number {
+  return parseFloat(process.env.REMINDER_COST_USD ?? "0.0085");
+}
+
+/**
+ * Charges one WhatsApp reminder to the tenant's ledger. The billed amount goes to the tenant;
+ * realProviderCostUsd is the platform's own cost (REMINDER_PROVIDER_COST_USD, 0 while the
+ * Evolution channel is free). Call only after the message was sent.
+ */
+export async function recordMessageCharge(tenantId: string, amountUsd: number, planId?: string): Promise<CreditStatus> {
+  const periodStart = currentPeriodStart();
+  const providerCostUsd = parseFloat(process.env.REMINDER_PROVIDER_COST_USD ?? "0");
+
+  await getOrCreateLedger(tenantId, planId);
+  const priorLedger = await (prisma as any).aiTokenLedger.findUnique({
+    where: { tenantId_periodStart: { tenantId, periodStart } },
+    select: { isPaused: true },
+  });
+  const wasAlreadyPaused = priorLedger?.isPaused ?? false;
+
+  await (prisma as any).aiTokenLedger.update({
+    where: { tenantId_periodStart: { tenantId, periodStart } },
+    data: {
+      totalCostUsd:        { increment: amountUsd },
+      realProviderCostUsd: { increment: providerCostUsd },
+      netMarginUsd:        { increment: amountUsd - providerCostUsd },
+      reminderCount:       { increment: 1 },
+    },
+  });
+
+  const updatedStatus = await getCreditStatus(tenantId, planId);
+  await applyExhaustion(tenantId, periodStart, updatedStatus, wasAlreadyPaused);
+  return updatedStatus;
+}
+
+async function applyExhaustion(
+  tenantId: string,
+  periodStart: Date,
+  status: CreditStatus,
+  wasAlreadyPaused: boolean,
+): Promise<void> {
+  if (!status.isExhausted) return;
+
+  await pauseCampaignsForTenant(tenantId);
+  await (prisma as any).aiTokenLedger.update({
+    where: { tenantId_periodStart: { tenantId, periodStart } },
+    data: { isPaused: true, pausedAt: new Date() },
+  });
+
+  if (!wasAlreadyPaused) {
+    await notifyTenantOwner(
+      tenantId,
+      `Tus créditos de IA de este mes se agotaron (usaste $${status.usedUsd.toFixed(2)} de $${status.limitUsd.toFixed(2)}). El asistente de WhatsApp seguirá respondiendo en modo limitado. Puedes ampliar tu límite desde el panel.`,
+    );
+  }
 }
 
 // ── Campaign pause / resume ─────────────────────────────────────────────────

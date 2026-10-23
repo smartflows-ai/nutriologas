@@ -1,22 +1,29 @@
 // src/app/api/internal/reminders/run/route.ts
-// POST: Sends due appointment reminders. Called every 15 min by the reminder workflow (no LLM).
-//
-// Rule per appointment: among the tenant's offsets that are already reached and not yet sent,
-// send ONE reminder (the closest to the appointment) and mark all reached offsets as sent.
-// That way booking inside the 24 h window does not produce two messages in a row.
+// POST: Sends due appointment reminders and releases visits nobody confirmed.
+// Called every 15 min by the reminders workflow. No LLM. Body { dryRun?: boolean } lists the work without acting.
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import { isInternalKeyValid, ACTIVE_APPOINTMENT_STATUSES, formatSlotTime } from "@/lib/bot";
+import { isInternalKeyValid, ACTIVE_APPOINTMENT_STATUSES } from "@/lib/bot";
 import { sendWhatsAppMessage } from "@/lib/whatsapp";
+import { releaseVisit } from "@/lib/reminder-actions";
+import { planReminder, releaseAt, type ReminderMode } from "@/lib/reminders";
+import { recordMessageCharge, reminderCostUsd } from "@/lib/credits";
+import {
+  clinicLongDate,
+  clinicTime,
+  customerTexts,
+  renderTemplate,
+} from "@/lib/reminder-messages";
 
-const LOOKAHEAD_DAYS = 30; // must exceed the largest reminder offset a tenant can configure
-const MAX_PER_RUN = 300;
+const LOOKAHEAD_HOURS = 72; // covers the day-before reminder of visits up to ~2 days away
 
 export async function POST(req: NextRequest) {
   if (!isInternalKeyValid(req)) return Response.json({ error: "No autorizado" }, { status: 401 });
 
+  const body = await req.json().catch(() => ({}));
+  const dryRun = body?.dryRun === true;
   const now = new Date();
-  const horizon = new Date(now.getTime() + LOOKAHEAD_DAYS * 24 * 60 * 60000);
+  const horizon = new Date(now.getTime() + LOOKAHEAD_HOURS * 60 * 60000);
 
   const appointments = await prisma.appointment.findMany({
     where: {
@@ -30,67 +37,113 @@ export async function POST(req: NextRequest) {
       customerPhone: true,
       appointmentDate: true,
       durationMinutes: true,
-      remindersSent: true,
+      createdAt: true,
+      reminderSentAt: true,
+      customerConfirmedAt: true,
+      autoReleasedAt: true,
+      externalProvider: true,
+      externalEventId: true,
       product: { select: { name: true } },
-      tenant: { select: { name: true, reminderOffsetsMinutes: true } },
+      tenant: {
+        select: {
+          name: true,
+          messageLanguage: true,
+          reminderMode: true,
+          reminderSendTime: true,
+          confirmationRequired: true,
+          confirmationDeadlineHours: true,
+          reminderTemplate: true,
+          confirmationTemplate: true,
+          cancellationTemplate: true,
+        },
+      },
     },
     orderBy: { appointmentDate: "asc" },
-    take: MAX_PER_RUN,
   });
 
-  const result = { checked: appointments.length, sent: 0, marked: 0, failed: 0 };
+  const result = { checked: appointments.length, sent: 0, released: 0, skipped: 0, failed: 0, dryRun, actions: [] as object[] };
 
   for (const appt of appointments) {
-    const apptTime = appt.appointmentDate.getTime();
-    const alreadySent = appt.remindersSent;
+    const t = appt.tenant;
+    const plan = planReminder({
+      apptStart: appt.appointmentDate,
+      createdAt: appt.createdAt,
+      mode: t.reminderMode as ReminderMode,
+      sendTime: t.reminderSendTime,
+      confirmationRequired: t.confirmationRequired,
+      deadlineHours: t.confirmationDeadlineHours,
+    });
+    const deadline = releaseAt(appt.appointmentDate, t.confirmationDeadlineHours);
+    const hasPhone = Boolean(appt.customerPhone);
 
-    // Offsets whose send moment has passed and that were not sent yet.
-    const reached = appt.tenant.reminderOffsetsMinutes
-      .filter((offset) => !alreadySent.includes(offset))
-      .filter((offset) => now.getTime() >= apptTime - offset * 60000);
-
-    if (reached.length === 0) continue;
-
-    const nextSent = [...alreadySent, ...reached];
-
-    // No phone on file: nothing to send, mark so it is not rescanned forever.
-    if (!appt.customerPhone) {
-      await prisma.appointment.update({ where: { id: appt.id }, data: { remindersSent: nextSent } });
-      result.marked++;
+    // Release: a confirmation was requested, the deadline passed, and the customer did not answer.
+    if (
+      appt.reminderSentAt &&
+      !appt.customerConfirmedAt &&
+      !appt.autoReleasedAt &&
+      plan.requestConfirmation &&
+      now.getTime() >= deadline.getTime()
+    ) {
+      if (dryRun) {
+        result.actions.push({ action: "release", appointmentId: appt.id, deadline: deadline.toISOString() });
+        continue;
+      }
+      await releaseVisit({
+        id: appt.id,
+        tenantId: appt.tenantId,
+        customerPhone: appt.customerPhone,
+        appointmentDate: appt.appointmentDate,
+        externalProvider: appt.externalProvider,
+        externalEventId: appt.externalEventId,
+        productName: appt.product.name,
+        tenantName: t.name,
+        messageLanguage: t.messageLanguage,
+        cancellationTemplate: t.cancellationTemplate,
+      }, now);
+      result.released++;
       continue;
     }
 
-    const time = formatSlotTime(appt.appointmentDate);
-    const date = appt.appointmentDate.toLocaleDateString("es-MX", {
-      timeZone: "America/Mexico_City",
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-    });
+    // Reminder: due, not sent yet, and the visit still has a reachable phone.
+    const due = now.getTime() >= plan.sendAt.getTime();
+    if (!appt.reminderSentAt && due && (plan.requestConfirmation || plan.sendPlain)) {
+      if (!hasPhone) {
+        result.skipped++;
+        continue;
+      }
 
-    const text =
-      `Recordatorio de tu cita en *${appt.tenant.name}*.\n\n` +
-      `*Servicio:* ${appt.product.name}\n` +
-      `*Fecha:* ${date}\n` +
-      `*Hora:* ${time}\n` +
-      `*Duración:* ${appt.durationMinutes} min\n\n` +
-      `Si necesitas cambiarla o cancelarla, responde a este mensaje.`;
+      const texts = customerTexts(t.messageLanguage);
+      const values = {
+        servicio: appt.product.name,
+        fecha: clinicLongDate(appt.appointmentDate, t.messageLanguage),
+        hora: clinicTime(appt.appointmentDate, t.messageLanguage),
+        negocio: t.name,
+      };
+      const confirmationPart = plan.requestConfirmation
+        ? `\n\n${renderTemplate(t.confirmationTemplate ?? texts.confirmationTemplate, {
+            ...values,
+            hora_limite: clinicTime(plan.releaseAt!, t.messageLanguage),
+          })}`
+        : `\n\n${texts.plainFooter}`;
+      const text = renderTemplate(t.reminderTemplate ?? texts.reminderTemplate, values) + confirmationPart;
 
-    const sendResult = await sendWhatsAppMessage({
-      tenantId: appt.tenantId,
-      to: appt.customerPhone,
-      text,
-    });
+      if (dryRun) {
+        result.actions.push({ action: "remind", appointmentId: appt.id, confirmation: plan.requestConfirmation, sendAt: plan.sendAt.toISOString() });
+        continue;
+      }
 
-    if (!sendResult.success) {
-      // Leave remindersSent untouched so the next run retries.
-      console.error("[reminders/run] Send failed:", appt.id, sendResult.reason);
-      result.failed++;
-      continue;
+      const sent = await sendWhatsAppMessage({ tenantId: appt.tenantId, to: appt.customerPhone!, text });
+      if (!sent.success) {
+        // Nothing is marked or charged, so the next run retries.
+        console.error("[reminders/run] Send failed:", appt.id, sent.reason);
+        result.failed++;
+        continue;
+      }
+
+      await prisma.appointment.update({ where: { id: appt.id }, data: { reminderSentAt: now } });
+      await recordMessageCharge(appt.tenantId, reminderCostUsd());
+      result.sent++;
     }
-
-    await prisma.appointment.update({ where: { id: appt.id }, data: { remindersSent: nextSent } });
-    result.sent++;
   }
 
   return Response.json({ success: true, ...result });

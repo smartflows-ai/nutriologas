@@ -499,3 +499,29 @@ Decisions made:
 **Lesson:** The model guessed weekdays from a date string and quoted wrong days (Friday 24 for Friday 23; a closed Tuesday that was open). Give the model the calendar computed in code. Also, the web POST had no past-time check; server rules must cover every creator, not just the bot routes.
 
 **Open:** A booking made by the bot on 2026-10-24 22:20 UTC is stored on the wrong day and hour compared with what the customer was told. Check the n8n execution for the `book_appointment` input before moving it. Re-import the workflow and deploy the latest commits for the prompt and context changes to reach production.
+
+## 2026-10-21 — Dev — Bot email for invites, reschedule without name, neverError tools
+
+**Decision:** The bot needs a valid customer email before a new booking, because the email becomes the calendar attendee and Google or Outlook sends the invite. No separate confirmation email exists; the invite is the confirmation. Rescheduling and cancelling never ask for name or email. The five bot tool nodes return errors as data (`neverError`).
+
+**Lesson:** The prompt rule "antes de agendar" was read as applying to reschedule, so the bot asked for the name on every change. Scope prompt rules to the exact tool they concern. A failed tool call that the agent cannot read ends the run, and the customer gets no reply.
+
+**Lesson:** Raw `pg` queries on `timestamp without time zone` columns read values in the machine's timezone, which made the appointment times look shifted. Read times through Prisma, or convert them explicitly, before drawing conclusions. The helper scripts `local-utils/check-appointment-times.ts`, `check-busy-periods.ts`, `check-day-slots.ts` and `check-calendar-text.ts` print times with the clinic clock.
+
+**Open:** Re-import `local-utils/n8n-chat-workflow-v2.json` into n8n; the email rule, the reschedule rule and the tool changes live in the workflow. Deploy the latest commit so `bot/book` returns `email_required` and `bot/context` returns `calendarText`. Retest a new booking, a reschedule and a slot conflict.
+
+## 2026-10-23 — Dev — Appointment reminders with confirmation and auto-release
+
+**Decision:** One reminder per visit (day before or same day, owner's time). A visit is released when the customer has not replied SI by the deadline, which the owner sets in hours before the visit. Each reminder is charged $0.0085 (Meta's Mexico utility rate) so owners get used to per-message pricing before the move to Meta. Owner-facing and customer-facing text is translated through i18n; each business picks its message language (`messageLanguage`). A visit booked after its reminder time counts as confirmed and is never released.
+
+**Lesson:** The reminder time and the release deadline can overlap for same-day reminders, so the planner must treat a visit with no time left to answer as plain-reminder only. Owners must not see braces or variable names: placeholders are plain labels in square brackets, read from the translation files, and the server accepts the label of every language.
+
+**Lesson:** Writing Spanish text with `node -e` in the shell is unsafe: backticks inside the text run as commands and quotes break the file. Use the edit tool or a quoted heredoc for any text that contains code formatting.
+
+**Open:** Re-import `local-utils/n8n-chat-workflow-v2.json` and `local-utils/n8n-reminders-workflow.json` in n8n, deploy, then test: a reminder reaches a real phone, a "sí" confirms, silence releases the visit (calendar event removed, slot free, cancellation sent), "Liberar ahora" works from the Confirmaciones tab, and an English business gets English messages. Verify the Meta rate on Meta's rate card before raising the price.
+
+## 2026-10-23 — Dev — Minimal UI pass on tenant screens
+
+**Decision:** Audit with `local-utils/minimal-ui/audit.js`: all auto rules at 0. The 15 remaining `shadow-lg` matches are modal and dropdown overlays, which the spec keeps. Fixed the calendar's hardcoded light-only colors (dark mode now uses `.dark` variants) and removed its uppercase column headers. The dashboard rating card icon circle is neutral now; the star stays yellow as a rating cue. Semantic status colors (paid, active, error, Facebook/Instagram brand) were left as they are.
+
+**Open:** Chart grid lines (`stroke="#f0f0f0"` in SalesChart, AppointmentsChart, ProductsChart, CampaignMetrics) stay light in dark mode. Visual check at 375 px and with a non-default primary color is still pending.

@@ -636,6 +636,7 @@ export default function BusinessProfilePage() {
           </button>
         </div>
       </form>
+
     </div>
   );
 }

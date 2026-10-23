@@ -102,9 +102,8 @@ export default function CreditsBadge() {
         </div>
 
         {/* Amount text */}
-        <div className={`flex justify-between text-xs font-medium ${textColor}`}>
-          <span>${status.usedUsd.toFixed(3)} {t.crm.credits.used}</span>
-          <span>${status.limitUsd.toFixed(2)} {t.crm.credits.limit}</span>
+        <div className={`text-xs font-medium ${textColor}`}>
+          <span>{Math.round(status.percentUsed)}% {t.crm.credits.used}</span>
         </div>
 
         {isExhausted && (

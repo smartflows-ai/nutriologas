@@ -4,9 +4,24 @@ All notable changes to Presto AI are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased] — 2026-10-23
+
+### Changed
+- Minimal UI pass on tenant screens: the calendar's dark mode colors and column headers follow the spec; the dashboard rating icon circle is neutral.
+- Sidebar credits badge shows the used share as a percentage (for example "7% Usado") instead of the dollar amount; the limit stays in dollars.
+
 ## [Unreleased] — 2026-10-21
 
 ### Added
+- **Appointment reminders with confirmation**: one reminder per visit, the day before or the same day at a set clinic time. It asks the customer to reply SI. If there is no reply by the deadline (hours before the visit), the visit is cancelled, the calendar event is removed and the slot is freed. Replaces the old 24 h / 2 h reminders. Business settings in the "Recordatorios y confirmación" card on `/admin/negocio`.
+- **Confirmation from the chat**: a clear "sí" confirms the waiting visit before the AI agent runs (`POST /api/internal/bot/confirm`). The agent has a `confirm_appointment` backup tool.
+- **Confirmations tab** on `/admin/whatsapp`: visits waiting for the reply, with "Confirmar" and "Liberar ahora".
+- **Reminder cost**: each reminder sent is charged at `REMINDER_COST_USD` ($0.0085 by default, Meta's Mexico utility rate from secondary sources) and counted in `AiTokenLedger.reminderCount`. The platform's own cost is `REMINDER_PROVIDER_COST_USD`.
+- **Message language per business** (`messageLanguage`, es or en): all customer reminder messages, dates and times follow it. Default texts live in the translation files.
+- **Owner text with plain labels**: owners insert details with buttons (Servicio, Fecha, Hora, Hora límite, Nombre del negocio, or the English labels). The server accepts the labels of every language.
+- **Bot invites need an email**: the bot must collect a valid customer email before booking. `POST /api/internal/bot/book` returns `email_required` without one, so every bot appointment carries an attendee and the Google or Outlook invite goes out. The `book_appointment` tool marks the email as required.
+- **Service delete is hard when unused**: `DELETE /api/products/[id]` removes the row only when no order item, review or appointment uses it. Otherwise it stays a soft delete.
+- **Category autocomplete**: `GET /api/products/categories` (admin) lists the tenant's distinct categories; the product form suggests them through a native datalist.
 - **No past appointments**: `POST /api/appointments` rejects a time that has already passed (`date_in_past`) for every creator, admins included. The web availability hides slots that have started today. The bot prompt tells the model not to offer past hours; the bot's availability and booking routes already enforced this.
 - **Bot calendar**: `bot/context` returns `calendarText`, the next 14 clinic days with weekday, date and hours (`upcomingCalendarText` in `src/lib/business-hours.ts`). The bot prompt uses it for weekdays and dates. Previously the model computed weekdays itself and quoted wrong days (e.g. Friday 24 for Friday 23, and a closed Tuesday that was open).
 - **Owner alerts (WhatsApp)**: `notifyTenantOwner()` (`src/lib/whatsapp.ts`) sends a best-effort WhatsApp message to the tenant's own connected number (`Tenant.whatsappNumber`) — the only notification channel in the app. Two triggers: (1) monthly AI credits crossing from available to exhausted, fired once per billing period from `recordTokenUsage` (`src/lib/credits.ts`); (2) the WhatsApp bot's entire model cascade failing for a customer message, via the new `POST /api/internal/bot/alert-failure`, throttled to once per 60 minutes per tenant (`Tenant.botFailureAlertedAt`).
@@ -16,6 +31,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Social campaign failure alerts**: `POST /api/internal/campaigns/alert-failure` notifies the tenant owner over WhatsApp when a scheduled post fails, throttled to once per 60 minutes using the campaign's existing `lastErrorAt`. The social campaign workflow's "Notify Error" node posted to `$env.WEBHOOK_URL`, which this n8n instance doesn't expose, so it silently never alerted anyone; it now calls this endpoint instead.
 
 ### Changed
+- **Reminder settings moved to WhatsApp**: both reminder cards ("Recordatorios y confirmación" for timing, "Mensajes al cliente" for language and texts) are on the WhatsApp Settings tab, not on `/admin/negocio`. Each card saves only its own fields.
+- **Bot tools return errors as data**: the five bot tool nodes set `neverError`, so a 409 such as `slot_unavailable` reaches the agent as a message and the customer gets a normal reply instead of a failed run.
+- **Reschedule and cancel without name**: the bot no longer asks for the customer's name or email when rescheduling or cancelling. Those requests use the WhatsApp number and `list_my_appointments`.
+- **Availability hides past slots today**: the web availability endpoint drops slots whose start has already passed.
 - **OpenRouter cascade order**: `OPENROUTER_MODELS` now tries the free models first (`nemotron`, `gemma`, `openrouter/free`), with Claude Sonnet 4.5 and GPT-4o as a last-resort paid fallback — reversed from the previous paid-first order. A $10 top-up to the shared OpenRouter account permanently raises its free-model daily cap (50 → 1000 requests/day); trying free models first spends that unlocked capacity before touching real dollars, and avoids Claude's zero-margin cost (its real cost equals the tenant's retail rate).
 
 ## [Unreleased] — 2026-10-20

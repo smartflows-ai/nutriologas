@@ -426,6 +426,8 @@ All endpoints under `/api/internal/` are excluded from tenant middleware and aut
 | `/api/internal/bot/context` | POST | n8n (WhatsApp bot) | Tenant context for the agent: catalog with `bookable`, FAQs, opening hours, 14-day `calendarText`, `creditExhausted` |
 | `/api/internal/bot/alert-failure` | POST | n8n (WhatsApp bot) | Alert the owner that the bot's model cascade failed (60-minute cooldown) |
 | `/api/internal/campaigns/alert-failure` | POST | n8n (social campaigns) | Alert the owner that a scheduled post failed (60-minute cooldown) |
+| `/api/internal/reminders/run` | POST | n8n (reminders, every 15 min) | Send due appointment reminders, charge each one, release visits not confirmed by the deadline |
+| `/api/internal/bot/confirm` | POST | n8n (WhatsApp chat) | Confirm the customer's appointment after a reminder (only a clear "sí") |
 
 ---
 
@@ -440,6 +442,8 @@ All endpoints under `/api/internal/` are excluded from tenant middleware and aut
 ### 17.2 Service Booking Invariants
 - Services are represented in the `Product` table with `requiresBooking: true` and `durationMinutes: Int`. An item is bookable only when `Tenant.isBookingEnabled` and `requiresBooking` are both true (`isBookable`, `src/lib/bookable.ts`). Other items are information only: price and description, no date, no booking.
 - Opening hours are one weekly schedule per tenant (`Tenant.businessHours`, edited in `/admin/negocio`). Each day has a list of blocks; an empty list means closed; several blocks give a lunch break. The web and the bot read the same schedule (`src/lib/business-hours.ts`). A slot must fit entirely inside one block.
+- Bot bookings require a valid customer email (`email_required` otherwise). The email becomes the calendar attendee, so Google or Outlook sends the invite. There is no separate confirmation email; the calendar invite is the confirmation.
+- Rescheduling and cancelling by the bot do not ask for the customer's name or email; the appointment is identified by the WhatsApp number.
 - Past times are never booked. `POST /api/appointments` returns `date_in_past` for every creator, admins included. The web availability hides slots that already started, and the bot's availability and booking routes apply the same rule.
 - Deleting a product is a hard delete only when no `OrderItem`, `Review` or `Appointment` references it. Otherwise it is a soft delete (`deletedAt`, hidden from the catalog and the bot), so appointment and order history keep their links.
 - The bot uses a server-generated 14-day calendar (`calendarText`) for weekdays and dates. The model does not compute weekdays.
@@ -485,3 +489,42 @@ All instances provisioned via `POST /api/apps/connect/whatsapp` enforce the foll
 - Handshake Protection: Poll requests do not call `/instance/connect`, preventing socket resets while the user scans the QR code.
 - Polling in `WhatsAppModal` operates at 2000ms intervals and automatically closes the modal within 1.2s upon confirmation, with mount detection for pre-connected sessions.
 
+---
+
+## 20. Appointment Reminders, Confirmation & Auto-Release
+
+### 20.1 Behavior
+- A tenant may send one reminder per appointment, the day before or on the day, at a configured clinic time (`reminderMode`, `reminderSendTime`). The reminder asks the customer to reply SI to confirm.
+- If confirmation is required and the customer has not replied by the deadline (`confirmationDeadlineHours` before the visit), the appointment is cancelled, its calendar event is removed, and the slot is freed in the database and on Google or Outlook. The customer receives a cancellation notice.
+- An appointment booked after its reminder time counts as confirmed: no reminder, no request, never released. Without a phone number, nothing is sent and nothing is released.
+- The owner can confirm or release any waiting visit by hand from the Confirmaciones tab of the WhatsApp page.
+
+### 20.2 Pricing Invariant
+- Each reminder sent is charged to the tenant at `REMINDER_COST_USD` (default 0.0085, Meta's Mexico utility rate from secondary sources; verify on Meta's rate card). The charge is recorded only after the message is sent, and increments `AiTokenLedger.reminderCount`.
+- `REMINDER_PROVIDER_COST_USD` is the platform's own cost per reminder (0 while on Evolution). Set it to the same value as the Meta charge after the migration, so the margin matches.
+- Reminders are sent even when AI credits are exhausted; the balance may exceed the limit and the owner is alerted once per period.
+
+### 20.3 Message Language & Text
+- `Tenant.messageLanguage` (`es` | `en`) sets the language of every customer message: reminder, confirmation request, plain reminder footer, confirmation reply and cancellation notice. Dates and times follow it.
+- Defaults come from the translation files (`customerMessages`). Owners may override each text.
+- Owners write details with labels in square brackets (Servicio, Fecha, Hora, Hora límite, Nombre del negocio, or their English equivalents). The server accepts the labels of every supported language. Unknown labels remain as typed.
+- The confirmation text must include the deadline label and the word SI; otherwise it is refused (`confirmation_missing_deadline`, `confirmation_missing_si`).
+
+### 20.4 Scheduling Rules
+- Pure functions in `src/lib/reminders.ts`: `reminderSendAt`, `releaseAt`, `planReminder`.
+- Mexico City has no DST, so the day-before send time is computed by subtracting 24 hours and reading the clinic date.
+- Checked by `local-utils/check-reminders.ts`.
+
+### 20.5 Execution
+- The reminders workflow calls `POST /api/internal/reminders/run` every 15 minutes. The interval sets the precision: an action happens at most 15 minutes late.
+- A send that fails is neither marked nor charged, so the next run retries it.
+- `dryRun: true` in the body lists the reminders and releases without acting.
+
+### 20.6 Customer Confirmation
+- The chat workflow calls `POST /api/internal/bot/confirm` for each customer message before the AI agent runs. Only short clear replies (sí, confirmo, de acuerdo, ok) confirm; anything with negation, a change request or a question goes to the agent.
+- The agent also has a `confirm_appointment` tool as a backup, used only after the customer confirmed in their own words.
+
+### 20.7 Owner Screens
+- WhatsApp page, Settings tab, "Recordatorios y confirmación" card (timing and confirmation rules): `GET` and `PATCH /api/tenants/reminders` with those fields only.
+- WhatsApp page, Settings tab, "Mensajes al cliente" card (language and message texts): `PATCH /api/tenants/reminders` with those fields only.
+- WhatsApp page, Confirmaciones tab: `GET /api/apps/whatsapp/confirmations`, and `POST /api/apps/whatsapp/confirmations/[id]` with `action: confirm | release`.

@@ -141,7 +141,9 @@ export async function rescheduleAppointment(input: RescheduleInput) {
       where: { id: appointment.id },
       data: {
         appointmentDate: input.newStart,
-        remindersSent: [], // a new time gets its own reminders
+        reminderSentAt: null, // a new time gets its own reminder and confirmation
+        customerConfirmedAt: null,
+        autoReleasedAt: null,
       },
       include: appointmentInclude,
     });

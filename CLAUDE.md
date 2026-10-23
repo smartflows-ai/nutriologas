@@ -123,7 +123,7 @@ src/
         whatsapp/sync   ← POST: Sincronizar mensajes de WhatsApp desde Evolution API
         bot/            ← POST: Herramientas del agente WhatsApp (context, availability, book, my-appointments, cancel, reschedule, alert-failure)
         campaigns/alert-failure ← POST: Avisa al dueño por WhatsApp cuando una campaña social falla al publicar
-        reminders/run   ← POST: Envía recordatorios de cita vencidos (llamado cada 15 min por n8n, sin LLM)
+        reminders/run   ← POST: Envía recordatorios, cobra cada uno y libera citas sin confirmar (cada 15 min por n8n, sin LLM)
       admin/pacientes   ← GET: Lista de PatientProfiles para el CRM (filtrada por tenantId)
       tenants/          ← API de gestión de tenants
       tenants/business/ ← GET/PUT perfil del negocio. Slug es read-only.
@@ -201,7 +201,8 @@ El corazón del sistema. Cada negocio es un Tenant con:
 - `aiCreditLimitUsd` → override opcional del tope mensual de créditos IA (null = usa el del plan)
 - `botFailureAlertedAt` → última vez que se avisó al dueño que el bot de WhatsApp falló (cooldown de 60 min, ver §"Alertas al Dueño del Tenant")
 - `remindersEnabled` → activa los recordatorios de cita por WhatsApp (default: true)
-- `reminderOffsetsMinutes` → minutos antes de la cita en que se envía recordatorio (default: `[1440, 120]` = 24 h y 2 h)
+- `reminderMode`, `reminderSendTime`, `confirmationRequired`, `confirmationDeadlineHours`, `reminderTemplate`, `confirmationTemplate`, `cancellationTemplate`, `messageLanguage` → configuración de recordatorios y confirmación (ver "Recordatorios de Citas y Confirmación")
+- `reminderOffsetsMinutes` → legado: ya no se usa (reemplazado por `reminderMode`)
 - `businessHours` → horario semanal de atención (JSON, por día una lista de bloques `{start, end}`; lista vacía = cerrado; varios bloques por día = hora de comer). Lo edita el admin en `/admin/negocio`. Null en el campo = horario por defecto (lunes a sábado 09:00 a 18:00). Lo leen la web y el bot a través de `src/lib/business-hours.ts`. Pendiente: `npm run db:push`.
 
 ### User
@@ -237,7 +238,7 @@ El corazón del sistema. Cada negocio es un Tenant con:
 - `customerEmail` → email que escribió el cliente al agendar (puede diferir del email de la cuenta vinculada)
 - `externalProvider` (`AppProvider`) y `externalEventId` → calendario (`GOOGLE` o `MICROSOFT`) y id del evento que replica la cita; `null` si no hay calendario conectado
 - `googleEventId` → legado, reemplazado por `externalEventId`; se elimina tras correr `local-utils/backfill-appointment-calendar-links.mjs`
-- `remindersSent` (`Int[]`) → offsets (minutos) ya enviados como recordatorio; reprogramar la cita lo reinicia a `[]`
+- `reminderSentAt`, `customerConfirmedAt`, `autoReleasedAt` → recordatorio enviado, confirmado por el cliente y liberado sin confirmar. Reprogramar la cita los reinicia. `remindersSent` es legado.
 
 ### Order + OrderItem
 - Estados: `PENDING → PAID → SHIPPED → DELIVERED | CANCELLED`
@@ -274,7 +275,7 @@ El corazón del sistema. Cada negocio es un Tenant con:
 
 ### AiTokenLedger
 - Tabla de contabilidad mensual de tokens y doble contabilidad (Retail vs Wholesale) por tenant
-- Campos: `tenantId`, `periodStart`, `periodEnd`, `totalCostUsd` (gasto facturado al tenant), `realProviderCostUsd` (costo real con OpenRouter), `netMarginUsd` (margen bruto retenido), `promptTokens`, `completionTokens`, `creditLimitUsd`, `isPaused`, `pausedAt`, `resumedAt`
+- Campos: `tenantId`, `periodStart`, `periodEnd`, `totalCostUsd` (gasto facturado al tenant), `realProviderCostUsd` (costo real con OpenRouter), `netMarginUsd` (margen bruto retenido), `promptTokens`, `completionTokens`, `reminderCount` (recordatorios cobrados), `creditLimitUsd`, `isPaused`, `pausedAt`, `resumedAt`
 - Restricción única: `@@unique([tenantId, periodStart])`
 
 ### Subscription (Stripe)
@@ -457,6 +458,8 @@ Flujo: `local-utils/n8n-chat-workflow-v2.json` ("NewAigent - WhatsApp Bot (Chat)
 - **Créditos agotados**: el nodo "Guard: Credits OK" revisa `creditExhausted` (de `POST /api/internal/bot/context`) antes de llegar al agente. Si el tenant ya agotó su límite mensual, se salta la llamada al modelo y se envía una respuesta fija de degradación.
 - **Falla total de la cascada**: el nodo "Bot Agent" tiene `onError: continueErrorOutput`; si fallan todos los modelos, esa rama envía al cliente una respuesta fija de disculpa (en vez de silencio) y llama a `POST /api/internal/bot/alert-failure` para avisar al dueño (cooldown de 60 min, ver §"Alertas al Dueño del Tenant" en la sección de créditos).
 - **Calendario para el agente**: `POST /api/internal/bot/context` devuelve `calendarText` (próximos 14 días con día de la semana, fecha y horario, generado por `upcomingCalendarText()` en `src/lib/business-hours.ts`). El prompt lo usa para nombrar días y fechas; el modelo no debe calcular días de la semana por su cuenta.
+- **Correo obligatorio para citas nuevas**: `bot/book` responde `email_required` sin un correo válido. Así cada cita del bot lleva asistente y la invitación de Google u Outlook sale sola. Cancelar y reagendar no piden nombre ni correo: se identifican por el número de WhatsApp y `list_my_appointments`.
+- **Herramientas con errores como datos**: las cinco herramientas del agente tienen `neverError`; una respuesta 409 (`slot_unavailable`) llega al modelo como mensaje y el cliente recibe una respuesta normal.
 - **Horas pasadas**: no se crean citas en horas que ya pasaron (`POST /api/appointments` responde `date_in_past`, para todos los creadores; el bot y la disponibilidad web también lo filtran).
 - **Reglas de n8n para este flujo**:
   - En nodos Code y herramientas usar `$('Nodo').first().json`, no `$('Nodo').item`. Con `.item` falla con "No data found from `main` input" y la herramienta envía la instancia vacía.
@@ -465,13 +468,20 @@ Flujo: `local-utils/n8n-chat-workflow-v2.json` ("NewAigent - WhatsApp Bot (Chat)
 
 ---
 
-## Recordatorios de Citas (workflow separado, sin LLM)
+## Recordatorios de Citas y Confirmación (workflow separado, sin LLM)
 
-- **Workflow**: `local-utils/n8n-reminders-workflow.json`. Un Schedule Trigger cada 15 minutos llama a `POST /api/internal/reminders/run`.
-- **Configuración por tenant**: `remindersEnabled` y `reminderOffsetsMinutes` (default `[1440, 120]`).
-- **Regla de envío**: por cada cita con offsets ya alcanzados y no enviados, se manda un solo mensaje (el offset más cercano) y se marcan todos los alcanzados en `remindersSent`. Si el envío falla, no se marca y se reintenta en la siguiente corrida.
+- **Workflow**: `local-utils/n8n-reminders-workflow.json`. Un Schedule Trigger cada 15 minutos llama a `POST /api/internal/reminders/run`. El intervalo fija la precisión: un recordatorio o una liberación sale como máximo 15 minutos tarde.
+- **Configuración de recordatorios** (`/admin/whatsapp`, pestaña Configuración, tarjeta "Recordatorios y confirmación", `PATCH /api/tenants/reminders` con sólo estos campos): `remindersEnabled`, `reminderMode` (`DAY_BEFORE` | `SAME_DAY`), `reminderSendTime` (HH:mm, hora de Mexico), `confirmationRequired` y `confirmationDeadlineHours` (1–24).
+- **Mensajes al cliente** (`/admin/whatsapp`, pestaña Configuración, tarjeta "Mensajes al cliente", `PATCH /api/tenants/reminders` con sólo estos campos): `messageLanguage` (`es` | `en`) y tres textos opcionales (`reminderTemplate`, `confirmationTemplate`, `cancellationTemplate`). Vacío = texto predeterminado del idioma.
+- **Textos del tenant**: el tenant escribe datos con etiquetas entre corchetes: `[Servicio]`, `[Fecha]`, `[Hora]`, `[Hora límite]`, `[Nombre del negocio]`. Las etiquetas se toman de los diccionarios i18n (`crm.business.token*`) y el servidor acepta las de cualquier idioma. El texto de confirmación debe incluir la hora límite y la palabra SI (`validateConfirmationTemplate`). Nunca mostrar llaves ni nombres técnicos al tenant ni al cliente.
+- **Textos predeterminados al cliente**: `customerMessages` en `src/i18n/es.ts` y `en.ts` (recordatorio, confirmación, pie sin confirmación, cancelación, respuesta de confirmación). Fechas y horas con `clinicLongDate` y `clinicTime` según `messageLanguage`.
+- **Reglas** (`src/lib/reminders.ts`, funciones puras): el envío es el día anterior o el mismo día a `reminderSendTime`; la liberación es `hora de la cita − confirmationDeadlineHours`. Si la cita se reservó después de la hora de envío, cuenta como confirmada: no hay mensaje ni liberación. Si el plazo ya venció antes del envío, sólo se envía el recordatorio simple. Sin teléfono: no hay mensaje y nunca se libera.
+- **Envío** (`reminders/run`): envía una vez por cita (`Appointment.reminderSentAt`). Si el envío falla, no marca ni cobra; se reintenta en la siguiente corrida. Cada envío exitoso cobra `REMINDER_COST_USD` (default `0.0085`) con `recordMessageCharge()`: suma a `totalCostUsd`, incrementa `AiTokenLedger.reminderCount` y registra `REMINDER_PROVIDER_COST_USD` (default `0`) como costo real. Los recordatorios salen aun sin créditos y pueden pasar el límite; el dueño recibe el aviso una sola vez por periodo.
+- **Liberación**: si hay confirmación pedida, `reminderSentAt` existe, no hay `customerConfirmedAt` y ya pasó el plazo, `releaseVisit()` (`src/lib/reminder-actions.ts`) llama a `cancelAppointment` (estado `CANCELLED`, borra el evento de Google/Outlook, libera el horario) y envía el texto de cancelación. Se marca `autoReleasedAt`.
+- **Confirmación del cliente**: `POST /api/internal/bot/confirm` (`x-internal-key`). Responde `sí`/`confirmo`/`de acuerdo`… sólo si la respuesta es corta y no contiene negaciones, cambios o preguntas (`isClearConfirmation`). Si confirma: `customerConfirmedAt`, estado `CONFIRMED` y respuesta de confirmación. Si no es confirmación: `handled: false` y el mensaje sigue al agente. El flujo de chat llama a este endpoint antes del agente (nodo "Check Confirmation"); el agente tiene la herramienta `confirm_appointment` como respaldo.
+- **Lista del dueño** (pestaña "Confirmaciones" en `/admin/whatsapp`): `GET /api/apps/whatsapp/confirmations`, y `POST /api/apps/whatsapp/confirmations/[id]` con `action: "confirm" | "release"`. "Liberar ahora" usa el mismo `releaseVisit`.
 - **Canal**: `sendWhatsAppMessage` (Evolution). Con la API oficial de Meta, un recordatorio fuera de la ventana de 24 h necesitará una plantilla aprobada.
-- **Pendiente**: aplicar la migración del schema (`npm run db:push`) y construir la pantalla del CRM para configurar los recordatorios.
+- **Pendiente**: desplegar el código, re-importar `local-utils/n8n-chat-workflow-v2.json` y `local-utils/n8n-reminders-workflow.json`, probar con WhatsApp real y calendario conectado, e insignias de estado en `/admin/citas`.
 
 ---
 
@@ -512,6 +522,8 @@ OPENROUTER_MODEL=                # Modelo primario: anthropic/claude-sonnet-4.5
 OPENROUTER_MODELS=               # Cascade completo separado por comas (ver §2 Stack de Modelos)
 OPENROUTER_INPUT_PRICE_PER_M=    # 3.00 (USD / 1M prompt tokens — tarifa retail)
 OPENROUTER_OUTPUT_PRICE_PER_M=   # 15.00 (USD / 1M completion tokens — tarifa retail)
+REMINDER_COST_USD=               # 0.0085 (USD que se cobra al tenant por cada recordatorio enviado)
+REMINDER_PROVIDER_COST_USD=      # 0 (costo real por recordatorio; igualar a Meta después de migrar)
 
 # ─── Dominio raíz (multi-tenant) ────────────────────────────────────────────────
 NEXT_PUBLIC_ROOT_DOMAIN=         # newaigent.com
@@ -624,7 +636,7 @@ Luego acceder a `http://doctor.localhost:3000` para ver el tenant "doctor".
 - **Citas web anteriores al fix de hora**: se guardaron con hora UTC (6 horas adelantadas). Corregir con `local-utils/shift-web-appointments-utc-fix.mjs` (primero sin `--write`) y mover a mano los eventos del calendario que se listen.
 - **Secretos hardcodeados en workflows de n8n** (clave interna, API key de Evolution, clave de OpenRouter en la campaña social). Mover a credenciales cuando n8n lo permita, y rotarlos.
 - **Workflow social**: si una publicación falla después de generar el texto, sus tokens no se reportan.
-- **Pantalla de recordatorios en el CRM**: no construida.
+- **Recordatorios**: pendiente la prueba end-to-end (WhatsApp real, calendario conectado) y las insignias de estado en `/admin/citas`.
 - Row Level Security en Supabase (actualmente solo filtrado por app)
 - Rate limiting en `/api/chat`
 - Trial expiry gate: `TrialBanner` y `TrialExpiredGate` existen pero el gate de expiración del trial en el layout de admin aún no bloquea completamente todas las rutas

@@ -177,9 +177,9 @@ export default function CalendarView({ hideStats = false }: { hideStats?: boolea
           <div ref={containerRef} className="rounded-xl border border-gray-100 bg-white dark:bg-gray-900 shadow-sm overflow-hidden">
             <style>{`
             .fc { font-family: inherit; }
-            .fc-toolbar-title { font-size: 1.1rem !important; font-weight: 700; color: #111827; }
+            .fc-toolbar-title { font-size: 1.1rem !important; font-weight: 600; color: #111827; }
             .fc-button { background: #f3f4f6 !important; border: none !important; color: #374151 !important;
-              border-radius: 8px !important; font-size: 0.78rem !important; font-weight: 600 !important;
+              border-radius: 8px !important; font-size: 0.78rem !important; font-weight: 500 !important;
               padding: 6px 12px !important; box-shadow: none !important; }
             .fc-button:hover { background: #e5e7eb !important; }
             .fc-button-active, .fc-button-primary:not(:disabled).fc-button-active {
@@ -187,10 +187,16 @@ export default function CalendarView({ hideStats = false }: { hideStats?: boolea
             .fc-today-button { background: var(--color-primary, #16a34a) !important; color: #fff !important; opacity: 1 !important; }
             .fc-daygrid-day.fc-day-today { background: rgb(var(--color-primary-rgb) / 0.08) !important; }
             .fc-col-header-cell { background: #f9fafb; padding: 8px 0 !important; }
-            .fc-col-header-cell-cushion { font-size: 0.75rem; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; }
+            .fc-col-header-cell-cushion { font-size: 0.75rem; font-weight: 500; color: #6b7280; }
             .fc-event { border-radius: 6px !important; font-size: 0.75rem !important; font-weight: 500 !important;
               padding: 2px 6px !important; cursor: pointer; }
             .fc-daygrid-day-number { font-size: 0.82rem; color: #374151; font-weight: 500; padding: 6px 8px !important; }
+            .dark .fc-toolbar-title, .dark .fc-daygrid-day-number { color: #f3f4f6; }
+            .dark .fc-button { background: #1f2937 !important; color: #e5e7eb !important; }
+            .dark .fc-button:hover { background: #374151 !important; }
+            .dark .fc-col-header-cell { background: #111827; }
+            .dark .fc-col-header-cell-cushion { color: #9ca3af; }
+            .dark .fc-theme-standard td, .dark .fc-theme-standard th, .dark .fc-theme-standard .fc-scrollgrid { border-color: #1f2937; }
             .fc-toolbar { padding: 16px 20px !important; flex-wrap: wrap; gap: 8px !important; }
             @media (max-width: 640px) {
               .fc-toolbar { padding: 10px 12px !important; }
