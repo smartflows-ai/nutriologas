@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { isInternalKeyValid, ACTIVE_APPOINTMENT_STATUSES } from "@/lib/bot";
 import { sendWhatsAppMessage } from "@/lib/whatsapp";
 import { releaseVisit } from "@/lib/reminder-actions";
+import { syncCalendarDelete } from "@/lib/calendar-sync";
 import { planReminder, releaseAt } from "@/lib/reminders";
 import { recordMessageCharge, reminderCostUsd } from "@/lib/credits";
 import {
@@ -60,7 +61,7 @@ export async function POST(req: NextRequest) {
     orderBy: { appointmentDate: "asc" },
   });
 
-  const result = { checked: appointments.length, sent: 0, released: 0, skipped: 0, failed: 0, dryRun, actions: [] as object[] };
+  const result = { checked: appointments.length, sent: 0, released: 0, skipped: 0, failed: 0, calendarRemoved: 0, dryRun, actions: [] as object[] };
 
   for (const appt of appointments) {
     const t = appt.tenant;
@@ -141,6 +142,21 @@ export async function POST(req: NextRequest) {
       await prisma.appointment.update({ where: { id: appt.id }, data: { reminderSentAt: now } });
       await recordMessageCharge(appt.tenantId, reminderCostUsd());
       result.sent++;
+    }
+  }
+
+  // Retry: cancelled visits whose calendar event was not removed yet (missing token or provider error).
+  // The link is cleared only after the event is really gone.
+  const stuck = await prisma.appointment.findMany({
+    where: { status: "CANCELLED", externalEventId: { not: null } },
+    select: { id: true, tenantId: true, externalProvider: true, externalEventId: true },
+    take: 20,
+  });
+  for (const a of stuck) {
+    if (dryRun) continue;
+    if (await syncCalendarDelete(a.tenantId, a)) {
+      await prisma.appointment.update({ where: { id: a.id }, data: { externalProvider: null, externalEventId: null } });
+      result.calendarRemoved++;
     }
   }
 

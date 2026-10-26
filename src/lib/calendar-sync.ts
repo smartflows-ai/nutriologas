@@ -229,7 +229,11 @@ export async function syncCalendarDelete(tenantId: string, link: CalendarLink): 
   if (!link.externalProvider || !link.externalEventId) return true;
   try {
     const token = await getAppToken(tenantId, link.externalProvider);
-    if (!token) return true;
+    // No usable token: the event was NOT removed. Keep the link so a later run can retry.
+    if (!token) {
+      console.error("[calendar-sync] No valid token; calendar event not removed:", link.externalProvider);
+      return false;
+    }
 
     if (link.externalProvider === "GOOGLE") {
       await deleteCalendarEvent(token, link.externalEventId);

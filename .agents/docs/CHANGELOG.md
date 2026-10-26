@@ -17,6 +17,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - API: `PATCH /api/tenants/reminders` rejects a deadline that is not earlier than the lead time (`reminder_window_invalid`).
 
 ### Fixed
+- Released visits stayed in Google or Outlook: when the calendar token was missing (expired and not refreshed), the link was cleared as if the event had been removed. The link is now kept, and the reminders job retries the removal of cancelled visits (up to 20 per run) and clears the link only after the event is gone.
 - Reminders: a visit booked after its reminder time no longer gets silence. If its release deadline is still ahead, the confirmation request goes out on the next run (about 15 minutes), and the visit is released if nobody answers SI by the deadline. Before, these visits were treated as confirmed and got no message at all.
 - Newy AI appointment data (`get_appointments`): it no longer sends the patient email, visit notes or clinical notes to the model. Times are clinic time (America/Mexico_City) instead of UTC, and "today", "tomorrow" and a chosen date use clinic days instead of the server clock.
 

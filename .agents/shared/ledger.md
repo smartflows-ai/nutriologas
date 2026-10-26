@@ -647,3 +647,11 @@ Decisions made:
 **Found:** Live rows show `reminderSentAt` set for two visits (21:30 UTC), so the production job wrote to this same database. The local count of zero earlier was before those sends.
 
 **Open:** Production must deploy this code before the settings card and the new columns are used there; the hour columns stay as legacy for one release.
+
+## 2026-10-26 — Released visits kept their calendar event
+
+**Found:** `syncCalendarDelete` returned success when there was no usable token, and `cancelAppointment` then cleared the calendar link. A released visit (the 17:00 visit of 26 Oct) has no link now, but its Google event may still exist. Google is connected, so the likely cause is an expired token that did not refresh.
+
+**Done:** `syncCalendarDelete` returns false without a token and keeps the link. The reminders job retries the removal for cancelled visits that still have a link (up to 20 per run) and clears the link only after the event is gone. `tsc --noEmit` clean; dry run sent nothing.
+
+**Open:** Check the 26 Oct 17:00 event in Google Calendar and delete it by hand if it is still there (the link is gone, so the job cannot retry it). Reconnect Google in `/admin/apps` if the token refresh is failing.
