@@ -59,7 +59,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
       <div className="flex flex-1 overflow-hidden">
         <AdminSidebar 
-          userName={session.user?.name ?? session.user?.email} 
+          userName={session.user?.name ?? session.user?.email}
+          tenantName={tenant?.name ?? ""}
           isAssistantEnabled={tenant?.isAssistantEnabled ?? false}
           isTriageEnabled={tenant?.isTriageEnabled ?? false}
           isBookingEnabled={tenant?.isBookingEnabled ?? true}

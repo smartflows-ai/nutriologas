@@ -24,13 +24,16 @@ import {
   Globe,
   Building2,
   CalendarCheck,
-  ClipboardList
+  ClipboardList,
+  UserSearch
 } from "lucide-react";
+import { getVerticalProfile } from "@/lib/vertical-profile";
 import SignOutButton from "@/components/admin/SignOutButton";
 import CreditsBadge from "@/components/admin/CreditsBadge";
 
 interface Props {
   userName?: string | null;
+  tenantName?: string | null;
   isAssistantEnabled: boolean;
   isTriageEnabled?: boolean;
   isBookingEnabled?: boolean;
@@ -57,7 +60,8 @@ interface NavCategory {
 }
 
 export default function AdminSidebar({ 
-  userName, 
+  userName,
+  tenantName,
   isAssistantEnabled, 
   isTriageEnabled = false, 
   isBookingEnabled = true,
@@ -69,18 +73,18 @@ export default function AdminSidebar({
   const [collapsed, setCollapsed] = useState(false);
   const { t } = useTranslation();
 
-  const isHealth = vertical === "HEALTH";
-  // Only ecommerce tenants use physical orders
-  const isEcommerce = vertical === "ECOMMERCE";
+  // What this business offers (orders, services first, customer group name); see src/lib/vertical-profile.ts
+  const profile = getVerticalProfile(vertical, isBookingEnabled);
 
   const baseCategories: NavCategory[] = [
     {
       title: t.admin.generalSection,
       items: [
         { href: "/admin/dashboard", label: t.admin.dashboard, icon: LayoutDashboard },
-        { href: "/admin/historial", label: t.admin.patientHistory, icon: ClipboardList, isBooking: true },
+        { href: "/admin/historial", label: t.crm.history.subjects[profile.subject].nav, icon: ClipboardList, isBooking: true },
+        { href: "/admin/pacientes", label: t.crm.triage.title, icon: UserSearch, isTriage: true },
         { href: "/admin/pedidos", label: t.admin.orders, icon: ShoppingBag, isOrders: true },
-        { href: "/admin/productos", label: isHealth ? t.adminUi.servicesNav : t.admin.products, icon: Package },
+        { href: "/admin/productos", label: profile.serviceFirst ? t.adminUi.servicesNav : t.admin.products, icon: Package },
         { href: "/admin/reviews", label: t.admin.reviews, icon: Star },
       ],
     },
@@ -127,8 +131,8 @@ export default function AdminSidebar({
         if (item.isAssistant && !isAssistantEnabled) return false;
         if (item.isTriage && !isTriageEnabled) return false;
         if (item.isBooking && !isBookingEnabled) return false;
-        // Hide "Pedidos" for service-only verticals (HEALTH, TOURISM, PETS_HOTEL)
-        if (item.isOrders && !isEcommerce) return false;
+        // Physical orders only for stores (see vertical-profile.ts)
+        if (item.isOrders && !profile.hasOrders) return false;
 
         // Evaluate Integrations requirement (if requires at least one of providersReq)
         if (item.providersReq) {
@@ -146,7 +150,7 @@ export default function AdminSidebar({
     <div className="flex flex-col h-full bg-white/70 dark:bg-gray-950/70 border-r border-gray-100 dark:border-transparent">
       <div className="px-6 py-6 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
         <div>
-          <h1 className="font-semibold text-xl text-primary tracking-tight">CRM Nutrición</h1>
+          <h1 className="font-semibold text-xl text-primary tracking-tight truncate">{tenantName || t.storefrontUi.storeFallback}</h1>
           <p className="text-xs text-gray-400 font-medium truncate max-w-[160px] mt-0.5">{userName}</p>
         </div>
         <button
@@ -197,7 +201,7 @@ export default function AdminSidebar({
       <div className={`py-6 border-b border-gray-100 dark:border-gray-800 flex items-center ${collapsed ? "justify-center px-2" : "justify-between px-6"}`}>
         {!collapsed && (
           <div className="min-w-0">
-            <h1 className="font-semibold text-xl text-primary tracking-tight">CRM Nutrición</h1>
+            <h1 className="font-semibold text-xl text-primary tracking-tight truncate">{tenantName || t.storefrontUi.storeFallback}</h1>
             <p className="text-xs text-gray-400 font-medium truncate max-w-[160px] mt-0.5">{userName}</p>
           </div>
         )}

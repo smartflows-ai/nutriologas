@@ -2,7 +2,8 @@
 // Usa OpenRouter con API compatible con OpenAI — sin SDK de Anthropic
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { CHAT_TOOLS } from "@/lib/ai/tools";
+import { toolsFor, isToolAllowed } from "@/lib/ai/tools";
+import { getVerticalProfile } from "@/lib/vertical-profile";
 import { executeTool } from "@/lib/ai/execute-tool";
 import { buildSystemPrompt } from "@/lib/ai/system-prompt";
 import { enforceCredits, recordTokenUsage, getOrCreateLedger } from "@/lib/credits";
@@ -53,6 +54,12 @@ export async function POST(req: Request) {
     return apiError("validation_failed", 400);
 
   const systemPrompt = await buildSystemPrompt(tenantId);
+  const tenantProfile = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    select: { vertical: true, isBookingEnabled: true },
+  });
+  const profile = getVerticalProfile(tenantProfile?.vertical, tenantProfile?.isBookingEnabled ?? false);
+  const tools = toolsFor(profile);
 
   // Historial acumulado en formato OpenAI
   let history: ORMessage[] = messages;
@@ -64,7 +71,7 @@ export async function POST(req: Request) {
 
   try {
     // Primera llamada a través del cascade stack
-    let cascadeRes = await callOpenRouterWithCascade(history, systemPrompt);
+    let cascadeRes = await callOpenRouterWithCascade(history, systemPrompt, { tools });
     let data = cascadeRes.data;
     lastModelUsed = cascadeRes.modelUsed;
     let choice = data.choices?.[0];
@@ -88,7 +95,10 @@ export async function POST(req: Request) {
       const toolResults: ORMessage[] = await Promise.all(
         (choice.message.tool_calls ?? []).map(async (toolCall: any) => {
           const args = JSON.parse(toolCall.function.arguments ?? "{}");
-          const result = await executeTool(toolCall.function.name, args, tenantId);
+          // Server-side guard: a tool outside this vertical's helper set is refused, whatever the model asks.
+          const result = isToolAllowed(toolCall.function.name, profile)
+            ? await executeTool(toolCall.function.name, args, tenantId)
+            : JSON.stringify({ error: "tool_not_available_for_business" });
           return {
             role: "tool" as const,
             tool_call_id: toolCall.id,
@@ -101,7 +111,7 @@ export async function POST(req: Request) {
       history = [...history, ...toolResults];
 
       // Re-llamar a través del cascade
-      cascadeRes = await callOpenRouterWithCascade(history, systemPrompt);
+      cascadeRes = await callOpenRouterWithCascade(history, systemPrompt, { tools });
       data = cascadeRes.data;
       lastModelUsed = cascadeRes.modelUsed;
       choice = data.choices?.[0];

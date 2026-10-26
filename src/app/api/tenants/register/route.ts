@@ -4,8 +4,14 @@ import { stripe, getStripePriceId, PlanKey, BillingInterval } from "@/lib/stripe
 import { trialEndsAtDate } from "@/lib/trial";
 import bcrypt from "bcryptjs";
 import { apiError, type ApiErrorCode } from "@/lib/api-errors";
+import { z } from "zod";
+import { locationSchema } from "@/lib/location";
+import { uploadLogoForTenant } from "@/lib/cloudinary";
 
 export const runtime = "nodejs";
+
+const LOGO_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/svg+xml"]);
+const LOGO_MAX_BYTES = 5 * 1024 * 1024;
 
 const RESERVED = new Set([
   "www", "api", "admin", "billing", "app", "dashboard", "mail",
@@ -21,10 +27,24 @@ function slugValid(slug: string): ApiErrorCode | null {
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
+    // JSON, or multipart with the form in `payload` and the logo file in `logo`.
+    let body: any;
+    let logoFile: File | null = null;
+    if ((req.headers.get("content-type") ?? "").includes("multipart/form-data")) {
+      const form = await req.formData();
+      body = JSON.parse(String(form.get("payload") ?? "{}"));
+      const file = form.get("logo");
+      logoFile = file instanceof File && file.size > 0 ? file : null;
+    } else {
+      body = await req.json();
+    }
+    if (logoFile && (!LOGO_TYPES.has(logoFile.type) || logoFile.size > LOGO_MAX_BYTES)) {
+      return apiError("upload_invalid_type", 400);
+    }
     const {
       email, password, name, slug, businessInfo, whatsappNumber,
-      location, logoUrl, plan = "STARTER", billingInterval = "monthly", lang = "es",
+      ownerName, hasPhysicalLocation, address, placeId, latitude, longitude,
+      plan = "STARTER", billingInterval = "monthly", lang = "es",
       vertical = "ECOMMERCE", isBookingEnabled
     } = body;
 
@@ -38,6 +58,16 @@ export async function POST(req: Request) {
 
     if (password.length < 8)
       return apiError("register_password_short", 400);
+
+    // Address is required only when the business has a physical location.
+    const hasLocation = Boolean(hasPhysicalLocation);
+    let location: z.infer<typeof locationSchema> | null = null;
+    if (hasLocation) {
+      const parsedLocation = locationSchema.safeParse({ address, placeId, latitude, longitude });
+      if (!parsedLocation.success) return apiError("address_required", 400);
+      location = parsedLocation.data;
+    }
+    const cleanOwnerName = typeof ownerName === "string" ? ownerName.trim().slice(0, 80) : "";
 
     // ── Check slug uniqueness ─────────────────────────────────────
     const existing = await prisma.tenant.findUnique({ where: { slug: cleanSlug } });
@@ -88,7 +118,13 @@ export async function POST(req: Request) {
           slug: cleanSlug,
           businessInfo: businessInfo ?? "",
           whatsappNumber: whatsappNumber ?? null,
-          logoUrl: logoUrl ?? null,
+          ownerName: cleanOwnerName || null,
+          hasPhysicalLocation: hasLocation,
+          address: location?.address ?? null,
+          placeId: location?.placeId ?? null,
+          latitude: location?.latitude ?? null,
+          longitude: location?.longitude ?? null,
+          logoUrl: null,
           vertical: (vertical as any) || "ECOMMERCE",
           isBookingEnabled: shouldEnableBooking,
         },
@@ -107,7 +143,7 @@ export async function POST(req: Request) {
         data: {
           tenantId:     tenant.id,
           email:        email.toLowerCase().trim(),
-          name,
+          name:         cleanOwnerName || name,
           role:         "ADMIN",
           passwordHash,
         },
@@ -127,6 +163,16 @@ export async function POST(req: Request) {
 
       return tenant;
     });
+
+    // The logo goes straight into the tenant's own folder. If the upload fails, sign-up still succeeds without a logo.
+    if (logoFile) {
+      try {
+        const logoUrl = await uploadLogoForTenant(logoFile, tenant.id);
+        await prisma.tenant.update({ where: { id: tenant.id }, data: { logoUrl } });
+      } catch (err) {
+        console.error("[register] logo upload failed:", err);
+      }
+    }
 
     return Response.json({ success: true, slug: tenant.slug, tenantId: tenant.id });
   } catch (e: any) {

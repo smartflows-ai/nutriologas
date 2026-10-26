@@ -1,4 +1,5 @@
 import { getServerSession } from "next-auth";
+import { CLOUDINARY_ROOT_FOLDER } from "@/lib/cloudinary-root";
 import { authOptions } from "@/lib/auth";
 import crypto from "crypto";
 
@@ -28,7 +29,7 @@ export async function POST(req: Request) {
     const kind = (form.get("kind")?.toString() ?? "misc").toLowerCase();
     const allowedKinds = new Set(["carousel", "products", "campaigns", "misc", "logo"]);
     const safeKind = allowedKinds.has(kind) ? kind : "misc";
-    const folder = `nutriologas/${tenantId}/${safeKind}`;
+    const folder = `${CLOUDINARY_ROOT_FOLDER}/${tenantId}/${safeKind}`;
 
     if (!file || !(file instanceof File)) {
       return Response.json({ error: "Archivo requerido (file)" }, { status: 400 });

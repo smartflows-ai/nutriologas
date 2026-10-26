@@ -10,13 +10,15 @@ export interface PatientRow {
   notes: number;
   lastVisit: Date | null;
   nextVisit: Date | null;
+  // Pet names of this owner, comma separated. Only filled for pet verticals.
+  pets: string | null;
 }
 
 /**
  * One row per patient of the tenant, newest activity first. `q` matches the name, or the phone digits.
  * Visits that were cancelled do not count as the last visit; only pending or confirmed ones count as the next.
  */
-export async function listPatients(tenantId: string, q: string, page: number, pageSize: number) {
+export async function listPatients(tenantId: string, q: string, page: number, pageSize: number, withPets = false) {
   const term = q.trim();
   const digits = term.replace(/\D/g, "");
   const offset = (page - 1) * pageSize;
@@ -44,11 +46,19 @@ export async function listPatients(tenantId: string, q: string, page: number, pa
     SELECT
       g."patientKey", g."name", g."phone", g."visits", g."lastVisit", g."nextVisit",
       (SELECT COUNT(*)::int FROM "appointment_notes" n WHERE n."tenantId" = ${tenantId} AND n."patientKey" = g."patientKey") AS "notes",
+      CASE WHEN ${withPets} THEN (
+        SELECT string_agg(p."name", ', ' ORDER BY p."name") FROM "pets" p
+        WHERE p."tenantId" = ${tenantId} AND p."patientKey" = g."patientKey"
+      ) END AS "pets",
       COUNT(*) OVER()::int AS "total"
     FROM agg g
     WHERE ${term} = ''
       OR g."name" ILIKE ${"%" + term + "%"}
       OR (${digits} <> '' AND g."patientKey" LIKE ${"%" + digits + "%"})
+      OR (${withPets} AND EXISTS (
+        SELECT 1 FROM "pets" p
+        WHERE p."tenantId" = ${tenantId} AND p."patientKey" = g."patientKey" AND p."name" ILIKE ${"%" + term + "%"}
+      ))
     ORDER BY g."lastActivity" DESC
     LIMIT ${pageSize} OFFSET ${offset}
   `;
@@ -59,10 +69,17 @@ export async function listPatients(tenantId: string, q: string, page: number, pa
 }
 
 /** Every visit of one patient (newest first), each with its note, plus notes whose visit was deleted. */
-export async function getPatientTimeline(tenantId: string, patientKey: string) {
-  const [appointments, notes] = await Promise.all([
+export async function getPatientTimeline(
+  tenantId: string,
+  patientKey: string,
+  options: { withPets?: boolean; petId?: string | null } = {},
+) {
+  const withPets = options.withPets ?? false;
+  // The pet filter applies only to pet verticals; other businesses never see pets.
+  const petFilter = withPets && options.petId ? { petId: options.petId } : {};
+  const [appointments, notes, pets] = await Promise.all([
     prisma.appointment.findMany({
-      where: { tenantId, patientKey },
+      where: { tenantId, patientKey, ...petFilter },
       orderBy: { appointmentDate: "desc" },
       select: {
         id: true,
@@ -74,6 +91,8 @@ export async function getPatientTimeline(tenantId: string, patientKey: string) {
         customerPhone: true,
         customerEmail: true,
         product: { select: { name: true } },
+        petId: true,
+        pet: { select: { name: true } },
       },
     }),
     prisma.appointmentNote.findMany({
@@ -81,6 +100,13 @@ export async function getPatientTimeline(tenantId: string, patientKey: string) {
       orderBy: { createdAt: "desc" },
       select: { id: true, appointmentId: true, body: true, authorName: true, createdAt: true, updatedAt: true },
     }),
+    withPets
+      ? prisma.pet.findMany({
+          where: { tenantId, patientKey },
+          orderBy: { name: "asc" },
+          select: { id: true, name: true, species: true },
+        })
+      : Promise.resolve([]),
   ]);
 
   const noteByVisit = new Map(notes.filter((n) => n.appointmentId).map((n) => [n.appointmentId as string, n]));
@@ -90,6 +116,8 @@ export async function getPatientTimeline(tenantId: string, patientKey: string) {
     durationMinutes: a.durationMinutes,
     status: a.status,
     service: a.product?.name ?? null,
+    petId: a.petId,
+    petName: a.pet?.name ?? null,
     reason: a.notes,
     note: noteByVisit.get(a.id) ?? null,
   }));
@@ -104,5 +132,5 @@ export async function getPatientTimeline(tenantId: string, patientKey: string) {
     lastSeenAt: latest?.appointmentDate ?? null,
   };
 
-  return { patient, visits, orphanNotes };
+  return { patient, visits, orphanNotes, pets };
 }

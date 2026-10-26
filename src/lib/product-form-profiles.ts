@@ -1,5 +1,6 @@
 // src/lib/product-form-profiles.ts
 // Which product types and extra fields the CRM product form offers, per business vertical.
+// Keep the vertical lists in step with src/lib/vertical-profile.ts (the sidebar, storefront and assistant read that file).
 export type ProductFormType = "PHYSICAL" | "SERVICE";
 
 export interface ProductFormProfile {

@@ -27,6 +27,12 @@ model Tenant {
   logoUrl     String?
   whatsappNumber String?
   businessInfo   String?  // descripcion del negocio para la homepage
+  ownerName           String? // Nombre del dueño o responsable del negocio
+  hasPhysicalLocation Boolean @default(false) // El negocio tiene local fisico
+  address             String? // Direccion formateada (Google Maps)
+  placeId             String? // Google Place ID de la direccion
+  latitude            Float?
+  longitude           Float?
   isAssistantEnabled Boolean @default(true)
   isTriageEnabled    Boolean @default(false)
   vertical           BusinessVertical @default(ECOMMERCE) @map("businessVertical")
@@ -65,6 +71,7 @@ model Tenant {
   socialPosts     SocialPost[]
   subscription    Subscription?
   patientProfiles PatientProfile[]
+  pets            Pet[]
   aiTokenLedger   AiTokenLedger[]
 
   createdAt   DateTime @default(now())
@@ -578,15 +585,38 @@ model Appointment {
   updatedAt       DateTime          @updatedAt
 
   notesHistory    AppointmentNote[]
+  petId           String?
+  pet             Pet?              @relation(fields: [petId], references: [id], onDelete: SetNull)
 
   @@index([tenantId])
   @@index([tenantId, appointmentDate])
   @@index([tenantId, patientKey])
+  @@index([tenantId, petId])
   @@map("appointments")
 }
 
 // Clinical notes of a patient across visits. The patient is the normalized phone digits (see src/lib/patient-key.ts).
 // One row per appointment: the doctor's note for that visit. Only the admin reads these.
+// Pets of a veterinary (or pet care) tenant. The owner is the normalized phone key (patientKey), as for patients.
+// nameKey is the lowercase trimmed name, so "Max" and " max " are one pet for the same owner.
+model Pet {
+  id           String        @id @default(uuid())
+  tenantId     String
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+  patientKey   String
+  name         String
+  nameKey      String
+  species      String?
+  breed        String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  appointments Appointment[]
+
+  @@unique([tenantId, patientKey, nameKey], map: "pets_tenantId_patientKey_nameKey_key")
+  @@index([tenantId, patientKey])
+  @@map("pets")
+}
+
 model AppointmentNote {
   id              String      @id @default(uuid())
   tenantId        String

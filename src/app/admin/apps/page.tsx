@@ -88,7 +88,7 @@ function WhatsAppConnectModal({
   onSuccess: () => void;
 }) {
   const { t } = useTranslation();
-  const [step, setStep] = useState<"idle" | "loading" | "qr" | "connected">("idle");
+  const [step, setStep] = useState<"idle" | "loading" | "qr" | "expired" | "connected">("idle");
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [phone, setPhone] = useState<string | null>(null);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
@@ -155,6 +155,9 @@ function WhatsAppConnectModal({
               onSuccess();
               onClose();
             }, 1200);
+          } else if (s.status === "qr_expired") {
+            if (pollRef.current) clearInterval(pollRef.current);
+            setStep("expired");
           } else if (s.qrCode && s.qrCode !== qrCode) {
             setQrCode(s.qrCode);
           }
@@ -235,6 +238,13 @@ function WhatsAppConnectModal({
               <Loader2 size={12} className="animate-spin" />
               {t.crm.apps.whatsappModal.waiting}
             </div>
+          </div>
+        )}
+
+        {step === "expired" && (
+          <div className="text-center py-4">
+            <p className="text-sm text-gray-500 mb-4">{t.integrationsUi.waQrExpired}</p>
+            <button onClick={startConnect} className="btn-primary">{t.integrationsUi.waQrRegenerate}</button>
           </div>
         )}
 

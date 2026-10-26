@@ -4,11 +4,59 @@ All notable changes to Presto AI are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased] — 2026-10-26
+
+### Added
+- Pets for veterinary and pet-care businesses: `Pet` model and `Appointment.petId`. Web booking and the WhatsApp bot ask for the pet's name and species (`pet_required` without a name). The history groups by owner, shows each owner's pets, filters visits by pet, and shows the pet on every visit. The appointments screen shows the pet under the owner. The calendar title includes the pet.
+- Checks: `local-utils/check-vertical-profile.ts`, `local-utils/check-pets.ts`, `local-utils/check-pets-columns.ts`, `local-utils/check-location.ts`, `local-utils/check-tenant-location-columns.ts`.
+- Documentation: location database change, public Places rate limit, credits badge, and bot appointment rules are now in spec section 21 and the bot doc.- Checks: `local-utils/check-vertical-profile.ts`, `local-utils/check-pets.ts`, `local-utils/check-pets-columns.ts`.
+- Database: table `pets` and column `appointments.petId` added with `prisma db execute`.
+
+### Changed
+- minimal-ui pass on recently changed screens: the credits badge card no longer tints its background on hover (border only). Codemod found no other changes; the remaining `shadow-lg` matches are overlays.
+- Admin sidebar header shows the business name instead of the hardcoded "CRM Nutrición" (desktop and mobile). The name comes from the tenant; when it is empty the store fallback text is shown.
+
+### Added
+- Product form: the existing categories or specialties of the business appear as buttons under the field; clicking one fills it. Before, they only appeared as browser suggestions, which hid them once the typed text matched none.
+
+### Added
+- WhatsApp pairing QR refreshes automatically while the owner waits (about every 25 seconds, like WhatsApp Web). After about 3 minutes it shows "El código QR expiró" with a button to generate a new code. Helpers in `src/lib/whatsapp-qr.ts`; timing stored in `ConnectedApp.metadata`, no schema change.
+
+### Changed
+- Default confirmation text (reminders, es and en) is now an explicit question: "¿Confirmas tu cita? Responde SI para confirmarla…" / "Do you confirm your appointment? Reply SI…". Tenants with a saved custom text keep it.
+- Sign-up logo goes straight into the tenant's folder (`newaigent/<tenantId>/logo`). The sign-up form sends the file with the registration request (multipart), and `POST /api/tenants/register` uploads it after the business exists. The public upload route (`/api/upload/public`) and its staging folder are removed.
+- Storefront product cards (`ProductCard`, shared with the catalog): names wrap instead of clipping (the price no longer squeezes them), the time badge is neutral, the card has a plain border and no shadow, and the image corners use `rounded-xl`.
+- Storefront home "Servicios y consultas" and "Preguntas Frecuentes": smaller headings and tighter spacing, the "Ver servicios" button uses the shared secondary style (readable on pale tenant colors), the "Ayuda" pill is neutral, FAQ questions are medium weight with a plain chevron, and answers keep the owner's line breaks.
+- Storefront "Sobre Nosotros": left-aligned text column, the business description keeps its line breaks (`whitespace-pre-line`), owner and address are label/value rows with thin dividers, and the directions link is readable (neutral text with a tenant-colored underline). minimal-ui style.
+- Banner renderer: `tenantId` is required (`400 tenantId is required`) and the temporary overlay goes into `<root>/<tenantId>/temp`. Before, a missing tenant wrote to a shared `campaigns` folder and the overlay sat in a shared temp folder.
+- Cloudinary root folder renamed from `nutriologas` to `newaigent` (Cloudinary folder renamed with the Admin API, `local-utils/rename-cloudinary-root.ts`). The root is one constant in `src/lib/cloudinary-root.ts` and is used by the tenant uploads, sign-up uploads, banner renderer and the logo move. Existing image URLs in the database are no longer valid; the database is being recreated, so the affected business accounts are deleted and created again.
+- Sign-up logo: the logo uploaded during sign-up is moved from `nutriologas/signups` into the tenant's folder (`nutriologas/<tenantId>/logo`) once the tenant exists (`moveLogoToTenant` in `src/lib/cloudinary.ts`, called by `POST /api/tenants/register`). If the move fails, sign-up still succeeds and keeps the sign-up copy. Logos from earlier sign-ups are not moved.
+
+### Fixed
+- Negocio: a logo URL that fails to load shows the empty-logo placeholder instead of broken alt text.
+- Product form: the categories request is no longer cached (`force-dynamic` on `/api/products/categories` and a timestamp on the fetch), so a saved category such as "Cirugia" shows in the chips.
+- Product form: the category list reloads after each product save, so a new category appears in the list straight away (before, only a page reload showed it).
+- Sign-up country and phone-code selectors: the country code (for example "MX") is a small label instead of large text.
+- Sign-up modal: clicking outside no longer closes it and loses the typed data. It closes with its X button; a click outside only closes open dropdowns.
+- Sign-up address: when Places search is unavailable, the typed address now reaches the form (it used to show "Elige la dirección de tu negocio" after typing), and the input stays visible while typing.
+- Address field (sign-up and Negocio): the input is always editable. A picked place shows below it with a clear button, and typing over a pick clears it and searches again. Before, a picked or typed value could replace the input, so typing stopped. The typed text is now the address on every keystroke (at least 5 characters), so a failed or late search can no longer drop it and Continue accepts it; only a Places pick adds coordinates.
+
 ## [Unreleased] — 2026-10-23
+
+### Changed
+- Vertical behavior now comes from one profile (`src/lib/vertical-profile.ts`). Sidebar, storefront, Newy AI and the history screens follow it for every vertical: orders, service-first catalog, and the customer group name (patients, pets, travelers, customers). Stores without booking no longer see history.
+- Newy AI gets only the tools for its business: sales tools only for stores, appointment tools only with booking on. `POST /api/chat` refuses other tool calls. Per-vertical directives cover SERVICES, PET_CARE, TRAVEL and GENERAL.
+- The triage page (`/admin/pacientes`) has a sidebar link when `isTriageEnabled` is on.
+
+### Added
+- Owner name and business location on the tenant: `ownerName`, `hasPhysicalLocation`, `address`, `placeId`, `latitude`, `longitude`. Captured at sign-up and in `/admin/negocio` (address picked with Google Maps search, typed fallback when search is unavailable), shown on the storefront home with a "Cómo llegar" link, and sent to the WhatsApp bot (`ownerName`, `locationText`). New public endpoints `/api/places/search` and `/api/places/details`, env var `GOOGLE_MAPS_API_KEY`.
 
 ### Changed
 - Minimal UI pass on tenant screens: the calendar's dark mode colors and column headers follow the spec; the dashboard rating icon circle is neutral.
 - Sidebar credits badge shows the used share as a percentage (for example "7% Usado") instead of the dollar amount; the limit stays in dollars.
+- Sidebar credits badge no longer shows the dollar limit; it shows only the used percentage.
+- WhatsApp bot (`local-utils/n8n-chat-workflow-v2.json`): cancel and reschedule always call `list_my_appointments` in the current turn instead of reusing an earlier list, so visits that already passed are no longer offered; the bot describes visits by service, day and time, never by ID.
+- WhatsApp bot: rescheduling no longer asks for name or email. `book_appointment` is described as new bookings only, `reschedule_appointment` as the way to move a visit, and the prompt forbids using the booking tool to move one.
 
 ## [Unreleased] — 2026-10-21
 

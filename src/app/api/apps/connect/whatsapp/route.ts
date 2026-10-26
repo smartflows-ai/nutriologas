@@ -155,6 +155,9 @@ export async function POST(req: NextRequest) {
       console.warn("[whatsapp-connect] webhook/set warning:", e);
     }
 
+    // A new code starts its own lifetime; refreshes are counted from zero.
+    const qrMeta = qrCode ? { qrIssuedAt: Date.now(), qrRefreshes: 0 } : {};
+
     // Guardar en connected_apps
     await prisma.connectedApp.upsert({
       where: { tenantId_provider: { tenantId, provider: "WHATSAPP" } },
@@ -166,7 +169,7 @@ export async function POST(req: NextRequest) {
         waQrCode: qrCode,
         waWebhookUrl: webhookUrl,
         connectedByUserId: userId,
-        metadata: { instanceName, webhookUrl },
+        metadata: { instanceName, webhookUrl, ...qrMeta },
       },
       create: {
         tenantId,
@@ -179,7 +182,7 @@ export async function POST(req: NextRequest) {
         waWebhookUrl: webhookUrl,
         connectedByUserId: userId,
         scopes: "WHATSAPP",
-        metadata: { instanceName, webhookUrl },
+        metadata: { instanceName, webhookUrl, ...qrMeta },
       },
     });
 

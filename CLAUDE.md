@@ -123,6 +123,8 @@ src/
         whatsapp/sync   ← POST: Sincronizar mensajes de WhatsApp desde Evolution API
         bot/            ← POST: Herramientas del agente WhatsApp (context, availability, book, my-appointments, cancel, reschedule, alert-failure)
         campaigns/alert-failure ← POST: Avisa al dueño por WhatsApp cuando una campaña social falla al publicar
+        places/search   ← POST (público, con límite por IP): sugerencias de dirección de Google Places
+        places/details  ← POST (público, con límite por IP): dirección y coordenadas de un lugar
         reminders/run   ← POST: Envía recordatorios, cobra cada uno y libera citas sin confirmar (cada 15 min por n8n, sin LLM)
       admin/pacientes   ← GET: Lista de PatientProfiles para el CRM (filtrada por tenantId)
       tenants/          ← API de gestión de tenants
@@ -204,6 +206,7 @@ El corazón del sistema. Cada negocio es un Tenant con:
 - `reminderMode`, `reminderSendTime`, `confirmationRequired`, `confirmationDeadlineHours`, `reminderTemplate`, `confirmationTemplate`, `cancellationTemplate`, `messageLanguage` → configuración de recordatorios y confirmación (ver "Recordatorios de Citas y Confirmación")
 - `reminderOffsetsMinutes` → legado: ya no se usa (reemplazado por `reminderMode`)
 - `businessHours` → horario semanal de atención (JSON, por día una lista de bloques `{start, end}`; lista vacía = cerrado; varios bloques por día = hora de comer). Lo edita el admin en `/admin/negocio`. Null en el campo = horario por defecto (lunes a sábado 09:00 a 18:00). Lo leen la web y el bot a través de `src/lib/business-hours.ts`. Pendiente: `npm run db:push`.
+- `ownerName`, `hasPhysicalLocation`, `address`, `placeId`, `latitude`, `longitude` → dueño o responsable y ubicación del negocio (dirección elegida con Google Maps). La dirección solo existe con `hasPhysicalLocation = true`; al apagarlo se borra. Se capturan en el registro y en `/admin/negocio`, se muestran en la página de inicio de la tienda y el bot de WhatsApp los recibe en `bot/context` (`ownerName`, `locationText`). Helpers en `src/lib/location.ts` (`locationSchema`, `directionsUrl`, `locationTextForBot`).
 
 ### User
 - Pertenece a un único tenant
@@ -239,6 +242,14 @@ El corazón del sistema. Cada negocio es un Tenant con:
 - `externalProvider` (`AppProvider`) y `externalEventId` → calendario (`GOOGLE` o `MICROSOFT`) y id del evento que replica la cita; `null` si no hay calendario conectado
 - `googleEventId` → legado, reemplazado por `externalEventId`; se elimina tras correr `local-utils/backfill-appointment-calendar-links.mjs`
 - `reminderSentAt`, `customerConfirmedAt`, `autoReleasedAt` → recordatorio enviado, confirmado por el cliente y liberado sin confirmar. Reprogramar la cita los reinicia. `remindersSent` es legado.
+
+- `petId` → mascota del tutor (solo giros con mascotas: `VETERINARY`, `PET_CARE`). Nulo en los demás. Ver el modelo `Pet`.
+
+### Pet
+- Mascota de un tutor (`VETERINARY` y `PET_CARE`). Tabla `pets`.
+- `patientKey` → teléfono del tutor normalizado (mismo criterio que `Appointment.patientKey`). `name` → nombre tal como se escribió. `nameKey` → nombre en minúsculas, sin espacios extra; con `tenantId` y `patientKey` es único, así que "Max" y " max " son la misma mascota del mismo tutor.
+- `species` → `dog`, `cat`, `bird`, `rabbit` u `other` (`src/lib/pets.ts`). `breed` existe, pero ninguna pantalla lo pide todavía.
+- `findOrCreatePet()` corre dentro de la misma transacción que la cita, después de confirmar que el horario está libre; si el horario se ocupó, no se crea mascota.
 
 ### Order + OrderItem
 - Estados: `PENDING → PAID → SHIPPED → DELIVERED | CANCELLED`
@@ -326,6 +337,8 @@ El tenant siempre paga por **unidades de servicio de la plataforma** a la tarifa
 - **Deducción de Tokens en Webhook Social (`POST /api/webhooks/social-campaign`)**: Cuando n8n publica un post (`social_campaign_posted`), envía `tokenUsage: { promptTokens, completionTokens, model }`. El webhook invoca atómicamente `recordTokenUsage()` debitando créditos a tarifa retail ($3.00/$15.00 por 1M) sin importar si el modelo fue gratuito, y almacena el registro en `SocialPost.postUrls.aiTokens`.
 - **Reporte Externo (`POST /api/internal/tokens/report`)**: Permite a n8n o workflows de WhatsApp reportar consumo de tokens directamente con `x-internal-key`.
 
+- **Barra lateral** (`CreditsBadge`): muestra el porcentaje usado (por ejemplo "7% Usado") y no muestra montos en dólares ni el límite. El detalle (`CreditsDrawer`) conserva los montos.
+
 ### 5. Recarga y Reactivación Automática
 - El admin hace clic en "Recargar créditos" en el sidebar (`CreditsBadge`) o en el drawer (`CreditsDrawer`).
 - Se genera una sesión de Stripe Checkout (`POST /api/credits`).
@@ -335,7 +348,7 @@ El tenant siempre paga por **unidades de servicio de la plataforma** a la tarifa
 No existe correo ni Slack en la plataforma; el único canal es el propio WhatsApp del negocio (`Tenant.whatsappNumber`), vía `notifyTenantOwner()` (`src/lib/whatsapp.ts`, reutiliza `sendWhatsAppMessage`). Dos disparadores:
 - **Créditos agotados**: dentro de `recordTokenUsage()` (`src/lib/credits.ts`), en la transición `isPaused` false→true (una sola vez por periodo; se compara el estado previo del ledger para no repetir el aviso en cada mensaje posterior).
 - **Falla total del bot de WhatsApp**: si el agente de n8n falla con todos los modelos de la cascada (nodo "Bot Agent" con `onError: continueErrorOutput`), el workflow envía al cliente una respuesta fija de disculpa (en vez del silencio total de antes) y llama a `POST /api/internal/bot/alert-failure`, que avisa al dueño con un cooldown de 60 minutos (`Tenant.botFailureAlertedAt`) para no saturarlo durante una caída prolongada.
-- **Falla de una campaña social**: el nodo `Notify Error` de `local-utils/n8n-social-campaign-workflow.json` llama a `POST /api/internal/campaigns/alert-failure`, que avisa al dueño (cooldown de 60 minutos, usando `SocialCampaign.lastErrorAt` que ya existía). Antes este nodo posteaba a `$env.WEBHOOK_URL`, que no existe en esta instancia de n8n, así que nunca avisaba a nadie.
+- **Falla de una campaña social**: el nodo `Notify Error` de `n8n/workflows/n8n-social-campaign-workflow.json` llama a `POST /api/internal/campaigns/alert-failure`, que avisa al dueño (cooldown de 60 minutos, usando `SocialCampaign.lastErrorAt` que ya existía). Antes este nodo posteaba a `$env.WEBHOOK_URL`, que no existe en esta instancia de n8n, así que nunca avisaba a nadie.
 
 ### 7. Balance Compartido de OpenRouter
 Todos los tenants comparten **una sola cuenta/API key de OpenRouter** — no hay clave por tenant. Agregar crédito real a esa cuenta (p. ej. $10 USD) desbloquea permanentemente el límite diario de modelos gratuitos de la cuenta completa (de 50 a 1000 solicitudes/día) y además queda disponible como saldo gastable cada vez que se usa un modelo de pago (Claude, GPT-4o). Para estirar ese saldo compartido entre todos los tenants:
@@ -417,7 +430,7 @@ Las campañas sociales se ejecutan automáticamente en n8n bajo una estricta **a
    - La URL seleccionada se persiste en `SocialCampaign.selectedImageUrl` en la base de datos PostgreSQL.
    - En el nodo `Build Image Request`, n8n lee `campaign.selectedImageUrl` directamente desde el payload de contexto. Si no hay una foto asignada, utiliza como respaldo la foto del producto o fotografía editorial libre de marcas de agua.
 4. **Almacenamiento Aislado en Cloudinary**:
-   - El nodo `Upload to Cloudinary` sube los medios procesados a la ruta por tenant: `nutriologas/{{ tenantId }}/campaigns`.
+   - El nodo `Upload to Cloudinary` solo pasa los datos. La subida la hace `render-post-banner` en `newaigent/{tenantId}/campaigns` (el `tenantId` es obligatorio).
 5. **Generación de Copy Estratégico (Modelos Gratuitos de OpenRouter)**:
    - El nodo `Newy AI - Generate Content` envía el prompt a OpenRouter utilizando `google/gemini-2.0-flash-exp:free` (con respaldo a `meta-llama/llama-3.3-70b-instruct:free` y `openrouter/free`).
    - Incluye filtros de desinfección anti-leak para eliminar tokens de pensamiento (`<think>`) y evitar fugas del system prompt hacia Facebook o Instagram.
@@ -433,7 +446,7 @@ Las campañas sociales se ejecutan automáticamente en n8n bajo una estricta **a
 
 ## Bot de WhatsApp con IA (n8n)
 
-Flujo: `local-utils/n8n-chat-workflow-v2.json` ("NewAigent - WhatsApp Bot (Chat)"). Documentación detallada: `local-utils/N8N_WHATSAPP_BOT_DOCUMENTATION.md`.
+Flujo: `n8n/workflows/n8n-chat-workflow-v2.json` ("NewAigent - WhatsApp Bot (Chat)"). Documentación detallada: `n8n/docs/N8N_WHATSAPP_BOT_DOCUMENTATION.md`.
 
 - **Entrada**: Evolution API → webhook del workflow (`POST /:tenantSlug`) → guardas (`messages.upsert`, `fromMe = false`, texto y teléfono presentes).
 - **Tenant**: se resuelve desde el nombre de instancia de Evolution (`resolveBotTenant` en `src/lib/bot.ts`, busca `waInstanceName` o `waInstanceId`). Nunca se toma del modelo.
@@ -450,7 +463,7 @@ Flujo: `local-utils/n8n-chat-workflow-v2.json` ("NewAigent - WhatsApp Bot (Chat)
   | `reschedule_appointment` | `POST /api/internal/bot/reschedule` |
 
   El contexto (servicios, precios, FAQs, `waContext`) llega con `POST /api/internal/bot/context`.
-- **Bot por contacto**: `WhatsAppChat.botEnabled` (default `true`) y `botPausedReason` (`manual` o `owner_reply`). El CRM lo cambia con `PATCH /api/apps/whatsapp/chats/[id]` y el dueño escribe con `POST /api/apps/whatsapp/chats/[id]/send` (la escritura pausa el bot). n8n consulta `POST /api/internal/bot/contact-status` antes de ejecutar el agente. Ver `local-utils/N8N_WHATSAPP_BOT_DOCUMENTATION.md`, sección "Bot apagado por contacto".
+- **Bot por contacto**: `WhatsAppChat.botEnabled` (default `true`) y `botPausedReason` (`manual` o `owner_reply`). El CRM lo cambia con `PATCH /api/apps/whatsapp/chats/[id]` y el dueño escribe con `POST /api/apps/whatsapp/chats/[id]/send` (la escritura pausa el bot). n8n consulta `POST /api/internal/bot/contact-status` antes de ejecutar el agente. Ver `n8n/docs/N8N_WHATSAPP_BOT_DOCUMENTATION.md`, sección "Bot apagado por contacto".
 - **Reglas de negocio**: los precios se pueden citar, nunca cambiar ni descontar. Citas dentro del horario semanal del negocio (`Tenant.businessHours`, `src/lib/business-hours.ts`, hora de Mexico), con duración por servicio. Solo se agendan artículos `isBookable`. El conflicto revisa citas nativas y el calendario conectado (Google u Outlook, `getBusyPeriods` en `src/lib/calendar-sync.ts`); si el calendario falla, solo se usa la base de datos. La web y el bot crean citas con el mismo servicio (`src/lib/appointments-service.ts`).
 - **Horas del paciente**: son hora de Mexico. Se construyen con `clinicDateTime()` (`src/lib/clinic-time.ts`, offset `-06:00`) y se leen con `clinicTimeOf()`. Nunca usar sufijo `Z` para una hora elegida por el paciente.
 - **Privacidad**: el system prompt prohíbe mencionar formatos técnicos, IDs, herramientas, errores, infraestructura y datos de otros clientes. Es una guía para el modelo, no una garantía. El nodo `Clean Reply` quita saludos repetidos y es el único filtro de salida.
@@ -470,7 +483,7 @@ Flujo: `local-utils/n8n-chat-workflow-v2.json` ("NewAigent - WhatsApp Bot (Chat)
 
 ## Recordatorios de Citas y Confirmación (workflow separado, sin LLM)
 
-- **Workflow**: `local-utils/n8n-reminders-workflow.json`. Un Schedule Trigger cada 15 minutos llama a `POST /api/internal/reminders/run`. El intervalo fija la precisión: un recordatorio o una liberación sale como máximo 15 minutos tarde.
+- **Workflow**: `n8n/workflows/n8n-reminders-workflow.json`. Un Schedule Trigger cada 15 minutos llama a `POST /api/internal/reminders/run`. El intervalo fija la precisión: un recordatorio o una liberación sale como máximo 15 minutos tarde.
 - **Configuración de recordatorios** (`/admin/whatsapp`, pestaña Configuración, tarjeta "Recordatorios y confirmación", `PATCH /api/tenants/reminders` con sólo estos campos): `remindersEnabled`, `reminderMode` (`DAY_BEFORE` | `SAME_DAY`), `reminderSendTime` (HH:mm, hora de Mexico), `confirmationRequired` y `confirmationDeadlineHours` (1–24).
 - **Mensajes al cliente** (`/admin/whatsapp`, pestaña Configuración, tarjeta "Mensajes al cliente", `PATCH /api/tenants/reminders` con sólo estos campos): `messageLanguage` (`es` | `en`) y tres textos opcionales (`reminderTemplate`, `confirmationTemplate`, `cancellationTemplate`). Vacío = texto predeterminado del idioma.
 - **Textos del tenant**: el tenant escribe datos con etiquetas entre corchetes: `[Servicio]`, `[Fecha]`, `[Hora]`, `[Hora límite]`, `[Nombre del negocio]`. Las etiquetas se toman de los diccionarios i18n (`crm.business.token*`) y el servidor acepta las de cualquier idioma. El texto de confirmación debe incluir la hora límite y la palabra SI (`validateConfirmationTemplate`). Nunca mostrar llaves ni nombres técnicos al tenant ni al cliente.
@@ -481,7 +494,7 @@ Flujo: `local-utils/n8n-chat-workflow-v2.json` ("NewAigent - WhatsApp Bot (Chat)
 - **Confirmación del cliente**: `POST /api/internal/bot/confirm` (`x-internal-key`). Responde `sí`/`confirmo`/`de acuerdo`… sólo si la respuesta es corta y no contiene negaciones, cambios o preguntas (`isClearConfirmation`). Si confirma: `customerConfirmedAt`, estado `CONFIRMED` y respuesta de confirmación. Si no es confirmación: `handled: false` y el mensaje sigue al agente. El flujo de chat llama a este endpoint antes del agente (nodo "Check Confirmation"); el agente tiene la herramienta `confirm_appointment` como respaldo.
 - **Lista del dueño** (pestaña "Confirmaciones" en `/admin/whatsapp`): `GET /api/apps/whatsapp/confirmations`, y `POST /api/apps/whatsapp/confirmations/[id]` con `action: "confirm" | "release"`. "Liberar ahora" usa el mismo `releaseVisit`.
 - **Canal**: `sendWhatsAppMessage` (Evolution). Con la API oficial de Meta, un recordatorio fuera de la ventana de 24 h necesitará una plantilla aprobada.
-- **Pendiente**: desplegar el código, re-importar `local-utils/n8n-chat-workflow-v2.json` y `local-utils/n8n-reminders-workflow.json`, probar con WhatsApp real y calendario conectado, e insignias de estado en `/admin/citas`.
+- **Pendiente**: desplegar el código, re-importar `n8n/workflows/n8n-chat-workflow-v2.json` y `n8n/workflows/n8n-reminders-workflow.json`, probar con WhatsApp real y calendario conectado, e insignias de estado en `/admin/citas`.
 
 ---
 
@@ -524,6 +537,9 @@ OPENROUTER_INPUT_PRICE_PER_M=    # 3.00 (USD / 1M prompt tokens — tarifa retai
 OPENROUTER_OUTPUT_PRICE_PER_M=   # 15.00 (USD / 1M completion tokens — tarifa retail)
 REMINDER_COST_USD=               # 0.0085 (USD que se cobra al tenant por cada recordatorio enviado)
 REMINDER_PROVIDER_COST_USD=      # 0 (costo real por recordatorio; igualar a Meta después de migrar)
+
+# ─── Google Maps (dirección del negocio) ─────────────────────────────────────────
+GOOGLE_MAPS_API_KEY=             # Solo servidor; Places API (New) habilitada y clave restringida a esa API
 
 # ─── Dominio raíz (multi-tenant) ────────────────────────────────────────────────
 NEXT_PUBLIC_ROOT_DOMAIN=         # newaigent.com
@@ -636,6 +652,7 @@ Luego acceder a `http://doctor.localhost:3000` para ver el tenant "doctor".
 - **Citas web anteriores al fix de hora**: se guardaron con hora UTC (6 horas adelantadas). Corregir con `local-utils/shift-web-appointments-utc-fix.mjs` (primero sin `--write`) y mover a mano los eventos del calendario que se listen.
 - **Secretos hardcodeados en workflows de n8n** (clave interna, API key de Evolution, clave de OpenRouter en la campaña social). Mover a credenciales cuando n8n lo permita, y rotarlos.
 - **Workflow social**: si una publicación falla después de generar el texto, sus tokens no se reportan.
+- **Mascotas**: la tabla `pets` y `appointments.petId` existen en la base de datos, pero las pruebas con datos reales están pendientes: la base consultada el 26 oct. estaba vacía. Falta correr `local-utils/check-pets.ts` con un tenant real y re-importar `n8n/workflows/n8n-chat-workflow-v2.json`.
 - **Recordatorios**: pendiente la prueba end-to-end (WhatsApp real, calendario conectado) y las insignias de estado en `/admin/citas`.
 - Row Level Security en Supabase (actualmente solo filtrado por app)
 - Rate limiting en `/api/chat`
@@ -651,6 +668,17 @@ Luego acceder a `http://doctor.localhost:3000` para ver el tenant "doctor".
 - **El `slug` (subdominio) es read-only y NUNCA debe ser editable** — identificador único del tenant, modificarlo rompería las URLs.
 - El formulario muestra los valores actuales como placeholder y etiqueta "Actual" para cada campo.
 - **El número de WhatsApp es obligatorio** y se guarda como `+<código de país><dígitos>` (8 a 15 dígitos). Lo usan WhatsApp, los recordatorios y el botón de la tienda. El formulario tiene un selector de código de país (predeterminado +52) y la API lo valida con `^\+\d{8,15}$`.
+- **Ubicación y responsable**: tarjeta "Ubicación y responsable" con nombre del dueño, interruptor "Mi negocio tiene un local físico" y buscador de dirección (`src/components/shared/AddressSearch.tsx`, usa `/api/places/*` con `GOOGLE_MAPS_API_KEY`, solo servidor). Si la búsqueda no está disponible, el componente cae a una dirección escrita a mano (sin coordenadas). El mismo componente se usa en el registro (`OnboardingModal`).
+- **Crear `GOOGLE_MAPS_API_KEY`** (Google Cloud Console):
+  1. Elegir o crear un proyecto.
+  2. Facturación: vincular una cuenta de facturación (Places la exige, aunque Google da un monto mensual gratis).
+  3. APIs y servicios > Biblioteca: habilitar **Places API (New)** (no la "Places API" anterior).
+  4. APIs y servicios > Credenciales > Crear credenciales > Clave de API.
+  5. Restringir la clave: en "Restricciones de API" elegir solo **Places API (New)**. La clave se usa solo desde el servidor; Vercel no tiene IP fija, así que en "Restricciones de aplicación" se deja "Ninguna".
+  6. Guardarla sin comillas: `.env` en local (reiniciar `npm run dev`) y Variables de entorno de Vercel en producción (redeploy).
+  7. Crear una alerta de presupuesto en Facturación para evitar cobros inesperados.
+  - Prueba: en `/admin/negocio`, activar el interruptor y escribir una dirección; las sugerencias salen a partir de 3 caracteres. Si aparece "La búsqueda no está disponible ahora", falta la clave, la facturación está apagada o la clave está restringida a otra API.
+- **Límite de llamadas** de `/api/places/*`: 40 solicitudes por minuto por IP (`src/lib/rate-limit.ts`, en memoria por instancia del servidor; protege de abuso, no es un límite exacto).
 - Helpers de teléfono en `src/lib/phone.ts` (`buildFullPhone`, `splitFullPhone`, `PHONE_COUNTRIES`). Úsalos en cualquier formulario nuevo que pida teléfono; no escribas otro parser.
 
 ---
@@ -750,14 +778,36 @@ Luego acceder a `http://doctor.localhost:3000` para ver el tenant "doctor".
   2. Combina el overlay con la foto base del producto (crop fill + gravity auto)
   3. Devuelve la URL pública de Cloudinary del banner compuesto
 - **Llamado por**: n8n antes de publicar en Facebook/Instagram
-- **Parámetros body**: `imageUrl` (requerido), `tenantId`, `hero`, `heroHighlight`, `support`, `cta`, `accentColor`
-- **Storage**: `nutriologas/{tenantId}/campaigns/banner_{timestamp}`
+- **Parámetros body**: `imageUrl` (requerido), `tenantId` (obligatorio),- **Parámetros body**: `imageUrl` (requerido), `tenantId`, `hero`, `heroHighlight`, `support`, `cta`, `accentColor`
+- **Storage**: `newaigent/{tenantId}/campaigns/banner_{timestamp}`
 
 ---
 
+## Carpetas en Cloudinary
+
+- Cuenta única; la carpeta raíz es `newaigent` (constante `CLOUDINARY_ROOT_FOLDER` en `src/lib/cloudinary-root.ts`). Todo lo del negocio vive en `newaigent/<tenantId>/<tipo>`: `logo`, `products`, `carousel`, `campaigns` y `temp` (overlay temporal del banner).
+- El logo del registro se envía junto con el formulario (multipart: `payload` y `logo`) y `POST /api/tenants/register` lo sube a `newaigent/<tenantId>/logo` después de crear el negocio. No existe carpeta `signups`; `POST /api/upload/public` fue eliminado.
+- `render-post-banner` exige `tenantId` (400 si falta). Scripts de una sola vez: `local-utils/rename-cloudinary-root.ts` (renombró `nutriologas` a `newaigent`) y `local-utils/remove-cloudinary-signups.ts`.
+- Renombrar una carpeta en Cloudinary cambia las URLs de todo lo que contiene: cualquier URL guardada en la base de datos deja de funcionar.
+
 ## Verticales de Negocio y Adaptación de Servicios
 
-- **Modelo en DB (`Tenant.vertical`)**: Enum `BusinessVertical` (`ECOMMERCE`, `HEALTH`, `PETS_HOTEL`, `TOURISM`).
+- **Modelo en DB (`Tenant.vertical`)**: Enum `BusinessVertical` (`ECOMMERCE`, `HEALTH`, `VETERINARY`, `TOURISM`, `SERVICES`, `PET_CARE`, `TRAVEL`, `GENERAL`). Valores desconocidos o nulos usan el perfil de tienda (`ECOMMERCE`).
+- **Fuente única por giro**: `src/lib/vertical-profile.ts` (`getVerticalProfile(vertical, isBookingEnabled)`). Sidebar, storefront, asistente Newy AI, chat y formulario de productos leen de ahí; no comparen el nombre del giro a mano.
+
+| Giro | Pedidos | Catálogo primero (servicios) | Grupo de clientes | Mascotas | Herramientas de ventas de Newy AI |
+|---|---|---|---|---|---|
+| ECOMMERCE, GENERAL | sí | no | Clientes | no | sí |
+| HEALTH | no | sí | Pacientes | no | no |
+| VETERINARY, PET_CARE | no | sí | Mascotas | sí | no |
+| TOURISM, TRAVEL | no | sí | Viajeros | no | no |
+| SERVICES | no | sí | Clientes | no | no |
+
+- Historial y citas solo aparecen con `isBookingEnabled`. Las herramientas de citas de Newy AI también dependen de ese interruptor (`toolsFor()` en `src/lib/ai/tools.ts`), y `POST /api/chat` rechaza cualquier herramienta fuera del conjunto del giro aunque el modelo la pida.
+- En la sidebar, la sección de productos cambia a "Servicios" para los giros que venden por cita (`serviceFirst`).
+- **Mascotas** (`VETERINARY`, `PET_CARE`): la reserva web (`BookingFlow`) y el bot piden nombre y especie de la mascota. Sin nombre, `POST /api/appointments` y `bot/book` responden `pet_required` (400). El historial agrupa por tutor, muestra las mascotas bajo cada tutor, filtra por mascota (`GET /api/admin/historial/[key]?petId=`) y muestra la mascota en cada visita. `/admin/citas` muestra "Mascotas: nombre" bajo el tutor. Los otros giros no consultan la tabla `pets`.
+- El historial usa la etiqueta del grupo de clientes (`t.crm.history.subjects`): Historial de pacientes, de mascotas, de viajeros o de clientes.
+- En la sidebar, la sección de productos cambia a "Servicios" para los giros que venden por cita (`serviceFirst`).
 - **Adaptación Dinámica**:
   - Para verticales no enfocadas en e-commerce físico (médicos/ginecólogos, veterinarias con hotel de mascotas, agencias de viaje/tours), los productos se configuran como servicios con duración (`durationMinutes`) y agendamiento interactivo (`isBookingEnabled: true`).
   - En la sidebar, la sección de productos cambia automáticamente a "Servicios" para profesionales de salud (`isHealth`).
@@ -800,7 +850,8 @@ Luego acceder a `http://doctor.localhost:3000` para ver el tenant "doctor".
 - **Detección Confiable de Conexión (`/api/apps/whatsapp/status`)**:
   - Consulta `fetchInstances?instanceName=${instanceName}` en Evolution API.
   - Verifica `connectionStatus === "open"` y extrae el número de teléfono desde `ownerJid` de inmediato.
-  - **Sin Interrupción de Handshake**: Se eliminó la llamada recurrente a `/instance/connect` durante el sondeo que reiniciaba el socket mientras el teléfono escaneaba el código QR.
+  - **QR que se renueva solo**: mientras el dueño espera, `GET /api/apps/whatsapp/status` pide un código nuevo a Evolution (`/instance/connect/<instancia>`) cuando el guardado tiene más de 25 segundos (`QR_TTL_MS`). Después de 8 renovaciones (`MAX_QR_REFRESHES`, unos 3 minutos) el estado es `qr_expired` y el modal muestra "El código QR expiró" con "Generar nuevo código", que vuelve a llamar `POST /api/apps/connect/whatsapp`. El momento de emisión y el conteo viven en `ConnectedApp.metadata` (`qrIssuedAt`, `qrRefreshes`). Helpers en `src/lib/whatsapp-qr.ts`. Ver spec 19.3.
+- **Sin Interrupción de Handshake**: Se eliminó la llamada recurrente a `/instance/connect` durante el sondeo que reiniciaba el socket mientras el teléfono escaneaba el código QR.
 - **Cierre Inmediato del Modal (`WhatsAppModal`)**:
   - Polling a 2 segundos en `/admin/apps`. Al detectar `status === "connected"`, muestra la confirmación visual de éxito y cierra el modal automáticamente en 1.2 segundos.
   - Al abrir el modal, realiza una verificación inmediata para auto-cerrarse si la sesión ya estaba vinculada.

@@ -1,5 +1,6 @@
 // src/lib/ai/system-prompt.ts
 import { prisma } from "@/lib/db";
+import { getVerticalProfile } from "@/lib/vertical-profile";
 
 export async function buildSystemPrompt(tenantId: string): Promise<string> {
   const tenant = await prisma.tenant.findUnique({
@@ -20,42 +21,57 @@ export async function buildSystemPrompt(tenantId: string): Promise<string> {
 
   const businessContext = tenant?.businessInfo ? `Giro y descripción del negocio: "${tenant.businessInfo}".` : "";
 
-  let verticalDirectives = "";
-  switch (tenant?.vertical) {
-    case "HEALTH":
-      verticalDirectives = `
+  const profile = getVerticalProfile(tenant?.vertical, tenant?.isBookingEnabled ?? false);
+  const salesNote = profile.hasOrders
+    ? ""
+    : "- Este negocio no vende productos físicos por pedido: no tienes herramientas de ventas ni de inventario; no las menciones.";
+
+  const commerce = `
+DIRECTIVAS PARA COMERCIO Y SERVICIOS:
+- Se enfoca en ventas, pedidos, catálogo y fidelización de clientes.`;
+
+  const directivesByVertical: Record<string, string> = {
+    HEALTH: `
 DIRECTIVAS ESPECÍFICAS PARA EL SECTOR SALUD / CLÍNICA MÉDICA:
 - Este negocio es un consultorio médico, clínica de salud o centro de atención médica/ginecológica.
 - Sus ofertas principales son consultas médicas, procedimientos, citas clínicas y tratamientos de salud.
 - Usa terminología profesional del sector salud: "pacientes", "consultas", "citas médicas", "historial/expediente", "tratamientos", "asistencia y puntualidad".
 - Utiliza la herramienta de citas para responder con precisión sobre la agenda de hoy, consultas de la semana, confirmaciones de pacientes y cancelaciones.
-- Brinda sugerencias para optimizar la ocupación de horarios de consulta, reducir el ausentismo (no-shows) y fomentar el seguimiento a pacientes.`;
-      break;
-    case "VETERINARY":
-      verticalDirectives = `
+- Brinda sugerencias para optimizar la ocupación de horarios de consulta, reducir el ausentismo (no-shows) y fomentar el seguimiento a pacientes.`,
+    VETERINARY: `
 DIRECTIVAS ESPECÍFICAS PARA VETERINARIA Y CUIDADO ANIMAL:
 - Este negocio es una clínica veterinaria o centro de bienestar animal.
 - Ofrece consultas veterinarias, estética/grooming, vacunación, hotel/pensión animal y productos para mascotas.
-- Utiliza terminología empática: "tutores/dueños de mascotas", "pacientes peludos", "consultas", "citas de estética", "reservaciones de pensión".
-- Ayuda a gestionar la agenda de citas y capacidad de atención.`;
-      break;
-    case "TOURISM":
-      verticalDirectives = `
+- Cada cita es de una mascota con su tutor (dueño). Usa "tutores/dueños de mascotas", "mascotas", "consultas", "citas de estética", "reservaciones de pensión".
+- Ayuda a gestionar la agenda de citas, la capacidad de atención y el historial de cada mascota.`,
+    PET_CARE: `
+DIRECTIVAS ESPECÍFICAS PARA CUIDADO DE MASCOTAS (estética, guardería, paseo, hospedaje):
+- Este negocio atiende mascotas con servicios por cita.
+- Cada cita es de una mascota con su tutor (dueño). Usa "tutores/dueños de mascotas", "mascotas", "citas de servicio", "reservaciones de hospedaje".
+- Ayuda a gestionar la agenda, la capacidad y las citas de cada mascota.`,
+    TOURISM: `
 DIRECTIVAS ESPECÍFICAS PARA AGENCIA DE VIAJES Y TURISMO:
 - Este negocio ofrece paquetes turísticos, tours guiados, experiencias de viaje y asesoría personalizada.
 - Utiliza terminología de la industria: "viajeros", "reservaciones de tours", "fechas de salida", "itinerarios", "leads y comisiones".
-- Ayuda a dar seguimiento a prospectos interesados y a gestionar la ocupación de los cupos turísticos.`;
-      break;
-    default:
-      verticalDirectives = `
-DIRECTIVAS PARA COMERCIO Y SERVICIOS:
-- Se enfoca en ventas, pedidos, catálogo y fidelización de clientes.`;
-      break;
-  }
+- Ayuda a dar seguimiento a prospectos interesados y a gestionar la ocupación de los cupos turísticos.`,
+    TRAVEL: `
+DIRECTIVAS ESPECÍFICAS PARA SERVICIOS DE VIAJE:
+- Este negocio ofrece servicios de viaje por cita: asesorías, trámites y experiencias.
+- Utiliza "viajeros", "reservaciones", "fechas de viaje" e "itinerarios".
+- Ayuda a gestionar la agenda de asesorías y el seguimiento a viajeros interesados.`,
+    SERVICES: `
+DIRECTIVAS ESPECÍFICAS PARA SERVICIOS PROFESIONALES:
+- Este negocio vende servicios por cita (consultorías, talleres, sesiones, asesorías).
+- Utiliza "clientes", "citas", "servicios" y "seguimiento".
+- Ayuda a optimizar la agenda, reducir cancelaciones y dar seguimiento a clientes.`,
+  };
+
+  const verticalDirectives = directivesByVertical[tenant?.vertical ?? "ECOMMERCE"] ?? commerce;
+  const verticalBlock = [verticalDirectives, salesNote].filter(Boolean).join("\n");
 
   return `Eres Newy AI, el copiloto de inteligencia artificial y asesor de negocios de "${tenant?.name ?? "este negocio"}".
 ${businessContext}
-${verticalDirectives}
+${verticalBlock}
 Tu función es ayudar al propietario y equipo del negocio a optimizar sus operaciones, aumentar sus ventas, gestionar clientes/pacientes y tomar mejores decisiones estratégicas con análisis claros y recomendaciones accionables.
 
 Hoy es: ${today}

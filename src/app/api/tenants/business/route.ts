@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { apiError } from "@/lib/api-errors";
+import { locationSchema } from "@/lib/location";
 import {
   businessHoursSchema,
   isDefaultBusinessHours,
@@ -18,6 +19,12 @@ const updateBusinessSchema = z.object({
   businessInfo: z.string().trim().max(3000, "Description cannot exceed 3000 characters").nullable().optional(),
   logoUrl: z.string().trim().nullable().optional(),
   businessHours: businessHoursSchema.optional(),
+  ownerName: z.string().trim().max(80, "Owner name cannot exceed 80 characters").nullable().optional(),
+  hasPhysicalLocation: z.boolean().optional(),
+  address: z.string().nullable().optional(),
+  placeId: z.string().nullable().optional(),
+  latitude: z.number().nullable().optional(),
+  longitude: z.number().nullable().optional(),
 });
 
 export async function GET() {
@@ -38,6 +45,12 @@ export async function GET() {
         whatsappNumber: true,
         businessInfo: true,
         businessHours: true,
+        ownerName: true,
+        hasPhysicalLocation: true,
+        address: true,
+        placeId: true,
+        latitude: true,
+        longitude: true,
       },
     });
 
@@ -53,6 +66,12 @@ export async function GET() {
       whatsappNumber: tenant.whatsappNumber,
       businessInfo: tenant.businessInfo,
       businessHours: parseBusinessHours(tenant.businessHours),
+      ownerName: tenant.ownerName,
+      hasPhysicalLocation: tenant.hasPhysicalLocation,
+      address: tenant.address,
+      placeId: tenant.placeId,
+      latitude: tenant.latitude,
+      longitude: tenant.longitude,
       tenant,
     });
   } catch (error) {
@@ -79,7 +98,31 @@ export async function PATCH(req: Request) {
       );
     }
 
-    const { name, whatsappNumber, businessInfo, logoUrl, businessHours } = parsed.data;
+    const { name, whatsappNumber, businessInfo, logoUrl, businessHours, ownerName } = parsed.data;
+
+    // Address is required only when the business has a physical location; turning it off clears it.
+    let locationData: {
+      hasPhysicalLocation: boolean;
+      address: string | null;
+      placeId: string | null;
+      latitude: number | null;
+      longitude: number | null;
+    } | null = null;
+    if (parsed.data.hasPhysicalLocation !== undefined) {
+      if (parsed.data.hasPhysicalLocation) {
+        const place = locationSchema.safeParse(parsed.data);
+        if (!place.success) return apiError("address_required", 400);
+        locationData = {
+          hasPhysicalLocation: true,
+          address: place.data.address,
+          placeId: place.data.placeId ?? null,
+          latitude: place.data.latitude ?? null,
+          longitude: place.data.longitude ?? null,
+        };
+      } else {
+        locationData = { hasPhysicalLocation: false, address: null, placeId: null, latitude: null, longitude: null };
+      }
+    }
 
     // Stored as NULL when it equals the default schedule, so later default changes still apply.
     const hoursData =
@@ -96,6 +139,8 @@ export async function PATCH(req: Request) {
         whatsappNumber,
         businessInfo: businessInfo ?? "",
         logoUrl: logoUrl || null,
+        ...(ownerName !== undefined ? { ownerName: ownerName || null } : {}),
+        ...(locationData ?? {}),
         ...(hoursData !== undefined ? { businessHours: hoursData } : {}),
       },
       select: {
@@ -106,6 +151,12 @@ export async function PATCH(req: Request) {
         whatsappNumber: true,
         businessInfo: true,
         businessHours: true,
+        ownerName: true,
+        hasPhysicalLocation: true,
+        address: true,
+        placeId: true,
+        latitude: true,
+        longitude: true,
       },
     });
 

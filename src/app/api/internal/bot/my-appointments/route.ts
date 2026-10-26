@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
       durationMinutes: true,
       status: true,
       product: { select: { name: true } },
+      pet: { select: { name: true } },
     },
     orderBy: { appointmentDate: "asc" },
     take: 10,
@@ -34,6 +35,7 @@ export async function POST(req: NextRequest) {
     appointments: appointments.map((a) => ({
       appointmentId: a.id,
       serviceName: a.product.name,
+      petName: a.pet?.name ?? null,
       startsAt: a.appointmentDate.toISOString(),
       durationMinutes: a.durationMinutes,
       status: a.status,

@@ -6,12 +6,13 @@ import { prisma } from "@/lib/db";
 import { createAppointment } from "@/lib/appointments-service";
 import { buildSlot, formatSlotTime, isInternalKeyValid, resolveBotTenant } from "@/lib/bot";
 import { isBookable } from "@/lib/bookable";
+import { cleanPetName } from "@/lib/pets";
 
 export async function POST(req: NextRequest) {
   if (!isInternalKeyValid(req)) return Response.json({ error: "No autorizado" }, { status: 401 });
 
   const body = await req.json().catch(() => ({}));
-  const { instance, productId, date, time, customerName, customerPhone, customerEmail, notes } = body;
+  const { instance, productId, date, time, customerName, customerPhone, customerEmail, notes, petName, petSpecies } = body;
 
   const bot = await resolveBotTenant(instance);
   if (!bot) return Response.json({ error: "Instancia de WhatsApp no encontrada" }, { status: 404 });
@@ -25,6 +26,15 @@ export async function POST(req: NextRequest) {
   if (!customerEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) {
     return Response.json(
       { success: false, error: "email_required", message: "Pide al cliente un correo electrónico válido para enviarle la invitación." },
+      { status: 400 }
+    );
+  }
+
+  // Veterinary and pet-care businesses book per pet, so the history follows the animal.
+  const pet = bot.usesPets ? cleanPetName(petName) : "";
+  if (bot.usesPets && !pet) {
+    return Response.json(
+      { success: false, error: "pet_required", message: "Pide el nombre de la mascota antes de agendar." },
       { status: 400 }
     );
   }
@@ -73,8 +83,10 @@ export async function POST(req: NextRequest) {
     customerPhone,
     customerEmail: email,
     notes: notes?.trim() || null,
+    petName: pet || null,
+    petSpecies: bot.usesPets ? petSpecies ?? null : null,
     calendar: {
-      summary: `Cita: ${product.name} - ${customerName}`,
+      summary: `Cita: ${product.name} - ${customerName}${pet ? ` (${pet})` : ""}`,
       description: `${notes?.trim() || "Cita agendada por WhatsApp"}
 Tel: ${customerPhone}`,
       attendeeEmail: email,

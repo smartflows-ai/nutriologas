@@ -15,12 +15,15 @@ import {
   Bot,
   Sparkles,
   Clock,
+  MapPin,
   Plus,
 } from "lucide-react";
 import Image from "next/image";
 import { useTranslation } from "@/i18n";
 import { buildFullPhone, splitFullPhone, DEFAULT_DIAL_CODE, PHONE_COUNTRIES } from "@/lib/phone";
 import { translateApiError } from "@/i18n/validation";
+import AddressSearch from "@/components/shared/AddressSearch";
+import type { BusinessLocation } from "@/lib/location";
 import {
   BusinessHours,
   DEFAULT_BUSINESS_HOURS,
@@ -71,6 +74,12 @@ export default function BusinessProfilePage() {
   const [whatsappNumber, setWhatsappNumber] = useState("");
   const [businessInfo, setBusinessInfo] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
+  // A logo URL that does not load shows the empty-logo placeholder instead of broken alt text.
+  const [logoFailed, setLogoFailed] = useState(false);
+  useEffect(() => { setLogoFailed(false); }, [logoUrl]);
+  const [ownerName, setOwnerName] = useState("");
+  const [hasPhysicalLocation, setHasPhysicalLocation] = useState(false);
+  const [location, setLocation] = useState<BusinessLocation | null>(null);
   const [hours, setHours] = useState<BusinessHours>(DEFAULT_BUSINESS_HOURS);
 
   // Store initial saved values to display as reference and placeholders
@@ -106,6 +115,18 @@ export default function BusinessProfilePage() {
         setBusinessInfo(currentInfo);
         setLogoUrl(currentLogo);
         setHours(parseBusinessHours(data.businessHours));
+        setOwnerName(tenantData.ownerName || "");
+        setHasPhysicalLocation(Boolean(tenantData.hasPhysicalLocation));
+        setLocation(
+          tenantData.address
+            ? {
+                address: tenantData.address,
+                placeId: tenantData.placeId,
+                latitude: tenantData.latitude,
+                longitude: tenantData.longitude,
+              }
+            : null
+        );
 
         setInitialData({
           name: currentName,
@@ -196,6 +217,11 @@ export default function BusinessProfilePage() {
       return;
     }
 
+    if (hasPhysicalLocation && !location) {
+      setError(t.locationUi.addressMissing);
+      return;
+    }
+
     if (DAY_ORDER.some((weekday) => hours[weekday].some(isInvalidBlock))) {
       setError(t.crm.business.hoursInvalidRange);
       return;
@@ -218,6 +244,12 @@ export default function BusinessProfilePage() {
           businessInfo: businessInfo.trim(),
           logoUrl: logoUrl.trim() || null,
           businessHours: hours,
+          ownerName: ownerName.trim() || null,
+          hasPhysicalLocation,
+          address: hasPhysicalLocation ? location?.address : null,
+          placeId: hasPhysicalLocation ? location?.placeId ?? null : null,
+          latitude: hasPhysicalLocation ? location?.latitude ?? null : null,
+          longitude: hasPhysicalLocation ? location?.longitude ?? null : null,
         }),
       });
 
@@ -333,11 +365,12 @@ export default function BusinessProfilePage() {
             <div className="flex flex-col sm:flex-row sm:items-center gap-5">
               {/* Preview Circle / Box */}
               <div className="relative w-24 h-24 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex items-center justify-center overflow-hidden shrink-0 group">
-                {logoUrl ? (
+                {logoUrl && !logoFailed ? (
                   <div className="relative w-full h-full p-2 flex items-center justify-center">
                     <img
                       src={logoUrl}
                       alt={t.businessUi.logoPreviewAlt}
+                      onError={() => setLogoFailed(true)}
                       className="max-h-full max-w-full object-contain"
                     />
                   </div>
@@ -507,6 +540,62 @@ export default function BusinessProfilePage() {
               {t.crm.business.infoHint}
             </p>
           </div>
+        </div>
+
+        {/* Owner and physical location (address picked with Google Maps) */}
+        <div className="p-6 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 space-y-4">
+          <div className="flex items-center gap-2.5 pb-4 border-b border-gray-100 dark:border-gray-800">
+            <MapPin size={20} className="text-primary" />
+            <div>
+              <h2 className="font-semibold text-gray-900 dark:text-white text-base">
+                {t.locationUi.sectionTitle}
+              </h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {t.locationUi.sectionDesc}
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label htmlFor="owner-name" className="block text-sm font-medium text-gray-900 dark:text-white">
+              {t.locationUi.ownerNameLabel}
+            </label>
+            <input
+              id="owner-name"
+              type="text"
+              value={ownerName}
+              maxLength={80}
+              onChange={(e) => setOwnerName(e.target.value)}
+              placeholder={t.locationUi.ownerNamePlaceholder}
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
+            />
+          </div>
+
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={hasPhysicalLocation}
+              onChange={(e) => setHasPhysicalLocation(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+            />
+            <span>
+              <span className="block text-sm font-medium text-gray-900 dark:text-white">
+                {t.locationUi.physicalLocationLabel}
+              </span>
+              <span className="block text-xs text-gray-500 dark:text-gray-400">
+                {t.locationUi.physicalLocationHint}
+              </span>
+            </span>
+          </label>
+
+          {hasPhysicalLocation && (
+            <div className="space-y-1.5">
+              <span className="block text-sm font-medium text-gray-900 dark:text-white">
+                {t.locationUi.addressLabel}
+              </span>
+              <AddressSearch value={location} onChange={setLocation} />
+            </div>
+          )}
         </div>
 
         {/* Business hours: one weekly schedule for the storefront and the WhatsApp bot */}

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import ProductCard from "@/components/shop/ProductCard";
 import ProductSort from "@/components/shop/ProductSort";
 import { getTenantSlug } from "@/lib/tenant";
+import { getVerticalProfile } from "@/lib/vertical-profile";
 import { getTranslationServer } from "@/i18n/server";
 import Link from "next/link";
 import { Search, SlidersHorizontal, PackageX, ChevronRight, Home } from "lucide-react";
@@ -49,16 +50,16 @@ export default async function ProductosPage({ searchParams }: { searchParams: { 
   const activeCategory = searchParams.category || null;
   const t = getTranslationServer();
 
-  const isHealth = vertical === "HEALTH";
-  const isBooking = isBookingEnabled || isHealth;
+  const serviceFirst = getVerticalProfile(vertical, !!isBookingEnabled).serviceFirst;
+  const isBooking = isBookingEnabled || serviceFirst;
   const pageTitle = activeCategory
     ? activeCategory
-    : isHealth
+    : serviceFirst
     ? t.storefrontUi.servicesAndConsults
     : isBooking
     ? t.storefrontUi.ourServices
     : t.storefront.catalog.allProducts;
-  const pageSubtitle = isHealth
+  const pageSubtitle = serviceFirst
     ? t.storefrontUi.healthCatalogSub
     : isBooking
     ? t.storefrontUi.serviceCatalogSub
@@ -76,7 +77,7 @@ export default async function ProductosPage({ searchParams }: { searchParams: { 
             <Link href="/" className="hover:text-[var(--color-primary)] transition-colors flex items-center gap-1.5"><Home size={14}/> {t.storefront.catalog.home}</Link>
             <ChevronRight size={14} className="text-gray-400" />
             <span className="text-gray-900 dark:text-white font-semibold">
-              {isHealth ? t.storefrontUi.consultsAndServices : isBooking ? t.storefrontUi.services : t.storefront.catalog.products}
+              {serviceFirst ? t.storefrontUi.consultsAndServices : isBooking ? t.storefrontUi.services : t.storefront.catalog.products}
             </span>
             {activeCategory && (
               <>

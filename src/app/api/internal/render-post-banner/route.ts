@@ -6,6 +6,7 @@
 // - Support value proposition text
 // - Rounded CTA pill button in accent color with proper padding
 import { NextRequest, NextResponse } from "next/server";
+import { CLOUDINARY_ROOT_FOLDER } from "@/lib/cloudinary-root";
 import { v2 as cloudinary } from "cloudinary";
 
 cloudinary.config({
@@ -35,6 +36,10 @@ export async function POST(req: NextRequest) {
     if (!imageUrl) {
       return NextResponse.json({ error: "imageUrl is required" }, { status: 400 });
     }
+    // Every image belongs to a tenant folder; without a tenant the request is refused.
+    if (!tenantId) {
+      return NextResponse.json({ error: "tenantId is required" }, { status: 400 });
+    }
 
     // Escape XML special characters to prevent invalid SVG markup
     const escapeXml = (str?: string) => {
@@ -55,9 +60,7 @@ export async function POST(req: NextRequest) {
     const cleanColor = /^#[0-9A-Fa-f]{6}$/.test(accentColor) ? accentColor : "#00C853";
 
     // Target storage folder per tenant
-    const targetFolder = tenantId
-      ? `nutriologas/${tenantId}/campaigns`
-      : "nutriologas/campaigns";
+    const targetFolder = `${CLOUDINARY_ROOT_FOLDER}/${tenantId}/campaigns`;
 
     // Compute CTA pill button dimensions with generous horizontal padding
     const ctaTextWidth = Math.max(220, cleanCta.length * 18 + 70);
@@ -112,7 +115,7 @@ export async function POST(req: NextRequest) {
 
     // 1. Upload temporary SVG overlay as PNG to Cloudinary
     const overlayUpload = await cloudinary.uploader.upload(svgDataUri, {
-      folder: "nutriologas/assets/temp",
+      folder: `${CLOUDINARY_ROOT_FOLDER}/${tenantId}/temp`,
       resource_type: "image",
       format: "png",
     });

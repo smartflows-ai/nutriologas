@@ -1,5 +1,7 @@
 // src/app/api/appointments/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { getVerticalProfile } from "@/lib/vertical-profile";
+import { cleanPetName } from "@/lib/pets";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
@@ -47,6 +49,7 @@ async function getAdminAgenda(req: NextRequest, tenantId: string) {
         select: { id: true, name: true, price: true, durationMinutes: true, images: true, category: true },
       },
       user: { select: { id: true, name: true, email: true, image: true } },
+      pet: { select: { name: true } },
     },
     orderBy: { appointmentDate: "asc" },
   });
@@ -211,14 +214,14 @@ export async function POST(req: NextRequest) {
       where: tenantId
         ? { id: tenantId } 
         : { OR: [{ slug: tenantSlug }, { customDomain: tenantSlug }] },
-      select: { id: true, name: true, whatsappNumber: true, isBookingEnabled: true, businessHours: true },
+      select: { id: true, name: true, whatsappNumber: true, vertical: true, isBookingEnabled: true, businessHours: true },
     });
 
     if (!tenant) return apiError("tenant_not_found", 404);
     tenantId = tenant.id;
 
     const body = await req.json();
-    const { productId, appointmentDate, notes, clientName, clientEmail, clientPhone } = body;
+    const { productId, appointmentDate, notes, clientName, clientEmail, clientPhone, petName, petSpecies } = body;
 
     if (!productId || !appointmentDate) {
       return apiError("service_and_date_required", 400);
@@ -226,6 +229,12 @@ export async function POST(req: NextRequest) {
     // The phone is the patient's identity (visit history), so every booking needs a usable one.
     if (!patientKeyOf(clientPhone)) {
       return apiError("phone_required", 400);
+    }
+    // Veterinary and pet-care businesses book per pet, so the history follows the animal.
+    const { usesPets } = getVerticalProfile(tenant.vertical, tenant.isBookingEnabled);
+    const pet = usesPets ? cleanPetName(petName) : "";
+    if (usesPets && !pet) {
+      return apiError("pet_required", 400);
     }
 
     // Verificar que el producto exista y pertenezca al tenant
@@ -306,8 +315,10 @@ export async function POST(req: NextRequest) {
       customerPhone: clientPhone || null,
       customerEmail: clientEmail?.toLowerCase().trim() || null,
       notes: reason,
+      petName: pet || null,
+      petSpecies: usesPets ? petSpecies ?? null : null,
       calendar: {
-        summary: `Cita: ${product.name} - ${clientName || "Paciente"}`,
+        summary: `Cita: ${product.name} - ${clientName || "Paciente"}${pet ? ` (${pet})` : ""}`,
         description: calendarDescription,
         attendeeEmail: clientEmail || "",
       },

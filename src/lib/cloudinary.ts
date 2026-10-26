@@ -1,5 +1,6 @@
 // src/lib/cloudinary.ts
 import { v2 as cloudinary } from "cloudinary";
+import { CLOUDINARY_ROOT_FOLDER } from "@/lib/cloudinary-root";
 
 cloudinary.config({
   cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
@@ -25,6 +26,17 @@ export const extractPublicId = (url: string) => {
     console.error("Error extrayendo publicId de Cloudinary:", error);
     return null;
   }
+};
+
+// Uploads the logo chosen on the sign-up form straight into the new tenant's folder.
+export const uploadLogoForTenant = async (file: File, tenantId: string): Promise<string> => {
+  const bytes = Buffer.from(await file.arrayBuffer());
+  const dataUri = `data:${file.type};base64,${bytes.toString("base64")}`;
+  const uploaded = await cloudinary.uploader.upload(dataUri, {
+    folder: `${CLOUDINARY_ROOT_FOLDER}/${tenantId}/logo`,
+    resource_type: "image",
+  });
+  return uploaded.secure_url as string;
 };
 
 export const deleteImageFromCloudinary = async (url: string | null | undefined) => {

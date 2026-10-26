@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import https from "https";
+import { MAX_QR_REFRESHES, QR_TTL_MS, fetchEvolutionQr, markQrExpired, qrMetaOf, storeQr } from "@/lib/whatsapp-qr";
 
 const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL!;
 const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY!;
@@ -77,6 +78,31 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // 3. Pairing code still open: refresh it when it is older than its lifetime; after the last refresh it expires.
+  let currentQr = app.waQrCode;
+  let currentStatus = app.waStatus || "disconnected";
+  if (!isConnected && app.waQrCode) {
+    const meta = qrMetaOf(app.metadata);
+    const refreshes = meta.qrRefreshes ?? 0;
+    const stale = Date.now() - (meta.qrIssuedAt ?? 0) >= QR_TTL_MS;
+    if (stale && refreshes >= MAX_QR_REFRESHES) {
+      await markQrExpired(tenantId);
+      currentQr = null;
+      currentStatus = "qr_expired";
+    } else if (stale) {
+      const fresh = await fetchEvolutionQr(app.waInstanceId!);
+      if (fresh) {
+        await storeQr(tenantId, fresh, {
+          ...((app.metadata as Record<string, unknown>) ?? {}),
+          qrIssuedAt: Date.now(),
+          qrRefreshes: refreshes + 1,
+        });
+        currentQr = fresh;
+        currentStatus = "qr_pending";
+      }
+    }
+  }
+
   // Si ya conectó, actualizar base de datos y limpiar QR
   if (isConnected) {
     if (app.waStatus !== "connected" || app.waQrCode !== null || (phoneNumber && !app.waPhoneNumber)) {
@@ -103,8 +129,8 @@ export async function GET(req: NextRequest) {
   }
 
   return Response.json({
-    status: app.waStatus || "disconnected",
-    qrCode: app.waQrCode,
+    status: currentStatus,
+    qrCode: currentQr,
     phoneNumber: app.waPhoneNumber,
     instanceName: app.waInstanceId,
     webhookUrl: app.waWebhookUrl,

@@ -54,6 +54,7 @@ interface AppointmentItem {
     email: string;
     image: string | null;
   };
+  pet?: { name: string } | null;
 }
 
 // Status colors are semantic (pending, confirmed, cancelled), so they stay fixed and do not follow the tenant theme.
@@ -569,6 +570,11 @@ function CitasContent() {
                           <span className="flex items-center gap-1.5 font-medium text-gray-800 dark:text-gray-200">
                             <User size={14} className="text-gray-400" />
                             {patientName}
+                          </span>
+                        )}
+                        {appt.pet?.name && (
+                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                            {t.crm.history.petUi.petsColumn}: {appt.pet.name}
                           </span>
                         )}
                         {patientPhone ? (

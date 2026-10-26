@@ -2,7 +2,7 @@
 // Resilient OpenRouter client with prioritized model cascade fallback.
 // Automatically falls over to the next model in the stack if a provider is busy, rate-limited, or unavailable.
 
-import { CHAT_TOOLS } from "./tools";
+import { CHAT_TOOLS, type OpenRouterTool } from "./tools";
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 
@@ -59,7 +59,7 @@ export function getModelStack(): string[] {
 export async function callOpenRouterWithCascade(
   messages: ORMessage[],
   systemPrompt: string,
-  options: { maxTokens?: number } = {},
+  options: { maxTokens?: number; tools?: OpenRouterTool[] } = {},
 ): Promise<CascadeResult> {
   const modelStack = getModelStack();
   const apiKey = process.env.OPENROUTER_API_KEY;
@@ -89,7 +89,7 @@ export async function callOpenRouterWithCascade(
           model: currentModel,
           models: fallbackList,
           max_tokens: maxTokens,
-          tools: CHAT_TOOLS,
+          tools: options.tools ?? CHAT_TOOLS,
           tool_choice: "auto",
           messages: [
             { role: "system", content: systemPrompt },

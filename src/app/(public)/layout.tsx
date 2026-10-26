@@ -6,6 +6,7 @@ import WhatsAppButton from "@/components/shop/WhatsAppButton";
 import SessionProviderWrapper from "@/components/shop/SessionProviderWrapper";
 import { getTenantSlug } from "@/lib/tenant";
 import { themeColorVars } from "@/lib/theme-vars";
+import { getVerticalProfile } from "@/lib/vertical-profile";
 import { getTranslationServer } from "@/i18n/server";
 
 async function getTenantPublicData() {
@@ -65,7 +66,7 @@ export default async function PublicLayout({ children }: { children: React.React
     <SessionProviderWrapper>
       <style dangerouslySetInnerHTML={{ __html: dynamicStyles }} />
       <div className="min-h-screen flex flex-col bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors duration-300">
-        <Navbar storeName={name} logoUrl={logoUrl} isEcommerce={vertical === "ECOMMERCE"} />
+        <Navbar storeName={name} logoUrl={logoUrl} isEcommerce={getVerticalProfile(vertical, false).hasOrders} />
         <main className="flex-1">{children}</main>
         <footer className="bg-white dark:bg-gray-950 border-t border-gray-200 dark:border-gray-800 text-gray-500 text-sm text-center py-6 mt-16">
           <p>© {new Date().getFullYear()} {name}. {t.footer.rights}</p>

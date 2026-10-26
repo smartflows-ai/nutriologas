@@ -4,6 +4,24 @@ export type Lang = "en" | "es";
 type PlanCopy = { name: string; tagline: string; features?: string[] };
 
 export interface Translations {
+  locationUi: {
+    ownerNameLabel: string;
+    ownerNamePlaceholder: string;
+    physicalLocationLabel: string;
+    physicalLocationHint: string;
+    addressLabel: string;
+    searchPlaceholder: string;
+    searching: string;
+    noResults: string;
+    clear: string;
+    unavailableHint: string;
+    sectionTitle: string;
+    sectionDesc: string;
+    currentValue: string;
+    ownerLabel: string;
+    directions: string;
+    addressMissing: string;
+  };
   customerMessages: {
     locale: string;
     reminderTemplate: string;
@@ -824,19 +842,26 @@ export interface Translations {
       error: string;
     };
     history: {
-      title: string;
-      subtitle: string;
+      subjects: Record<"patient" | "pet" | "traveler" | "customer", HistorySubjectText>;
+      petUi: {
+        nameLabel: string;
+        namePlaceholder: string;
+        speciesLabel: string;
+        speciesDog: string;
+        speciesCat: string;
+        speciesBird: string;
+        speciesRabbit: string;
+        speciesOther: string;
+        allPets: string;
+        noPet: string;
+        petsColumn: string;
+      };
       searchPlaceholder: string;
-      colPatient: string;
       colVisits: string;
       colNotes: string;
       colLastVisit: string;
       colNextVisit: string;
       noVisit: string;
-      loading: string;
-      empty: string;
-      emptySearch: string;
-      back: string;
       summary: string;
       timelineTitle: string;
       noNote: string;
@@ -1227,6 +1252,8 @@ export interface Translations {
     waLoading4: string;
     waLoading5: string;
     waQrAlt: string;
+    waQrExpired: string;
+    waQrRegenerate: string;
     waErrorNotJson: string;
     waErrorServer: string;
     waFailed: string;
@@ -1477,6 +1504,10 @@ export interface Translations {
     patient_not_found: string;
     outside_business_hours: string;
     date_in_past: string;
+    pet_required: string;
+    places_unavailable: string;
+    place_not_found: string;
+    address_required: string;
     confirmation_missing_deadline: string;
     confirmation_missing_si: string;
     template_too_long: string;
@@ -1532,4 +1563,15 @@ export interface Translations {
     tenantWelcome: string;
     keywords: string[];
   };
+}
+
+export interface HistorySubjectText {
+  nav: string;
+  title: string;
+  subtitle: string;
+  colSubject: string;
+  loading: string;
+  empty: string;
+  emptySearch: string;
+  back: string;
 }

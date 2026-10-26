@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ClipboardList, Loader2, Phone, Search } from "lucide-react";
 import { useTranslation } from "@/i18n";
+import { useTenantMeta } from "@/components/admin/TenantMeta";
+import { getVerticalProfile } from "@/lib/vertical-profile";
 import { localeFor } from "@/lib/utils";
 import Pagination from "@/components/admin/Pagination";
 
@@ -16,10 +18,14 @@ interface PatientRow {
   notes: number;
   lastVisit: string | null;
   nextVisit: string | null;
+  pets: string | null;
 }
 
 export default function HistorialPage() {
   const { t, lang } = useTranslation();
+  const { vertical, isBookingEnabled } = useTenantMeta();
+  const profile = getVerticalProfile(vertical, isBookingEnabled);
+  const subjectText = t.crm.history.subjects[profile.subject];
   const locale = localeFor(lang);
 
   const [query, setQuery] = useState("");
@@ -72,9 +78,9 @@ export default function HistorialPage() {
       <div>
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white flex items-center gap-2.5">
           <ClipboardList className="text-primary" size={24} />
-          {t.crm.history.title}
+          {subjectText.title}
         </h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t.crm.history.subtitle}</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{subjectText.subtitle}</p>
       </div>
 
       <div className="relative max-w-md">
@@ -92,16 +98,16 @@ export default function HistorialPage() {
       {loading ? (
         <div className="flex items-center gap-2 text-sm text-gray-500 py-12 justify-center">
           <Loader2 className="animate-spin text-primary" size={18} />
-          {t.crm.history.loading}
+          {subjectText.loading}
         </div>
       ) : patients.length === 0 ? (
         <p className="text-sm text-gray-500 py-12 text-center">
-          {search ? t.crm.history.emptySearch : t.crm.history.empty}
+          {search ? subjectText.emptySearch : subjectText.empty}
         </p>
       ) : (
         <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 divide-y divide-gray-100 dark:divide-gray-800">
           <div className="hidden sm:grid grid-cols-[minmax(0,2fr)_72px_72px_128px_128px] gap-4 px-5 py-2.5 text-xs font-medium text-gray-500 dark:text-gray-400">
-            <span>{t.crm.history.colPatient}</span>
+            <span>{subjectText.colSubject}</span>
             <span>{t.crm.history.colVisits}</span>
             <span>{t.crm.history.colNotes}</span>
             <span>{t.crm.history.colLastVisit}</span>
@@ -115,6 +121,9 @@ export default function HistorialPage() {
             >
               <div className="min-w-0">
                 <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{p.name ?? p.phone}</p>
+                {profile.usesPets && p.pets && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{t.crm.history.petUi.petsColumn}: {p.pets}</p>
+                )}
                 {p.phone && (
                   <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1 mt-0.5">
                     <Phone size={12} aria-hidden="true" />

@@ -36,6 +36,8 @@ interface Props {
     name: string;
     whatsappNumber: string | null;
     logoUrl: string | null;
+    // Veterinary and pet-care businesses ask for the pet's name and species.
+    usesPets: boolean;
   };
   businessHours: BusinessHours;
 }
@@ -75,6 +77,8 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
   const [dialCode, setDialCode] = useState(DEFAULT_DIAL_CODE);
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  const [petName, setPetName] = useState("");
+  const [petSpecies, setPetSpecies] = useState<string>("dog");
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -111,6 +115,10 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
       setError(t.booking.errorRequiredFields);
       return;
     }
+    if (tenant.usesPets && !petName.trim()) {
+      setError(t.apiErrors.pet_required);
+      return;
+    }
 
     setSubmitting(true);
     setError(null);
@@ -126,6 +134,8 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
           clientName: name,
           clientPhone: buildFullPhone(dialCode, phone),
           clientEmail: email,
+          petName: tenant.usesPets ? petName : undefined,
+          petSpecies: tenant.usesPets ? petSpecies : undefined,
           notes: notes || undefined,
         }),
       });
@@ -355,6 +365,43 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
                 className="input bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 text-sm"
               />
             </div>
+
+            {tenant.usesPets && (
+              <>
+                <div>
+                  <label htmlFor="pet-name" className="block text-xs font-semibold text-gray-700 dark:text-gray-200 mb-1">
+                    {t.crm.history.petUi.nameLabel}
+                  </label>
+                  <input
+                    id="pet-name"
+                    type="text"
+                    required
+                    maxLength={60}
+                    value={petName}
+                    onChange={(e) => setPetName(e.target.value)}
+                    placeholder={t.crm.history.petUi.namePlaceholder}
+                    className="input bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 text-sm"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="pet-species" className="block text-xs font-semibold text-gray-700 dark:text-gray-200 mb-1">
+                    {t.crm.history.petUi.speciesLabel}
+                  </label>
+                  <select
+                    id="pet-species"
+                    value={petSpecies}
+                    onChange={(e) => setPetSpecies(e.target.value)}
+                    className="input bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 text-sm"
+                  >
+                    <option value="dog">{t.crm.history.petUi.speciesDog}</option>
+                    <option value="cat">{t.crm.history.petUi.speciesCat}</option>
+                    <option value="bird">{t.crm.history.petUi.speciesBird}</option>
+                    <option value="rabbit">{t.crm.history.petUi.speciesRabbit}</option>
+                    <option value="other">{t.crm.history.petUi.speciesOther}</option>
+                  </select>
+                </div>
+              </>
+            )}
 
             <div>
               <label className="block text-xs font-semibold text-gray-700 dark:text-gray-200 mb-1 flex items-center gap-1.5">

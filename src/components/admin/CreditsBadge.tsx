@@ -70,7 +70,7 @@ export default function CreditsBadge() {
       <button
         id="credits-badge-btn"
         onClick={() => setDrawerOpen(true)}
-        className="w-full group rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-3 hover:border-primary/40 hover:bg-primary/5 transition-all duration-200 text-left"
+        className="w-full group rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-3 hover:border-primary/40 transition-all duration-200 text-left"
       >
         {/* Header row */}
         <div className="flex items-center justify-between mb-2">

@@ -22,6 +22,7 @@ import { useTranslation } from "@/i18n";
 import { translateApiError } from "@/i18n/validation";
 import { toast } from "sonner";
 import { formatPrice, localeFor } from "@/lib/utils";
+import { getVerticalProfile } from "@/lib/vertical-profile";
 import CreditsDrawer from "@/components/admin/CreditsDrawer";
 import AssistantThinkingIndicator from "./AssistantThinkingIndicator";
 
@@ -210,6 +211,7 @@ export default function ChatAssistant({
 }: ChatAssistantProps = {}) {
   const { t, lang } = useTranslation();
   const locale = localeFor(lang);
+  const serviceFirst = getVerticalProfile(vertical, !!isBookingEnabled).serviceFirst;
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -425,7 +427,7 @@ export default function ChatAssistant({
           >
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                {vertical === "HEALTH" ? t.assistantUi.activeServices : t.crm.assistant.kpis.activeCatalog}
+                {serviceFirst ? t.assistantUi.activeServices : t.crm.assistant.kpis.activeCatalog}
               </span>
               <span className="p-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 text-secondary transition-transform">
                 <Package size={14} />
@@ -475,7 +477,7 @@ export default function ChatAssistant({
             <button
               onClick={() =>
                 sendMessage(
-                  vertical === "HEALTH"
+                  serviceFirst
                     ? t.assistantUi.promptAppointmentsHealth
                     : t.assistantUi.promptAppointments
                 )
@@ -484,7 +486,7 @@ export default function ChatAssistant({
             >
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                  {vertical === "HEALTH" ? t.assistantUi.todayAppointmentsHealth : t.assistantUi.scheduleAppointments}
+                  {serviceFirst ? t.assistantUi.todayAppointmentsHealth : t.assistantUi.scheduleAppointments}
                 </span>
                 <span className="p-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 text-accent transition-transform">
                   <Calendar size={14} />
@@ -524,7 +526,7 @@ export default function ChatAssistant({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full max-w-xl text-left">
                 {(isBookingEnabled
                   ? [
-                      vertical === "HEALTH"
+                      serviceFirst
                         ? t.assistantUi.promptAppointmentsHealth
                         : t.assistantUi.promptAppointments,
                       ...t.crm.assistant.chat.suggestions,

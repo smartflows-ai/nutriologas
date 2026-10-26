@@ -4,6 +4,8 @@
 // never from model output or request input the model can influence.
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
+import { locationTextForBot } from "@/lib/location";
+import { getVerticalProfile } from "@/lib/vertical-profile";
 import { BusinessHours, formatBusinessHours, parseBusinessHours, slotWithinHours, upcomingCalendarText } from "@/lib/business-hours";
 
 export const BOT_TIMEZONE_OFFSET = "-06:00"; // America/Mexico_City (CST)
@@ -17,6 +19,9 @@ export interface BotTenant {
   tenantId: string;
   tenantName: string;
   businessInfo: string | null;
+  ownerName: string | null;
+  locationText: string;
+  usesPets: boolean;
   waContext: string | null;
   waTemperature: number;
   isBookingEnabled: boolean;
@@ -41,7 +46,20 @@ export async function resolveBotTenant(instance: unknown): Promise<BotTenant | n
       waContext: true,
       waTemperature: true,
       tenant: {
-        select: { id: true, name: true, businessInfo: true, isBookingEnabled: true, businessHours: true },
+        select: {
+          id: true,
+          name: true,
+          businessInfo: true,
+          vertical: true,
+          ownerName: true,
+          hasPhysicalLocation: true,
+          address: true,
+          placeId: true,
+          latitude: true,
+          longitude: true,
+          isBookingEnabled: true,
+          businessHours: true,
+        },
       },
     },
   });
@@ -53,6 +71,9 @@ export async function resolveBotTenant(instance: unknown): Promise<BotTenant | n
     tenantId: app.tenant.id,
     tenantName: app.tenant.name,
     businessInfo: app.tenant.businessInfo,
+    ownerName: app.tenant.ownerName,
+    locationText: locationTextForBot(app.tenant),
+    usesPets: getVerticalProfile(app.tenant.vertical, app.tenant.isBookingEnabled).usesPets,
     waContext: app.waContext,
     waTemperature: app.waTemperature ?? 0.7,
     isBookingEnabled: app.tenant.isBookingEnabled,

@@ -72,6 +72,7 @@ export default function ProductosPage() {
   const typeOptions: ProductFormType[] = profile.types.includes(selectedItemType) ? profile.types : [...profile.types, selectedItemType];
 
   const fetchProducts = async (pageNumber = 1) => {
+    loadCategories();
     setLoadingProducts(true);
     try {
       const res = await fetch(`/api/products?page=${pageNumber}&limit=10&t=${Date.now()}`);
@@ -89,14 +90,16 @@ export default function ProductosPage() {
   useEffect(() => { fetchProducts(page); }, [page]);
 
   const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
-  useEffect(() => {
-    fetch("/api/products/categories")
+  // Reloaded with the product list, so a category created by the last save appears at once.
+  const loadCategories = () => {
+    fetch(`/api/products/categories?t=${Date.now()}`, { cache: "no-store" })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data?.categories) setCategoryOptions(data.categories);
       })
       .catch((e) => console.error("Error loading categories:", e));
-  }, []);
+  };
+  useEffect(() => { loadCategories(); }, []);
 
   useEffect(() => {
     fetch("/api/tenants/business")
@@ -391,6 +394,20 @@ export default function ProductosPage() {
                   <datalist id="product-category-options">
                     {categoryOptions.map((c) => <option key={c} value={c} />)}
                   </datalist>
+                  {categoryOptions.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {categoryOptions.map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => setValue("category", c, { shouldDirty: true })}
+                          className="px-2.5 py-1 rounded-lg text-xs font-medium text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+                        >
+                          {c}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 select-none cursor-pointer" onClick={() => (document.getElementById('isActive') as HTMLInputElement).click()}>

@@ -8,6 +8,8 @@ import {
   Gift, Sparkles, Stethoscope, ShoppingBag, PawPrint, Plane } from "lucide-react";
 import { useTranslation } from "@/i18n";
 import { translateApiError } from "@/i18n/validation";
+import AddressSearch from "@/components/shared/AddressSearch";
+import type { BusinessLocation } from "@/lib/location";
 
 interface Props {
   onClose: () => void;
@@ -103,6 +105,9 @@ export default function OnboardingModal({
   const [vertical, setVertical] = useState(initialVertical);
   const [name, setName] = useState("");
   const [businessInfo, setBusinessInfo] = useState("");
+  const [ownerName, setOwnerName] = useState("");
+  const [hasPhysicalLocation, setHasPhysicalLocation] = useState(false);
+  const [placeLocation, setPlaceLocation] = useState<BusinessLocation | null>(null);
   const [city, setCity] = useState("");
   const [cityQuery, setCityQuery] = useState("");
   const [cityOpen, setCityOpen] = useState(false);
@@ -124,7 +129,7 @@ export default function OnboardingModal({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPwd, setConfirmPwd] = useState("");
-  const [logoUrl, setLogoUrl] = useState("");
+  const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState("");
 
   // Step 3 — Subdomain
@@ -155,13 +160,10 @@ export default function OnboardingModal({
     ), [cityQuery]);
 
   // ── Logo upload ────────────────────────────────────────────────
-  const handleLogoChange = async (file: File) => {
+  // The file is sent with the sign-up form, so it goes straight into the new tenant's folder.
+  const handleLogoChange = (file: File) => {
     setLogoPreview(URL.createObjectURL(file));
-    const fd = new FormData();
-    fd.set("file", file);
-    const res = await fetch("/api/upload/public", { method: "POST", body: fd });
-    const data = await res.json();
-    if (data.url) setLogoUrl(data.url);
+    setLogoFile(file);
   };
 
   // ── Slug check ─────────────────────────────────────────────────
@@ -184,6 +186,9 @@ export default function OnboardingModal({
     if (step === 1 && (!name || !businessInfo)) {
       setError(t.onboardingUi.bizRequired); return;
     }
+    if (step === 1 && hasPhysicalLocation && !placeLocation) {
+      setError(t.locationUi.addressMissing); return;
+    }
     if (step === 2) {
       if (!email || !password) { setError(t.onboardingUi.credentialsRequired); return; }
       if (password.length < 8) { setError(t.onboardingUi.passwordShort); return; }
@@ -205,21 +210,24 @@ export default function OnboardingModal({
     setLoading(true); setError("");
     const whatsappFull = phoneNumber ? `${dialCountry.dial}${phoneNumber.replace(/^0+/, "")}` : "";
     try {
-      const res = await fetch("/api/tenants/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const form = new FormData();
+      if (logoFile) form.set("logo", logoFile);
+      form.set("payload", JSON.stringify({
           email, password, name, slug, businessInfo,
           whatsappNumber: whatsappFull,
-          location: city ? `${city}, ${countryNameEn(selectedCountry)}` : countryNameEn(selectedCountry),
-          logoUrl,
+          ownerName: ownerName.trim() || undefined,
+          hasPhysicalLocation,
+          address: hasPhysicalLocation ? placeLocation?.address : undefined,
+          placeId: hasPhysicalLocation ? placeLocation?.placeId ?? undefined : undefined,
+          latitude: hasPhysicalLocation ? placeLocation?.latitude ?? undefined : undefined,
+          longitude: hasPhysicalLocation ? placeLocation?.longitude ?? undefined : undefined,
           plan,
           billingInterval,
           lang,
           vertical,
           isBookingEnabled: vertical !== "ECOMMERCE",
-        }),
-      });
+      }));
+      const res = await fetch("/api/tenants/register", { method: "POST", body: form });
       const data = await res.json();
       if (!res.ok) { setError(translateApiError(t, data.error) ?? t.onboardingUi.genericError); return; }
       setStep(4);
@@ -239,7 +247,7 @@ export default function OnboardingModal({
     <div
       className="fixed inset-0 z-[200] flex items-center justify-center p-4"
       style={{ background: "rgba(0,0,0,0.9)", backdropFilter: "blur(8px)" }}
-      onClick={(e) => { if (e.target === e.currentTarget) { setCountryOpen(false); setDialOpen(false); onClose(); } }}
+      onClick={(e) => { if (e.target === e.currentTarget) { setCountryOpen(false); setDialOpen(false); } }}
     >
       <div
         className="relative w-full max-w-lg rounded-[2rem] border border-white/10 shadow-[0_0_80px_rgba(124,58,237,0.2)] overflow-hidden max-h-[95vh] flex flex-col"
@@ -330,6 +338,48 @@ export default function OnboardingModal({
                 />
               </div>
 
+              {/* Owner name */}
+              <div>
+                <label className={labelCls}>{t.locationUi.ownerNameLabel}</label>
+                <input
+                  type="text"
+                  className={inputCls}
+                  value={ownerName}
+                  maxLength={80}
+                  onChange={e => setOwnerName(e.target.value)}
+                  placeholder={t.locationUi.ownerNamePlaceholder}
+                />
+              </div>
+
+              {/* Physical location (address picked with Google Maps) */}
+              <div className="space-y-3">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={hasPhysicalLocation}
+                    onChange={e => setHasPhysicalLocation(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-white/20 bg-mk-raised"
+                  />
+                  <span>
+                    <span className="block text-sm font-medium text-white">{t.locationUi.physicalLocationLabel}</span>
+                    <span className="block text-xs text-gray-500">{t.locationUi.physicalLocationHint}</span>
+                  </span>
+                </label>
+                {hasPhysicalLocation && (
+                  <div>
+                    <label className={labelCls}>{t.locationUi.addressLabel}</label>
+                    <AddressSearch
+                      value={placeLocation}
+                      onChange={setPlaceLocation}
+                      inputClassName={inputCls}
+                      panelClassName="border border-white/10 bg-mk-raised"
+                      mutedClassName="text-gray-500"
+                      textClassName="text-white"
+                    />
+                  </div>
+                )}
+              </div>
+
               {/* City + Country row */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* City combobox */}
@@ -395,7 +445,7 @@ export default function OnboardingModal({
                     className={selectCls}
                     onClick={() => { setCountryOpen(o => !o); setDialOpen(false); }}
                   >
-                    <span className="text-xl leading-none">{selectedCountry.code}</span>
+                    <span className="text-xs font-semibold leading-none">{selectedCountry.code}</span>
                     <span className="flex-1 text-left truncate">{countryName(selectedCountry)}</span>
                     <ChevronDown size={14} className={`text-gray-500 transition-transform ${countryOpen ? "rotate-180" : ""}`} />
                   </button>
@@ -422,7 +472,7 @@ export default function OnboardingModal({
                               }`}
                             onClick={() => { setSelectedCountry(c); setCountryOpen(false); setCountryQuery(""); }}
                           >
-                            <span className="text-lg leading-none">{c.code}</span>
+                            <span className="text-xs font-semibold leading-none">{c.code}</span>
                             <span>{countryName(c)}</span>
                           </li>
                         ))}
@@ -446,7 +496,7 @@ export default function OnboardingModal({
                       className="flex items-center justify-center gap-1.5 w-full sm:w-auto bg-mk-raised border border-white/10 rounded-xl px-4 py-3 text-white text-sm hover:border-mk-violet/40 transition-all cursor-pointer whitespace-nowrap"
                       onClick={() => { setDialOpen(o => !o); setCountryOpen(false); }}
                     >
-                      <span className="text-lg leading-none">{dialCountry.code}</span>
+                      <span className="text-xs font-semibold leading-none">{dialCountry.code}</span>
                       <span className="text-gray-400 font-mono">{dialCountry.dial}</span>
                       <ChevronDown size={13} className={`text-gray-500 transition-transform ${dialOpen ? "rotate-180" : ""}`} />
                     </button>
@@ -473,7 +523,7 @@ export default function OnboardingModal({
                                 }`}
                               onClick={() => { setDialCountry(c); setDialOpen(false); setDialQuery(""); }}
                             >
-                              <span className="text-lg leading-none">{c.code}</span>
+                              <span className="text-xs font-semibold leading-none">{c.code}</span>
                               <span className="flex-1">{countryName(c)}</span>
                               <span className="text-gray-500 font-mono text-xs">{c.dial}</span>
                             </li>

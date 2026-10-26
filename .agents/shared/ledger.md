@@ -525,3 +525,73 @@ Decisions made:
 **Decision:** Audit with `local-utils/minimal-ui/audit.js`: all auto rules at 0. The 15 remaining `shadow-lg` matches are modal and dropdown overlays, which the spec keeps. Fixed the calendar's hardcoded light-only colors (dark mode now uses `.dark` variants) and removed its uppercase column headers. The dashboard rating card icon circle is neutral now; the star stays yellow as a rating cue. Semantic status colors (paid, active, error, Facebook/Instagram brand) were left as they are.
 
 **Open:** Chart grid lines (`stroke="#f0f0f0"` in SalesChart, AppointmentsChart, ProductsChart, CampaignMetrics) stay light in dark mode. Visual check at 375 px and with a non-default primary color is still pending.
+
+## 2026-10-26 — Dev — Owner name and business location
+
+**Decision:** Any vertical can have a physical place, so location is optional behind a "physical location" switch; the address is required only when it is on, and turning it off clears it. The address is chosen with Google Places search through our own server endpoints (the key never reaches the browser; per-IP limiter on the public routes). If search fails, a typed address is accepted so sign-up never blocks. The map link is built on read from the place id or coordinates, never stored. The storefront shows address, owner and "Cómo llegar"; the bot gets both in `bot/context`.
+
+**Lesson:** Shell tools can collapse a double backslash. When a script must write the two characters backslash and n (the prompt stores line breaks that way), build them with `String.fromCharCode(92) + "n"`.
+
+**Done:** The six columns on `tenants` were added with `prisma db execute`. **Open:** Set `GOOGLE_MAPS_API_KEY` (Places API (New) enabled), deploy, re-import `local-utils/n8n-chat-workflow-v2.json`, and test with a real key. Until the key is set, the address field falls back to typed text.
+
+## 2026-10-26 — Dev — Vertical profile: tools, history labels and prompts per business type
+
+**Decision:** One pure module (`src/lib/vertical-profile.ts`) decides what each vertical gets: orders, service-first catalog, the customer group name (patients, pets, travelers, customers), pets, and the Newy AI tool set. Sidebar, storefront, assistant, chat route and history screens read from it instead of comparing the vertical name. The chat route refuses tool calls outside the vertical's set on the server, not only through the prompt.
+
+**Lesson:** Every verticals check used `=== "HEALTH"`, so VETERINARY and TOURISM were treated as stores in most screens. A single profile table prevents that drift.
+
+**Open:** Pets (a `Pet` table and `Appointment.petId`) are approved but not built: they need two additive live DB changes and your OK. Until then a vet's history groups by the owner's phone. The triage page now has a menu link when `isTriageEnabled`.
+
+## 2026-10-26 — Dev — Pets for veterinary and pet-care businesses
+
+**Decision:** A real `Pet` table keyed by the owner's phone key, with a nullable `petId` on each appointment. Only `VETERINARY` and `PET_CARE` require a pet name; other verticals ignore it. The pet row is created inside the booking transaction, after the slot check, so a taken slot leaves no pet behind.
+
+**Lesson:** Prisma selects every column of a model, so adding a schema field before its column exists breaks every read of that table. The DDL ran first, then the schema, then the client.
+
+**Lesson:** Live checks read an empty database (no tenants, no users, no appointments) after an earlier check in the same session had read tenant rows. The pet checks did not run. Confirm which database the scripts use before trusting a result.
+
+**Open:** Run `local-utils/check-pets.ts` and `local-utils/check-vertical-profile.ts` on a database with data; test a vet booking on the web and in the bot; re-import `local-utils/n8n-chat-workflow-v2.json`.
+
+## 2026-10-26 — Dev — minimal-ui pass on recently changed screens
+
+**Decision:** The codemod found nothing to change (all auto rules at 0). The 15 `shadow-lg` matches are modal and dropdown overlays, which the spec keeps. The credits badge card no longer tints its background on hover (cards change only the border). The sign-up modal is in `components/marketing` (dark brand), so it is out of scope and was not restyled.
+
+**Open:** Visual check at 375 px and with a different primary color and font in `/admin/apariencia`.
+
+## 2026-10-26 — Dev — Cloudinary root folder renamed to newaigent
+
+**Decision:** The root folder changed from `nutriologas` to `newaigent` in Cloudinary (Admin API rename) and in code. The root is one constant (`src/lib/cloudinary-root.ts`) used by the tenant uploads, sign-up uploads, the banner renderer and the sign-up logo move. The owner agreed to delete the business data and recreate the accounts, so no database URLs were rewritten.
+
+**Lesson:** Renaming a Cloudinary folder changes every public URL inside it. Any URL saved in the database breaks at that moment, so the rename and the data reset have to happen together.
+
+**Open:** Delete the business rows (or the whole test tenant) and recreate them; the old logo and product URLs are invalid until then. Confirm which database the app uses before deleting anything.
+
+## 2026-10-26 — Dev — minimal-ui pass on the storefront About section
+
+**Decision:** Owner, address and directions are label/value rows with thin dividers. The description keeps the owner's own line breaks. The directions link uses neutral text with a tenant-colored underline, so it stays readable on light tenant colors.
+
+**Lesson:** The description is free text. The list items on the About card run together because the owner typed them on one line. Fix it in the source: the owner adds line breaks in the Negocio description field, not in the page.
+
+**Open:** Visual check at 375 px and with a light and a dark tenant primary color.
+
+## 2026-10-26 — Dev — minimal-ui pass on storefront product cards and FAQ
+
+**Decision:** The product name no longer clips because the price column stops squeezing it (`min-w-0`, `shrink-0`). The "Ver servicios" button uses the shared secondary style, because white text on a pale tenant primary is hard to read. The FAQ uses plain borders, medium weight and neutral icons.
+
+**Open:** Visual check at 375 px and with a light and a dark tenant primary color. The product card also appears in the catalog, so check that page too.
+
+## 2026-10-26 — Dev — Sign-up logo uploaded into the tenant folder
+
+**Decision:** The logo is sent with the registration form and uploaded after the business exists, so no file is staged in a shared folder. The public upload route was removed.
+
+**Lesson:** A staged upload before the owner exists always leaves a root-level folder behind. Moving the file afterward is not enough; the upload has to wait for the tenant.
+
+**Open:** Delete the old `newaigent/signups` folder in Cloudinary once no sign-up is pending. Check a real sign-up with a logo in the browser.
+
+## 2026-10-26 — Dev — WhatsApp pairing QR refreshes automatically
+
+**Decision:** The status endpoint refreshes the stored QR from Evolution when it is older than 25 seconds, up to 8 times, then marks it expired and the modal offers a new code. The timing lives in `ConnectedApp.metadata`, so no schema change was needed.
+
+**Lesson:** The poll compared against the stored QR, which was only written at connect time, so an expired code stayed on screen forever. The fix had to refresh on the server, not only on the client.
+
+**Open:** Test with a real phone: wait past 25 seconds and check the code changes; wait past about 3 minutes and check the expired message and the regenerate button.

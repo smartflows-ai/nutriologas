@@ -42,9 +42,9 @@ export default function ProductCard({ product, bookingEnabled }: { product: Prod
   };
 
   return (
-    <Link href={isBooking ? `/agendar/${product.slug}` : `/producto/${product.slug}`} className="group relative bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm dark:hover:shadow-[0_8px_40px_rgb(255,255,255,0.05)] transition-all duration-500 flex flex-col overflow-hidden">
+    <Link href={isBooking ? `/agendar/${product.slug}` : `/producto/${product.slug}`} className="group relative bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 hover:border-primary/40 transition-colors flex flex-col overflow-hidden">
       {/* Image */}
-      <div className="relative aspect-[4/5] bg-gray-50/50 dark:bg-gray-800/50 overflow-hidden w-full rounded-t-[2rem]">
+      <div className="relative aspect-[4/5] bg-gray-50/50 dark:bg-gray-800/50 overflow-hidden w-full rounded-t-xl">
         {product.images[0] ? (
           <Image src={product.images[0]} alt={product.name} fill className="object-cover transition-transform duration-700 ease-[cubic-bezier(0.25,1,0.5,1)]" />
         ) : (
@@ -53,7 +53,7 @@ export default function ProductCard({ product, bookingEnabled }: { product: Prod
 
         {isBooking && (
           <div className="absolute top-3 left-3 z-10">
-            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-white/90 dark:bg-gray-900/90 text-primary shadow-sm flex items-center gap-1">
+            <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-white/90 dark:bg-gray-900/90 text-gray-700 dark:text-gray-200 flex items-center gap-1">
               <Clock size={12} />{" "}
               {product.durationMinutes ? fill(t.productUi.minutesShort, { minutes: product.durationMinutes }) : t.productUi.service}
             </span>
@@ -87,10 +87,10 @@ export default function ProductCard({ product, bookingEnabled }: { product: Prod
       </div>
 
       {/* Info */}
-      <div className="p-6 flex flex-col flex-1">
-        <div className="flex justify-between items-start gap-4 mb-2">
-          <h3 className="font-semibold text-gray-900 dark:text-white text-lg tracking-tight leading-snug line-clamp-2 group-hover:text-primary transition-colors">{product.name}</h3>
-          <span className="font-semibold text-gray-900 dark:text-white text-xl whitespace-nowrap">{formatPrice(product.price, locale)}</span>
+      <div className="p-4 sm:p-5 flex flex-col flex-1">
+        <div className="flex items-start justify-between gap-3 mb-2">
+          <h3 className="min-w-0 flex-1 break-words font-semibold text-gray-900 dark:text-white text-base sm:text-lg leading-snug line-clamp-2 group-hover:text-primary transition-colors">{product.name}</h3>
+          <span className="shrink-0 font-semibold text-gray-900 dark:text-white text-base sm:text-lg whitespace-nowrap">{formatPrice(product.price, locale)}</span>
         </div>
 
         {/* Rating */}
@@ -109,7 +109,7 @@ export default function ProductCard({ product, bookingEnabled }: { product: Prod
           {isBooking ? (
             <button
               onClick={handleBooking}
-              className="w-full bg-primary text-white hover:brightness-110 shadow-sm font-semibold py-2.5 px-4 rounded-xl transition-all text-sm flex items-center justify-center gap-2"
+              className="w-full bg-primary text-white hover:brightness-110 font-semibold py-2.5 px-4 rounded-xl transition-all text-sm flex items-center justify-center gap-2"
             >
               <Calendar size={16} />
               {t.productUi.bookShort}
@@ -118,7 +118,7 @@ export default function ProductCard({ product, bookingEnabled }: { product: Prod
             <button
               onClick={handleAdd}
               disabled={product.stock === 0}
-              className="w-full bg-primary text-white hover:brightness-110 shadow-sm font-semibold py-2.5 px-4 rounded-xl transition-all text-sm flex items-center justify-center gap-2"
+              className="w-full bg-primary text-white hover:brightness-110 font-semibold py-2.5 px-4 rounded-xl transition-all text-sm flex items-center justify-center gap-2"
             >
               <ShoppingCart size={16} />
               {product.stock === 0 ? t.productUi.soldOut : t.productUi.addShort}

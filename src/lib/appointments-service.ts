@@ -4,6 +4,7 @@
 import { AppointmentStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { patientKeyOf } from "@/lib/patient-key";
+import { findOrCreatePet } from "@/lib/pets";
 import {
   CalendarLink,
   dateKeyInClinicZone,
@@ -37,6 +38,9 @@ export interface CreateAppointmentInput {
   customerPhone: string | null;
   customerEmail: string | null;
   notes: string | null;
+  // Only for veterinary and pet-care tenants (see vertical-profile.ts); validated by the route.
+  petName?: string | null;
+  petSpecies?: string | null;
   calendar: CalendarDetails;
 }
 
@@ -81,6 +85,14 @@ export async function createAppointment(input: CreateAppointmentInput): Promise<
     const native = await getNativeBusyPeriods(tx, input.tenantId, date);
     if (!isSlotFree([...native, ...external], input.appointmentDate, end)) return null;
 
+    const patientKey = patientKeyOf(input.customerPhone);
+    const petId = await findOrCreatePet(tx, {
+      tenantId: input.tenantId,
+      patientKey,
+      name: input.petName ?? "",
+      species: input.petSpecies,
+    });
+
     return tx.appointment.create({
       data: {
         tenantId: input.tenantId,
@@ -92,7 +104,8 @@ export async function createAppointment(input: CreateAppointmentInput): Promise<
         status: input.status,
         customerName: input.customerName,
         customerPhone: input.customerPhone,
-        patientKey: patientKeyOf(input.customerPhone),
+        patientKey,
+        petId,
         customerEmail: input.customerEmail,
       },
       include: appointmentInclude,

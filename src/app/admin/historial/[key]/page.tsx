@@ -6,6 +6,8 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ChevronLeft, Loader2, Mail, Pencil, Phone } from "lucide-react";
 import { useTranslation } from "@/i18n";
+import { useTenantMeta } from "@/components/admin/TenantMeta";
+import { getVerticalProfile } from "@/lib/vertical-profile";
 import { localeFor, fill } from "@/lib/utils";
 import VisitNoteDialog from "@/components/admin/VisitNoteDialog";
 
@@ -15,6 +17,8 @@ interface Visit {
   durationMinutes: number;
   status: string;
   service: string | null;
+  petId: string | null;
+  petName: string | null;
   reason: string | null;
   note: { id: string; body: string; authorName: string | null; createdAt: string } | null;
 }
@@ -22,6 +26,7 @@ interface Visit {
 interface Timeline {
   patient: { patientKey: string; name: string | null; phone: string | null; emails: string[]; lastSeenAt: string | null };
   visits: Visit[];
+  pets: { id: string; name: string; species: string | null }[];
   orphanNotes: { id: string; body: string; authorName: string | null; createdAt: string }[];
 }
 
@@ -45,6 +50,8 @@ function ClampedText({ text, showMore, showLess }: { text: string; showMore: str
 
 export default function PatientHistoryPage() {
   const { t, lang } = useTranslation();
+  const { vertical, isBookingEnabled } = useTenantMeta();
+  const subjectText = t.crm.history.subjects[getVerticalProfile(vertical, isBookingEnabled).subject];
   const locale = localeFor(lang);
   const params = useParams<{ key: string }>();
   const patientKey = params.key;
@@ -53,9 +60,13 @@ export default function PatientHistoryPage() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [editingVisitId, setEditingVisitId] = useState<string | null>(null);
+  // Pet filter (veterinary and pet-care only); null shows every visit of the owner.
+  const [petFilter, setPetFilter] = useState<string | null>(null);
+  const usesPets = getVerticalProfile(vertical, isBookingEnabled).usesPets;
 
   const load = useCallback(() => {
-    return fetch(`/api/admin/historial/${patientKey}`)
+    const query = petFilter ? `?petId=${encodeURIComponent(petFilter)}` : "";
+    return fetch(`/api/admin/historial/${patientKey}${query}`)
       .then((r) => {
         if (r.status === 404) {
           setNotFound(true);
@@ -67,7 +78,7 @@ export default function PatientHistoryPage() {
         if (d) setTimeline(d);
       })
       .catch((e) => console.error("Error loading patient timeline:", e));
-  }, [patientKey]);
+  }, [patientKey, petFilter]);
 
   useEffect(() => {
     setLoading(true);
@@ -90,7 +101,7 @@ export default function PatientHistoryPage() {
     return (
       <div className="flex items-center gap-2 text-sm text-gray-500 py-12 justify-center">
         <Loader2 className="animate-spin text-primary" size={18} />
-        {t.crm.history.loading}
+        {subjectText.loading}
       </div>
     );
   }
@@ -100,9 +111,9 @@ export default function PatientHistoryPage() {
       <div className="space-y-4">
         <Link href="/admin/historial" className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
           <ChevronLeft size={16} aria-hidden="true" />
-          {t.crm.history.back}
+          {subjectText.back}
         </Link>
-        <p className="text-sm text-gray-500">{t.crm.history.empty}</p>
+        <p className="text-sm text-gray-500">{subjectText.empty}</p>
       </div>
     );
   }
@@ -116,7 +127,7 @@ export default function PatientHistoryPage() {
     <div className="space-y-6">
       <Link href="/admin/historial" className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
         <ChevronLeft size={16} aria-hidden="true" />
-        {t.crm.history.back}
+        {subjectText.back}
       </Link>
 
       <div className="space-y-2">
@@ -146,6 +157,29 @@ export default function PatientHistoryPage() {
         </p>
       </div>
 
+      {usesPets && timeline.pets.length > 0 && (
+        <div className="flex flex-wrap gap-2" role="group" aria-label={t.crm.history.petUi.petsColumn}>
+          {[{ id: null as string | null, name: t.crm.history.petUi.allPets }, ...timeline.pets.map((p) => ({ id: p.id as string | null, name: p.name }))].map((chip) => {
+            const active = petFilter === chip.id;
+            return (
+              <button
+                key={chip.id ?? "all"}
+                type="button"
+                onClick={() => setPetFilter(chip.id)}
+                aria-pressed={active}
+                className={`px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors ${
+                  active
+                    ? "bg-primary text-white border-primary"
+                    : "border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+                }`}
+              >
+                {chip.name}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <section className="space-y-3">
         <h2 className="text-base font-semibold text-gray-900 dark:text-white">{t.crm.history.timelineTitle}</h2>
         <ol className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 divide-y divide-gray-100 dark:divide-gray-800">
@@ -156,6 +190,7 @@ export default function PatientHistoryPage() {
                 <span className="text-xs text-gray-500 dark:text-gray-400">{v.durationMinutes} min</span>
                 <span className="text-xs text-gray-500 dark:text-gray-400">{statusLabel(v.status)}</span>
                 {v.service && <span className="text-xs text-gray-700 dark:text-gray-300">{v.service}</span>}
+                {usesPets && <span className="text-xs text-gray-700 dark:text-gray-300">{v.petName ?? t.crm.history.petUi.noPet}</span>}
               </div>
 
               {v.reason && (

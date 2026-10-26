@@ -215,3 +215,33 @@ export const CHAT_TOOLS: OpenRouterTool[] = [
     },
   },
 ];
+
+// Which helper tools a tenant gets. Sales tools need physical orders; appointment tools need booking.
+const TOOL_GROUP: Record<string, "sales" | "customers" | "reviews" | "appointments"> = {
+  get_sales_summary: "sales",
+  get_top_products: "sales",
+  get_orders_by_status: "sales",
+  get_revenue_trend: "sales",
+  get_products_performance: "sales",
+  get_low_stock_products: "sales",
+  get_top_customers: "sales", // ranks by money spent on orders
+  get_customer_stats: "customers",
+  get_product_reviews: "reviews",
+  get_appointments: "appointments",
+  get_appointments_summary: "appointments",
+  get_cancellation_patterns: "appointments",
+  get_busiest_slots: "appointments",
+};
+
+export function toolsFor(profile: { hasOrders: boolean; isBookingEnabled: boolean }): OpenRouterTool[] {
+  return CHAT_TOOLS.filter((tool) => {
+    const group = TOOL_GROUP[tool.function.name];
+    if (group === "sales") return profile.hasOrders;
+    if (group === "appointments") return profile.isBookingEnabled;
+    return true;
+  });
+}
+
+export function isToolAllowed(name: string, profile: { hasOrders: boolean; isBookingEnabled: boolean }): boolean {
+  return toolsFor(profile).some((tool) => tool.function.name === name);
+}

@@ -2,6 +2,7 @@
 import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { getTenantSlug } from "@/lib/tenant";
+import { getVerticalProfile } from "@/lib/vertical-profile";
 import BookingFlow from "@/components/shop/BookingFlow";
 import { parseBusinessHours } from "@/lib/business-hours";
 
@@ -19,6 +20,7 @@ export default async function AgendarPage({
       name: true,
       whatsappNumber: true,
       logoUrl: true,
+      vertical: true,
       isBookingEnabled: true,
       businessHours: true,
     },
@@ -49,6 +51,7 @@ export default async function AgendarPage({
           name: tenant.name,
           whatsappNumber: tenant.whatsappNumber,
           logoUrl: tenant.logoUrl,
+          usesPets: getVerticalProfile(tenant.vertical, tenant.isBookingEnabled).usesPets,
         }}
         businessHours={parseBusinessHours(tenant.businessHours)}
       />

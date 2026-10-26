@@ -403,10 +403,10 @@ POST /api/internal/render-post-banner
 
 ### 15.3 Rendering Pipeline
 1. Builds SVG overlay with gradient scrim, shadow filter, hero title, subtitle, and CTA pill button.
-2. Uploads SVG as PNG to `nutriologas/assets/temp` (temporary).
+2. Uploads SVG as PNG to `newaigent/<tenantId>/temp` (temporary, deleted after compositing).
 3. Uploads base `imageUrl` to Cloudinary with transformation: `fill crop 1080×1080` + overlay composite.
 4. Deletes temporary overlay asset (fire & forget).
-5. Returns composited banner URL stored in `nutriologas/{tenantId}/campaigns/banner_{timestamp}`.
+5. Returns composited banner URL stored in `newaigent/{tenantId}/campaigns/banner_{timestamp}`. `tenantId` is required; the request is refused without it.
 
 ---
 
@@ -426,10 +426,14 @@ All endpoints under `/api/internal/` are excluded from tenant middleware and aut
 | `/api/internal/bot/context` | POST | n8n (WhatsApp bot) | Tenant context for the agent: catalog with `bookable`, FAQs, opening hours, 14-day `calendarText`, `creditExhausted` |
 | `/api/internal/bot/alert-failure` | POST | n8n (WhatsApp bot) | Alert the owner that the bot's model cascade failed (60-minute cooldown) |
 | `/api/internal/campaigns/alert-failure` | POST | n8n (social campaigns) | Alert the owner that a scheduled post failed (60-minute cooldown) |
+| `/api/places/search`, `/api/places/details` | POST | sign-up and Negocio (public, rate limited per IP) | Address suggestions and place details from Google Places; the key stays on the server |
 | `/api/internal/reminders/run` | POST | n8n (reminders, every 15 min) | Send due appointment reminders, charge each one, release visits not confirmed by the deadline |
 | `/api/internal/bot/confirm` | POST | n8n (WhatsApp chat) | Confirm the customer's appointment after a reminder (only a clear "sí") |
 
 ---
+
+### Google Maps key (business address search)
+Set `GOOGLE_MAPS_API_KEY` (server only). In Google Cloud: link a billing account, enable **Places API (New)**, create an API key, restrict it to that API only (no application restriction on Vercel, which has no fixed IP), set it in `.env` or the Vercel environment variables and redeploy, and add a billing budget alert. Without the key the address field falls back to typed text. Test in `/admin/negocio`: suggestions appear after three characters.
 
 ## 17. Business Verticals & Service-Based Commerce
 
@@ -491,6 +495,11 @@ All instances provisioned via `POST /api/apps/connect/whatsapp` enforce the foll
 
 ---
 
+### 19.3 Pairing QR refresh
+- The QR is refreshed while the owner waits, like WhatsApp Web: `GET /api/apps/whatsapp/status` asks Evolution for a new code (`/instance/connect/<instance>`) when the stored one is older than 25 seconds (`QR_TTL_MS`), and stores it with `metadata.qrIssuedAt` and `metadata.qrRefreshes`.
+- After 8 refreshes (`MAX_QR_REFRESHES`, about 3 minutes) the status becomes `qr_expired` and the modal shows "El código QR expiró" with "Generar nuevo código", which runs `POST /api/apps/connect/whatsapp` again and restarts the count.
+- Helpers in `src/lib/whatsapp-qr.ts`. No schema change: the timing lives in `ConnectedApp.metadata`.
+
 ## 20. Appointment Reminders, Confirmation & Auto-Release
 
 ### 20.1 Behavior
@@ -528,3 +537,66 @@ All instances provisioned via `POST /api/apps/connect/whatsapp` enforce the foll
 - WhatsApp page, Settings tab, "Recordatorios y confirmación" card (timing and confirmation rules): `GET` and `PATCH /api/tenants/reminders` with those fields only.
 - WhatsApp page, Settings tab, "Mensajes al cliente" card (language and message texts): `PATCH /api/tenants/reminders` with those fields only.
 - WhatsApp page, Confirmaciones tab: `GET /api/apps/whatsapp/confirmations`, and `POST /api/apps/whatsapp/confirmations/[id]` with `action: confirm | release`.
+
+## 21. Vertical Profile & Pets
+
+### 21.1 Vertical profile
+- One pure module, `src/lib/vertical-profile.ts`, decides per business vertical: `hasOrders` (stores only), `serviceFirst` (sells by appointment), `subject` (`patient`, `pet`, `traveler` or `customer`), `usesPets`, and whether history and booking show (`isBookingEnabled`).
+- Unknown or missing verticals use the store profile (`ECOMMERCE`).
+- Consumers: `AdminSidebar` (orders, services label, history label, triage link), storefront home and products page (section titles), `ChatAssistant` (KPI labels), public layout (cart visibility), the history screens, the booking form and the Newy AI prompt.
+
+### 21.2 Newy AI helper tools
+- `src/lib/ai/tools.ts` tags each tool by group: `sales` (orders, products, stock and customer spending), `customers`, `reviews`, `appointments`.
+- `toolsFor(profile)` offers sales tools only with physical orders and appointment tools only with booking on. `isToolAllowed()` is checked in `POST /api/chat` before any tool runs; a refused call returns `tool_not_available_for_business` to the model.
+- The system prompt has directives for all eight verticals and says when there are no sales tools.
+
+### 21.3 Pets
+- Model `Pet` (table `pets`, unique per `tenantId + patientKey + nameKey`) and `Appointment.petId` (nullable, `ON DELETE SET NULL`).
+- Required only for `VETERINARY` and `PET_CARE`: `POST /api/appointments` and `POST /api/internal/bot/book` return `pet_required` (400) without a pet name. Species must be one of `dog`, `cat`, `bird`, `rabbit`, `other`; anything else is stored as empty.
+- The calendar title shows the pet: `Cita: <servicio> - <tutor> (<mascota>)`.
+- History (`GET /api/admin/historial`, `GET /api/admin/historial/[key]`): the pet queries run only for pet verticals. `?petId=` filters visits; the owner list shows pet names.
+- The bot gets `usesPets` from `POST /api/internal/bot/context`, sends `petName` and `petSpecies` to `bot/book` and gets `petName` back from `bot/my-appointments`. The prompt block "MASCOTAS" appears only when `usesPets` is true.
+- Test: `local-utils/check-pets.ts` (name rules, one pet per owner, rollback). `local-utils/check-vertical-profile.ts` covers the profile and the tool filter.
+
+### 21.4 Database changes (2026-10-26)
+- `CREATE TABLE "pets"` with its unique and lookup indexes and the tenant foreign key.
+- `ALTER TABLE "appointments" ADD COLUMN "petId"`, its foreign key (`ON DELETE SET NULL`) and the `(tenantId, petId)` index.
+- Applied with `prisma db execute`. `db:push` is never used: it would drop `whatsapp_bot_memory`.
+
+### 21.5 Database changes (location, 2026-10-26)
+- `ALTER TABLE "tenants"` added `ownerName TEXT`, `hasPhysicalLocation BOOLEAN NOT NULL DEFAULT false`, `address TEXT`, `placeId TEXT`, `latitude DOUBLE PRECISION`, `longitude DOUBLE PRECISION`.
+- Applied with `prisma db execute` and `ADD COLUMN IF NOT EXISTS`. No existing rows changed.
+
+### 21.6 Business location and public Places endpoints
+- `POST /api/places/search` and `POST /api/places/details` are public (sign-up has no session). They call Google Places API (New) with `GOOGLE_MAPS_API_KEY` on the server only.
+- Limit: 40 requests per minute per IP (`src/lib/rate-limit.ts`, best effort, in memory per server instance). Queries are limited to 120 characters.
+- `src/components/shared/AddressSearch.tsx` is the one address picker for sign-up and Negocio. If search fails (missing key, Google error, network), the text already typed becomes the address (at least 5 characters) and the form saves it without coordinates.
+- The landing page shows the owner and the address with a "Cómo llegar" link built by `directionsUrl()`. The bot receives `ownerName` and `locationText` from `bot/context`.
+
+### 21.7 Sidebar credits badge
+- The badge shows the used percentage (for example "7% Usado") and no dollar amounts or limit. The credits drawer keeps the amounts.
+
+### 21.8 Appointment rules for the WhatsApp bot
+- Cancelling or rescheduling calls `list_my_appointments` on every turn, before answering. The bot never reuses a list from earlier in the chat, and it never offers a visit whose time has passed.
+- The bot describes visits by service, day and time. It never shows an appointment ID.
+- Rescheduling moves the visit with `reschedule_appointment`. It never calls `book_appointment` and never asks for name or email.
+
+### 21.9 Check scripts
+- `local-utils/check-location.ts`: address schema, directions link, bot location text.
+- `local-utils/check-tenant-location-columns.ts`: reads the location columns on five tenants.
+- `local-utils/check-vertical-profile.ts`: vertical profile and tool filter.
+- `local-utils/check-pets.ts`: pet name rules and one pet per owner (uses a throwaway owner key and rolls back).
+- `local-utils/check-pets-columns.ts`: pets table and `petId` column are readable.
+
+### 21.10 Sign-up logo folder
+- The sign-up form sends the logo file with the form (`POST /api/tenants/register`, multipart: `payload` JSON and `logo` file; JSON still works without a logo). The server creates the business first and uploads the logo to `newaigent/<tenantId>/logo`. Nothing is uploaded to a shared sign-up folder.
+- Types allowed: JPEG, PNG, WebP, SVG; maximum 5 MB (`upload_invalid_type`). If the upload fails, sign-up still succeeds without a logo.
+- `POST /api/upload/public` was removed.
+
+### 21.11 Cloudinary folders and maintenance scripts
+- Root folder `newaigent` (constant in `src/lib/cloudinary-root.ts`). Tenant assets: `newaigent/<tenantId>/logo|products|carousel|campaigns|temp`.
+- No `signups` folder: the sign-up logo is uploaded after the tenant exists (see 21.10).
+- `render-post-banner` requires `tenantId`; the temporary overlay goes to `newaigent/<tenantId>/temp`.
+- Scripts: `local-utils/rename-cloudinary-root.ts` (folder rename, one-off, already run) and `local-utils/remove-cloudinary-signups.ts` (lists and removes the old staging folder only).
+- Product category endpoint is not cached (`force-dynamic` and a timestamp on the fetch), so new categories appear after a save.
+- Negocio logo: a URL that fails to load shows the empty-logo placeholder.

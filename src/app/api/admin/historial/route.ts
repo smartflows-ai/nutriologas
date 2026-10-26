@@ -5,6 +5,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { apiError } from "@/lib/api-errors";
 import { listPatients } from "@/lib/patients";
+import { prisma } from "@/lib/db";
+import { getVerticalProfile } from "@/lib/vertical-profile";
 
 const PAGE_SIZE = 20;
 
@@ -20,8 +22,14 @@ export async function GET(req: NextRequest) {
     const q = (searchParams.get("q") ?? "").slice(0, 80);
     const page = Math.max(1, Number(searchParams.get("page")) || 1);
 
-    const { patients, total } = await listPatients(tenantId, q, page, PAGE_SIZE);
-    return NextResponse.json({ patients, total, pageSize: PAGE_SIZE });
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { vertical: true, isBookingEnabled: true },
+    });
+    const withPets = getVerticalProfile(tenant?.vertical, tenant?.isBookingEnabled ?? false).usesPets;
+
+    const { patients, total } = await listPatients(tenantId, q, page, PAGE_SIZE, withPets);
+    return NextResponse.json({ patients, total, pageSize: PAGE_SIZE, withPets });
   } catch (error) {
     console.error("[GET /api/admin/historial] Error:", error);
     return apiError("internal_error", 500);
