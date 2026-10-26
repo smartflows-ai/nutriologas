@@ -84,6 +84,13 @@ export default function ReminderSettingsCard() {
     windowHours >= 1
       ? fill(tx.reminderWindowLine, { hours: windowHours })
       : tx.reminderWindowShort;
+  // Same bounds as the API (/api/tenants/reminders): lead 2 to 72 h, deadline 1 to 48 h, deadline earlier than lead.
+  const settingsValid =
+    settings.reminderLeadHours >= 2 &&
+    settings.reminderLeadHours <= 72 &&
+    settings.confirmationDeadlineHours >= 1 &&
+    settings.confirmationDeadlineHours <= 48 &&
+    (!settings.confirmationRequired || settings.confirmationDeadlineHours < settings.reminderLeadHours);
 
   return (
     <section className="p-6 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 space-y-5">
@@ -148,6 +155,13 @@ export default function ReminderSettingsCard() {
         </div>
       )}
 
+      {!settingsValid && (
+        <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 flex items-center gap-3 text-red-700 dark:text-red-300 text-sm">
+          <AlertCircle size={16} className="shrink-0" />
+          <span>{tx.reminderWindowInvalid}</span>
+        </div>
+      )}
+
       {error && (
         <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 flex items-center gap-3 text-red-700 dark:text-red-300 text-sm">
           <AlertCircle size={16} className="shrink-0" />
@@ -167,7 +181,7 @@ export default function ReminderSettingsCard() {
         <button
           type="button"
           onClick={handleSave}
-          disabled={saving}
+          disabled={saving || !settingsValid}
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-primary hover:bg-primary/90 transition-all disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
         >
           {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}

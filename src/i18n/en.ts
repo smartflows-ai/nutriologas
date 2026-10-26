@@ -29,6 +29,8 @@ export const en: Translations = {
     confirmedReply: "Thank you! Your *[Service]* appointment on [Date] at [Time] is confirmed.",
     ownerConfirmedText: "Your *[Service]* appointment on [Date] at [Time] is confirmed. See you then!",
     confirmationLanguageName: "English",
+    greetingIntro: "Hi, I'm the WhatsApp assistant for *{negocio}*. How can I help you?",
+    greetingShort: "Hi! How can I help you?",
   },
   nav: {
     features: "Features",
@@ -613,6 +615,7 @@ export const en: Translations = {
       reminderLeadLabel: "Send the reminder (hours before the visit)",
       reminderWindowLine: "The customer has {hours} hours to confirm.",
       reminderWindowShort: "The window is too short to confirm: visits booked inside it count as confirmed.",
+      reminderWindowInvalid: "Release must be at least 1 hour before the reminder, and the reminder at least 2 hours before the visit.",
       confirmationRequiredLabel: "Ask for confirmation",
       confirmationRequiredHint: "If the patient does not reply SI before the deadline, the visit is cancelled and the slot is freed in the agenda and the calendar.",
       deadlineHoursLabel: "Release the visit if not confirmed (hours before the visit)",

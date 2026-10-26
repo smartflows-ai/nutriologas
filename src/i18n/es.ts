@@ -29,6 +29,8 @@ export const es: Translations = {
     confirmedReply: "¡Gracias! Tu cita de *[Servicio]* el [Fecha] a las [Hora] queda confirmada.",
     ownerConfirmedText: "Tu cita de *[Servicio]* el [Fecha] a las [Hora] queda confirmada. ¡Te esperamos!",
     confirmationLanguageName: "Español",
+    greetingIntro: "Hola, soy el asistente de WhatsApp de *{negocio}*. ¿En qué te puedo ayudar?",
+    greetingShort: "¡Hola! ¿En qué te puedo ayudar?",
   },
   nav: {
     features: "Funciones",
@@ -613,6 +615,7 @@ export const es: Translations = {
       reminderLeadLabel: "Enviar el recordatorio (horas antes de la cita)",
       reminderWindowLine: "El cliente tiene {hours} horas para confirmar.",
       reminderWindowShort: "El lapso es muy corto para confirmar: las citas reservadas en ese tiempo se dan por confirmadas.",
+      reminderWindowInvalid: "La liberación debe ser al menos 1 hora antes del recordatorio, y el recordatorio debe ser de 2 horas o más antes de la cita.",
       confirmationRequiredLabel: "Pedir confirmación",
       confirmationRequiredHint: "Si el paciente no responde SI antes del plazo, la cita se cancela y el horario queda libre en la agenda y en el calendario.",
       deadlineHoursLabel: "Liberar la cita si no confirma (horas antes de la cita)",

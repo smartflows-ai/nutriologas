@@ -18,6 +18,7 @@ const TIME_REGEX = /^\d{2}:\d{2}$/;
 export interface BotTenant {
   tenantId: string;
   tenantName: string;
+  messageLanguage: string;
   businessInfo: string | null;
   ownerName: string | null;
   locationText: string;
@@ -49,6 +50,7 @@ export async function resolveBotTenant(instance: unknown): Promise<BotTenant | n
         select: {
           id: true,
           name: true,
+          messageLanguage: true,
           businessInfo: true,
           vertical: true,
           ownerName: true,
@@ -70,6 +72,7 @@ export async function resolveBotTenant(instance: unknown): Promise<BotTenant | n
   return {
     tenantId: app.tenant.id,
     tenantName: app.tenant.name,
+    messageLanguage: app.tenant.messageLanguage,
     businessInfo: app.tenant.businessInfo,
     ownerName: app.tenant.ownerName,
     locationText: locationTextForBot(app.tenant),

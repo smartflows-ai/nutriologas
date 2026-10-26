@@ -31,6 +31,8 @@ export interface Translations {
     confirmedReply: string;
     ownerConfirmedText: string;
     confirmationLanguageName: string;
+    greetingIntro: string;
+    greetingShort: string;
   };
   nav: {
     features: string;
@@ -544,6 +546,7 @@ export interface Translations {
       reminderLeadLabel: string;
       reminderWindowLine: string;
       reminderWindowShort: string;
+      reminderWindowInvalid: string;
       confirmationRequiredLabel: string;
       confirmationRequiredHint: string;
       deadlineHoursLabel: string;

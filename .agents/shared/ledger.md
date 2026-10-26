@@ -633,3 +633,9 @@ Decisions made:
 **Done:** `bot/book` and `bot/reschedule` return `location` (the office address and map link, or null). The chat workflow prompt adds a "Ubicación:" line to the confirmation when that field has text. Checks: `tsc --noEmit` clean; checker 0 problems.
 
 **Open:** Re-import the chat workflow in n8n and test a booking with an owner who has a physical location. Owner-confirmation and web confirmation messages do not include the location yet (not requested).
+
+## 2026-10-26 — Bot greeting and introduction window
+
+**Done:** `src/lib/greeting.ts` (pure): a plain greeting gets a fixed reply; the bot introduces itself when no message (bot or owner) was written to the contact in the last 12 hours. `bot/context` takes `text`, `customerPhone`, `remoteJid`, `remoteJidAlt` and returns `greetingReply` and `introRequired`. Chat workflow: `Get Bot Context` sends those fields; new `Guard: Greeting Reply` branch writes and sends the reply without calling the agent; the agent prompt takes PRESENTACION from `introRequired` instead of the model's history. Texts in `customerMessages.greetingIntro` / `greetingShort` (es, en). Checks: `local-utils/check-greeting.ts` passes, `tsc --noEmit` clean, checker 0 problems, the prompt renders for both flags.
+
+**Open:** Re-import the chat workflow in n8n and test with a number that has no history, then with the same number after 12 hours (or a test chat). The tenant-editable greeting and the assistant name are for later (decided).

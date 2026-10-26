@@ -7,6 +7,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased] — 2026-10-26
 
 ### Changed
+- WhatsApp bot greeting: a plain greeting gets a fixed reply from the server (no model call, no AI credits). The bot introduces itself ("soy el asistente de WhatsApp de [negocio]") when nobody wrote to the contact in the last 12 hours, not only on the first message. The chat workflow sends the reply and stores it as a bot message; the agent receives the introduction flag from the server. Re-import the chat workflow in n8n to apply.
 - WhatsApp bot: a booked or rescheduled appointment includes the office address and map link when the owner set a physical location. `bot/book` and `bot/reschedule` return `location` (null without a physical location); the chat workflow prompt adds the "Ubicación" line. Re-import the chat workflow in n8n to apply.
 - WhatsApp bot introduces itself in its first reply of a conversation ("Hola, soy el asistente de WhatsApp de [negocio]."). Prompt rule in the chat workflow; the reply cleaner keeps the introduction. Re-import the chat workflow in n8n to apply.
 - Cancellation notice for lack of confirmation: the default text (es and en) now names the service, date and time, says the slot is free, and invites the customer to book again. Owners with their own text keep it.
