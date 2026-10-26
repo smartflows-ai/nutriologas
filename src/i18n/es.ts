@@ -615,7 +615,7 @@ export const es: Translations = {
       reminderLeadLabel: "Enviar el recordatorio (horas antes de la cita)",
       reminderWindowLine: "El cliente tiene {hours} horas para confirmar.",
       reminderWindowShort: "El lapso es muy corto para confirmar: las citas reservadas en ese tiempo se dan por confirmadas.",
-      reminderWindowInvalid: "La liberación debe ser al menos 1 hora antes del recordatorio, y el recordatorio debe ser de 2 horas o más antes de la cita.",
+      reminderWindowInvalid: "El recordatorio debe ir al menos 1 hora antes de la cita, la liberación al menos 30 minutos antes, y la liberación siempre antes del recordatorio.",
       confirmationRequiredLabel: "Pedir confirmación",
       confirmationRequiredHint: "Si el paciente no responde SI antes del plazo, la cita se cancela y el horario queda libre en la agenda y en el calendario.",
       deadlineHoursLabel: "Liberar la cita si no confirma (horas antes de la cita)",

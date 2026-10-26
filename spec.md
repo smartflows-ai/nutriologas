@@ -503,9 +503,9 @@ All instances provisioned via `POST /api/apps/connect/whatsapp` enforce the foll
 ## 20. Appointment Reminders, Confirmation & Auto-Release
 
 ### 20.1 Behavior
-- A tenant may send one reminder per appointment, `reminderLeadHours` before the visit (2 to 72). The send moment is exact, also at night. The reminder asks the customer to reply SI to confirm when a window is available.
-- If confirmation is required and the customer has not replied by the deadline (`confirmationDeadlineHours` before the visit), the appointment is cancelled, its calendar event is removed, and the slot is freed in the database and on Google or Outlook. The customer receives a cancellation notice.
-- The window to answer is the time between the reminder and the release (`reminderLeadHours` minus `confirmationDeadlineHours`). It must be at least 30 minutes; a shorter window counts the visit as confirmed. An appointment booked after its reminder moment is due at once, if its window still allows an answer. Without a phone number, nothing is sent and nothing is released.
+- A tenant may send one reminder per appointment, `reminderLeadMinutes` before the visit (60 to 4320 minutes, steps of 30). The send moment is exact, also at night. The reminder asks the customer to reply SI to confirm when a window is available.
+- If confirmation is required and the customer has not replied by the deadline (`confirmationDeadlineMinutes` before the visit), the appointment is cancelled, its calendar event is removed, and the slot is freed in the database and on Google or Outlook. The customer receives a cancellation notice.
+- The window to answer is the time between the reminder and the release (`reminderLeadMinutes` minus `confirmationDeadlineMinutes`). It must be at least 30 minutes; a shorter window counts the visit as confirmed. An appointment booked after its reminder moment is due at once, if its window still allows an answer. Without a phone number, nothing is sent and nothing is released.
 - The owner can confirm or release any waiting visit by hand from the Confirmaciones tab of the WhatsApp page.
 
 ### 20.2 Pricing Invariant
@@ -524,6 +524,7 @@ All instances provisioned via `POST /api/apps/connect/whatsapp` enforce the foll
 - No business-hours adjustment: the reminder is sent at the computed instant.
 - Legacy columns `reminderMode` and `reminderSendTime` are kept in the database and no longer read.
 - Column added with `ALTER TABLE "tenants" ADD COLUMN IF NOT EXISTS "reminderLeadHours" INTEGER NOT NULL DEFAULT 24` (existing tenants start at 24 hours).
+- Minute columns (current): `tenants.reminderLeadMinutes` (default 1440) and `tenants.confirmationDeadlineMinutes` (default 120), added with `ALTER TABLE` and filled from the hour columns with `UPDATE ... SET ... = ... * 60`. The hour columns are legacy and no longer read. Settings are saved in steps of 30 minutes.
 - Checked by `local-utils/check-reminders.ts`.
 
 ### 20.5 Execution

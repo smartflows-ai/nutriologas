@@ -1,21 +1,21 @@
 // src/lib/reminders.ts
 // Pure scheduling rules for appointment reminders and auto-release. No I/O.
-// The reminder goes out `leadHours` before the visit, and the visit is released `deadlineHours` before it
+// The reminder goes out `leadMinutes` before the visit, and the visit is released `deadlineMinutes` before it
 // when the customer has not answered SI. The time between the two is the customer's window to confirm.
-const HOUR_MS = 60 * 60 * 1000;
+
 const MINUTE_MS = 60 * 1000;
 
 /** Shortest window (minutes) in which a customer can realistically answer. Shorter windows count as confirmed. */
 export const MIN_ANSWER_MINUTES = 30;
 
 /** Instant when the visit is released if the customer did not confirm. */
-export function releaseAt(apptStart: Date, deadlineHours: number): Date {
-  return new Date(apptStart.getTime() - deadlineHours * HOUR_MS);
+export function releaseAt(apptStart: Date, deadlineMinutes: number): Date {
+  return new Date(apptStart.getTime() - deadlineMinutes * MINUTE_MS);
 }
 
-/** Instant when the reminder is due: `leadHours` before the visit. Exact time, even at night. */
-export function reminderSendAt(apptStart: Date, leadHours: number): Date {
-  return new Date(apptStart.getTime() - leadHours * HOUR_MS);
+/** Instant when the reminder is due: `leadMinutes` before the visit. Exact time, even at night. */
+export function reminderSendAt(apptStart: Date, leadMinutes: number): Date {
+  return new Date(apptStart.getTime() - leadMinutes * MINUTE_MS);
 }
 
 export interface ReminderPlan {
@@ -40,14 +40,14 @@ export interface ReminderPlan {
 export function planReminder(input: {
   apptStart: Date;
   createdAt: Date;
-  leadHours: number;
-  deadlineHours: number;
+  leadMinutes: number;
+  deadlineMinutes: number;
   confirmationRequired: boolean;
 }): ReminderPlan {
-  const scheduled = reminderSendAt(input.apptStart, input.leadHours);
+  const scheduled = reminderSendAt(input.apptStart, input.leadMinutes);
   const bookedLate = input.createdAt.getTime() > scheduled.getTime();
   const sendAt = bookedLate ? input.createdAt : scheduled;
-  const deadline = releaseAt(input.apptStart, input.deadlineHours);
+  const deadline = releaseAt(input.apptStart, input.deadlineMinutes);
   const windowMs = deadline.getTime() - sendAt.getTime();
 
   if (input.confirmationRequired && windowMs >= MIN_ANSWER_MINUTES * MINUTE_MS) {

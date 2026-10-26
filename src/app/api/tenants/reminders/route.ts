@@ -9,9 +9,9 @@ import { validateConfirmationTemplate, validateTemplateLength } from "@/lib/remi
 
 const SELECT = {
   remindersEnabled: true,
-  reminderLeadHours: true,
+  reminderLeadMinutes: true,
   confirmationRequired: true,
-  confirmationDeadlineHours: true,
+  confirmationDeadlineMinutes: true,
   reminderTemplate: true,
   confirmationTemplate: true,
   cancellationTemplate: true,
@@ -22,9 +22,11 @@ const templateField = z.string().max(600).nullable().optional();
 
 const reminderSettingsSchema = z.object({
   remindersEnabled: z.boolean().optional(),
-  reminderLeadHours: z.number().int().min(2).max(72).optional(),
+  // Minutes in steps of 30: the reminder goes out 1 to 72 hours before the visit.
+  reminderLeadMinutes: z.number().int().min(60).max(4320).refine((m) => m % 30 === 0).optional(),
   confirmationRequired: z.boolean().optional(),
-  confirmationDeadlineHours: z.number().int().min(1).max(48).optional(),
+  // Release 30 minutes to 48 hours before the visit, in steps of 30.
+  confirmationDeadlineMinutes: z.number().int().min(30).max(2880).refine((m) => m % 30 === 0).optional(),
   messageLanguage: z.enum(["es", "en"]).optional(),
   reminderTemplate: templateField,
   confirmationTemplate: templateField,
@@ -72,14 +74,14 @@ export async function PATCH(req: Request) {
   }
 
   // The answer window (lead minus deadline) must be wide enough to answer: check it against the stored values too.
-  if (data.reminderLeadHours !== undefined || data.confirmationDeadlineHours !== undefined) {
+  if (data.reminderLeadMinutes !== undefined || data.confirmationDeadlineMinutes !== undefined) {
     const current = await prisma.tenant.findUnique({
       where: { id: session.user.tenantId },
-      select: { reminderLeadHours: true, confirmationDeadlineHours: true },
+      select: { reminderLeadMinutes: true, confirmationDeadlineMinutes: true },
     });
     if (!current) return apiError("tenant_not_found", 404);
-    const lead = data.reminderLeadHours ?? current.reminderLeadHours;
-    const deadline = data.confirmationDeadlineHours ?? current.confirmationDeadlineHours;
+    const lead = data.reminderLeadMinutes ?? current.reminderLeadMinutes;
+    const deadline = data.confirmationDeadlineMinutes ?? current.confirmationDeadlineMinutes;
     if (deadline >= lead) return apiError("reminder_window_invalid", 400);
   }
 

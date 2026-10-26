@@ -42,11 +42,13 @@ model Tenant {
   botFailureAlertedAt DateTime? // Last time the owner was alerted that the WhatsApp bot's model cascade failed (throttles repeat alerts)
   remindersEnabled       Boolean @default(true)   // Recordatorios de cita por WhatsApp
   reminderOffsetsMinutes Int[]   @default([1440, 120]) // Legacy: ya no se usa (reemplazado por reminderMode)
-  reminderLeadHours         Int     @default(24) // Horas antes de la cita en que sale el recordatorio
+  reminderLeadMinutes       Int     @default(1440) // Minutos antes de la cita en que sale el recordatorio (múltiplos de 30)
+  reminderLeadHours         Int     @default(24) // Legacy: reemplazado por reminderLeadMinutes
   reminderMode              String  @default("DAY_BEFORE") // Legacy: reemplazado por reminderLeadHours
   reminderSendTime          String  @default("09:00") // Legacy: reemplazado por reminderLeadHours (HH:mm, hora de Mexico)
   confirmationRequired      Boolean @default(true)
-  confirmationDeadlineHours Int     @default(2)
+  confirmationDeadlineMinutes Int   @default(120) // Minutos antes de la cita en que se libera si no confirma (múltiplos de 30)
+  confirmationDeadlineHours Int     @default(2) // Legacy: reemplazado por confirmationDeadlineMinutes
   reminderTemplate          String?
   confirmationTemplate      String?
   cancellationTemplate      String?

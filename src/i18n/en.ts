@@ -615,7 +615,7 @@ export const en: Translations = {
       reminderLeadLabel: "Send the reminder (hours before the visit)",
       reminderWindowLine: "The customer has {hours} hours to confirm.",
       reminderWindowShort: "The window is too short to confirm: visits booked inside it count as confirmed.",
-      reminderWindowInvalid: "Release must be at least 1 hour before the reminder, and the reminder at least 2 hours before the visit.",
+      reminderWindowInvalid: "The reminder must go out at least 1 hour before the visit, the release at least 30 minutes before it, and the release must come before the reminder.",
       confirmationRequiredLabel: "Ask for confirmation",
       confirmationRequiredHint: "If the patient does not reply SI before the deadline, the visit is cancelled and the slot is freed in the agenda and the calendar.",
       deadlineHoursLabel: "Release the visit if not confirmed (hours before the visit)",

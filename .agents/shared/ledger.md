@@ -639,3 +639,11 @@ Decisions made:
 **Done:** `src/lib/greeting.ts` (pure): a plain greeting gets a fixed reply; the bot introduces itself when no message (bot or owner) was written to the contact in the last 12 hours. `bot/context` takes `text`, `customerPhone`, `remoteJid`, `remoteJidAlt` and returns `greetingReply` and `introRequired`. Chat workflow: `Get Bot Context` sends those fields; new `Guard: Greeting Reply` branch writes and sends the reply without calling the agent; the agent prompt takes PRESENTACION from `introRequired` instead of the model's history. Texts in `customerMessages.greetingIntro` / `greetingShort` (es, en). Checks: `local-utils/check-greeting.ts` passes, `tsc --noEmit` clean, checker 0 problems, the prompt renders for both flags.
 
 **Open:** Re-import the chat workflow in n8n and test with a number that has no history, then with the same number after 12 hours (or a test chat). The tenant-editable greeting and the assistant name are for later (decided).
+
+## 2026-10-26 — Reminder timing in half hours (minute columns)
+
+**Done:** Added `tenants.reminderLeadMinutes` (default 1440) and `tenants.confirmationDeadlineMinutes` (default 120) with `prisma db execute` (approved by the user), copying the hour values times 60. Planner, run route, confirmations route, settings API, card and check scripts now use minutes. The card shows hours in half-hour steps and blocks invalid windows with the reason (the earlier error came from a lead of 1 h sent to an API that required 2 h). Checks: `tsc --noEmit` clean; `check-reminders`, `check-reminder-messages`, `check-greeting`, `check-confirmation-words` pass; the dry run sent nothing.
+
+**Found:** Live rows show `reminderSentAt` set for two visits (21:30 UTC), so the production job wrote to this same database. The local count of zero earlier was before those sends.
+
+**Open:** Production must deploy this code before the settings card and the new columns are used there; the hour columns stay as legacy for one release.

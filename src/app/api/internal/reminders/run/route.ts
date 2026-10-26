@@ -48,9 +48,9 @@ export async function POST(req: NextRequest) {
         select: {
           name: true,
           messageLanguage: true,
-          reminderLeadHours: true,
+          reminderLeadMinutes: true,
           confirmationRequired: true,
-          confirmationDeadlineHours: true,
+          confirmationDeadlineMinutes: true,
           reminderTemplate: true,
           confirmationTemplate: true,
           cancellationTemplate: true,
@@ -67,11 +67,11 @@ export async function POST(req: NextRequest) {
     const plan = planReminder({
       apptStart: appt.appointmentDate,
       createdAt: appt.createdAt,
-      leadHours: t.reminderLeadHours,
-      deadlineHours: t.confirmationDeadlineHours,
+      leadMinutes: t.reminderLeadMinutes,
+      deadlineMinutes: t.confirmationDeadlineMinutes,
       confirmationRequired: t.confirmationRequired,
     });
-    const deadline = releaseAt(appt.appointmentDate, t.confirmationDeadlineHours);
+    const deadline = releaseAt(appt.appointmentDate, t.confirmationDeadlineMinutes);
     const hasPhone = Boolean(appt.customerPhone);
 
     // Release: a confirmation was requested, the deadline passed, and the customer did not answer.

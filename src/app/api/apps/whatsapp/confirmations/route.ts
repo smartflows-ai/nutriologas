@@ -15,7 +15,7 @@ export async function GET() {
   const now = new Date();
   const tenant = await prisma.tenant.findUnique({
     where: { id: tenantId },
-    select: { confirmationDeadlineHours: true },
+    select: { confirmationDeadlineMinutes: true },
   });
   if (!tenant) return apiError("tenant_not_found", 404);
 
@@ -42,7 +42,7 @@ export async function GET() {
   });
 
   return NextResponse.json({
-    deadlineHours: tenant.confirmationDeadlineHours,
+    deadlineMinutes: tenant.confirmationDeadlineMinutes,
     items: visits.map((v) => ({
       id: v.id,
       customerName: v.customerName,
@@ -51,7 +51,7 @@ export async function GET() {
       appointmentDate: v.appointmentDate.toISOString(),
       durationMinutes: v.durationMinutes,
       reminderSentAt: v.reminderSentAt?.toISOString() ?? null,
-      releaseAt: releaseAt(v.appointmentDate, tenant.confirmationDeadlineHours).toISOString(),
+      releaseAt: releaseAt(v.appointmentDate, tenant.confirmationDeadlineMinutes).toISOString(),
     })),
   });
 }

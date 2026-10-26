@@ -1,7 +1,8 @@
 "use client";
 // src/components/admin/ReminderSettingsCard.tsx
 // Reminder timing and confirmation rules. Saves on its own through /api/tenants/reminders, sending only these fields.
-// The reminder goes out `reminderLeadHours` before the visit; the visit is released `confirmationDeadlineHours` before it.
+// The reminder goes out `reminderLeadMinutes` before the visit; the visit is released `confirmationDeadlineMinutes`
+// before it. The screen shows hours in half-hour steps; the stored values are minutes.
 import { useEffect, useState } from "react";
 import { BellRing, Check, Loader2, AlertCircle } from "lucide-react";
 import { useTranslation } from "@/i18n";
@@ -10,13 +11,17 @@ import { fill } from "@/lib/utils";
 
 interface TimingSettings {
   remindersEnabled: boolean;
-  reminderLeadHours: number;
+  reminderLeadMinutes: number;
   confirmationRequired: boolean;
-  confirmationDeadlineHours: number;
+  confirmationDeadlineMinutes: number;
 }
 
 const inputClass =
   "w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-primary";
+
+// Minutes shown as hours (1.5 = 1 h 30 min) and back.
+const toHours = (minutes: number) => minutes / 60;
+const toMinutes = (hours: number) => Math.round(hours * 60);
 
 export default function ReminderSettingsCard() {
   const { t } = useTranslation();
@@ -50,9 +55,9 @@ export default function ReminderSettingsCard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           remindersEnabled: settings.remindersEnabled,
-          reminderLeadHours: settings.reminderLeadHours,
+          reminderLeadMinutes: settings.reminderLeadMinutes,
           confirmationRequired: settings.confirmationRequired,
-          confirmationDeadlineHours: settings.confirmationDeadlineHours,
+          confirmationDeadlineMinutes: settings.confirmationDeadlineMinutes,
         }),
       });
       if (!res.ok) {
@@ -78,19 +83,17 @@ export default function ReminderSettingsCard() {
     ) : null;
   }
 
-  // Hours the customer has between the reminder and the release. Negative or zero means no room to answer.
-  const windowHours = settings.reminderLeadHours - settings.confirmationDeadlineHours;
+  // Same bounds as the API (/api/tenants/reminders): lead 1 to 72 h, deadline 30 min to 48 h, in steps of 30 min,
+  // and the deadline always earlier than the reminder.
+  const leadOk = settings.reminderLeadMinutes >= 60 && settings.reminderLeadMinutes <= 4320 && settings.reminderLeadMinutes % 30 === 0;
+  const deadlineOk =
+    settings.confirmationDeadlineMinutes >= 30 && settings.confirmationDeadlineMinutes <= 2880 && settings.confirmationDeadlineMinutes % 30 === 0;
+  const settingsValid = leadOk && deadlineOk && settings.confirmationDeadlineMinutes < settings.reminderLeadMinutes;
+
+  // Time the customer has between the reminder and the release.
+  const windowMinutes = settings.reminderLeadMinutes - settings.confirmationDeadlineMinutes;
   const windowText =
-    windowHours >= 1
-      ? fill(tx.reminderWindowLine, { hours: windowHours })
-      : tx.reminderWindowShort;
-  // Same bounds as the API (/api/tenants/reminders): lead 2 to 72 h, deadline 1 to 48 h, deadline earlier than lead.
-  const settingsValid =
-    settings.reminderLeadHours >= 2 &&
-    settings.reminderLeadHours <= 72 &&
-    settings.confirmationDeadlineHours >= 1 &&
-    settings.confirmationDeadlineHours <= 48 &&
-    (!settings.confirmationRequired || settings.confirmationDeadlineHours < settings.reminderLeadHours);
+    windowMinutes >= 60 ? fill(tx.reminderWindowLine, { hours: toHours(windowMinutes) }) : tx.reminderWindowShort;
 
   return (
     <section className="p-6 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 space-y-5">
@@ -119,10 +122,11 @@ export default function ReminderSettingsCard() {
         <input
           id="reminder-lead"
           type="number"
-          min={2}
+          min={1}
           max={72}
-          value={settings.reminderLeadHours}
-          onChange={(e) => update({ reminderLeadHours: Number(e.target.value) })}
+          step={0.5}
+          value={toHours(settings.reminderLeadMinutes)}
+          onChange={(e) => update({ reminderLeadMinutes: toMinutes(Number(e.target.value)) })}
           className={`${inputClass} sm:w-40`}
         />
       </div>
@@ -145,10 +149,11 @@ export default function ReminderSettingsCard() {
           <input
             id="reminder-deadline"
             type="number"
-            min={1}
+            min={0.5}
             max={48}
-            value={settings.confirmationDeadlineHours}
-            onChange={(e) => update({ confirmationDeadlineHours: Number(e.target.value) })}
+            step={0.5}
+            value={toHours(settings.confirmationDeadlineMinutes)}
+            onChange={(e) => update({ confirmationDeadlineMinutes: toMinutes(Number(e.target.value)) })}
             className={`${inputClass} sm:w-40`}
           />
           <p className="text-xs text-gray-500 dark:text-gray-400">{windowText}</p>
