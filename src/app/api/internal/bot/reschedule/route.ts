@@ -73,5 +73,7 @@ export async function POST(req: NextRequest) {
     date,
     time: formatSlotTime(slot.start),
     durationMinutes: duration,
+    // Office address and map link when the owner set a physical location; null otherwise.
+    location: bot.locationText || null,
   });
 }

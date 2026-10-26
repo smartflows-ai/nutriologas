@@ -621,3 +621,15 @@ Decisions made:
 **Done:** Replaced the day-before / same-day mode and fixed send time with `reminderLeadHours` (exact moment before the visit). The release stays `confirmationDeadlineHours` before the visit. Rules in `src/lib/reminders.ts`: a window under 30 minutes counts as confirmed; late bookings are due at once when the window allows an answer. Column added with `prisma db execute` (approved by the user; additive, default 24). Schema, run route, settings API, card, i18n, check scripts and docs updated. Checks: `tsc --noEmit` clean, `check-reminders.ts` and `check-reminder-messages.ts` pass, `check-reminders-dryrun.ts` run against the live database (dry run only, nothing sent).
 
 **Open:** Existing tenants start at 24 hours; set lead and deadline in `/admin/whatsapp` before relying on the new timing. Real-phone test: lead 4 h, deadline 2 h, book a visit 5 h away; the request should arrive within 15 minutes of the 4-hour mark, and the visit should be released at the 2-hour mark without SI. Still pending: bot-booked visits saved as CONFIRMED, and owner confirmation not counting for release.
+
+## 2026-10-26 — Bot introduces itself on first reply
+
+**Done:** Added a prompt rule in `n8n/workflows/n8n-chat-workflow-v2.json` (Bot Agent): on the first reply of a conversation, introduce the business assistant; not again later. `Clean Reply` keeps an introduction ("soy el asistente…") instead of stripping the opening word. The checker passes with 0 problems.
+
+**Open:** Re-import `n8n/workflows/n8n-chat-workflow-v2.json` in n8n and test with a new chat. The workflow file is not in git yet (see the secrets decision).
+
+## 2026-10-26 — Office location in bot bookings and reschedules
+
+**Done:** `bot/book` and `bot/reschedule` return `location` (the office address and map link, or null). The chat workflow prompt adds a "Ubicación:" line to the confirmation when that field has text. Checks: `tsc --noEmit` clean; checker 0 problems.
+
+**Open:** Re-import the chat workflow in n8n and test a booking with an owner who has a physical location. Owner-confirmation and web confirmation messages do not include the location yet (not requested).

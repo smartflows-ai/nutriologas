@@ -7,6 +7,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased] — 2026-10-26
 
 ### Changed
+- WhatsApp bot: a booked or rescheduled appointment includes the office address and map link when the owner set a physical location. `bot/book` and `bot/reschedule` return `location` (null without a physical location); the chat workflow prompt adds the "Ubicación" line. Re-import the chat workflow in n8n to apply.
+- WhatsApp bot introduces itself in its first reply of a conversation ("Hola, soy el asistente de WhatsApp de [negocio]."). Prompt rule in the chat workflow; the reply cleaner keeps the introduction. Re-import the chat workflow in n8n to apply.
 - Cancellation notice for lack of confirmation: the default text (es and en) now names the service, date and time, says the slot is free, and invites the customer to book again. Owners with their own text keep it.
 - Reminders are timed from each visit, not from a clock time. `reminderLeadHours` (2 to 72) sets when the reminder goes out, and `confirmationDeadlineHours` (1 to 48) sets when an unanswered visit is released. The window between them must be at least 30 minutes; shorter windows count the visit as confirmed. The reminder goes out at the exact moment, also at night. The day-before mode and the fixed send time are removed from the screen (the columns stay as legacy).
 - Database: column `tenants.reminderLeadHours` added (default 24, so existing tenants keep a day-before reminder with their deadline).

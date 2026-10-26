@@ -109,6 +109,8 @@ Tel: ${customerPhone}`,
       time: formatSlotTime(slot.start),
       durationMinutes: duration,
       meetLink,
+      // Office address and map link when the owner set a physical location; null otherwise.
+      location: bot.locationText || null,
     },
     { status: 201 }
   );
