@@ -595,3 +595,29 @@ Decisions made:
 **Lesson:** The poll compared against the stored QR, which was only written at connect time, so an expired code stayed on screen forever. The fix had to refresh on the server, not only on the client.
 
 **Open:** Test with a real phone: wait past 25 seconds and check the code changes; wait past about 3 minutes and check the expired message and the regenerate button.
+
+## 2026-10-26 — Newy AI can read the FAQs
+
+**Done:** Added the `get_faqs` helper tool (tenant-scoped `fAQ` rows, active only, sorted by `sortOrder`) for every vertical, plus a line in the system prompt that sends FAQ questions to it. Checks: `tsc --noEmit` clean, `check-vertical-profile.ts` 19/19.
+
+**Open:** In the chat, ask "cuáles son mis FAQs" on a tenant that has FAQs and confirm it lists them.
+
+## 2026-10-26 — Newy AI tools: data limits and new helpers
+
+**Done:** Removed patient email, visit notes and clinical notes from `get_appointments`; fixed clinic-time dates and times. Added the business, catalog, free-slot, confirmation-count and WhatsApp-count tools. Checks: `tsc --noEmit` clean, `check-vertical-profile.ts` 21/21, `check-newy-tools.ts` 10/10 read-only on the live DB.
+
+**Open:** `get_appointments` with `period` "week" or "month" still uses the server clock through `getPeriodDates`. Test in the chat with a clinic that has appointments today.
+
+## 2026-10-26 — Reminders: late bookings get the confirmation request
+
+**Done:** `planReminder` (`src/lib/reminders.ts`) no longer treats a visit booked after the reminder time as confirmed. If the release deadline is still ahead, the request goes out on the next run and the visit can be released. If no time is left, nothing is sent. Checks: `local-utils/check-reminders.ts` updated with the 17:00 case (booked 12:44, deadline 15:00), `check-reminder-messages.ts` passes, `tsc --noEmit` clean.
+
+**Found, not changed:** (1) A visit at 09:00 with a 2 h deadline and a 09:00 same-day send time has no room to answer, so it gets the plain reminder with no request. The owner should set an earlier send time; decision pending. (2) `POST /api/internal/bot/book` saves visits as status CONFIRMED before the customer answers, and the release check looks only at `customerConfirmedAt`, so an owner-confirmed visit can still be released. Decision pending.
+
+**Open:** Test with a real phone and calendar: book a visit that is 3 hours away and check the request arrives within 15 minutes.
+
+## 2026-10-26 — Reminders timed from the visit (lead hours)
+
+**Done:** Replaced the day-before / same-day mode and fixed send time with `reminderLeadHours` (exact moment before the visit). The release stays `confirmationDeadlineHours` before the visit. Rules in `src/lib/reminders.ts`: a window under 30 minutes counts as confirmed; late bookings are due at once when the window allows an answer. Column added with `prisma db execute` (approved by the user; additive, default 24). Schema, run route, settings API, card, i18n, check scripts and docs updated. Checks: `tsc --noEmit` clean, `check-reminders.ts` and `check-reminder-messages.ts` pass, `check-reminders-dryrun.ts` run against the live database (dry run only, nothing sent).
+
+**Open:** Existing tenants start at 24 hours; set lead and deadline in `/admin/whatsapp` before relying on the new timing. Real-phone test: lead 4 h, deadline 2 h, book a visit 5 h away; the request should arrive within 15 minutes of the 4-hour mark, and the visit should be released at the 2-hour mark without SI. Still pending: bot-booked visits saved as CONFIRMED, and owner confirmation not counting for release.

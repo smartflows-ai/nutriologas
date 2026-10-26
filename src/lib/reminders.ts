@@ -1,33 +1,27 @@
 // src/lib/reminders.ts
 // Pure scheduling rules for appointment reminders and auto-release. No I/O.
-import { clinicDateTime } from "@/lib/clinic-time";
-
-export type ReminderMode = "DAY_BEFORE" | "SAME_DAY";
-
+// The reminder goes out `leadHours` before the visit, and the visit is released `deadlineHours` before it
+// when the customer has not answered SI. The time between the two is the customer's window to confirm.
 const HOUR_MS = 60 * 60 * 1000;
-const DAY_MS = 24 * HOUR_MS;
+const MINUTE_MS = 60 * 1000;
 
-/** Clinic calendar date (YYYY-MM-DD) of an instant. */
-function clinicDateKey(instant: Date): string {
-  return instant.toLocaleDateString("en-CA", { timeZone: "America/Mexico_City" });
-}
+/** Shortest window (minutes) in which a customer can realistically answer. Shorter windows count as confirmed. */
+export const MIN_ANSWER_MINUTES = 30;
 
-/** Instant when the reminder goes out: at sendTime on the visit day, or the day before. */
-export function reminderSendAt(apptStart: Date, mode: ReminderMode, sendTime: string): Date {
-  // Mexico City has no DST, so a 24 h step keeps the same clinic clock time.
-  const day = mode === "DAY_BEFORE" ? clinicDateKey(new Date(apptStart.getTime() - DAY_MS)) : clinicDateKey(apptStart);
-  return new Date(clinicDateTime(day, sendTime));
-}
-
-/** Instant after which an unconfirmed visit is released. */
+/** Instant when the visit is released if the customer did not confirm. */
 export function releaseAt(apptStart: Date, deadlineHours: number): Date {
   return new Date(apptStart.getTime() - deadlineHours * HOUR_MS);
+}
+
+/** Instant when the reminder is due: `leadHours` before the visit. Exact time, even at night. */
+export function reminderSendAt(apptStart: Date, leadHours: number): Date {
+  return new Date(apptStart.getTime() - leadHours * HOUR_MS);
 }
 
 export interface ReminderPlan {
   /** Send the reminder with the confirmation request. */
   requestConfirmation: boolean;
-  /** Send a plain reminder (no confirmation request). */
+  /** Send a plain reminder (no confirmation request, no release). */
   sendPlain: boolean;
   /** Time when the reminder is due. */
   sendAt: Date;
@@ -36,27 +30,34 @@ export interface ReminderPlan {
 }
 
 /**
- * Decides what a visit gets. A visit booked after its reminder time, or whose release deadline
- * is already at or before the reminder time, counts as confirmed: no request, no auto-release.
+ * Decides what a visit gets.
+ * - Confirmation on and the window (send to release) is at least MIN_ANSWER_MINUTES: request confirmation,
+ *   release at the deadline if the customer does not answer SI.
+ * - A visit booked after its reminder moment is due at once (its send time is the booking time).
+ * - A visit booked late with no usable window counts as confirmed: nothing is sent, nothing is released.
+ * - Otherwise, not booked late and at least MIN_ANSWER_MINUTES before the visit: plain reminder, no release.
  */
 export function planReminder(input: {
   apptStart: Date;
   createdAt: Date;
-  mode: ReminderMode;
-  sendTime: string;
-  confirmationRequired: boolean;
+  leadHours: number;
   deadlineHours: number;
+  confirmationRequired: boolean;
 }): ReminderPlan {
-  const sendAt = reminderSendAt(input.apptStart, input.mode, input.sendTime);
+  const scheduled = reminderSendAt(input.apptStart, input.leadHours);
+  const bookedLate = input.createdAt.getTime() > scheduled.getTime();
+  const sendAt = bookedLate ? input.createdAt : scheduled;
   const deadline = releaseAt(input.apptStart, input.deadlineHours);
-  const bookedLate = input.createdAt.getTime() > sendAt.getTime();
-  const noTimeToAnswer = deadline.getTime() <= sendAt.getTime();
+  const windowMs = deadline.getTime() - sendAt.getTime();
 
-  if (bookedLate) {
-    return { requestConfirmation: false, sendPlain: false, sendAt, releaseAt: null };
+  if (input.confirmationRequired && windowMs >= MIN_ANSWER_MINUTES * MINUTE_MS) {
+    return { requestConfirmation: true, sendPlain: false, sendAt, releaseAt: deadline };
   }
-  if (!input.confirmationRequired || noTimeToAnswer) {
-    return { requestConfirmation: false, sendPlain: true, sendAt, releaseAt: null };
-  }
-  return { requestConfirmation: true, sendPlain: false, sendAt, releaseAt: deadline };
+
+  // No usable window (or confirmation off). A visit just booked late is never reminded.
+  if (bookedLate) return { requestConfirmation: false, sendPlain: false, sendAt, releaseAt: null };
+
+  const timeLeftMs = input.apptStart.getTime() - sendAt.getTime();
+  const sendPlain = timeLeftMs >= MIN_ANSWER_MINUTES * MINUTE_MS;
+  return { requestConfirmation: false, sendPlain, sendAt, releaseAt: null };
 }

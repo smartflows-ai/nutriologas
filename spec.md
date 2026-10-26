@@ -503,9 +503,9 @@ All instances provisioned via `POST /api/apps/connect/whatsapp` enforce the foll
 ## 20. Appointment Reminders, Confirmation & Auto-Release
 
 ### 20.1 Behavior
-- A tenant may send one reminder per appointment, the day before or on the day, at a configured clinic time (`reminderMode`, `reminderSendTime`). The reminder asks the customer to reply SI to confirm.
+- A tenant may send one reminder per appointment, `reminderLeadHours` before the visit (2 to 72). The send moment is exact, also at night. The reminder asks the customer to reply SI to confirm when a window is available.
 - If confirmation is required and the customer has not replied by the deadline (`confirmationDeadlineHours` before the visit), the appointment is cancelled, its calendar event is removed, and the slot is freed in the database and on Google or Outlook. The customer receives a cancellation notice.
-- An appointment booked after its reminder time counts as confirmed: no reminder, no request, never released. Without a phone number, nothing is sent and nothing is released.
+- The window to answer is the time between the reminder and the release (`reminderLeadHours` minus `confirmationDeadlineHours`). It must be at least 30 minutes; a shorter window counts the visit as confirmed. An appointment booked after its reminder moment is due at once, if its window still allows an answer. Without a phone number, nothing is sent and nothing is released.
 - The owner can confirm or release any waiting visit by hand from the Confirmaciones tab of the WhatsApp page.
 
 ### 20.2 Pricing Invariant
@@ -520,8 +520,10 @@ All instances provisioned via `POST /api/apps/connect/whatsapp` enforce the foll
 - The confirmation text must include the deadline label and the word SI; otherwise it is refused (`confirmation_missing_deadline`, `confirmation_missing_si`).
 
 ### 20.4 Scheduling Rules
-- Pure functions in `src/lib/reminders.ts`: `reminderSendAt`, `releaseAt`, `planReminder`.
-- Mexico City has no DST, so the day-before send time is computed by subtracting 24 hours and reading the clinic date.
+- Pure functions in `src/lib/reminders.ts`: `reminderSendAt` (visit minus lead hours), `releaseAt` (visit minus deadline hours), `planReminder` (decides request, plain reminder, or nothing).
+- No business-hours adjustment: the reminder is sent at the computed instant.
+- Legacy columns `reminderMode` and `reminderSendTime` are kept in the database and no longer read.
+- Column added with `ALTER TABLE "tenants" ADD COLUMN IF NOT EXISTS "reminderLeadHours" INTEGER NOT NULL DEFAULT 24` (existing tenants start at 24 hours).
 - Checked by `local-utils/check-reminders.ts`.
 
 ### 20.5 Execution
@@ -600,3 +602,12 @@ All instances provisioned via `POST /api/apps/connect/whatsapp` enforce the foll
 - Scripts: `local-utils/rename-cloudinary-root.ts` (folder rename, one-off, already run) and `local-utils/remove-cloudinary-signups.ts` (lists and removes the old staging folder only).
 - Product category endpoint is not cached (`force-dynamic` and a timestamp on the fetch), so new categories appear after a save.
 - Negocio logo: a URL that fails to load shows the empty-logo placeholder.
+
+### 21.12 Newy AI helper tools and their data limits
+- Tools are defined in `src/lib/ai/tools.ts` (`CHAT_TOOLS`, `TOOL_GROUP`) and run in `src/lib/ai/execute-tool.ts`. Every query filters by the session `tenantId`.
+- Open to every vertical: `get_business_profile` (name, description, owner, address when there is a physical location, schedule), `search_products` (public catalog fields, no `serviceConfig` or images), `get_faqs` (active questions and answers), `get_whatsapp_summary` (counts only).
+- Appointments (booking on only): `get_appointments`, `get_appointments_summary`, `get_schedule_availability` (free times for a clinic day, same rule as the public booking), `get_confirmation_status` (counts: confirmed, awaiting, auto-released, cancelled).
+- `get_appointments` sends the patient's first name or booking name, service, duration, price, clinic date and time, and status. It does not send emails, visit notes or clinical notes (`internalNotes`).
+- Days and times are clinic time (America/Mexico_City) through `clinicDateKeyOf`, `addClinicDays` and `clinicDateTime` in `src/lib/clinic-time.ts`. The server clock is not used for "today", "tomorrow" or a chosen date.
+- Not sent to the model: WhatsApp message text, triage or patient profiles, payment data, integration tokens, other tenants' data.
+- Check: `local-utils/check-newy-tools.ts` runs the read-only tools on the live database and checks the field limits.

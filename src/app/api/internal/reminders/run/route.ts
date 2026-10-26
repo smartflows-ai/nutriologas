@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db";
 import { isInternalKeyValid, ACTIVE_APPOINTMENT_STATUSES } from "@/lib/bot";
 import { sendWhatsAppMessage } from "@/lib/whatsapp";
 import { releaseVisit } from "@/lib/reminder-actions";
-import { planReminder, releaseAt, type ReminderMode } from "@/lib/reminders";
+import { planReminder, releaseAt } from "@/lib/reminders";
 import { recordMessageCharge, reminderCostUsd } from "@/lib/credits";
 import {
   clinicLongDate,
@@ -15,7 +15,7 @@ import {
   renderTemplate,
 } from "@/lib/reminder-messages";
 
-const LOOKAHEAD_HOURS = 72; // covers the day-before reminder of visits up to ~2 days away
+const LOOKAHEAD_HOURS = 96; // covers reminders up to 72 h before a visit, plus a day of margin
 
 export async function POST(req: NextRequest) {
   if (!isInternalKeyValid(req)) return Response.json({ error: "No autorizado" }, { status: 401 });
@@ -48,8 +48,7 @@ export async function POST(req: NextRequest) {
         select: {
           name: true,
           messageLanguage: true,
-          reminderMode: true,
-          reminderSendTime: true,
+          reminderLeadHours: true,
           confirmationRequired: true,
           confirmationDeadlineHours: true,
           reminderTemplate: true,
@@ -68,10 +67,9 @@ export async function POST(req: NextRequest) {
     const plan = planReminder({
       apptStart: appt.appointmentDate,
       createdAt: appt.createdAt,
-      mode: t.reminderMode as ReminderMode,
-      sendTime: t.reminderSendTime,
-      confirmationRequired: t.confirmationRequired,
+      leadHours: t.reminderLeadHours,
       deadlineHours: t.confirmationDeadlineHours,
+      confirmationRequired: t.confirmationRequired,
     });
     const deadline = releaseAt(appt.appointmentDate, t.confirmationDeadlineHours);
     const hasPhone = Boolean(appt.customerPhone);

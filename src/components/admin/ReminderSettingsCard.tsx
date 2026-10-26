@@ -1,17 +1,16 @@
 "use client";
 // src/components/admin/ReminderSettingsCard.tsx
 // Reminder timing and confirmation rules. Saves on its own through /api/tenants/reminders, sending only these fields.
+// The reminder goes out `reminderLeadHours` before the visit; the visit is released `confirmationDeadlineHours` before it.
 import { useEffect, useState } from "react";
 import { BellRing, Check, Loader2, AlertCircle } from "lucide-react";
 import { useTranslation } from "@/i18n";
 import { translateApiError } from "@/i18n/validation";
-
-type ReminderMode = "DAY_BEFORE" | "SAME_DAY";
+import { fill } from "@/lib/utils";
 
 interface TimingSettings {
   remindersEnabled: boolean;
-  reminderMode: ReminderMode;
-  reminderSendTime: string;
+  reminderLeadHours: number;
   confirmationRequired: boolean;
   confirmationDeadlineHours: number;
 }
@@ -51,8 +50,7 @@ export default function ReminderSettingsCard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           remindersEnabled: settings.remindersEnabled,
-          reminderMode: settings.reminderMode,
-          reminderSendTime: settings.reminderSendTime,
+          reminderLeadHours: settings.reminderLeadHours,
           confirmationRequired: settings.confirmationRequired,
           confirmationDeadlineHours: settings.confirmationDeadlineHours,
         }),
@@ -80,6 +78,13 @@ export default function ReminderSettingsCard() {
     ) : null;
   }
 
+  // Hours the customer has between the reminder and the release. Negative or zero means no room to answer.
+  const windowHours = settings.reminderLeadHours - settings.confirmationDeadlineHours;
+  const windowText =
+    windowHours >= 1
+      ? fill(tx.reminderWindowLine, { hours: windowHours })
+      : tx.reminderWindowShort;
+
   return (
     <section className="p-6 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 space-y-5">
       <div className="flex items-center gap-2.5 pb-4 border-b border-gray-100 dark:border-gray-800">
@@ -100,30 +105,19 @@ export default function ReminderSettingsCard() {
         />
       </label>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="space-y-1.5">
-          <span className="block text-sm font-medium text-gray-900 dark:text-white">{tx.reminderModeLabel}</span>
-          <select
-            value={settings.reminderMode}
-            onChange={(e) => update({ reminderMode: e.target.value as ReminderMode })}
-            className={inputClass}
-          >
-            <option value="DAY_BEFORE">{tx.reminderModeDayBefore}</option>
-            <option value="SAME_DAY">{tx.reminderModeSameDay}</option>
-          </select>
-        </div>
-        <div className="space-y-1.5">
-          <label htmlFor="reminder-send-time" className="block text-sm font-medium text-gray-900 dark:text-white">
-            {tx.reminderSendTimeLabel}
-          </label>
-          <input
-            id="reminder-send-time"
-            type="time"
-            value={settings.reminderSendTime}
-            onChange={(e) => update({ reminderSendTime: e.target.value })}
-            className={inputClass}
-          />
-        </div>
+      <div className="space-y-1.5">
+        <label htmlFor="reminder-lead" className="block text-sm font-medium text-gray-900 dark:text-white">
+          {tx.reminderLeadLabel}
+        </label>
+        <input
+          id="reminder-lead"
+          type="number"
+          min={2}
+          max={72}
+          value={settings.reminderLeadHours}
+          onChange={(e) => update({ reminderLeadHours: Number(e.target.value) })}
+          className={`${inputClass} sm:w-40`}
+        />
       </div>
 
       <label className="flex items-center justify-between gap-4">
@@ -145,11 +139,12 @@ export default function ReminderSettingsCard() {
             id="reminder-deadline"
             type="number"
             min={1}
-            max={24}
+            max={48}
             value={settings.confirmationDeadlineHours}
             onChange={(e) => update({ confirmationDeadlineHours: Number(e.target.value) })}
             className={`${inputClass} sm:w-40`}
           />
+          <p className="text-xs text-gray-500 dark:text-gray-400">{windowText}</p>
         </div>
       )}
 

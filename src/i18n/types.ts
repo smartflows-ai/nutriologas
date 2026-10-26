@@ -541,10 +541,9 @@ export interface Translations {
       reminderSection: string;
       reminderSectionDesc: string;
       reminderEnabledLabel: string;
-      reminderModeLabel: string;
-      reminderModeDayBefore: string;
-      reminderModeSameDay: string;
-      reminderSendTimeLabel: string;
+      reminderLeadLabel: string;
+      reminderWindowLine: string;
+      reminderWindowShort: string;
       confirmationRequiredLabel: string;
       confirmationRequiredHint: string;
       deadlineHoursLabel: string;
@@ -1512,6 +1511,7 @@ export interface Translations {
     confirmation_missing_si: string;
     template_too_long: string;
     reminder_settings_invalid: string;
+    reminder_window_invalid: string;
     business_hours_invalid: string;
     cart_empty: string;
     product_unavailable: string;

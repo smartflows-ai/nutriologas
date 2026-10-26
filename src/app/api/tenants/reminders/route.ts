@@ -9,8 +9,7 @@ import { validateConfirmationTemplate, validateTemplateLength } from "@/lib/remi
 
 const SELECT = {
   remindersEnabled: true,
-  reminderMode: true,
-  reminderSendTime: true,
+  reminderLeadHours: true,
   confirmationRequired: true,
   confirmationDeadlineHours: true,
   reminderTemplate: true,
@@ -23,10 +22,9 @@ const templateField = z.string().max(600).nullable().optional();
 
 const reminderSettingsSchema = z.object({
   remindersEnabled: z.boolean().optional(),
-  reminderMode: z.enum(["DAY_BEFORE", "SAME_DAY"]).optional(),
-  reminderSendTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
+  reminderLeadHours: z.number().int().min(2).max(72).optional(),
   confirmationRequired: z.boolean().optional(),
-  confirmationDeadlineHours: z.number().int().min(1).max(24).optional(),
+  confirmationDeadlineHours: z.number().int().min(1).max(48).optional(),
   messageLanguage: z.enum(["es", "en"]).optional(),
   reminderTemplate: templateField,
   confirmationTemplate: templateField,
@@ -71,6 +69,18 @@ export async function PATCH(req: Request) {
   if (data.confirmationTemplate) {
     const problem = validateConfirmationTemplate(data.confirmationTemplate);
     if (problem) return apiError(problem as "confirmation_missing_si", 400);
+  }
+
+  // The answer window (lead minus deadline) must be wide enough to answer: check it against the stored values too.
+  if (data.reminderLeadHours !== undefined || data.confirmationDeadlineHours !== undefined) {
+    const current = await prisma.tenant.findUnique({
+      where: { id: session.user.tenantId },
+      select: { reminderLeadHours: true, confirmationDeadlineHours: true },
+    });
+    if (!current) return apiError("tenant_not_found", 404);
+    const lead = data.reminderLeadHours ?? current.reminderLeadHours;
+    const deadline = data.confirmationDeadlineHours ?? current.confirmationDeadlineHours;
+    if (deadline >= lead) return apiError("reminder_window_invalid", 400);
   }
 
   const updated = await prisma.tenant.update({

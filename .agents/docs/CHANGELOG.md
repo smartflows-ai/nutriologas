@@ -6,6 +6,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased] — 2026-10-26
 
+### Changed
+- Cancellation notice for lack of confirmation: the default text (es and en) now names the service, date and time, says the slot is free, and invites the customer to book again. Owners with their own text keep it.
+- Reminders are timed from each visit, not from a clock time. `reminderLeadHours` (2 to 72) sets when the reminder goes out, and `confirmationDeadlineHours` (1 to 48) sets when an unanswered visit is released. The window between them must be at least 30 minutes; shorter windows count the visit as confirmed. The reminder goes out at the exact moment, also at night. The day-before mode and the fixed send time are removed from the screen (the columns stay as legacy).
+- Database: column `tenants.reminderLeadHours` added (default 24, so existing tenants keep a day-before reminder with their deadline).
+- API: `PATCH /api/tenants/reminders` rejects a deadline that is not earlier than the lead time (`reminder_window_invalid`).
+
+### Fixed
+- Reminders: a visit booked after its reminder time no longer gets silence. If its release deadline is still ahead, the confirmation request goes out on the next run (about 15 minutes), and the visit is released if nobody answers SI by the deadline. Before, these visits were treated as confirmed and got no message at all.
+- Newy AI appointment data (`get_appointments`): it no longer sends the patient email, visit notes or clinical notes to the model. Times are clinic time (America/Mexico_City) instead of UTC, and "today", "tomorrow" and a chosen date use clinic days instead of the server clock.
+
+### Added
+- Newy AI helper tools: `get_business_profile` (name, description, owner, address, schedule), `search_products` (public catalog fields), `get_schedule_availability` (free times for a day, same rule as booking), `get_confirmation_status` (counts only), `get_whatsapp_summary` (counts only). Product, FAQ and business tools are open to every vertical; schedule and confirmation tools follow booking.
+- Check: `local-utils/check-newy-tools.ts` (read-only, live database) and new cases in `local-utils/check-vertical-profile.ts`. Helpers `clinicDateKeyOf` and `addClinicDays` in `src/lib/clinic-time.ts`.
+- Documentation: spec 21.12 describes the Newy AI tools and their data limits.
+### Fixed
+- Newy AI could not read the business FAQs. New helper tool `get_faqs` returns the active questions and answers of the tenant (`prisma.fAQ`, always filtered by `tenantId`). It is available to every vertical. The system prompt now tells Newy to use it for FAQ questions and not to invent answers when the FAQ does not cover them.
+
 ### Added
 - Pets for veterinary and pet-care businesses: `Pet` model and `Appointment.petId`. Web booking and the WhatsApp bot ask for the pet's name and species (`pet_required` without a name). The history groups by owner, shows each owner's pets, filters visits by pet, and shows the pet on every visit. The appointments screen shows the pet under the owner. The calendar title includes the pet.
 - Checks: `local-utils/check-vertical-profile.ts`, `local-utils/check-pets.ts`, `local-utils/check-pets-columns.ts`, `local-utils/check-location.ts`, `local-utils/check-tenant-location-columns.ts`.

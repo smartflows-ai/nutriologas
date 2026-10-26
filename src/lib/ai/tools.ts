@@ -107,6 +107,85 @@ export const CHAT_TOOLS: OpenRouterTool[] = [
     },
   },
 
+  // ── NEGOCIO, CATÁLOGO, AGENDA Y MENSAJES ──────────────
+  {
+    type: "function",
+    function: {
+      name: "get_business_profile",
+      description: "Datos generales del negocio: nombre, descripción, responsable, horario semanal y dirección si tiene local físico. Para '¿qué horario tengo?', '¿dónde estamos?', '¿quién es el responsable?'.",
+      parameters: { type: "object", properties: {}, required: [] },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_products",
+      description: "Busca productos o servicios activos del catálogo: nombre, descripción, precio, categoría, duración y stock. Para '¿cuánto cuesta X?', '¿qué servicios ofrezco?'. Sin filtros devuelve el catálogo.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Texto a buscar en el nombre (opcional)" },
+          category: { type: "string", description: "Categoría exacta (opcional)" },
+          limit: { type: "number", description: "Cuántos resultados retornar (default 20, máximo 50)" },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_schedule_availability",
+      description: "Horas libres para agendar en una fecha, según el horario del negocio y las citas o eventos ya ocupados. Para '¿qué horas tengo libres mañana?'. Sin fecha usa hoy.",
+      parameters: {
+        type: "object",
+        properties: {
+          date: { type: "string", description: "Fecha en formato YYYY-MM-DD (opcional, default hoy)" },
+          productName: { type: "string", description: "Nombre del servicio, para usar su duración (opcional, default 30 minutos)" },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_confirmation_status",
+      description: "Cuántas citas esperan confirmación del cliente, cuántas se confirmaron y cuántas se liberaron sin confirmar. Solo conteos. Para '¿cuántos pacientes faltan por confirmar?'.",
+      parameters: {
+        type: "object",
+        properties: {
+          period: { type: "string", enum: ["today", "tomorrow", "week"] },
+        },
+        required: ["period"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_whatsapp_summary",
+      description: "Resumen de las conversaciones de WhatsApp: chats, chats con mensajes sin leer, chats con el bot pausado y mensajes recibidos en las últimas 24 horas. Solo conteos, no el contenido de los mensajes.",
+      parameters: { type: "object", properties: {}, required: [] },
+    },
+  },
+
+  // ── PREGUNTAS FRECUENTES ──────────────────────────────
+  {
+    type: "function",
+    function: {
+      name: "get_faqs",
+      description: "Lista las preguntas frecuentes activas del negocio (pregunta y respuesta). Para 'cuáles son mis FAQs', '¿qué dice mi sección de preguntas?', o cuando un cliente pregunta algo que el negocio ya documentó.",
+      parameters: {
+        type: "object",
+        properties: {
+          limit: { type: "number", description: "Cuántas preguntas retornar (default 30)" },
+        },
+        required: [],
+      },
+    },
+  },
+
   // ── PRODUCTOS Y REVIEWS ───────────────────────────────
   {
     type: "function",
@@ -217,7 +296,13 @@ export const CHAT_TOOLS: OpenRouterTool[] = [
 ];
 
 // Which helper tools a tenant gets. Sales tools need physical orders; appointment tools need booking.
-const TOOL_GROUP: Record<string, "sales" | "customers" | "reviews" | "appointments"> = {
+// "business", "catalog", "faqs" and "messaging" are open to every vertical; they expose only public or count data.
+const TOOL_GROUP: Record<string, "sales" | "customers" | "reviews" | "appointments" | "faqs" | "business" | "catalog" | "messaging"> = {
+  get_business_profile: "business",
+  search_products: "catalog",
+  get_schedule_availability: "appointments",
+  get_confirmation_status: "appointments",
+  get_whatsapp_summary: "messaging",
   get_sales_summary: "sales",
   get_top_products: "sales",
   get_orders_by_status: "sales",
@@ -227,6 +312,7 @@ const TOOL_GROUP: Record<string, "sales" | "customers" | "reviews" | "appointmen
   get_top_customers: "sales", // ranks by money spent on orders
   get_customer_stats: "customers",
   get_product_reviews: "reviews",
+  get_faqs: "faqs",
   get_appointments: "appointments",
   get_appointments_summary: "appointments",
   get_cancellation_patterns: "appointments",

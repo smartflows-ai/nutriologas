@@ -2,8 +2,21 @@
 import { prisma } from "@/lib/db";
 import { getPeriodDates } from "@/lib/utils";
 import { getAppToken, getConnectedProvider } from "@/lib/connected-apps";
+import { addClinicDays, clinicDateKeyOf, clinicDateTime, clinicTimeOf } from "@/lib/clinic-time";
+import { daySlots, formatBusinessHours, parseBusinessHours } from "@/lib/business-hours";
+import { getBusyPeriods, isSlotFree } from "@/lib/calendar-sync";
 
 type Period = "day" | "week" | "month" | "year" | "all";
+
+const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Start of a clinic day (inclusive) and start of the next one (exclusive), as instants. */
+function clinicDayRange(dateKey: string) {
+  return {
+    gte: new Date(clinicDateTime(dateKey, "00:00")),
+    lt: new Date(clinicDateTime(addClinicDays(dateKey, 1), "00:00")),
+  };
+}
 
 export async function executeTool(
   toolName: string,
@@ -118,6 +131,17 @@ export async function executeTool(
         return JSON.stringify(enriched);
       }
 
+      // ── PREGUNTAS FRECUENTES ────────────────────────────
+      case "get_faqs": {
+        const faqs = await prisma.fAQ.findMany({
+          where: { tenantId, isActive: true },
+          orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+          take: input.limit ?? 30,
+          select: { question: true, answer: true },
+        });
+        return JSON.stringify({ count: faqs.length, faqs });
+      }
+
       // ── PRODUCTOS Y REVIEWS ─────────────────────────────
       case "get_product_reviews": {
         const limit = input.limit ?? 10;
@@ -174,23 +198,15 @@ export async function executeTool(
           where.status = input.status;
         }
 
-        const now = new Date();
-        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+        // Days are clinic days (America/Mexico_City), never the server's clock.
+        const todayKey = clinicDateKeyOf(new Date());
 
-        if (input.date) {
-          const parts = input.date.split("-").map(Number);
-          if (parts.length === 3) {
-            const start = new Date(parts[0], parts[1] - 1, parts[2], 0, 0, 0);
-            const end = new Date(parts[0], parts[1] - 1, parts[2], 23, 59, 59, 999);
-            where.appointmentDate = { gte: start, lte: end };
-          }
+        if (input.date && DATE_KEY.test(input.date)) {
+          where.appointmentDate = clinicDayRange(input.date);
         } else if (input.period === "today") {
-          where.appointmentDate = { gte: startOfToday, lte: endOfToday };
+          where.appointmentDate = clinicDayRange(todayKey);
         } else if (input.period === "tomorrow") {
-          const startOfTom = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
-          const endOfTom = new Date(endOfToday.getTime() + 24 * 60 * 60 * 1000);
-          where.appointmentDate = { gte: startOfTom, lte: endOfTom };
+          where.appointmentDate = clinicDayRange(addClinicDays(todayKey, 1));
         } else if (input.period === "week") {
           const { startDate, endDate } = getPeriodDates("week");
           where.appointmentDate = { gte: startDate, lte: endDate };
@@ -203,32 +219,26 @@ export async function executeTool(
           where,
           include: {
             product: { select: { name: true, durationMinutes: true, price: true } },
-            user: { select: { name: true, email: true } },
+            // Only the name is read. Emails, visit notes and clinical notes never reach the model.
+            user: { select: { name: true } },
           },
           orderBy: { appointmentDate: "asc" },
-          take: input.limit ?? 20,
+          take: Math.min(Number(input.limit) || 20, 50),
         });
 
         return JSON.stringify({
           count: appointments.length,
           period: input.period ?? (input.date ? `date:${input.date}` : "all"),
-          appointments: appointments.map((a) => {
-            const dateStr = a.appointmentDate.toISOString().split("T")[0];
-            const timeStr = a.appointmentDate.toISOString().split("T")[1]?.slice(0, 5) ?? "";
-            return {
-              id: a.id.slice(0, 8),
-              patientName: a.user?.name || "Sin nombre",
-              patientEmail: a.user?.email || null,
-              service: a.product?.name ?? "Consulta General",
-              durationMinutes: a.durationMinutes ?? a.product?.durationMinutes ?? 30,
-              price: a.product?.price ?? null,
-              date: dateStr,
-              time: timeStr,
-              status: a.status,
-              notes: a.notes,
-              internalNotes: a.internalNotes,
-            };
-          }),
+          appointments: appointments.map((a) => ({
+            id: a.id.slice(0, 8),
+            patientName: a.customerName || a.user?.name || "Sin nombre",
+            service: a.product?.name ?? "Consulta General",
+            durationMinutes: a.durationMinutes ?? a.product?.durationMinutes ?? 30,
+            price: a.product?.price ?? null,
+            date: clinicDateKeyOf(a.appointmentDate),
+            time: clinicTimeOf(a.appointmentDate),
+            status: a.status,
+          })),
         });
       }
 
@@ -322,6 +332,115 @@ export async function executeTool(
 
       case "get_busiest_slots": {
         return JSON.stringify({ note: "Funcionalidad próxima. Conecta tu calendario desde Apps para habilitarla." });
+      }
+
+      // ── NEGOCIO, CATÁLOGO, AGENDA Y MENSAJES ────────────
+      case "get_business_profile": {
+        const tenant = await prisma.tenant.findUnique({
+          where: { id: tenantId },
+          select: { name: true, businessInfo: true, ownerName: true, hasPhysicalLocation: true, address: true, businessHours: true },
+        });
+        if (!tenant) return JSON.stringify({ error: "tenant_not_found" });
+        return JSON.stringify({
+          name: tenant.name,
+          description: tenant.businessInfo,
+          owner: tenant.ownerName,
+          address: tenant.hasPhysicalLocation ? tenant.address : null,
+          schedule: formatBusinessHours(parseBusinessHours(tenant.businessHours)),
+        });
+      }
+
+      case "search_products": {
+        const query = typeof input.query === "string" ? input.query.trim().slice(0, 80) : "";
+        const category = typeof input.category === "string" ? input.category.trim().slice(0, 80) : "";
+        const products = await prisma.product.findMany({
+          where: {
+            tenantId,
+            isActive: true,
+            deletedAt: null,
+            ...(query ? { name: { contains: query, mode: "insensitive" } } : {}),
+            ...(category ? { category: { equals: category, mode: "insensitive" } } : {}),
+          },
+          orderBy: { name: "asc" },
+          take: Math.min(Number(input.limit) || 20, 50),
+          // Only public catalog fields. serviceConfig and images stay out.
+          select: { name: true, description: true, price: true, category: true, itemType: true, durationMinutes: true, stock: true },
+        });
+        return JSON.stringify({
+          count: products.length,
+          products: products.map((p) => ({
+            name: p.name,
+            description: p.description,
+            price: p.price,
+            category: p.category,
+            type: p.itemType,
+            durationMinutes: p.durationMinutes,
+            stock: p.itemType === "PHYSICAL" ? p.stock : null,
+          })),
+        });
+      }
+
+      case "get_schedule_availability": {
+        const dateKey = input.date && DATE_KEY.test(input.date) ? input.date : clinicDateKeyOf(new Date());
+        const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { businessHours: true } });
+        if (!tenant) return JSON.stringify({ error: "tenant_not_found" });
+
+        let duration = 30;
+        if (input.productName) {
+          const service = await prisma.product.findFirst({
+            where: { tenantId, isActive: true, deletedAt: null, name: { contains: String(input.productName).slice(0, 80), mode: "insensitive" } },
+            select: { durationMinutes: true },
+          });
+          if (service?.durationMinutes) duration = service.durationMinutes;
+        }
+
+        // Same rule as the public booking: free only when no appointment or calendar event overlaps the slot.
+        const candidates = daySlots(parseBusinessHours(tenant.businessHours), dateKey, duration);
+        const busy = await getBusyPeriods(tenantId, dateKey);
+        const now = Date.now();
+        const availableTimes = candidates.filter((time) => {
+          const start = new Date(clinicDateTime(dateKey, time));
+          if (start.getTime() <= now) return false;
+          return isSlotFree(busy, start, new Date(start.getTime() + duration * 60000));
+        });
+        return JSON.stringify({ date: dateKey, durationMinutes: duration, availableTimes });
+      }
+
+      case "get_confirmation_status": {
+        const todayKey = clinicDateKeyOf(new Date());
+        const fromKey = input.period === "tomorrow" ? addClinicDays(todayKey, 1) : todayKey;
+        const toKey = input.period === "today" ? todayKey : input.period === "tomorrow" ? fromKey : addClinicDays(todayKey, 6);
+        const appointments = await prisma.appointment.findMany({
+          where: {
+            tenantId,
+            appointmentDate: { gte: clinicDayRange(fromKey).gte, lt: clinicDayRange(toKey).lt },
+          },
+          select: { status: true, appointmentDate: true, reminderSentAt: true, customerConfirmedAt: true, autoReleasedAt: true },
+        });
+        const now = new Date();
+        // Counts only: no names, phones or notes.
+        return JSON.stringify({
+          period: input.period,
+          total: appointments.length,
+          confirmed: appointments.filter((a) => a.customerConfirmedAt).length,
+          awaitingConfirmation: appointments.filter(
+            (a) => a.reminderSentAt && !a.customerConfirmedAt && !a.autoReleasedAt && a.status !== "CANCELLED" && a.appointmentDate > now
+          ).length,
+          autoReleased: appointments.filter((a) => a.autoReleasedAt).length,
+          cancelled: appointments.filter((a) => a.status === "CANCELLED" && !a.autoReleasedAt).length,
+        });
+      }
+
+      case "get_whatsapp_summary": {
+        const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const [chats, unreadChats, botPausedChats, messagesReceivedLast24h] = await Promise.all([
+          prisma.whatsAppChat.count({ where: { tenantId } }),
+          prisma.whatsAppChat.count({ where: { tenantId, unreadCount: { gt: 0 } } }),
+          prisma.whatsAppChat.count({ where: { tenantId, botEnabled: false } }),
+          prisma.whatsAppMessage.count({ where: { tenantId, fromMe: false, timestamp: { gte: since } } }),
+        ]);
+        // Counts only. Message text is never read here.
+        return JSON.stringify({ chats, unreadChats, botPausedChats, messagesReceivedLast24h });
       }
 
       default:

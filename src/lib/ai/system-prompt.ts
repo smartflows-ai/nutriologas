@@ -67,7 +67,8 @@ DIRECTIVAS ESPECÍFICAS PARA SERVICIOS PROFESIONALES:
   };
 
   const verticalDirectives = directivesByVertical[tenant?.vertical ?? "ECOMMERCE"] ?? commerce;
-  const verticalBlock = [verticalDirectives, salesNote].filter(Boolean).join("\n");
+  const faqNote = "- Para preguntas frecuentes del negocio (horarios, políticas, preparación, formas de pago, ubicación, etc.), usa la herramienta de preguntas frecuentes. Si la respuesta no está ahí, dilo sin inventar datos.";
+  const verticalBlock = [verticalDirectives, salesNote, faqNote].filter(Boolean).join("\n");
 
   return `Eres Newy AI, el copiloto de inteligencia artificial y asesor de negocios de "${tenant?.name ?? "este negocio"}".
 ${businessContext}

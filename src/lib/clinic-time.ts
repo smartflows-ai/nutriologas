@@ -10,6 +10,18 @@ export function clinicDateTime(date: string, time: string): string {
   return `${date}T${time}:00${CLINIC_TIME_OFFSET}`;
 }
 
+/** YYYY-MM-DD of an instant, read on the clinic calendar. */
+export function clinicDateKeyOf(date: Date): string {
+  return date.toLocaleDateString("en-CA", { timeZone: CLINIC_TIME_ZONE });
+}
+
+/** Adds whole days to a YYYY-MM-DD clinic date. */
+export function addClinicDays(dateKey: string, days: number): string {
+  const day = new Date(`${dateKey}T00:00:00Z`);
+  day.setUTCDate(day.getUTCDate() + days);
+  return day.toISOString().slice(0, 10);
+}
+
 /** HH:mm of an instant, read on the clinic clock. */
 export function clinicTimeOf(date: Date): string {
   return date.toLocaleTimeString("en-GB", {
