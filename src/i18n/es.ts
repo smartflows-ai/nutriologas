@@ -39,7 +39,7 @@ export const es: Translations = {
     pricing: "Precios",
     testimonials: "Testimonios",
     signIn: "Iniciar sesión",
-    getStarted: "Empieza gratis",
+    getStarted: "Iniciar prueba gratis",
   },
   hero: {
     badge: "Tu negocio, funcionando solo",
@@ -47,7 +47,7 @@ export const es: Translations = {
     headline2: "Empieza a crecer.",
     agentLabel: "Tu IA puede",
     subtitle: "Mientras trabajas **en** tu negocio, NewAigent trabaja **por** ti — publicando contenido, respondiendo clientes, agendando citas y cerrando ventas. Las 24 horas.",
-    cta: "Empieza gratis",
+    cta: "Iniciar prueba gratis",
     watchDemo: "Ver demo",
     trust1: "En línea en 2 minutos",
     trust2: "Sin ingenieros",
