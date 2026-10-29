@@ -29,14 +29,14 @@ export default function MarketingPage() {
         fontFamily: "'Inter', 'Space Grotesk', system-ui, sans-serif",
       }}
     >
-      {/* Nav — Sign In opens the modal */}
-      <MarketingNav onSignIn={() => setShowSignIn(true)} onGetStarted={() => document.getElementById("pricing")?.scrollIntoView({ behavior: "smooth" })} />
+      {/* Nav — Sign In and Get Started open their modals */}
+      <MarketingNav onSignIn={() => setShowSignIn(true)} onGetStarted={() => setShowOnboarding(true)} />
 
       {/* Page sections */}
       <main>
         <HeroSection
           onWatchDemo={() => setShowDemo(true)}
-          onGetStarted={() => document.getElementById("pricing")?.scrollIntoView({ behavior: "smooth" })}
+          onGetStarted={() => setShowOnboarding(true)}
         />
         <DemoSection />
         <FeaturesSection />
