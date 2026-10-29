@@ -4,24 +4,24 @@
 
 ---
 
-## ¿Qué es esta aplicación?
+## What is this application?
 
-**NewAigent** es una plataforma SaaS multi-tenant que permite a negocios (clínicas, restaurantes, tiendas, etc.) tener su propia tienda en línea, CRM e integraciones de IA — todo en un mismo sistema compartido pero completamente aislado.
+**NewAigent** is a multi-tenant SaaS platform that lets businesses (clinics, restaurants, stores, etc.) have their own online store, CRM and AI integrations — all in one shared system, yet completely isolated.
 
-Cada negocio (llamado **tenant**) opera en su propio subdominio:
-- `doctor.newaigent.com` → Clínica Doctor
-- `nutrifit.newaigent.com` → Tienda de Nutrición
-- `newaigent.com` → Solo página de marketing (NO tiene acceso a ninguna ruta de tenant)
+Each business (called a **tenant**) runs on its own subdomain:
+- `doctor.newaigent.com` → Doctor clinic
+- `nutrifit.newaigent.com` → Nutrition store
+- `newaigent.com` → Marketing page only (NO access to any tenant route)
 
 **Stack:** Next.js 14 · TypeScript · Tailwind CSS · Prisma ORM · PostgreSQL (Supabase) · NextAuth v4 · Anthropic Claude AI / OpenRouter · Cloudinary · Conekta · PayPal · Stripe · n8n · Upstash Redis
 
 ---
 
-## Arquitectura Multi-Tenant
+## Multi-Tenant Architecture
 
-### Detección de Tenant (middleware.ts)
+### Tenant detection (middleware.ts)
 
-El middleware detecta el tenant a partir del hostname en cada request:
+The middleware detects the tenant from the hostname on every request:
 
 ```
 localhost:3000         → Root domain (marketing page only)
@@ -30,431 +30,431 @@ www.newaigent.com      → Root domain (marketing page only)
 doctor.newaigent.com   → tenant slug = "doctor"
 clinic.newaigent.com   → tenant slug = "clinic"
 myclinic.com           → custom domain → tenant slug = "myclinic.com"
-doctor.localhost:3000  → tenant slug = "doctor" (desarrollo local)
+doctor.localhost:3000  → tenant slug = "doctor" (local development)
 ```
 
-El slug del tenant se pasa a los server components via el header `x-tenant-slug`.
+The tenant slug is passed to server components through the `x-tenant-slug` header.
 
-### Reglas de seguridad del dominio raíz
+### Root domain security rules
 
-El dominio raíz (`newaigent.com`, `www.newaigent.com`, `localhost:3000`) es **SOLO** para la página de marketing. Ninguna ruta de tenant está disponible ahí.
+The root domain (`newaigent.com`, `www.newaigent.com`, `localhost:3000`) is **ONLY** for the marketing page. No tenant route is available there.
 
-Las siguientes rutas están **bloqueadas en el dominio raíz** y devuelven 404:
+The following routes are **blocked on the root domain** and return 404:
 
 ```
 /admin, /login, /registro, /checkout, /carrito, /pedido, /mis-pedidos, /productos, /producto
 ```
 
-Subdominios válidos (`doctor.newaigent.com`) tienen acceso completo a todas las rutas.
+Valid subdomains (`doctor.newaigent.com`) have full access to every route.
 
-### Aislamiento de datos
+### Data isolation
 
-- **Todas** las tablas de la base de datos tienen `tenantId`
-- Todas las queries en `lib/` y API routes filtran siempre por `tenantId`
-- El `tenantId` se extrae del token de sesión NextAuth — nunca del input del usuario
-- El header `x-session-user` es limpiado y reescrito por el middleware (prevenir spoofing)
+- **All** database tables have `tenantId`
+- All queries in `lib/` and API routes always filter by `tenantId`
+- `tenantId` is taken from the NextAuth session token — never from user input
+- The `x-session-user` header is cleared and rewritten by the middleware (to prevent spoofing)
 
 ---
 
-## Estructura de Directorios
+## Directory Structure
 
 ```
 src/
   app/
-    (public)/           ← Storefront público del tenant
-      page.tsx          ← Homepage (carrusel + productos + reviews + FAQ)
-      productos/        ← Catálogo con filtros y adaptación para servicios
-      producto/[slug]/  ← Detalle de producto o servicio + CTA agendar cita + reseñas
-      agendar/[slug]/   ← Flujo interactivo de citas / consultas con selector de 21 días y horarios
-      mis-citas/        ← Portal del paciente/cliente para ver y cancelar sus citas
-      carrito/          ← Carrito de compras (Zustand)
-      checkout/         ← Pasarela de pago (Conekta + PayPal)
-      mis-pedidos/      ← Historial de órdenes del cliente
-      pedido/[id]/      ← Detalle de un pedido
-      terminos/         ← Términos de Servicio — Español
-      privacidad/       ← Política de Privacidad — Español
+    (public)/           ← Public tenant storefront
+      page.tsx          ← Homepage (carousel + products + reviews + FAQ)
+      productos/        ← Catalog with filters and service adaptation
+      producto/[slug]/  ← Product or service detail + book-appointment CTA + reviews
+      agendar/[slug]/   ← Interactive appointment / consultation flow with a 21-day picker and time slots
+      mis-citas/        ← Patient/customer portal to view and cancel their appointments
+      carrito/          ← Shopping cart (Zustand)
+      checkout/         ← Payment gateway (Conekta + PayPal)
+      mis-pedidos/      ← Customer order history
+      pedido/[id]/      ← Order detail
+      terminos/         ← Terms of Service — Spanish
+      privacidad/       ← Privacy Policy — Spanish
       terms/            ← Terms of Service — English locale alias
       privacy/          ← Privacy Policy — English locale alias
     (auth)/
-      login/            ← Login con email/contraseña + Google OAuth
-      registro/         ← Registro de nuevos clientes (con consentimiento legal)
-    admin/              ← CRM — Solo accesible para role = ADMIN
-      dashboard/        ← Métricas: ventas, pedidos, clientes, citas de hoy
-      citas/            ← Gestión y agenda de citas médicas/servicios con notas clínicas y estados
-      productos/        ← CRUD de productos físicos y servicios/consultas (duración, agendamiento)
-      pedidos/          ← Gestión de pedidos
-      carrusel/         ← Gestión del banner/carrusel de imágenes
-      apariencia/       ← Editor de tema (colores + fuente)
-      calendario/       ← Integración Google Calendar y Outlook (Microsoft)
-      reviews/          ← Moderación de reseñas de clientes
-      asistente/        ← Chatbot IA con Newy AI (tool use, consultas de citas y KPIs)
-      faq/              ← CRUD de preguntas frecuentes
-      social-campaign/  ← Campañas automatizadas para FB/Instagram (i18n completo)
-      whatsapp/         ← CRM de conversaciones WhatsApp
-      apps/             ← Gestión de integraciones (Google, Microsoft, Facebook/Instagram Meta, WhatsApp)
-      negocio/          ← Perfil del negocio (nombre, logo, WhatsApp, info) — NO incluye slug
-      pacientes/        ← Perfiles de pacientes/triage (visible solo si Tenant.isTriageEnabled = true)
-      suscripcion/      ← Gestión de suscripción Stripe del tenant
+      login/            ← Login with email/password + Google OAuth
+      registro/         ← New customer signup (with legal consent)
+    admin/              ← CRM — only accessible with role = ADMIN
+      dashboard/        ← Metrics: sales, orders, customers, today's appointments
+      citas/            ← Management and schedule of medical/service appointments with clinical notes and statuses
+      productos/        ← CRUD of physical products and services/consultations (duration, booking)
+      pedidos/          ← Order management
+      carrusel/         ← Banner/image carousel management
+      apariencia/       ← Theme editor (colors + font)
+      calendario/       ← Google Calendar and Outlook (Microsoft) integration
+      reviews/          ← Customer review moderation
+      asistente/        ← AI chatbot with Newy AI (tool use, appointment queries and KPIs)
+      faq/              ← FAQ CRUD
+      social-campaign/  ← Automated FB/Instagram campaigns (full i18n)
+      whatsapp/         ← WhatsApp conversations CRM
+      apps/             ← Integration management (Google, Microsoft, Facebook/Instagram Meta, WhatsApp)
+      negocio/          ← Business profile (name, logo, WhatsApp, info) — does NOT include the slug
+      pacientes/        ← Patient/triage profiles (visible only if Tenant.isTriageEnabled = true)
+      suscripcion/      ← Tenant Stripe subscription management
     api/
-      appointments/     ← GET/POST citas del tenant (aisladas por tenantId)
-      appointments/[id] ← PATCH/DELETE gestión de estado y notas clínicas de citas
-      appointments/availability ← GET cálculo de slots disponibles según horario y duración
+      appointments/     ← GET/POST tenant appointments (isolated by tenantId)
+      appointments/[id] ← PATCH/DELETE appointment status and clinical notes management
+      appointments/availability ← GET available-slot calculation based on schedule and duration
       auth/             ← NextAuth handlers ([...nextauth])
-      products/         ← CRUD API de productos
-      orders/           ← Creación y consulta de pedidos
-      pedido/[id]/      ← Detalle público de un pedido específico
-      checkout/         ← Procesamiento de pagos (Conekta, PayPal)
-      chat/             ← Chatbot IA endpoint (streaming con Newy AI)
-      campaigns/        ← API de campañas sociales
-      carousel/         ← API de imágenes del carrusel
-      faqs/             ← API de FAQs
-      reviews/          ← API de reseñas
-      theme/            ← API del tema visual
-      apps/             ← Conexión de apps externas (OAuth flows Google + Facebook)
+      products/         ← Products CRUD API
+      orders/           ← Order creation and lookup
+      pedido/[id]/      ← Public detail of a specific order
+      checkout/         ← Payment processing (Conekta, PayPal)
+      chat/             ← AI chatbot endpoint (streaming with Newy AI)
+      campaigns/        ← Social campaigns API
+      carousel/         ← Carousel images API
+      faqs/             ← FAQs API
+      reviews/          ← Reviews API
+      theme/            ← Visual theme API
+      apps/             ← Connection of external apps (Google + Facebook OAuth flows)
       calendar/         ← Google Calendar API proxy
-      billing/          ← Stripe webhooks y gestión de suscripciones
-      credits/          ← API de créditos IA (GET estado, POST recarga Stripe)
-      internal/         ← APIs internas para n8n y WhatsApp AI (autenticadas con x-internal-key)
-        tokens/report   ← POST: Reportar consumo de tokens desde workflows externos
-        render-post-banner ← POST: Componer banner 1080×1080 con Cloudinary SDK para campañas
-        triage/         ← GET/POST: Consultar y guardar perfil de paciente desde WhatsApp AI
-        tenant-context/ ← POST: Contexto completo del tenant para el agente WhatsApp (products, FAQs, reviews, waConfig)
-        calendar/       ← GET availability / POST create-event desde n8n
-        whatsapp/sync   ← POST: Sincronizar mensajes de WhatsApp desde Evolution API
-        bot/            ← POST: Herramientas del agente WhatsApp (context, availability, book, my-appointments, cancel, reschedule, alert-failure)
-        campaigns/alert-failure ← POST: Avisa al dueño por WhatsApp cuando una campaña social falla al publicar
-        places/search   ← POST (público, con límite por IP): sugerencias de dirección de Google Places
-        places/details  ← POST (público, con límite por IP): dirección y coordenadas de un lugar
-        reminders/run   ← POST: Envía recordatorios, cobra cada uno y libera citas sin confirmar (cada 15 min por n8n, sin LLM)
-      admin/pacientes   ← GET: Lista de PatientProfiles para el CRM (filtrada por tenantId)
-      tenants/          ← API de gestión de tenants
-      tenants/business/ ← GET/PUT perfil del negocio. Slug es read-only.
-      upload/           ← Upload de imágenes a Cloudinary
-      webhooks/         ← Webhooks de Conekta y WhatsApp Evolution API
-      webhooks/social-campaign ← POST: Notificación de n8n al publicar un post (deduce tokens del ledger)
+      billing/          ← Stripe webhooks and subscription management
+      credits/          ← AI credits API (GET status, POST Stripe recharge)
+      internal/         ← Internal APIs for n8n and WhatsApp AI (authenticated with x-internal-key)
+        tokens/report   ← POST: Report token consumption from external workflows
+        render-post-banner ← POST: Compose a 1080×1080 banner with the Cloudinary SDK for campaigns
+        triage/         ← GET/POST: Look up and save a patient profile from WhatsApp AI
+        tenant-context/ ← POST: Full tenant context for the WhatsApp agent (products, FAQs, reviews, waConfig)
+        calendar/       ← GET availability / POST create-event from n8n
+        whatsapp/sync   ← POST: Sync WhatsApp messages from Evolution API
+        bot/            ← POST: WhatsApp agent tools (context, availability, book, my-appointments, cancel, reschedule, alert-failure)
+        campaigns/alert-failure ← POST: Notifies the owner via WhatsApp when a social campaign fails to publish
+        places/search   ← POST (public, rate-limited per IP): Google Places address suggestions
+        places/details  ← POST (public, rate-limited per IP): address and coordinates of a place
+        reminders/run   ← POST: Sends reminders, charges for each one and releases unconfirmed appointments (every 15 min from n8n, no LLM)
+      admin/pacientes   ← GET: List of PatientProfiles for the CRM (filtered by tenantId)
+      tenants/          ← Tenant management API
+      tenants/business/ ← GET/PUT business profile. Slug is read-only.
+      upload/           ← Image upload to Cloudinary
+      webhooks/         ← Conekta and WhatsApp Evolution API webhooks
+      webhooks/social-campaign ← POST: n8n notification when a post is published (deducts tokens from the ledger)
   components/
-    shop/               ← Componentes del storefront público
-    admin/              ← Componentes del CRM:
-      AdminSidebar      ← Navegación lateral con colapso y filtrado dinámico por integración
-      CreditsBadge      ← Barra de créditos IA en sidebar
-      CreditsDrawer     ← Panel de detalle de créditos (portaleado a document.body)
-      TrialBanner       ← Banner de período de prueba activo
-      TrialExpiredGate  ← Bloqueo de acceso al CRM cuando el trial expira
-      AmazonCheckout    ← UI de checkout alternativa estilo Amazon
-      ImageCropperModal ← Modal de recorte de imágenes
-      Pagination        ← Componente de paginación reutilizable
-    chat/               ← Chatbot del CRM (ChatAssistant, AssistantThinkingIndicator)
-    crm/                ← Componentes de visualización del dashboard:
+    shop/               ← Public storefront components
+    admin/              ← CRM components:
+      AdminSidebar      ← Side navigation with collapse and dynamic filtering by integration
+      CreditsBadge      ← AI credits bar in the sidebar
+      CreditsDrawer     ← Credits detail panel (portaled to document.body)
+      TrialBanner       ← Active trial period banner
+      TrialExpiredGate  ← Blocks CRM access when the trial expires
+      AmazonCheckout    ← Alternative Amazon-style checkout UI
+      ImageCropperModal ← Image crop modal
+      Pagination        ← Reusable pagination component
+    chat/               ← CRM chatbot (ChatAssistant, AssistantThinkingIndicator)
+    crm/                ← Dashboard visualization components:
       SalesChart, AppointmentsChart, CampaignMetrics, ProductsChart, RatingsChart
-      CalendarView      ← Vista de calendario interactiva
-      DashboardFilters  ← Filtros del dashboard
-    order/              ← DownloadTicketButton, PrintButton (vista de pedido)
-    marketing/          ← Componentes de la landing page de NewAigent
-    legal/              ← Componentes legales (LegalPageLayout)
-    ui/                 ← Componentes UI reutilizables
-  i18n/                 ← Sistema de internacionalización (useTranslation, en.ts, es.ts, types.ts)
+      CalendarView      ← Interactive calendar view
+      DashboardFilters  ← Dashboard filters
+    order/              ← DownloadTicketButton, PrintButton (order view)
+    marketing/          ← NewAigent landing page components
+    legal/              ← Legal components (LegalPageLayout)
+    ui/                 ← Reusable UI components
+  i18n/                 ← Internationalization system (useTranslation, en.ts, es.ts, types.ts)
   hooks/
-    useToast.ts         ← Hook personalizado para toasts
+    useToast.ts         ← Custom hook for toasts
   lib/
-    ai/                 ← Tools de Newy AI / OpenRouter, system prompt dinámico
-      openrouter.ts     ← Cascade de modelos + computeTokenCost
-      tools.ts          ← Definición de tools CRM (ventas, pedidos, productos, etc.)
-      execute-tool.ts   ← Ejecutor de tools con Prisma (siempre filtrado por tenantId)
-      system-prompt.ts  ← System prompt de Newy AI con defensa anti-jailbreak
-    credits.ts          ← Motor de contabilidad de tokens, límites y auto-pausa
-    credits-error.ts    ← CreditExhaustedError (error 402)
-    trial.ts            ← Helpers de estado de suscripción (getTrialDaysLeft, isTrialExpired, etc.)
-    auth.ts             ← Configuración de NextAuth (providers, callbacks, JWT)
-    db.ts               ← Cliente Prisma singleton (importar como @/lib/db)
-    cloudinary.ts       ← Helper de Cloudinary
-    conekta.ts          ← Helper de Conekta
-    stripe.ts           ← Helper de Stripe
-    connected-apps.ts   ← Helpers para queries de ConnectedApp
-    google-calendar.ts  ← Integración completa de Google Calendar
-    tenant.ts           ← Helpers de tenant (getBySlug, getByDomain)
-    session.ts          ← Helper para extraer sesión en server components
-    utils.ts            ← Utilidades generales
-    validations/        ← Schemas Zod
-    image/              ← Utilidades de procesamiento de imágenes
-  store/                ← Zustand stores (carrito de compras)
+    ai/                 ← Newy AI / OpenRouter tools, dynamic system prompt
+      openrouter.ts     ← Model cascade + computeTokenCost
+      tools.ts          ← CRM tool definitions (sales, orders, products, etc.)
+      execute-tool.ts   ← Tool executor with Prisma (always filtered by tenantId)
+      system-prompt.ts  ← Newy AI system prompt with anti-jailbreak defense
+    credits.ts          ← Token accounting engine, limits and auto-pause
+    credits-error.ts    ← CreditExhaustedError (402 error)
+    trial.ts            ← Subscription state helpers (getTrialDaysLeft, isTrialExpired, etc.)
+    auth.ts             ← NextAuth configuration (providers, callbacks, JWT)
+    db.ts               ← Prisma client singleton (import as @/lib/db)
+    cloudinary.ts       ← Cloudinary helper
+    conekta.ts          ← Conekta helper
+    stripe.ts           ← Stripe helper
+    connected-apps.ts   ← Helpers for ConnectedApp queries
+    google-calendar.ts  ← Full Google Calendar integration
+    tenant.ts           ← Tenant helpers (getBySlug, getByDomain)
+    session.ts          ← Helper to extract the session in server components
+    utils.ts            ← General utilities
+    validations/        ← Zod schemas
+    image/              ← Image processing utilities
+  store/                ← Zustand stores (shopping cart)
   types/                ← TypeScript type augmentations (NextAuth JWT)
 prisma/
-  schema.prisma         ← Modelos de datos completos
-local-utils/            ← Scripts de prueba, debugging, utilidades locales que NO forman parte de la app de producción
-middleware.ts           ← Gatekeeper multi-tenant + protección de rutas
+  schema.prisma         ← Full data models
+local-utils/            ← Test scripts, debugging and local utilities that are NOT part of the production app
+middleware.ts           ← Multi-tenant gatekeeper + route protection
 ```
 
-> ⚠️ **Nota crítica para agentes**: El cliente Prisma singleton se importa desde `@/lib/db` (archivo `src/lib/db.ts`), **NO** desde `@/lib/prisma`. Usar la ruta incorrecta causa errores de módulo.
+> ⚠️ **Critical note for agents**: The Prisma client singleton is imported from `@/lib/db` (file `src/lib/db.ts`), **NOT** from `@/lib/prisma`. Using the wrong path causes module errors.
 
 ---
 
-## Modelos de Datos Principales
+## Core Data Models
 
 ### Tenant
-El corazón del sistema. Cada negocio es un Tenant con:
-- `slug` (único) → usado para subdominio
-- `customDomain` → dominio propio opcional
+The heart of the system. Each business is a Tenant with:
+- `slug` (unique) → used for the subdomain
+- `customDomain` → optional custom domain
 - `logoUrl`, `whatsappNumber`, `businessInfo`
-- `theme` (ThemeConfig 1:1) → colores y fuente del tenant
+- `theme` (ThemeConfig 1:1) → tenant colors and font
 - `vertical` (`BusinessVertical`) → `ECOMMERCE`, `HEALTH`, `VETERINARY`, `TOURISM`, `SERVICES`
-- `isBookingEnabled` → activa el motor de agenda y citas para el tenant
-- `isAssistantEnabled` → toggle del chatbot IA por tenant
-- `isTriageEnabled` → toggle para habilitar el módulo de triage/pacientes (default: false)
-- `aiCreditLimitUsd` → override opcional del tope mensual de créditos IA (null = usa el del plan)
-- `botFailureAlertedAt` → última vez que se avisó al dueño que el bot de WhatsApp falló (cooldown de 60 min, ver §"Alertas al Dueño del Tenant")
-- `remindersEnabled` → activa los recordatorios de cita por WhatsApp (default: true)
-- `reminderLeadMinutes`, `confirmationRequired`, `confirmationDeadlineMinutes`, `reminderTemplate`, `confirmationTemplate`, `cancellationTemplate`, `messageLanguage` → configuración de recordatorios y confirmación (ver "Recordatorios de Citas y Confirmación"). `reminderMode` y `reminderSendTime` son legado.
-- `reminderOffsetsMinutes` → legado: ya no se usa (reemplazado por `reminderLeadMinutes`)
-- `businessHours` → horario semanal de atención (JSON, por día una lista de bloques `{start, end}`; lista vacía = cerrado; varios bloques por día = hora de comer). Lo edita el admin en `/admin/negocio`. Null en el campo = horario por defecto (lunes a sábado 09:00 a 18:00). Lo leen la web y el bot a través de `src/lib/business-hours.ts`. Pendiente: `npm run db:push`.
-- `ownerName`, `hasPhysicalLocation`, `address`, `placeId`, `latitude`, `longitude` → dueño o responsable y ubicación del negocio (dirección elegida con Google Maps). La dirección solo existe con `hasPhysicalLocation = true`; al apagarlo se borra. Se capturan en el registro y en `/admin/negocio`, se muestran en la página de inicio de la tienda y el bot de WhatsApp los recibe en `bot/context` (`ownerName`, `locationText`). Helpers en `src/lib/location.ts` (`locationSchema`, `directionsUrl`, `locationTextForBot`).
+- `isBookingEnabled` → enables the scheduling and appointment engine for the tenant
+- `isAssistantEnabled` → per-tenant AI chatbot toggle
+- `isTriageEnabled` → toggle to enable the triage/patients module (default: false)
+- `aiCreditLimitUsd` → optional override of the monthly AI credit cap (null = use the plan's)
+- `botFailureAlertedAt` → last time the owner was told the WhatsApp bot failed (60-minute cooldown, see §"Tenant Owner Alerts")
+- `remindersEnabled` → enables WhatsApp appointment reminders (default: true)
+- `reminderLeadMinutes`, `confirmationRequired`, `confirmationDeadlineMinutes`, `reminderTemplate`, `confirmationTemplate`, `cancellationTemplate`, `messageLanguage` → reminder and confirmation settings (see "Appointment Reminders and Confirmation"). `reminderMode` and `reminderSendTime` are legacy.
+- `reminderOffsetsMinutes` → legacy: no longer used (replaced by `reminderLeadMinutes`)
+- `businessHours` → weekly opening hours (JSON, a list of `{start, end}` blocks per day; empty list = closed; several blocks per day = lunch break). Edited by the admin in `/admin/negocio`. Null in the field = default hours (Monday to Saturday 09:00 to 18:00). Read by the web and the bot through `src/lib/business-hours.ts`. Pending: `npm run db:push`.
+- `ownerName`, `hasPhysicalLocation`, `address`, `placeId`, `latitude`, `longitude` → owner or person in charge and business location (address chosen with Google Maps). The address only exists with `hasPhysicalLocation = true`; turning it off clears it. Captured at signup and in `/admin/negocio`, shown on the store homepage, and the WhatsApp bot receives them in `bot/context` (`ownerName`, `locationText`). Helpers in `src/lib/location.ts` (`locationSchema`, `directionsUrl`, `locationTextForBot`).
 
 ### User
-- Pertenece a un único tenant
+- Belongs to a single tenant
 - `role`: `CUSTOMER` | `ADMIN`
-- Auth: email+password o Google OAuth
-- `conektaCustomerId` para pagos recurrentes
-- `appointments` → relación 1:N con citas agendadas
+- Auth: email+password or Google OAuth
+- `conektaCustomerId` for recurring payments
+- `appointments` → 1:N relation with booked appointments
 
 ### Product
 - Tenant-scoped
 - `itemType` (`ItemType`) → `PHYSICAL`, `SERVICE`, `PACKAGE`, `SUBSCRIPTION`
-- `durationMinutes` → duración estimada en minutos para citas/consultas (default: 30)
-- `requiresBooking` → boolean. Con `Tenant.isBookingEnabled` forma la regla `isBookable` (`src/lib/bookable.ts`): solo los artículos agendables tienen fecha y horario; los demás son solo información (precio y descripción).
-- `capacity` → cupo máximo para servicios grupales o tours
-- `serviceConfig` → configuración JSON (horarios específicos, requisitos, etc.)
-- `isActive` → visible en storefront
-- `deletedAt` → soft delete. `DELETE /api/products/[id]` borra de verdad solo si ningún `OrderItem`, `Review` ni `Appointment` apunta al producto; si alguno existe, queda oculto (soft delete) para conservar el historial de citas y pedidos.
-- `GET /api/products/categories` (admin) → categorías distintas del tenant para el autocompletado del formulario de productos (`<datalist>`).
-- `images[]` → URLs de Cloudinary
+- `durationMinutes` → estimated duration in minutes for appointments/consultations (default: 30)
+- `requiresBooking` → boolean. Together with `Tenant.isBookingEnabled` it forms the `isBookable` rule (`src/lib/bookable.ts`): only bookable items have a date and time; the rest are information only (price and description).
+- `capacity` → maximum capacity for group services or tours
+- `serviceConfig` → JSON configuration (specific schedules, requirements, etc.)
+- `isActive` → visible in the storefront
+- `deletedAt` → soft delete. `DELETE /api/products/[id]` really deletes only if no `OrderItem`, `Review` or `Appointment` points to the product; if any exists, it is hidden (soft delete) to preserve appointment and order history.
+- `GET /api/products/categories` (admin) → distinct tenant categories for the product form autocomplete (`<datalist>`).
+- `images[]` → Cloudinary URLs
 
 ### Appointment
-- Motor nativo de agenda de citas médicas y servicios (aislado por `tenantId`)
-- `userId` → paciente o cliente registrado
-- `productId` → servicio o consulta médica agendada
-- `appointmentDate` → fecha y hora exacta de la cita
-- `durationMinutes` → duración de la sesión
+- Native scheduling engine for medical and service appointments (isolated by `tenantId`)
+- `userId` → registered patient or customer
+- `productId` → booked service or medical consultation
+- `appointmentDate` → exact date and time of the appointment
+- `durationMinutes` → session duration
 - `status` (`AppointmentStatus`) → `PENDING`, `CONFIRMED`, `COMPLETED`, `CANCELLED`, `NO_SHOW`
-- `notes` → motivo de consulta o notas proporcionadas por el paciente
-- `internalNotes` → notas clínicas o de atención visibles solo para el profesional (ADMIN)
-- `customerPhone` → número de WhatsApp del cliente; identifica al paciente en el bot
-- `patientKey` → dígitos del teléfono normalizados a `52` + 10 dígitos (`src/lib/patient-key.ts`). Agrupa las visitas de un paciente en `/admin/historial`. Lo fija `createAppointment` en cada reserva.
-- `customerEmail` → email que escribió el cliente al agendar (puede diferir del email de la cuenta vinculada)
-- `externalProvider` (`AppProvider`) y `externalEventId` → calendario (`GOOGLE` o `MICROSOFT`) y id del evento que replica la cita; `null` si no hay calendario conectado
-- `googleEventId` → legado, reemplazado por `externalEventId`; se elimina tras correr `local-utils/backfill-appointment-calendar-links.mjs`
-- `reminderSentAt`, `customerConfirmedAt`, `autoReleasedAt` → recordatorio enviado, confirmado por el cliente y liberado sin confirmar. Reprogramar la cita los reinicia. `remindersSent` es legado.
+- `notes` → reason for the visit or notes provided by the patient
+- `internalNotes` → clinical or care notes visible only to the professional (ADMIN)
+- `customerPhone` → customer's WhatsApp number; identifies the patient in the bot
+- `patientKey` → phone digits normalized to `52` + 10 digits (`src/lib/patient-key.ts`). Groups a patient's visits in `/admin/historial`. Set by `createAppointment` on every booking.
+- `customerEmail` → email the customer typed when booking (may differ from the linked account's email)
+- `externalProvider` (`AppProvider`) and `externalEventId` → calendar (`GOOGLE` or `MICROSOFT`) and id of the event that mirrors the appointment; `null` if no calendar is connected
+- `googleEventId` → legacy, replaced by `externalEventId`; removed after running `local-utils/backfill-appointment-calendar-links.mjs`
+- `reminderSentAt`, `customerConfirmedAt`, `autoReleasedAt` → reminder sent, confirmed by the customer, and released without confirmation. Rescheduling the appointment resets them. `remindersSent` is legacy.
 
-- `petId` → mascota del tutor (solo giros con mascotas: `VETERINARY`, `PET_CARE`). Nulo en los demás. Ver el modelo `Pet`.
+- `petId` → the owner's pet (only for pet verticals: `VETERINARY`, `PET_CARE`). Null in the rest. See the `Pet` model.
 
 ### Pet
-- Mascota de un tutor (`VETERINARY` y `PET_CARE`). Tabla `pets`.
-- `patientKey` → teléfono del tutor normalizado (mismo criterio que `Appointment.patientKey`). `name` → nombre tal como se escribió. `nameKey` → nombre en minúsculas, sin espacios extra; con `tenantId` y `patientKey` es único, así que "Max" y " max " son la misma mascota del mismo tutor.
-- `species` → `dog`, `cat`, `bird`, `rabbit` u `other` (`src/lib/pets.ts`). `breed` existe, pero ninguna pantalla lo pide todavía.
-- `findOrCreatePet()` corre dentro de la misma transacción que la cita, después de confirmar que el horario está libre; si el horario se ocupó, no se crea mascota.
+- A pet belonging to an owner (`VETERINARY` and `PET_CARE`). Table `pets`.
+- `patientKey` → normalized owner phone (same rule as `Appointment.patientKey`). `name` → name as typed. `nameKey` → lowercase name without extra spaces; together with `tenantId` and `patientKey` it is unique, so "Max" and " max " are the same pet of the same owner.
+- `species` → `dog`, `cat`, `bird`, `rabbit` or `other` (`src/lib/pets.ts`). `breed` exists, but no screen asks for it yet.
+- `findOrCreatePet()` runs inside the same transaction as the appointment, after confirming the slot is free; if the slot was taken, no pet is created.
 
 ### Order + OrderItem
-- Estados: `PENDING → PAID → SHIPPED → DELIVERED | CANCELLED`
-- Métodos de pago: `CARD_CONEKTA`, `OXXO_CONEKTA`, `PAYPAL`
-- `shippingAddress` como JSON
-- `conektaChargeId` → ID del cargo de Conekta (recibido vía webhook)
+- Statuses: `PENDING → PAID → SHIPPED → DELIVERED | CANCELLED`
+- Payment methods: `CARD_CONEKTA`, `OXXO_CONEKTA`, `PAYPAL`
+- `shippingAddress` as JSON
+- `conektaChargeId` → Conekta charge ID (received via webhook)
 
 ### ConnectedApp
-- Integraciones por tenant: `GOOGLE`, `MICROSOFT`, `FACEBOOK`, `WHATSAPP`
-- WhatsApp usa Evolution API (campos `wa*`):
+- Per-tenant integrations: `GOOGLE`, `MICROSOFT`, `FACEBOOK`, `WHATSAPP`
+- WhatsApp uses Evolution API (`wa*` fields):
   - `waInstanceId`, `waInstanceName`, `waStatus`, `waQrCode`, `waPhoneNumber`, `waWebhookUrl`
-  - `waTemperature` (Float, default 0.7) → temperatura del modelo IA para respuestas de WhatsApp
-  - `waContext` (Text) → contexto personalizado del negocio para el agente de WhatsApp
-- Facebook/Instagram para campañas sociales
-- `@@unique([tenantId, provider])` → un tenant solo puede tener una app de cada tipo
+  - `waTemperature` (Float, default 0.7) → AI model temperature for WhatsApp replies
+  - `waContext` (Text) → custom business context for the WhatsApp agent
+- Facebook/Instagram for social campaigns
+- `@@unique([tenantId, provider])` → a tenant can have only one app of each type
 
 ### PatientProfile
-- Perfil de triage de pacientes, vinculado 1:1 con `User`
-- Activado por `Tenant.isTriageEnabled = true`
-- Campos recopilados por el agente AI de WhatsApp: `age`, `heightCm`, `weightKg`, `goals`, `allergies`, `medicalHistory`, `medications`
-- `remoteJid` → identificador de WhatsApp del paciente
-- `isTriageComplete` → indica si el cuestionario fue completado
-- Visible en `/admin/pacientes` con i18n via `t.crm.triage.*`
+- Patient triage profile, linked 1:1 to `User`
+- Enabled by `Tenant.isTriageEnabled = true`
+- Fields collected by the WhatsApp AI agent: `age`, `heightCm`, `weightKg`, `goals`, `allergies`, `medicalHistory`, `medications`
+- `remoteJid` → the patient's WhatsApp identifier
+- `isTriageComplete` → indicates whether the questionnaire was completed
+- Visible in `/admin/pacientes` with i18n via `t.crm.triage.*`
 
 ### SocialCampaign + SocialPost
-- Campañas automatizadas via n8n
-- Frecuencias: DAILY, EVERY_3_DAYS, WEEKLY, BIWEEKLY, MONTHLY
-- n8n genera contenido con IA y publica en Facebook/Instagram
-- `nextPostAt` calculado automáticamente
-- `pausedByCredits` → boolean que indica si la campaña fue auto-pausada por falta de créditos de IA
-- Campos de configuración: `name`, `campaignGoal` (promocion/informativo/urgencia/testimonio/educativo), `tone` (profesional/cercano/motivacional/urgente), `extraContext`
-- Campos de auditoría: `lastResults` (JSON con resultados por plataforma), `lastError`, `lastErrorAt`, `errorNode` (nodo n8n donde ocurrió el error)
-- **Scheduling gotcha**: Las fechas del formulario se envían como `datetime-local` (`YYYY-MM-DDTHH:mm`) para la `startDate` (con hora exacta del primer post) y `YYYY-MM-DDT23:59:59` para `endDate`. NUNCA envíes solo `YYYY-MM-DD` — JavaScript lo parsea como UTC midnight lo que causa que el primer post se dispare en el ciclo incorrecto o que la campaña expire prematuramente en zonas UTC-.
+- Automated campaigns via n8n
+- Frequencies: DAILY, EVERY_3_DAYS, WEEKLY, BIWEEKLY, MONTHLY
+- n8n generates content with AI and publishes to Facebook/Instagram
+- `nextPostAt` is calculated automatically
+- `pausedByCredits` → boolean indicating the campaign was auto-paused for lack of AI credits
+- Configuration fields: `name`, `campaignGoal` (promocion/informativo/urgencia/testimonio/educativo), `tone` (profesional/cercano/motivacional/urgente), `extraContext`
+- Audit fields: `lastResults` (JSON with per-platform results), `lastError`, `lastErrorAt`, `errorNode` (n8n node where the error occurred)
+- **Scheduling gotcha**: Form dates are sent as `datetime-local` (`YYYY-MM-DDTHH:mm`) for `startDate` (with the exact time of the first post) and `YYYY-MM-DDT23:59:59` for `endDate`. NEVER send only `YYYY-MM-DD` — JavaScript parses it as UTC midnight, which makes the first post fire in the wrong cycle or the campaign expire prematurely in UTC- timezones.
 
 ### AiTokenLedger
-- Tabla de contabilidad mensual de tokens y doble contabilidad (Retail vs Wholesale) por tenant
-- Campos: `tenantId`, `periodStart`, `periodEnd`, `totalCostUsd` (gasto facturado al tenant), `realProviderCostUsd` (costo real con OpenRouter), `netMarginUsd` (margen bruto retenido), `promptTokens`, `completionTokens`, `reminderCount` (recordatorios cobrados), `creditLimitUsd`, `isPaused`, `pausedAt`, `resumedAt`
-- Restricción única: `@@unique([tenantId, periodStart])`
+- Monthly token accounting table with double accounting (Retail vs Wholesale) per tenant
+- Fields: `tenantId`, `periodStart`, `periodEnd`, `totalCostUsd` (spend billed to the tenant), `realProviderCostUsd` (real cost with OpenRouter), `netMarginUsd` (gross margin retained), `promptTokens`, `completionTokens`, `reminderCount` (reminders charged), `creditLimitUsd`, `isPaused`, `pausedAt`, `resumedAt`
+- Unique constraint: `@@unique([tenantId, periodStart])`
 
 ### Subscription (Stripe)
-- Planes: STARTER, PRO, ENTERPRISE
-- Estados: TRIALING, ACTIVE, PAST_DUE, CANCELED, UNPAID
-- Billing gestionado por Stripe
-- `trialEndsAt` → fecha de expiración del período de prueba (14 días desde creación)
-- Helpers en `src/lib/trial.ts`: `getTrialDaysLeft()`, `isTenantOnTrial()`, `isTrialExpired()`, `isSubscriptionBlocked()`
-- `TrialBanner` → mostrado durante el trial; `TrialExpiredGate` → bloquea el CRM al expirar
+- Plans: STARTER, PRO, ENTERPRISE
+- Statuses: TRIALING, ACTIVE, PAST_DUE, CANCELED, UNPAID
+- Billing managed by Stripe
+- `trialEndsAt` → trial period expiration date (14 days from creation)
+- Helpers in `src/lib/trial.ts`: `getTrialDaysLeft()`, `isTenantOnTrial()`, `isTrialExpired()`, `isSubscriptionBlocked()`
+- `TrialBanner` → shown during the trial; `TrialExpiredGate` → blocks the CRM on expiry
 
 ---
 
-## Sistema de Créditos de Tokens IA (Platform AI Metering)
+## AI Token Credits System (Platform AI Metering)
 
-Cada tenant cuenta con un presupuesto mensual de gasto en créditos de IA ($15 USD para Starter).
+Each tenant has a monthly AI credit spending budget ($15 USD for Starter).
 
-### 1. Límites por Plan
-| Plan | Crédito Mensual |
+### 1. Plan limits
+| Plan | Monthly credit |
 |---|---|
-| **STARTER** | **$15.00 USD** (por defecto) |
+| **STARTER** | **$15.00 USD** (default) |
 | **PRO** | **$50.00 USD** |
 | **ENTERPRISE** | **$200.00 USD** |
 
-### 2. Stack de Modelos en Cascada (5 Niveles)
-Para maximizar la monetización de créditos ($15 por Starter) y garantizar 100% de disponibilidad, las llamadas se ejecutan en cascada via `src/lib/ai/openrouter.ts`.
-El orden real se configura en la env var `OPENROUTER_MODELS` (lista separada por comas).
-Configuracion actual de produccion (modelos gratuitos primero, pagados como último recurso — ver §6 "Balance compartido de OpenRouter"):
-1. `nvidia/nemotron-3-super-120b-a12b:free` (Gratuito: $0.00) — Principal.
-2. `google/gemma-4-31b-it:free` (Gratuito: $0.00) — Fallback Google open-weights.
-3. `openrouter/free` (Gratuito: $0.00) — Selección automática de OpenRouter.
-4. `anthropic/claude-sonnet-4.5` (Pago: $3.00 in / $15.00 out) — Respaldo de pago solo si todos los modelos gratuitos fallan o están saturados.
-5. `openai/gpt-4o` (Pago: $2.50 in / $10.00 out) — Último respaldo de pago.
+### 2. Cascading model stack (5 tiers)
+To maximize credit monetization ($15 per Starter) and guarantee 100% availability, calls run as a cascade via `src/lib/ai/openrouter.ts`.
+The real order is configured in the env var `OPENROUTER_MODELS` (comma-separated list).
+Current production configuration (free models first, paid models as a last resort — see §7 "Shared OpenRouter balance"):
+1. `nvidia/nemotron-3-super-120b-a12b:free` (Free: $0.00) — Primary.
+2. `google/gemma-4-31b-it:free` (Free: $0.00) — Google open-weights fallback.
+3. `openrouter/free` (Free: $0.00) — OpenRouter automatic selection.
+4. `anthropic/claude-sonnet-4.5` (Paid: $3.00 in / $15.00 out) — Paid backup only if all free models fail or are saturated.
+5. `openai/gpt-4o` (Paid: $2.50 in / $10.00 out) — Last paid backup.
 
-### 3. Modelo de Negocio: Doble Contabilidad y Arbitraje SaaS
-El tenant siempre paga por **unidades de servicio de la plataforma** a la tarifa estándar de retail:
-- **Gasto Facturado al Tenant (`totalCostUsd`)**:
-  Calculado a `$3.00 USD / 1M` prompt y `$15.00 USD / 1M` completion, **sin importar si el backend usó un modelo gratuito o de pago**. Consume su límite mensual de $15 USD y detona recargas de $15 en Stripe.
-- **Costo Real del Proveedor (`realProviderCostUsd`)**:
-  Lo que NewAigent realmente adeuda a OpenRouter ($0.00 para modelos `:free`, costo real para Claude/GPT-4o).
-- **Margen Bruto Retenido (`netMarginUsd`)**:
-  `totalCostUsd - realProviderCostUsd`. Si se ejecuta un modelo gratuito, NewAigent obtiene **100% de margen bruto ($15 USD de beneficio neto por cada $15 de consumo/recarga)**.
-
-
-### 4. Enforcing y Auto-Pausa
-- **Chatbot (`POST /api/chat`)**: Valida créditos antes de invocar OpenRouter. Si se agotaron, devuelve `402 Payment Required` con `{ error: "credit_exhausted" }`. El frontend muestra un toast de error, deshabilita el input y muestra un banner de recarga.
-- **Bot de WhatsApp**: `POST /api/internal/bot/context` incluye `creditExhausted` (de `getCreditStatus()`) en cada mensaje. El nodo "Guard: Credits OK" del workflow lo revisa antes de invocar al agente: si el tenant ya agotó su límite mensual, se omite la llamada al modelo (ningún costo real adicional) y se envía una respuesta fija de degradación en vez de la del LLM — nunca silencio, nunca gasto sin tope.
-- **Campañas Sociales (`GET /api/campaigns/social/due`)**: Cuando los créditos se agotan, `pauseCampaignsForTenant()` marca `isActive = false, pausedByCredits = true`. El endpoint `due` excluye automáticamente estas campañas para que n8n no genere posts sin saldo.
-- **Deducción de Tokens en Webhook Social (`POST /api/webhooks/social-campaign`)**: Cuando n8n publica un post (`social_campaign_posted`), envía `tokenUsage: { promptTokens, completionTokens, model }`. El webhook invoca atómicamente `recordTokenUsage()` debitando créditos a tarifa retail ($3.00/$15.00 por 1M) sin importar si el modelo fue gratuito, y almacena el registro en `SocialPost.postUrls.aiTokens`.
-- **Reporte Externo (`POST /api/internal/tokens/report`)**: Permite a n8n o workflows de WhatsApp reportar consumo de tokens directamente con `x-internal-key`.
-
-- **Barra lateral** (`CreditsBadge`): muestra el porcentaje usado (por ejemplo "7% Usado") y no muestra montos en dólares ni el límite. El detalle (`CreditsDrawer`) conserva los montos.
-
-### 5. Recarga y Reactivación Automática
-- El admin hace clic en "Recargar créditos" en el sidebar (`CreditsBadge`) o en el drawer (`CreditsDrawer`).
-- Se genera una sesión de Stripe Checkout (`POST /api/credits`).
-- El webhook de Stripe (`checkout.session.completed`) procesa la recarga mediante `rechargeCredits(tenantId, amountUsd)`: incrementa `creditLimitUsd` en el ledger activo y reactiva automáticamente todas las campañas (`resumeCampaignsForTenant()`).
-
-### 6. Alertas al Dueño del Tenant
-No existe correo ni Slack en la plataforma; el único canal es el propio WhatsApp del negocio (`Tenant.whatsappNumber`), vía `notifyTenantOwner()` (`src/lib/whatsapp.ts`, reutiliza `sendWhatsAppMessage`). Dos disparadores:
-- **Créditos agotados**: dentro de `recordTokenUsage()` (`src/lib/credits.ts`), en la transición `isPaused` false→true (una sola vez por periodo; se compara el estado previo del ledger para no repetir el aviso en cada mensaje posterior).
-- **Falla total del bot de WhatsApp**: si el agente de n8n falla con todos los modelos de la cascada (nodo "Bot Agent" con `onError: continueErrorOutput`), el workflow envía al cliente una respuesta fija de disculpa (en vez del silencio total de antes) y llama a `POST /api/internal/bot/alert-failure`, que avisa al dueño con un cooldown de 60 minutos (`Tenant.botFailureAlertedAt`) para no saturarlo durante una caída prolongada.
-- **Falla de una campaña social**: el nodo `Notify Error` de `n8n/workflows/n8n-social-campaign-workflow.json` llama a `POST /api/internal/campaigns/alert-failure`, que avisa al dueño (cooldown de 60 minutos, usando `SocialCampaign.lastErrorAt` que ya existía). Antes este nodo posteaba a `$env.WEBHOOK_URL`, que no existe en esta instancia de n8n, así que nunca avisaba a nadie.
-
-### 7. Balance Compartido de OpenRouter
-Todos los tenants comparten **una sola cuenta/API key de OpenRouter** — no hay clave por tenant. Agregar crédito real a esa cuenta (p. ej. $10 USD) desbloquea permanentemente el límite diario de modelos gratuitos de la cuenta completa (de 50 a 1000 solicitudes/día) y además queda disponible como saldo gastable cada vez que se usa un modelo de pago (Claude, GPT-4o). Para estirar ese saldo compartido entre todos los tenants:
-- La cascada prioriza modelos gratuitos (ver §2); los de pago quedan como último recurso, cuando OpenRouter responde 402/429/5xx en los gratuitos (`src/lib/ai/openrouter.ts` ya reintenta el siguiente modelo automáticamente, sin lógica adicional).
-- No existe una verificación previa de saldo real antes de cada llamada (agregaría latencia a cada turno); se confía en la respuesta 402 de OpenRouter para saltar a otro modelo.
-- `node local-utils/check_shared_balance.js` suma `realProviderCostUsd` de todos los tenants (periodo actual y total histórico) para vigilar manualmente el saldo compartido. Es una herramienta de operador, nunca se muestra al tenant.
-- Una clave de OpenRouter por tenant queda como opción futura, solo si la plataforma crece lo suficiente para que un tenant ruidoso agote el saldo de los demás.
+### 3. Business model: double accounting and SaaS arbitrage
+The tenant always pays for **platform service units** at the standard retail rate:
+- **Spend billed to the tenant (`totalCostUsd`)**:
+  Calculated at `$3.00 USD / 1M` prompt and `$15.00 USD / 1M` completion, **regardless of whether the backend used a free or paid model**. It consumes the tenant's monthly $15 USD limit and triggers $15 recharges in Stripe.
+- **Real provider cost (`realProviderCostUsd`)**:
+  What NewAigent actually owes OpenRouter ($0.00 for `:free` models, real cost for Claude/GPT-4o).
+- **Gross margin retained (`netMarginUsd`)**:
+  `totalCostUsd - realProviderCostUsd`. When a free model runs, NewAigent keeps **100% gross margin ($15 USD net profit for every $15 of consumption/recharge)**.
 
 
----
+### 4. Enforcement and auto-pause
+- **Chatbot (`POST /api/chat`)**: Validates credits before invoking OpenRouter. If they are exhausted, it returns `402 Payment Required` with `{ error: "credit_exhausted" }`. The frontend shows an error toast, disables the input and shows a recharge banner.
+- **WhatsApp bot**: `POST /api/internal/bot/context` includes `creditExhausted` (from `getCreditStatus()`) in every message. The workflow's "Guard: Credits OK" node checks it before invoking the agent: if the tenant already exhausted its monthly limit, the model call is skipped (no additional real cost) and a fixed degradation reply is sent instead of the LLM's — never silence, never spend without a cap.
+- **Social campaigns (`GET /api/campaigns/social/due`)**: When credits run out, `pauseCampaignsForTenant()` sets `isActive = false, pausedByCredits = true`. The `due` endpoint automatically excludes these campaigns so n8n does not generate posts without balance.
+- **Token deduction in the social webhook (`POST /api/webhooks/social-campaign`)**: When n8n publishes a post (`social_campaign_posted`), it sends `tokenUsage: { promptTokens, completionTokens, model }`. The webhook atomically invokes `recordTokenUsage()`, debiting credits at the retail rate ($3.00/$15.00 per 1M) regardless of whether the model was free, and stores the record in `SocialPost.postUrls.aiTokens`.
+- **External report (`POST /api/internal/tokens/report`)**: Lets n8n or WhatsApp workflows report token consumption directly with `x-internal-key`.
 
-## Theming Dinámico y Tipografía Personalizada
+- **Sidebar** (`CreditsBadge`): shows the percentage used (for example "7% Usado") and shows no dollar amounts or limit. The detail (`CreditsDrawer`) keeps the amounts.
 
-El sistema respeta los colores y la tipografía configurados por cada negocio en `/admin/apariencia` (`ThemeConfig`):
-- **Variables CSS**: Inyectadas en `:root` como `--color-primary`, `--color-secondary`, `--color-accent` y `--font-family-base`.
-- **Google Fonts**: Pre-cargadas en `src/app/layout.tsx` (`Inter`, `Montserrat`, `Playfair Display`, `Roboto`, `Space Grotesk`).
-- **Tailwind**: Configurado con `colors.primary = "var(--color-primary)"` y `fontFamily.sans = ["var(--font-family-base)", ...]`.
-- **Modales y Drawers Portaleados**: Todo componente que use `createPortal(..., document.body)` (como `CreditsDrawer`) debe declarar explícitamente `style={{ fontFamily: "var(--font-family-base), system-ui, sans-serif" }}` para no perder la tipografía personalizada del tenant al escapar del layout.
+### 5. Recharge and automatic reactivation
+- The admin clicks "Recargar créditos" (Recharge credits) in the sidebar (`CreditsBadge`) or in the drawer (`CreditsDrawer`).
+- A Stripe Checkout session is generated (`POST /api/credits`).
+- The Stripe webhook (`checkout.session.completed`) processes the recharge through `rechargeCredits(tenantId, amountUsd)`: it increases `creditLimitUsd` on the active ledger and automatically reactivates all campaigns (`resumeCampaignsForTenant()`).
+
+### 6. Tenant owner alerts
+The platform has no email or Slack; the only channel is the business's own WhatsApp (`Tenant.whatsappNumber`), via `notifyTenantOwner()` (`src/lib/whatsapp.ts`, reuses `sendWhatsAppMessage`). Three triggers:
+- **Credits exhausted**: inside `recordTokenUsage()` (`src/lib/credits.ts`), on the `isPaused` false→true transition (only once per period; the ledger's previous state is compared so the notice is not repeated on every later message).
+- **Total WhatsApp bot failure**: if the n8n agent fails with every model in the cascade ("Bot Agent" node with `onError: continueErrorOutput`), the workflow sends the customer a fixed apology reply (instead of the total silence of before) and calls `POST /api/internal/bot/alert-failure`, which notifies the owner with a 60-minute cooldown (`Tenant.botFailureAlertedAt`) so as not to overwhelm them during a prolonged outage.
+- **Social campaign failure**: the `Notify Error` node of `n8n/workflows/n8n-social-campaign-workflow.json` calls `POST /api/internal/campaigns/alert-failure`, which notifies the owner (60-minute cooldown, using `SocialCampaign.lastErrorAt`, which already existed). Previously this node posted to `$env.WEBHOOK_URL`, which does not exist in this n8n instance, so it never notified anyone.
+
+### 7. Shared OpenRouter balance
+All tenants share **a single OpenRouter account/API key** — there is no per-tenant key. Adding real credit to that account (e.g. $10 USD) permanently unlocks the whole account's daily limit for free models (from 50 to 1000 requests/day) and also remains available as spendable balance every time a paid model (Claude, GPT-4o) is used. To stretch that shared balance across all tenants:
+- The cascade prioritizes free models (see §2); paid ones are the last resort, when OpenRouter answers 402/429/5xx on the free ones (`src/lib/ai/openrouter.ts` already retries the next model automatically, with no extra logic).
+- There is no prior check of the real balance before each call (it would add latency to every turn); the 402 response from OpenRouter is relied on to skip to another model.
+- `node local-utils/check_shared_balance.js` sums `realProviderCostUsd` across all tenants (current period and historical total) to manually monitor the shared balance. It is an operator tool, never shown to the tenant.
+- One OpenRouter key per tenant remains a future option, only if the platform grows enough for a noisy tenant to drain the others' balance.
+
 
 ---
 
-## Autenticación y Autorización
+## Dynamic Theming and Custom Typography
+
+The system respects the colors and typography configured by each business in `/admin/apariencia` (`ThemeConfig`):
+- **CSS variables**: Injected in `:root` as `--color-primary`, `--color-secondary`, `--color-accent` and `--font-family-base`.
+- **Google Fonts**: Pre-loaded in `src/app/layout.tsx` (`Inter`, `Montserrat`, `Playfair Display`, `Roboto`, `Space Grotesk`).
+- **Tailwind**: Configured with `colors.primary = "var(--color-primary)"` and `fontFamily.sans = ["var(--font-family-base)", ...]`.
+- **Portaled modals and drawers**: Any component that uses `createPortal(..., document.body)` (such as `CreditsDrawer`) must explicitly declare `style={{ fontFamily: "var(--font-family-base), system-ui, sans-serif" }}` so it does not lose the tenant's custom typography when escaping the layout.
+
+---
+
+## Authentication and Authorization
 
 ### NextAuth v4
-- Providers: `Credentials` (email+password) y `Google`
-- El JWT incluye campos custom: `id`, `role`, `tenantId`
-- El middleware valida el token en el Edge Runtime con `getToken()`
+- Providers: `Credentials` (email+password) and `Google`
+- The JWT includes custom fields: `id`, `role`, `tenantId`
+- The middleware validates the token in the Edge Runtime with `getToken()`
 
-### Flujos de redirección del middleware:
-| Condición | Acción |
+### Middleware redirect flows:
+| Condition | Action |
 |---|---|
-| Root domain + ruta de tenant | Rewrite a `/_not-found` (404) |
-| `/admin/*` + no logueado | Redirect a `/login` |
-| `/admin/*` + logueado pero no ADMIN | Redirect a `/` |
-| `/checkout` o `/pedido/*` + no logueado | Redirect a `/login?callbackUrl=...` |
-| `/login` o `/registro` + ya logueado | Redirect a `/admin/dashboard` o `/` |
+| Root domain + tenant route | Rewrite to `/_not-found` (404) |
+| `/admin/*` + not logged in | Redirect to `/login` |
+| `/admin/*` + logged in but not ADMIN | Redirect to `/` |
+| `/checkout` or `/pedido/*` + not logged in | Redirect to `/login?callbackUrl=...` |
+| `/login` or `/registro` + already logged in | Redirect to `/admin/dashboard` or `/` |
 
 ---
 
-## Copiloto IA de Negocio: Newy AI (OpenRouter Cascade)
+## Business AI Copilot: Newy AI (OpenRouter Cascade)
 
 Endpoint: `POST /api/chat`
 
-### Identidad de Marca y White-Labeling (Regla Absoluta)
-El copiloto inteligente de la plataforma tiene como marca exclusiva **Newy AI** (o *Newy AI Copiloto*).
-- **Prohibición de Vendor Leaks**: Bajo ninguna circunstancia se debe mostrar a clientes o administradores nombres técnicos de proveedores internos (Claude, Anthropic, OpenAI, GPT, OpenRouter, Evolution API, n8n, etc.).
-- **Enmascaramiento de API**: En la respuesta de `POST /api/chat`, el campo `modelUsed` devuelve siempre `"Newy AI"` para proteger la infraestructura interna ante inspecciones de red en el navegador.
-- **Defensa de Identidad en `system-prompt.ts`**: Si un usuario pregunta "¿quién eres?" o intenta hacer jailbreak preguntando qué modelo es, Newy AI responde siempre que es el copiloto inteligente desarrollado por NewAigent.
+### Brand identity and white-labeling (absolute rule)
+The platform's intelligent copilot has **Newy AI** (or *Newy AI Copiloto*) as its exclusive brand.
+- **No vendor leaks**: Under no circumstances may the technical names of internal providers (Claude, Anthropic, OpenAI, GPT, OpenRouter, Evolution API, n8n, etc.) be shown to customers or administrators.
+- **API masking**: In the `POST /api/chat` response, the `modelUsed` field always returns `"Newy AI"` to protect the internal infrastructure from network inspection in the browser.
+- **Identity defense in `system-prompt.ts`**: If a user asks "who are you?" or tries a jailbreak by asking which model it is, Newy AI always answers that it is the intelligent copilot developed by NewAigent.
 
-### Experiencia Nativa en CRM (`/admin/asistente`)
-1. **Live KPI Snapshot Bar**: En cada carga (SSR), `src/app/admin/asistente/page.tsx` consulta en paralelo vía Prisma:
-   - Ventas del Mes (`revenueMonth`) y conteo de pedidos pagados (`ordersCount`).
-   - Pedidos Pendientes (`pendingOrdersCount`).
-   - Catálogo Activo de productos (`activeProductsCount`).
-   - Campañas Sociales Activas (`activeCampaignsCount`).
-2. **Disparadores de Pregunta con 1-Click**: Cada tarjeta de KPI incluye un botón interactivo "Preguntar ↗" al hacer hover, enviando de inmediato una consulta analítica y contextualizada a Newy AI.
-3. **Atajos Ejecutivos de Navegación**: Cabecera con accesos rápidos directos a `/admin/pedidos`, `/admin/calendario`, `/admin/productos` y `/admin/social-campaign`.
-4. **Flujo de Ejecución de Herramientas**:
-   - El admin escribe en `/admin/asistente` o da click en una métrica.
-   - El frontend envía la conversación a `POST /api/chat`.
-   - La API invoca al cascade stack de Newy AI con tools definidas en `src/lib/ai/tools.ts`.
-   - `execute-tool.ts` ejecuta queries Prisma **siempre filtradas por tenantId** del JWT de sesión.
-5. **Seguridad y Protección de Instrucciones del Sistema (`system-prompt.ts`)**:
-   - Reglas estrictas contra **Prompt Injection** y jailbreaks.
-   - Prohibición absoluta de revelar el system prompt, instrucciones internas, credenciales, tokens o arquitectura subyacente ante solicitudes maliciosas o de ingeniería social.
+### Native CRM experience (`/admin/asistente`)
+1. **Live KPI snapshot bar**: On every load (SSR), `src/app/admin/asistente/page.tsx` queries in parallel via Prisma:
+   - Sales of the month (`revenueMonth`) and count of paid orders (`ordersCount`).
+   - Pending orders (`pendingOrdersCount`).
+   - Active product catalog (`activeProductsCount`).
+   - Active social campaigns (`activeCampaignsCount`).
+2. **One-click question triggers**: Each KPI card includes an interactive "Preguntar ↗" (Ask) button on hover, immediately sending an analytical, contextualized query to Newy AI.
+3. **Executive navigation shortcuts**: Header with direct quick links to `/admin/pedidos`, `/admin/calendario`, `/admin/productos` and `/admin/social-campaign`.
+4. **Tool execution flow**:
+   - The admin types in `/admin/asistente` or clicks a metric.
+   - The frontend sends the conversation to `POST /api/chat`.
+   - The API invokes the Newy AI cascade stack with tools defined in `src/lib/ai/tools.ts`.
+   - `execute-tool.ts` runs Prisma queries **always filtered by the tenantId** of the session JWT.
+5. **Security and system instruction protection (`system-prompt.ts`)**:
+   - Strict rules against **Prompt Injection** and jailbreaks.
+   - Absolute prohibition on revealing the system prompt, internal instructions, credentials, tokens or underlying architecture in response to malicious or social-engineering requests.
 
-Tools disponibles: ventas, pedidos, productos, clientes, reviews, preguntas frecuentes (`get_faqs`), negocio (`get_business_profile`), catálogo (`search_products`), conteos de WhatsApp (`get_whatsapp_summary`) para todos los giros; citas, horarios libres y confirmaciones (`get_appointments`, `get_schedule_availability`, `get_confirmation_status`, etc.) solo con `isBookingEnabled`. Las herramientas no envían correos, notas clínicas ni texto de mensajes (ver spec 21.12).
+Available tools: sales, orders, products, customers, reviews, FAQs (`get_faqs`), business (`get_business_profile`), catalog (`search_products`), WhatsApp counts (`get_whatsapp_summary`) for all verticals; appointments, free time slots and confirmations (`get_appointments`, `get_schedule_availability`, `get_confirmation_status`, etc.) only with `isBookingEnabled`. The tools do not send emails, clinical notes or message text (see spec 21.12).
 
 ---
 
-## Automatización con n8n y Medición de Tokens
+## n8n Automation and Token Metering
 
-Las campañas sociales se ejecutan automáticamente en n8n bajo una estricta **arquitectura API-first** (n8n **nunca** se conecta directamente a la base de datos PostgreSQL; todas las operaciones se realizan mediante llamadas HTTP autenticadas con `x-internal-secret` a las APIs de Next.js):
+Social campaigns run automatically in n8n under a strict **API-first architecture** (n8n **never** connects directly to the PostgreSQL database; every operation is done through HTTP calls to the Next.js APIs authenticated with `x-internal-secret`):
 
-1. **Consulta de Campañas Programadas**: n8n consulta periódicamente `GET /api/campaigns/social/due` (filtra `nextPostAt <= now AND isActive = true AND pausedByCredits = false`).
-2. **Contexto de Campaña y Tenant**: n8n invoca `GET /api/campaigns/social/[id]/context` para recibir la configuración de la campaña, credenciales de Meta y los datos del negocio.
-3. **Selección Dinámica de Imagen (`selectedImageUrl`)**:
-   - En la UI (`/admin/social-campaign`), el usuario selecciona interactivamente cualquier foto de producto de su catálogo (nunca hardcodeado `images[0]`).
-   - La URL seleccionada se persiste en `SocialCampaign.selectedImageUrl` en la base de datos PostgreSQL.
-   - En el nodo `Build Image Request`, n8n lee `campaign.selectedImageUrl` directamente desde el payload de contexto. Si no hay una foto asignada, utiliza como respaldo la foto del producto o fotografía editorial libre de marcas de agua.
-4. **Almacenamiento Aislado en Cloudinary**:
-   - El nodo `Upload to Cloudinary` solo pasa los datos. La subida la hace `render-post-banner` en `newaigent/{tenantId}/campaigns` (el `tenantId` es obligatorio).
-5. **Generación de Copy Estratégico (Modelos Gratuitos de OpenRouter)**:
-   - El nodo `Newy AI - Generate Content` envía el prompt a OpenRouter utilizando `google/gemini-2.0-flash-exp:free` (con respaldo a `meta-llama/llama-3.3-70b-instruct:free` y `openrouter/free`).
-   - Incluye filtros de desinfección anti-leak para eliminar tokens de pensamiento (`<think>`) y evitar fugas del system prompt hacia Facebook o Instagram.
-6. **Publicación en Meta Graph API**:
+1. **Scheduled campaign lookup**: n8n periodically queries `GET /api/campaigns/social/due` (filters `nextPostAt <= now AND isActive = true AND pausedByCredits = false`).
+2. **Campaign and tenant context**: n8n invokes `GET /api/campaigns/social/[id]/context` to receive the campaign configuration, Meta credentials and the business data.
+3. **Dynamic image selection (`selectedImageUrl`)**:
+   - In the UI (`/admin/social-campaign`), the user interactively selects any product photo from their catalog (never hardcoded `images[0]`).
+   - The selected URL is persisted in `SocialCampaign.selectedImageUrl` in the PostgreSQL database.
+   - In the `Build Image Request` node, n8n reads `campaign.selectedImageUrl` directly from the context payload. If no photo is assigned, it falls back to the product photo or a watermark-free editorial photograph.
+4. **Isolated Cloudinary storage**:
+   - The `Upload to Cloudinary` node only passes the data. The upload is done by `render-post-banner` in `newaigent/{tenantId}/campaigns` (`tenantId` is mandatory).
+5. **Strategic copy generation (OpenRouter free models)**:
+   - The `Newy AI - Generate Content` node sends the prompt to OpenRouter using `google/gemini-2.0-flash-exp:free` (falling back to `meta-llama/llama-3.3-70b-instruct:free` and `openrouter/free`).
+   - It includes anti-leak sanitization filters to strip thinking tokens (`<think>`) and prevent system prompt leaks to Facebook or Instagram.
+6. **Publishing on the Meta Graph API**:
    - Facebook Page: `POST /v19.0/{pageId}/photos`.
-   - Instagram Business: `POST /v19.0/{igUserId}/media` (contenedor) -> espera 5s -> `POST /v19.0/{igUserId}/media_publish`.
-7. **Actualización de Calendario**: Llama a `PATCH /api/campaigns/social/[id]` con `markPosted: true` para que el CRM recalcule el `nextPostAt`.
-8. **Auditoría y Ledger de Tokens**:
-   - Notifica a `POST /api/webhooks/social-campaign` con `webhookPayload` conteniendo `tokenUsage: { promptTokens, completionTokens, model }`.
-   - El webhook deduce créditos en `AiTokenLedger` aplicando las tarifas estándar del SaaS ($3.00 in / $15.00 out por 1M de tokens) y registra el post en `SocialPost`.
+   - Instagram Business: `POST /v19.0/{igUserId}/media` (container) -> wait 5s -> `POST /v19.0/{igUserId}/media_publish`.
+7. **Calendar update**: Calls `PATCH /api/campaigns/social/[id]` with `markPosted: true` so the CRM recalculates `nextPostAt`.
+8. **Audit and token ledger**:
+   - Notifies `POST /api/webhooks/social-campaign` with a `webhookPayload` containing `tokenUsage: { promptTokens, completionTokens, model }`.
+   - The webhook deducts credits in `AiTokenLedger` applying the standard SaaS rates ($3.00 in / $15.00 out per 1M tokens) and records the post in `SocialPost`.
 
 ---
 
-## Bot de WhatsApp con IA (n8n)
+## WhatsApp Bot with AI (n8n)
 
-Flujo: `n8n/workflows/n8n-chat-workflow-v2.json` ("NewAigent - WhatsApp Bot (Chat)"). Documentación detallada: `n8n/docs/N8N_WHATSAPP_BOT_DOCUMENTATION.md`.
+Flow: `n8n/workflows/n8n-chat-workflow-v2.json` ("NewAigent - WhatsApp Bot (Chat)"). Detailed documentation: `n8n/docs/N8N_WHATSAPP_BOT_DOCUMENTATION.md`.
 
-- **Entrada**: Evolution API → webhook del workflow (`POST /:tenantSlug`) → guardas (`messages.upsert`, `fromMe = false`, texto y teléfono presentes).
-- **Tenant**: se resuelve desde el nombre de instancia de Evolution (`resolveBotTenant` en `src/lib/bot.ts`, busca `waInstanceName` o `waInstanceId`). Nunca se toma del modelo.
-- **Identidad del cliente**: su número de WhatsApp. `normalizeCustomerPhone` prefiere `remoteJidAlt`; un `@lid` sin alternativo se rechaza.
-- **Agente**: n8n Agent v2.2 con OpenRouter (cascada de modelos gratuitos, credencial de n8n), memoria Postgres `whatsapp_bot_memory` (ventana de 12 mensajes, clave `instancia:teléfono`) y 5 herramientas.
-- **Herramientas → endpoints internos** (`x-internal-key`):
+- **Input**: Evolution API → workflow webhook (`POST /:tenantSlug`) → guards (`messages.upsert`, `fromMe = false`, text and phone present).
+- **Tenant**: resolved from the Evolution instance name (`resolveBotTenant` in `src/lib/bot.ts`, looks up `waInstanceName` or `waInstanceId`). Never taken from the model.
+- **Customer identity**: their WhatsApp number. `normalizeCustomerPhone` prefers `remoteJidAlt`; a `@lid` without an alternative is rejected.
+- **Agent**: n8n Agent v2.2 with OpenRouter (free model cascade, n8n credential), Postgres memory `whatsapp_bot_memory` (12-message window, key `instance:phone`) and 5 tools.
+- **Tools → internal endpoints** (`x-internal-key`):
 
-  | Herramienta | Endpoint |
+  | Tool | Endpoint |
   |---|---|
   | `check_availability` | `POST /api/internal/bot/availability` |
   | `book_appointment` | `POST /api/internal/bot/book` |
@@ -462,61 +462,61 @@ Flujo: `n8n/workflows/n8n-chat-workflow-v2.json` ("NewAigent - WhatsApp Bot (Cha
   | `cancel_appointment` | `POST /api/internal/bot/cancel` |
   | `reschedule_appointment` | `POST /api/internal/bot/reschedule` |
 
-  El contexto (servicios, precios, FAQs, `waContext`) llega con `POST /api/internal/bot/context`.
-- **Bot por contacto**: `WhatsAppChat.botEnabled` (default `true`) y `botPausedReason` (`manual` o `owner_reply`). El CRM lo cambia con `PATCH /api/apps/whatsapp/chats/[id]` y el dueño escribe con `POST /api/apps/whatsapp/chats/[id]/send` (la escritura pausa el bot). n8n consulta `POST /api/internal/bot/contact-status` antes de ejecutar el agente. Ver `n8n/docs/N8N_WHATSAPP_BOT_DOCUMENTATION.md`, sección "Bot apagado por contacto".
-- **Reglas de negocio**: los precios se pueden citar, nunca cambiar ni descontar. Citas dentro del horario semanal del negocio (`Tenant.businessHours`, `src/lib/business-hours.ts`, hora de Mexico), con duración por servicio. Solo se agendan artículos `isBookable`. El conflicto revisa citas nativas y el calendario conectado (Google u Outlook, `getBusyPeriods` en `src/lib/calendar-sync.ts`); si el calendario falla, solo se usa la base de datos. La web y el bot crean citas con el mismo servicio (`src/lib/appointments-service.ts`).
-- **Horas del paciente**: son hora de Mexico. Se construyen con `clinicDateTime()` (`src/lib/clinic-time.ts`, offset `-06:00`) y se leen con `clinicTimeOf()`. Nunca usar sufijo `Z` para una hora elegida por el paciente.
-- **Privacidad**: el system prompt prohíbe mencionar formatos técnicos, IDs, herramientas, errores, infraestructura y datos de otros clientes. Es una guía para el modelo, no una garantía. El nodo `Clean Reply` quita saludos repetidos y es el único filtro de salida.
-- **Saludo y presentación**: un saludo puro ("hola", "buenas tardes") lo responde el servidor con una plantilla, sin llamar al agente ni gastar créditos (`src/lib/greeting.ts`, `greetingReply` de `POST /api/internal/bot/context`). El bot se presenta ("Hola, soy el asistente de WhatsApp de [negocio]") si nadie escribió al contacto en las últimas 12 horas (`introRequired`); el agente lo recibe como PRESENTACION en el prompt. El saludo se guarda como mensaje del bot.
-- **Reporte de tokens**: `Collect Token Usage` suma el uso de todas las llamadas del agente y `Report Token Usage` lo envía a `POST /api/internal/tokens/report`, que lo cobra al tenant a tarifa retail. Si el proveedor no reporta uso, se estima (2,000 tokens de prompt por llamada más longitud de respuesta / 4).
-- **Créditos agotados**: el nodo "Guard: Credits OK" revisa `creditExhausted` (de `POST /api/internal/bot/context`) antes de llegar al agente. Si el tenant ya agotó su límite mensual, se salta la llamada al modelo y se envía una respuesta fija de degradación.
-- **Falla total de la cascada**: el nodo "Bot Agent" tiene `onError: continueErrorOutput`; si fallan todos los modelos, esa rama envía al cliente una respuesta fija de disculpa (en vez de silencio) y llama a `POST /api/internal/bot/alert-failure` para avisar al dueño (cooldown de 60 min, ver §"Alertas al Dueño del Tenant" en la sección de créditos).
-- **Calendario para el agente**: `POST /api/internal/bot/context` devuelve `calendarText` (próximos 14 días con día de la semana, fecha y horario, generado por `upcomingCalendarText()` en `src/lib/business-hours.ts`). El prompt lo usa para nombrar días y fechas; el modelo no debe calcular días de la semana por su cuenta.
-- **Correo obligatorio para citas nuevas**: `bot/book` responde `email_required` sin un correo válido. Así cada cita del bot lleva asistente y la invitación de Google u Outlook sale sola. Cancelar y reagendar no piden nombre ni correo: se identifican por el número de WhatsApp y `list_my_appointments`.
-- **Herramientas con errores como datos**: las cinco herramientas del agente tienen `neverError`; una respuesta 409 (`slot_unavailable`) llega al modelo como mensaje y el cliente recibe una respuesta normal.
-- **Horas pasadas**: no se crean citas en horas que ya pasaron (`POST /api/appointments` responde `date_in_past`, para todos los creadores; el bot y la disponibilidad web también lo filtran).
-- **Reglas de n8n para este flujo**:
-  - En nodos Code y herramientas usar `$('Nodo').first().json`, no `$('Nodo').item`. Con `.item` falla con "No data found from `main` input" y la herramienta envía la instancia vacía.
-  - `$env` no está disponible en esta instancia de n8n. Los secretos van dentro del workflow.
-  - No activar "Require Specific Output Format" ni conectar un Output Parser al agente. El modelo gratuito no sigue ese esquema.
+  The context (services, prices, FAQs, `waContext`) arrives with `POST /api/internal/bot/context`.
+- **Bot per contact**: `WhatsAppChat.botEnabled` (default `true`) and `botPausedReason` (`manual` or `owner_reply`). The CRM changes it with `PATCH /api/apps/whatsapp/chats/[id]` and the owner writes with `POST /api/apps/whatsapp/chats/[id]/send` (writing pauses the bot). n8n queries `POST /api/internal/bot/contact-status` before running the agent. See `n8n/docs/N8N_WHATSAPP_BOT_DOCUMENTATION.md`, section "Bot apagado por contacto" (bot turned off per contact).
+- **Business rules**: prices may be quoted, never changed or discounted. Appointments within the business's weekly hours (`Tenant.businessHours`, `src/lib/business-hours.ts`, Mexico time), with per-service duration. Only `isBookable` items are scheduled. Conflict checking covers native appointments and the connected calendar (Google or Outlook, `getBusyPeriods` in `src/lib/calendar-sync.ts`); if the calendar fails, only the database is used. The web and the bot create appointments with the same service (`src/lib/appointments-service.ts`).
+- **Patient times**: they are Mexico time. They are built with `clinicDateTime()` (`src/lib/clinic-time.ts`, offset `-06:00`) and read with `clinicTimeOf()`. Never use a `Z` suffix for a time chosen by the patient.
+- **Privacy**: the system prompt forbids mentioning technical formats, IDs, tools, errors, infrastructure and other customers' data. It is a guide for the model, not a guarantee. The `Clean Reply` node removes repeated greetings and is the only output filter.
+- **Greeting and introduction**: a pure greeting ("hola", "buenas tardes") is answered by the server with a template, without calling the agent or spending credits (`src/lib/greeting.ts`, `greetingReply` of `POST /api/internal/bot/context`). The bot introduces itself ("Hola, soy el asistente de WhatsApp de [negocio]") if nobody wrote to the contact in the last 12 hours (`introRequired`); the agent receives it as PRESENTACION in the prompt. The greeting is stored as a bot message.
+- **Token reporting**: `Collect Token Usage` adds up the usage of all agent calls and `Report Token Usage` sends it to `POST /api/internal/tokens/report`, which charges the tenant at the retail rate. If the provider does not report usage, it is estimated (2,000 prompt tokens per call plus response length / 4).
+- **Credits exhausted**: the "Guard: Credits OK" node checks `creditExhausted` (from `POST /api/internal/bot/context`) before reaching the agent. If the tenant already exhausted its monthly limit, the model call is skipped and a fixed degradation reply is sent.
+- **Total cascade failure**: the "Bot Agent" node has `onError: continueErrorOutput`; if every model fails, that branch sends the customer a fixed apology reply (instead of silence) and calls `POST /api/internal/bot/alert-failure` to notify the owner (60-min cooldown, see §"Tenant owner alerts" in the credits section).
+- **Calendar for the agent**: `POST /api/internal/bot/context` returns `calendarText` (next 14 days with weekday, date and hours, generated by `upcomingCalendarText()` in `src/lib/business-hours.ts`). The prompt uses it to name days and dates; the model must not compute weekdays on its own.
+- **Email required for new appointments**: `bot/book` answers `email_required` without a valid email. This way every bot appointment has an attendee and the Google or Outlook invitation goes out by itself. Canceling and rescheduling do not ask for a name or email: they are identified by the WhatsApp number and `list_my_appointments`.
+- **Tools with errors as data**: the agent's five tools have `neverError`; a 409 response (`slot_unavailable`) reaches the model as a message and the customer gets a normal reply.
+- **Past times**: no appointments are created at times that have already passed (`POST /api/appointments` answers `date_in_past`, for all creators; the bot and web availability also filter them).
+- **n8n rules for this flow**:
+  - In Code nodes and tools use `$('Node').first().json`, not `$('Node').item`. With `.item` it fails with "No data found from `main` input" and the tool sends an empty instance.
+  - `$env` is not available in this n8n instance. Secrets go inside the workflow.
+  - Do not enable "Require Specific Output Format" or connect an Output Parser to the agent. The free model does not follow that schema.
 
 ---
 
-## Recordatorios de Citas y Confirmación (workflow separado, sin LLM)
+## Appointment Reminders and Confirmation (separate workflow, no LLM)
 
-- **Workflow**: `n8n/workflows/n8n-reminders-workflow.json`. Un Schedule Trigger cada 15 minutos llama a `POST /api/internal/reminders/run`. El intervalo fija la precisión: un recordatorio o una liberación sale como máximo 15 minutos tarde.
-- **Configuración de recordatorios** (`/admin/whatsapp`, pestaña Configuración, tarjeta "Recordatorios y confirmación", `PATCH /api/tenants/reminders` con sólo estos campos): `remindersEnabled`, `reminderLeadMinutes` (60–4320 minutos, en múltiplos de 30, antes de la cita en que sale el recordatorio; la tarjeta los muestra en horas con medias horas), `confirmationRequired`, `confirmationDeadlineMinutes` (30–2880 minutos, en múltiplos de 30, antes de la cita en que se libera). Debe cumplirse `confirmationDeadlineMinutes < reminderLeadMinutes` (`reminder_window_invalid`).
-- **Mensajes al cliente** (`/admin/whatsapp`, pestaña Configuración, tarjeta "Mensajes al cliente", `PATCH /api/tenants/reminders` con sólo estos campos): `messageLanguage` (`es` | `en`) y tres textos opcionales (`reminderTemplate`, `confirmationTemplate`, `cancellationTemplate`). Vacío = texto predeterminado del idioma.
-- **Textos del tenant**: el tenant escribe datos con etiquetas entre corchetes: `[Servicio]`, `[Fecha]`, `[Hora]`, `[Hora límite]`, `[Nombre del negocio]`. Las etiquetas se toman de los diccionarios i18n (`crm.business.token*`) y el servidor acepta las de cualquier idioma. El texto de confirmación debe incluir la hora límite y la palabra SI (`validateConfirmationTemplate`). Nunca mostrar llaves ni nombres técnicos al tenant ni al cliente.
-- **Textos predeterminados al cliente**: `customerMessages` en `src/i18n/es.ts` y `en.ts` (recordatorio, confirmación, pie sin confirmación, cancelación, respuesta de confirmación). Fechas y horas con `clinicLongDate` y `clinicTime` según `messageLanguage`.
-- **Reglas** (`src/lib/reminders.ts`, funciones puras): el aviso sale `reminderLeadMinutes` antes de la cita, a la hora exacta (también de noche); la liberación es `hora de la cita − confirmationDeadlineMinutes`. La ventana para responder (aviso a liberación) debe ser de al menos 30 minutos. Si la cita se reservó después del momento del aviso, el aviso sale al reservar (si la ventana alcanza). Si la ventana es menor, o la confirmación está apagada: una cita reservada tarde no recibe nada (cuenta como confirmada); si no, solo recordatorio simple. Sin teléfono: no hay mensaje y nunca se libera.
-- **Envío** (`reminders/run`): envía una vez por cita (`Appointment.reminderSentAt`). Si el envío falla, no marca ni cobra; se reintenta en la siguiente corrida. Cada envío exitoso cobra `REMINDER_COST_USD` (default `0.0085`) con `recordMessageCharge()`: suma a `totalCostUsd`, incrementa `AiTokenLedger.reminderCount` y registra `REMINDER_PROVIDER_COST_USD` (default `0`) como costo real. Los recordatorios salen aun sin créditos y pueden pasar el límite; el dueño recibe el aviso una sola vez por periodo.
-- **Liberación**: si hay confirmación pedida, `reminderSentAt` existe, no hay `customerConfirmedAt` y ya pasó el plazo, `releaseVisit()` (`src/lib/reminder-actions.ts`) llama a `cancelAppointment` (estado `CANCELLED`, borra el evento de Google/Outlook, libera el horario) y envía el texto de cancelación. Se marca `autoReleasedAt`.
-- **Confirmación del cliente**: `POST /api/internal/bot/confirm` (`x-internal-key`). Responde `sí`/`confirmo`/`de acuerdo`… sólo si la respuesta es corta y no contiene negaciones, cambios o preguntas (`isClearConfirmation`). Si confirma: `customerConfirmedAt`, estado `CONFIRMED` y respuesta de confirmación. Si no es confirmación: `handled: false` y el mensaje sigue al agente. El flujo de chat llama a este endpoint antes del agente (nodo "Check Confirmation"); el agente tiene la herramienta `confirm_appointment` como respaldo.
-- **Lista del dueño** (pestaña "Confirmaciones" en `/admin/whatsapp`): `GET /api/apps/whatsapp/confirmations`, y `POST /api/apps/whatsapp/confirmations/[id]` con `action: "confirm" | "release"`. "Liberar ahora" usa el mismo `releaseVisit`.
-- **Canal**: `sendWhatsAppMessage` (Evolution). Con la API oficial de Meta, un recordatorio fuera de la ventana de 24 h necesitará una plantilla aprobada.
-- **Pendiente**: desplegar el código, re-importar `n8n/workflows/n8n-chat-workflow-v2.json` y `n8n/workflows/n8n-reminders-workflow.json`, probar con WhatsApp real y calendario conectado, e insignias de estado en `/admin/citas`.
+- **Workflow**: `n8n/workflows/n8n-reminders-workflow.json`. A Schedule Trigger every 15 minutes calls `POST /api/internal/reminders/run`. The interval sets the precision: a reminder or a release goes out at most 15 minutes late.
+- **Reminder settings** (`/admin/whatsapp`, Configuración tab, "Recordatorios y confirmación" card, `PATCH /api/tenants/reminders` with only these fields): `remindersEnabled`, `reminderLeadMinutes` (60–4320 minutes, in multiples of 30, before the appointment at which the reminder goes out; the card shows them in hours with half hours), `confirmationRequired`, `confirmationDeadlineMinutes` (30–2880 minutes, in multiples of 30, before the appointment at which it is released). `confirmationDeadlineMinutes < reminderLeadMinutes` must hold (`reminder_window_invalid`).
+- **Customer messages** (`/admin/whatsapp`, Configuración tab, "Mensajes al cliente" card, `PATCH /api/tenants/reminders` with only these fields): `messageLanguage` (`es` | `en`) and three optional texts (`reminderTemplate`, `confirmationTemplate`, `cancellationTemplate`). Empty = the language's default text.
+- **Tenant texts**: the tenant writes data with bracketed tags: `[Servicio]`, `[Fecha]`, `[Hora]`, `[Hora límite]`, `[Nombre del negocio]` (service, date, time, deadline time, business name). The tags are taken from the i18n dictionaries (`crm.business.token*`) and the server accepts those of any language. The confirmation text must include the deadline time and the word SI (`validateConfirmationTemplate`). Never show braces or technical names to the tenant or the customer.
+- **Default customer texts**: `customerMessages` in `src/i18n/es.ts` and `en.ts` (reminder, confirmation, footer without confirmation, cancellation, confirmation reply). Dates and times with `clinicLongDate` and `clinicTime` according to `messageLanguage`.
+- **Rules** (`src/lib/reminders.ts`, pure functions): the notice goes out `reminderLeadMinutes` before the appointment, at the exact time (also at night); the release is `appointment time − confirmationDeadlineMinutes`. The window to reply (notice to release) must be at least 30 minutes. If the appointment was booked after the notice time, the notice goes out at booking (if the window allows). If the window is smaller, or confirmation is off: a late-booked appointment receives nothing (counts as confirmed); otherwise, only a simple reminder. No phone: no message and it is never released.
+- **Sending** (`reminders/run`): sends once per appointment (`Appointment.reminderSentAt`). If sending fails, it neither marks nor charges; it is retried on the next run. Each successful send charges `REMINDER_COST_USD` (default `0.0085`) with `recordMessageCharge()`: it adds to `totalCostUsd`, increments `AiTokenLedger.reminderCount` and records `REMINDER_PROVIDER_COST_USD` (default `0`) as the real cost. Reminders go out even without credits and may exceed the limit; the owner is notified only once per period.
+- **Release**: if confirmation was requested, `reminderSentAt` exists, there is no `customerConfirmedAt` and the deadline has passed, `releaseVisit()` (`src/lib/reminder-actions.ts`) calls `cancelAppointment` (status `CANCELLED`, deletes the Google/Outlook event, frees the slot) and sends the cancellation text. `autoReleasedAt` is set.
+- **Customer confirmation**: `POST /api/internal/bot/confirm` (`x-internal-key`). Replies `sí`/`confirmo`/`de acuerdo`… (yes/I confirm/agreed) count only if the reply is short and contains no negations, changes or questions (`isClearConfirmation`). If it confirms: `customerConfirmedAt`, status `CONFIRMED` and a confirmation reply. If it is not a confirmation: `handled: false` and the message continues to the agent. The chat flow calls this endpoint before the agent ("Check Confirmation" node); the agent has the `confirm_appointment` tool as a backup.
+- **Owner list** ("Confirmaciones" tab in `/admin/whatsapp`): `GET /api/apps/whatsapp/confirmations`, and `POST /api/apps/whatsapp/confirmations/[id]` with `action: "confirm" | "release"`. "Liberar ahora" (release now) uses the same `releaseVisit`.
+- **Channel**: `sendWhatsAppMessage` (Evolution). With Meta's official API, a reminder outside the 24 h window will need an approved template.
+- **Pending**: deploy the code, re-import `n8n/workflows/n8n-chat-workflow-v2.json` and `n8n/workflows/n8n-reminders-workflow.json`, test with real WhatsApp and a connected calendar, and status badges in `/admin/citas`.
 
 ---
 
-## Estándares de Vocabulario y White-Labeling
+## Vocabulary and White-Labeling Standards
 
-Para mantener la calidad y el valor comercial de la plataforma, aplican las siguientes equivalencias obligatorias en interfaces de usuario y mensajes de error:
+To maintain the platform's quality and commercial value, the following equivalences are mandatory in user interfaces and error messages. The right-hand column holds the literal user-facing strings, which stay in Spanish (the English gloss is in parentheses):
 
-| Término Interno / Proveedor | Nombre Comercial Visible al Usuario / Cliente |
+| Internal term / Provider | Commercial name visible to the user / customer |
 |---|---|
 | Claude / GPT / LLMs | **Newy AI** / Copiloto Newy AI |
-| Evolution API | **WhatsApp** / Conexión Segura de WhatsApp |
-| n8n | **Automatización Inteligente** / Flujos Automatizados |
-| Conekta | **Pasarela de pagos segura** / Tarjeta de crédito o débito |
-| OpenRouter / Prompt tokens | **Créditos Newy AI** / Unidades de Inteligencia |
+| Evolution API | **WhatsApp** / Conexión Segura de WhatsApp (Secure WhatsApp Connection) |
+| n8n | **Automatización Inteligente** / Flujos Automatizados (Smart Automation / Automated Flows) |
+| Conekta | **Pasarela de pagos segura** / Tarjeta de crédito o débito (Secure payment gateway / Credit or debit card) |
+| OpenRouter / Prompt tokens | **Créditos Newy AI** / Unidades de Inteligencia (Newy AI Credits / Intelligence Units) |
 
-## Variables de Entorno Críticas
+## Critical Environment Variables
 
 ```bash
-# ─── Base de datos ──────────────────────────────────────────────────────────────
-DATABASE_URL=                    # PostgreSQL en Supabase (pooler port 6543 — runtime)
-DIRECT_DATABASE_URL=             # Misma URL pero port 5432 — requerido para prisma db push / migrate
+# ─── Database ───────────────────────────────────────────────────────────────────
+DATABASE_URL=                    # PostgreSQL on Supabase (pooler port 6543 — runtime)
+DIRECT_DATABASE_URL=             # Same URL but port 5432 — required for prisma db push / migrate
 
 # ─── Auth ───────────────────────────────────────────────────────────────────────
 NEXTAUTH_SECRET=                 # openssl rand -base64 32
@@ -527,98 +527,98 @@ GOOGLE_CLIENT_SECRET=
 # ─── Microsoft OAuth (Outlook Calendar) ─────────────────────────────────────────
 MICROSOFT_CLIENT_ID=
 MICROSOFT_CLIENT_SECRET=
-MICROSOFT_TENANT_ID=             # "common" para multi-tenant Microsoft
+MICROSOFT_TENANT_ID=             # "common" for multi-tenant Microsoft
 
-# ─── IA (Newy AI / OpenRouter) ──────────────────────────────────────────────────
-ANTHROPIC_API_KEY=               # Claude API (fallback directo)
-OPENROUTER_API_KEY=              # OpenRouter API key (principal)
-OPENROUTER_MODEL=                # Modelo primario: anthropic/claude-sonnet-4.5
-OPENROUTER_MODELS=               # Cascade completo separado por comas (ver §2 Stack de Modelos)
-OPENROUTER_INPUT_PRICE_PER_M=    # 3.00 (USD / 1M prompt tokens — tarifa retail)
-OPENROUTER_OUTPUT_PRICE_PER_M=   # 15.00 (USD / 1M completion tokens — tarifa retail)
-REMINDER_COST_USD=               # 0.0085 (USD que se cobra al tenant por cada recordatorio enviado)
-REMINDER_PROVIDER_COST_USD=      # 0 (costo real por recordatorio; igualar a Meta después de migrar)
+# ─── AI (Newy AI / OpenRouter) ──────────────────────────────────────────────────
+ANTHROPIC_API_KEY=               # Claude API (direct fallback)
+OPENROUTER_API_KEY=              # OpenRouter API key (primary)
+OPENROUTER_MODEL=                # Primary model: anthropic/claude-sonnet-4.5
+OPENROUTER_MODELS=               # Full cascade, comma-separated (see §2 Model stack)
+OPENROUTER_INPUT_PRICE_PER_M=    # 3.00 (USD / 1M prompt tokens — retail rate)
+OPENROUTER_OUTPUT_PRICE_PER_M=   # 15.00 (USD / 1M completion tokens — retail rate)
+REMINDER_COST_USD=               # 0.0085 (USD charged to the tenant for each reminder sent)
+REMINDER_PROVIDER_COST_USD=      # 0 (real cost per reminder; set equal to Meta's after migrating)
 
-# ─── Google Maps (dirección del negocio) ─────────────────────────────────────────
-GOOGLE_MAPS_API_KEY=             # Solo servidor; Places API (New) habilitada y clave restringida a esa API
+# ─── Google Maps (business address) ─────────────────────────────────────────────
+GOOGLE_MAPS_API_KEY=             # Server only; Places API (New) enabled and key restricted to that API
 
-# ─── Dominio raíz (multi-tenant) ────────────────────────────────────────────────
+# ─── Root domain (multi-tenant) ─────────────────────────────────────────────────
 NEXT_PUBLIC_ROOT_DOMAIN=         # newaigent.com
 
-# ─── Pagos — Conekta ────────────────────────────────────────────────────────────
+# ─── Payments — Conekta ─────────────────────────────────────────────────────────
 CONEKTA_PRIVATE_KEY=             # Server-side
-NEXT_PUBLIC_CONEKTA_PUBLIC_KEY=  # Client-side (Conekta.js tokenización)
+NEXT_PUBLIC_CONEKTA_PUBLIC_KEY=  # Client-side (Conekta.js tokenization)
 CONEKTA_WEBHOOK_SECRET=
-CONEKTA_SUCCESS_URL=             # URL de redirección tras pago exitoso
-CONEKTA_FAILURE_URL=             # URL de redirección tras fallo de pago
+CONEKTA_SUCCESS_URL=             # Redirect URL after a successful payment
+CONEKTA_FAILURE_URL=             # Redirect URL after a failed payment
 
-# ─── Pagos — PayPal ─────────────────────────────────────────────────────────────
+# ─── Payments — PayPal ──────────────────────────────────────────────────────────
 PAYPAL_CLIENT_ID=                # Server-side
 PAYPAL_CLIENT_SECRET=            # Server-side
 NEXT_PUBLIC_PAYPAL_CLIENT_ID=    # Client-side SDK
 
 # ─── Stripe (Platform SaaS Billing) ─────────────────────────────────────────────
-STRIPE_SECRET_KEY=               # sk_test_... o sk_live_...
+STRIPE_SECRET_KEY=               # sk_test_... or sk_live_...
 STRIPE_WEBHOOK_SECRET=           # whsec_...
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=  # pk_test_... o pk_live_...
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=  # pk_test_... or pk_live_...
 STRIPE_PRICE_STARTER_MONTHLY=    # price_...
 STRIPE_PRICE_STARTER_ANNUAL=
 STRIPE_PRICE_PRO_MONTHLY=
 STRIPE_PRICE_PRO_ANNUAL=
-STRIPE_PRICE_STARTER_MONTHLY_DLLS=  # Variante en USD
+STRIPE_PRICE_STARTER_MONTHLY_DLLS=  # USD variant
 STRIPE_PRICE_STARTER_ANNUAL_DLLS=
 STRIPE_PRICE_PRO_MONTHLY_DLLS=
 STRIPE_PRICE_PRO_ANNUAL_DLLS=
 
-# ─── Cloudinary (imágenes) ──────────────────────────────────────────────────────
-NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=   # Client-side (uploads directos)
+# ─── Cloudinary (images) ────────────────────────────────────────────────────────
+NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=   # Client-side (direct uploads)
 CLOUDINARY_API_KEY=
 CLOUDINARY_API_SECRET=
 
-# ─── Facebook / Instagram OAuth (campañas sociales) ─────────────────────────────
+# ─── Facebook / Instagram OAuth (social campaigns) ──────────────────────────────
 FACEBOOK_APP_ID=
 FACEBOOK_APP_SECRET=
-# FACEBOOK_REDIRECT_URI se auto-detecta desde NEXTAUTH_URL si no se define
+# FACEBOOK_REDIRECT_URI is auto-detected from NEXTAUTH_URL if not defined
 
-# ─── n8n Automatización ─────────────────────────────────────────────────────────
-N8N_FACEBOOK_WEBHOOK_URL=        # URL del webhook de n8n para triggerear publicaciones
+# ─── n8n Automation ─────────────────────────────────────────────────────────────
+N8N_FACEBOOK_WEBHOOK_URL=        # n8n webhook URL to trigger publications
 
-# ─── APIs Internas (n8n → Next.js) ──────────────────────────────────────────────
-# IMPORTANTE: Todos los endpoints en /api/internal/ verifican este header: x-internal-key
+# ─── Internal APIs (n8n → Next.js) ──────────────────────────────────────────────
+# IMPORTANT: All endpoints under /api/internal/ verify this header: x-internal-key
 INTERNAL_API_KEY=                # openssl rand -hex 32
-# Nota: en .env.example puede aparecer como INTERNAL_API_SECRET — deben ser el mismo valor
+# Note: in .env.example it may appear as INTERNAL_API_SECRET — they must be the same value
 
-# ─── WhatsApp Evolution API ──────────────────────────────────────────────────────
+# ─── WhatsApp Evolution API ─────────────────────────────────────────────────────
 EVOLUTION_API_URL=
 EVOLUTION_API_KEY=
 
-# ─── Redis / Upstash (cache de sesiones) ────────────────────────────────────────
+# ─── Redis / Upstash (session cache) ────────────────────────────────────────────
 UPSTASH_REDIS_REST_URL=
 UPSTASH_REDIS_REST_TOKEN=
 ```
 
-> ⚠️ **Windows `.env` rule**: No uses comillas alrededor de los valores.
-> ⚠️ **INTERNAL_API_KEY**: Los endpoints en `/api/internal/` leen `process.env.INTERNAL_API_KEY`. Si tu `.env` lo define como `INTERNAL_API_SECRET`, el header `x-internal-key` fallará con 401/403 silencioso.
+> ⚠️ **Windows `.env` rule**: Do not put quotes around the values.
+> ⚠️ **INTERNAL_API_KEY**: Endpoints under `/api/internal/` read `process.env.INTERNAL_API_KEY`. If your `.env` defines it as `INTERNAL_API_SECRET`, the `x-internal-key` header will fail with a silent 401/403.
 
 ---
 
-## Comandos Útiles
+## Useful Commands
 
 ```bash
-npm run dev              # Servidor de desarrollo en localhost:3000
-npm run build            # Build de producción
-npm run db:generate      # Regenerar Prisma client
-npm run db:push          # Aplicar schema a la DB sin migración
-npm run db:seed          # Crear datos de ejemplo
-npm run db:studio        # Abrir Prisma Studio (UI de BD)
-vercel --prod            # Deploy a producción
+npm run dev              # Development server at localhost:3000
+npm run build            # Production build
+npm run db:generate      # Regenerate the Prisma client
+npm run db:push          # Apply the schema to the DB without a migration
+npm run db:seed          # Create sample data
+npm run db:studio        # Open Prisma Studio (DB UI)
+vercel --prod            # Deploy to production
 ```
 
 ---
 
-## Desarrollo Local con Múltiples Tenants
+## Local Development with Multiple Tenants
 
-Para probar subdominos localmente, editar el archivo `hosts` del sistema:
+To test subdomains locally, edit the system `hosts` file:
 
 ```
 127.0.0.1  localhost
@@ -627,238 +627,269 @@ Para probar subdominos localmente, editar el archivo `hosts` del sistema:
 127.0.0.1  nutriologas.localhost
 ```
 
-Luego acceder a `http://doctor.localhost:3000` para ver el tenant "doctor".
+Then open `http://doctor.localhost:3000` to see the "doctor" tenant.
 
-### Protección de OAuth en Local (`OAuth Localhost Guard`)
-- **Problema previo**: Al conectar Google Calendar o Facebook desde `doctor.localhost:3000`, la app redirigía a `https://doctor.newaigent.com/...` en producción porque `.env` contenía `NEXTAUTH_URL="https://newaigent.com"`.
-- **Solución implementada**: Los endpoints `/api/apps/oauth/google/start`, `/callback`, `/api/apps/oauth/facebook/start` y `/callback` detectan automáticamente el header `host`. Si contiene `localhost`:
-  - Fijan el `redirect_uri` a `http://localhost:3000/api/apps/oauth/<provider>/callback`.
-  - En el callback, el redirect final se construye dinámicamente como `http://${slug}.localhost:3000/admin/...`, asegurando que el desarrollo local permanezca siempre en `localhost:3000` sin necesidad de alterar variables de entorno de producción.
+### Local OAuth protection (`OAuth Localhost Guard`)
+- **Previous problem**: When connecting Google Calendar or Facebook from `doctor.localhost:3000`, the app redirected to `https://doctor.newaigent.com/...` in production because `.env` contained `NEXTAUTH_URL="https://newaigent.com"`.
+- **Implemented solution**: The endpoints `/api/apps/oauth/google/start`, `/callback`, `/api/apps/oauth/facebook/start` and `/callback` automatically detect the `host` header. If it contains `localhost`:
+  - They set `redirect_uri` to `http://localhost:3000/api/apps/oauth/<provider>/callback`.
+  - In the callback, the final redirect is built dynamically as `http://${slug}.localhost:3000/admin/...`, ensuring local development always stays on `localhost:3000` without altering production environment variables.
 
 ---
 
-## Problemas Conocidos / Pendientes
+## Known Issues / Pending
 
 ### Middleware (route blocking)
-- El bloqueo de rutas en dominio raíz usa `NextResponse.rewrite(new URL("/_not-found", req.url))`.
-- El redirect a `/404` y el uso de `x-forwarded-host` han sido explorados pero presentan problemas en producción con Vercel Edge.
-- **Estado actual**: El middleware original (con `req.headers.get("host")`) está restaurado como la versión más estable.
+- Route blocking on the root domain uses `NextResponse.rewrite(new URL("/_not-found", req.url))`.
+- The redirect to `/404` and the use of `x-forwarded-host` were explored but have problems in production on Vercel Edge.
+- **Current state**: The original middleware (with `req.headers.get("host")`) is restored as the most stable version.
 
-### Pagos
-- Conekta tokenización debe hacerse en cliente con `Conekta.js` antes de llamar al backend
-- OXXO Pay requiere polling de webhooks de Conekta para confirmar pago
+### Payments
+- Conekta tokenization must be done on the client with `Conekta.js` before calling the backend
+- OXXO Pay requires polling Conekta webhooks to confirm payment
 
-### Pendiente
-- **Migración del schema sin aplicar**: `WhatsAppChat.botEnabled` y `botPausedReason` requieren `npm run db:push`. Confirmar antes de aplicar.
-- **Citas web anteriores al fix de hora**: se guardaron con hora UTC (6 horas adelantadas). Corregir con `local-utils/shift-web-appointments-utc-fix.mjs` (primero sin `--write`) y mover a mano los eventos del calendario que se listen.
-- **Secretos hardcodeados en workflows de n8n** (clave interna, API key de Evolution, clave de OpenRouter en la campaña social). Mover a credenciales cuando n8n lo permita, y rotarlos.
-- **Workflow social**: si una publicación falla después de generar el texto, sus tokens no se reportan.
-- **Mascotas**: la tabla `pets` y `appointments.petId` existen en la base de datos, pero las pruebas con datos reales están pendientes: la base consultada el 26 oct. estaba vacía. Falta correr `local-utils/check-pets.ts` con un tenant real y re-importar `n8n/workflows/n8n-chat-workflow-v2.json`.
-- **Recordatorios**: pendiente la prueba end-to-end (WhatsApp real, calendario conectado) y las insignias de estado en `/admin/citas`.
-- Row Level Security en Supabase (actualmente solo filtrado por app)
-- Rate limiting en `/api/chat`
-- Trial expiry gate: `TrialBanner` y `TrialExpiredGate` existen pero el gate de expiración del trial en el layout de admin aún no bloquea completamente todas las rutas
+### Pending
+- **Unapplied schema migration**: `WhatsAppChat.botEnabled` and `botPausedReason` require `npm run db:push`. Confirm before applying.
+- **Web appointments from before the time fix**: they were saved with UTC time (6 hours ahead). Fix with `local-utils/shift-web-appointments-utc-fix.mjs` (first without `--write`) and manually move the calendar events that get listed.
+- **Hardcoded secrets in n8n workflows** (internal key, Evolution API key, OpenRouter key in the social campaign). Move to credentials when n8n allows it, and rotate them.
+- **Social workflow**: if a publication fails after the text was generated, its tokens are not reported.
+- **Pets**: the `pets` table and `appointments.petId` exist in the database, but tests with real data are pending: the database queried on Oct. 26 was empty. `local-utils/check-pets.ts` still needs to be run with a real tenant and `n8n/workflows/n8n-chat-workflow-v2.json` re-imported.
+- **Reminders**: the end-to-end test (real WhatsApp, connected calendar) and the status badges in `/admin/citas` are pending.
+- Row Level Security in Supabase (currently only app-level filtering)
+- Rate limiting on `/api/chat`
+- Trial expiry gate: `TrialBanner` and `TrialExpiredGate` exist, but the trial expiry gate in the admin layout still does not fully block all routes
 
 ---
 
-## Perfil de Negocio (`/admin/negocio`)
+## Business Profile (`/admin/negocio`)
 
-- Ruta: `src/app/admin/negocio/page.tsx`
+- Route: `src/app/admin/negocio/page.tsx`
 - API: `GET/PUT /api/tenants/business`
-- Permite al admin editar: nombre del negocio, logo (Cloudinary upload), número de WhatsApp, descripción del negocio (`businessInfo`).
-- **El `slug` (subdominio) es read-only y NUNCA debe ser editable** — identificador único del tenant, modificarlo rompería las URLs.
-- El formulario muestra los valores actuales como placeholder y etiqueta "Actual" para cada campo.
-- **El número de WhatsApp es obligatorio** y se guarda como `+<código de país><dígitos>` (8 a 15 dígitos). Lo usan WhatsApp, los recordatorios y el botón de la tienda. El formulario tiene un selector de código de país (predeterminado +52) y la API lo valida con `^\+\d{8,15}$`.
-- **Ubicación y responsable**: tarjeta "Ubicación y responsable" con nombre del dueño, interruptor "Mi negocio tiene un local físico" y buscador de dirección (`src/components/shared/AddressSearch.tsx`, usa `/api/places/*` con `GOOGLE_MAPS_API_KEY`, solo servidor). Si la búsqueda no está disponible, el componente cae a una dirección escrita a mano (sin coordenadas). El mismo componente se usa en el registro (`OnboardingModal`).
-- **Crear `GOOGLE_MAPS_API_KEY`** (Google Cloud Console):
-  1. Elegir o crear un proyecto.
-  2. Facturación: vincular una cuenta de facturación (Places la exige, aunque Google da un monto mensual gratis).
-  3. APIs y servicios > Biblioteca: habilitar **Places API (New)** (no la "Places API" anterior).
-  4. APIs y servicios > Credenciales > Crear credenciales > Clave de API.
-  5. Restringir la clave: en "Restricciones de API" elegir solo **Places API (New)**. La clave se usa solo desde el servidor; Vercel no tiene IP fija, así que en "Restricciones de aplicación" se deja "Ninguna".
-  6. Guardarla sin comillas: `.env` en local (reiniciar `npm run dev`) y Variables de entorno de Vercel en producción (redeploy).
-  7. Crear una alerta de presupuesto en Facturación para evitar cobros inesperados.
-  - Prueba: en `/admin/negocio`, activar el interruptor y escribir una dirección; las sugerencias salen a partir de 3 caracteres. Si aparece "La búsqueda no está disponible ahora", falta la clave, la facturación está apagada o la clave está restringida a otra API.
-- **Límite de llamadas** de `/api/places/*`: 40 solicitudes por minuto por IP (`src/lib/rate-limit.ts`, en memoria por instancia del servidor; protege de abuso, no es un límite exacto).
-- Helpers de teléfono en `src/lib/phone.ts` (`buildFullPhone`, `splitFullPhone`, `PHONE_COUNTRIES`). Úsalos en cualquier formulario nuevo que pida teléfono; no escribas otro parser.
+- Lets the admin edit: business name, logo (Cloudinary upload), WhatsApp number, business description (`businessInfo`).
+- **The `slug` (subdomain) is read-only and must NEVER be editable** — it is the tenant's unique identifier; changing it would break the URLs.
+- The form shows the current values as placeholders and an "Actual" (Current) label for each field.
+- **The WhatsApp number is required** and is stored as `+<country code><digits>` (8 to 15 digits). It is used by WhatsApp, the reminders and the store button. The form has a country code selector (default +52) and the API validates it with `^\+\d{8,15}$`.
+- **Location and owner**: "Ubicación y responsable" card with the owner's name, the "Mi negocio tiene un local físico" (My business has a physical location) switch and an address search (`src/components/shared/AddressSearch.tsx`, uses `/api/places/*` with `GOOGLE_MAPS_API_KEY`, server only). If the search is unavailable, the component falls back to a hand-typed address (without coordinates). The same component is used at signup (`OnboardingModal`).
+- **Create `GOOGLE_MAPS_API_KEY`** (Google Cloud Console):
+  1. Choose or create a project.
+  2. Billing: link a billing account (Places requires it, although Google gives a free monthly amount).
+  3. APIs & Services > Library: enable **Places API (New)** (not the older "Places API").
+  4. APIs & Services > Credentials > Create credentials > API key.
+  5. Restrict the key: under "API restrictions" choose only **Places API (New)**. The key is used only from the server; Vercel has no fixed IP, so under "Application restrictions" leave "None".
+  6. Save it without quotes: `.env` locally (restart `npm run dev`) and Vercel Environment Variables in production (redeploy).
+  7. Create a budget alert in Billing to avoid unexpected charges.
+  - Test: in `/admin/negocio`, turn on the switch and type an address; suggestions appear from 3 characters. If "La búsqueda no está disponible ahora" (Search is not available right now) appears, the key is missing, billing is off or the key is restricted to another API.
+- **Call limit** of `/api/places/*`: 40 requests per minute per IP (`src/lib/rate-limit.ts`, in memory per server instance; it protects against abuse, it is not an exact limit).
+- Phone helpers in `src/lib/phone.ts` (`buildFullPhone`, `splitFullPhone`, `PHONE_COUNTRIES`). Use them in any new form that asks for a phone; do not write another parser.
 
 ---
 
-## Reglas de Desarrollo y Utilidades Locales
+## ECC Workflow (Everything Claude Code)
 
-### Ubicación Obligatoria de Scripts de Prueba (`local-utils/`)
-- **REGLA ESTRICTA**: Si vas a crear una utilidad para probar algo, diagnosticar la base de datos, simular llamadas a APIs, o cualquier script que **NO formará parte de la aplicación del negocio (producción)**, **DEBES agregarlo obligatoriamente dentro de la carpeta `local-utils/`**.
-- **PROHIBIDO**: No crees scripts temporales en la raíz del proyecto (`./`), ni en directorios temporales no rastreados como `scratch/`, ni dentro de `src/`.
-- Todos los scripts ad-hoc (por ejemplo: scripts para verificar usuarios, backfills, testing de ledger, simuladores de webhooks, etc.) deben residir en `local-utils/`.
+> Project rules in this file always win over generic ECC rules.
 
-### Prohibición de Emojis en la UI
-- **NUNCA** uses caracteres emoji (`📋`, `✅`, `⚠️`, `⭐`, `🚀`, etc.) como elementos de UI en JSX/TSX.
-- Todos los iconos deben venir de `lucide-react`. Especifica siempre el nombre del componente, tamaño (`size`) y `strokeWidth` cuando sea relevante.
-  - Correcto: `<AlertTriangle size={16} className="text-amber-500" />`
-  - Incorrecto: `⚠️ Advertencia`
-- Los botones de solo icono deben incluir `aria-label` para accesibilidad.
+### Install scope
+- ECC is installed **only as a Claude Code plugin** (`ecc@ecc`, enabled in `.claude/settings.local.json`, hook profile `minimal`).
+- **Never** run `install-apply.js` or `install.sh` on top of the plugin. Mixing both methods duplicates skills, commands and hooks.
+- Rules are copied by hand, whole folders only: `.claude/rules/ecc/common` and `.claude/rules/ecc/typescript`. Do not add other language packs (token cost).
+- The old `.agents/` scaffold (from another project) was removed. Claude Code does not need an `AGENTS.md`. Its useful history now lives in `docs/DECISIONS-LEDGER.md` and `docs/CHANGELOG.md`.
 
-### Estilo Minimalista en Pantallas del Tenant
-- Las pantallas del tenant (CRM, storefront, login/registro) siguen un estilo plano y neutral, tipo Claude o ChatGPT. Especificación en `.claude/skills/minimal-ui/references/style-spec.md`.
-- Sin gradientes, blur, sombras de color, escala al pasar el cursor ni etiquetas en mayúsculas. Los colores y la fuente del tenant se conservan.
-- Para auditar o reescribir estilos usa la skill `minimal-ui` (scripts en `local-utils/minimal-ui/`).
-- Las páginas de la marca oscura NewAigent (landing, legales, facturación, 404) no entran en este estilo.
+### Standard flow
+```
+/ecc:plan-prd -> /ecc:plan (wait for CONFIRM) -> tdd-workflow skill -> /ecc:code-review -> /ecc:pr
+```
+- Use `/ecc:build-fix` when the build breaks, `/ecc:security-scan` before shipping auth, payment or tenant code.
+- Run `/ecc:update-codemaps` after large features or refactors, then review the diff before committing.
+- Playbook (install rules, command map, hooks): https://claude.ai/artifact/5LaD5NNMcgZ2NN1X3T62ey
 
-### Seguir el Estilo del Tenant (Tema en Base de Datos)
-- Toda nueva página o componente del **storefront público** (`(public)/`) y del **CRM** (`admin/`) debe respetar el tema visual del tenant almacenado en la tabla `ThemeConfig` (`primaryColor`, `secondaryColor`, `accentColor`, `fontFamily`).
-- El tema se inyecta como variables CSS desde el layout del tenant. Usa siempre `var(--color-primary)` / `bg-primary` / `text-primary` y las utilidades Tailwind configuradas — **nunca** valores de color hardcodeados (`#16a34a`, `green-600`, etc.) en componentes de tenant.
-- En componentes de la **página de marketing** (`marketing/`), sí se permiten colores fijos porque no pertenecen a ningún tenant.
-- Si un nuevo componente necesita un color de acento diferente al del tenant, debe exponerlo como prop o CSS token — no codificarlo directamente.
+### Architecture docs
+Token-lean maps live in `docs/CODEMAPS/`: `architecture.md`, `backend.md`, `frontend.md`, `data.md`, `dependencies.md`. Read the relevant map before exploring code. Regenerate them instead of editing by hand.
 
-### Reglas Multi-Tenant (Pensar en Todos los Negocios)
-- Todo cambio se diseña como regla para **cualquier** tenant, no para el ejemplo que se muestra en una captura. Una captura es un caso, no la especificación.
-- No escribir nada con datos de un negocio concreto: etiquetas, colores, verticales, nombres de producto o frases.
-- El texto libre de un negocio o del bot (motivo de cita, notas, respuestas) se muestra tal cual, respetando sus saltos de línea. No parsear su formato desde la pantalla: el formato depende de lo que escriba el bot o el cliente. Si el formato importa, se corrige en la fuente (prompt del bot o flujo de reserva).
-- Antes de cerrar un cambio de UI, revisar al menos: un valor vacío, uno largo, otra vertical, modo oscuro y colores del tenant muy claros o muy oscuros.
-- Al entregar, indicar qué regla se aplicó y qué casos cubre.
+### Precedence over ECC rules
+When an ECC rule conflicts with this file, this file wins. In particular:
+- Tenant isolation (`tenantId` from the session, never from input), `@/lib/db` for Prisma, white-label vocabulary, i18n, no emojis, minimal UI and tenant theme tokens are mandatory.
+- The ECC rules for 80% coverage and TDD are the target, but the repo has no test runner yet. Adding one is a separate task.
+- The ECC "never mutate" rule applies to new code. Do not rewrite existing Prisma or Zustand code only to satisfy it.
+
+### Known gaps (verified 2026-10-28)
+- `local-utils/` and `n8n/workflows/` are cited in this file but do not exist in this checkout. Treat them as external until restored.
+- Upstash Redis is listed in the env vars but no code under `src/` uses it.
 
 ---
 
-## Integración Meta (Facebook & Instagram)
+## Development Rules and Local Utilities
 
-- **OAuth Unificado**: Conecta Facebook Pages e Instagram Professional Accounts a través del flujo OAuth de Meta (`/api/apps/oauth/facebook/start` y `/callback`).
-- **Scopes Requeridos**: `email`, `pages_show_list`, `pages_manage_posts`, `pages_read_engagement`, `instagram_basic`, `instagram_content_publish`.
-- **Requisito Estricto de Instagram Professional**: Meta Graph API **bloquea cuentas personales** de Instagram para publicación vía API. El usuario debe:
-  1. Cambiar la cuenta de Instagram a cuenta Profesional (Negocio o Creador).
-  2. Vincular la cuenta de Instagram a su Página de Facebook en Meta Business Suite.
-  3. Reconectar Meta desde `/admin/apps` para asociar el `igBusinessAccountId`.
-- **Publicación Automática con n8n**: El workflow publica directamente en Facebook (`POST /{pageId}/photos`) e Instagram (`POST /{igUserId}/media` -> `POST /{igUserId}/media_publish`).
+### Mandatory location for test scripts (`local-utils/`)
+- **STRICT RULE**: If you are going to create a utility to test something, diagnose the database, simulate API calls, or any script that will **NOT be part of the business (production) application**, you **MUST add it inside the `local-utils/` folder**.
+- **FORBIDDEN**: Do not create temporary scripts in the project root (`./`), nor in untracked temporary directories such as `scratch/`, nor inside `src/`.
+- All ad-hoc scripts (for example: scripts to check users, backfills, ledger testing, webhook simulators, etc.) must live in `local-utils/`.
 
----
+### No emojis in the UI
+- **NEVER** use emoji characters (`📋`, `✅`, `⚠️`, `⭐`, `🚀`, etc.) as UI elements in JSX/TSX.
+- All icons must come from `lucide-react`. Always specify the component name, size (`size`) and `strokeWidth` when relevant.
+  - Correct: `<AlertTriangle size={16} className="text-amber-500" />`
+  - Incorrect: `⚠️ Warning`
+- Icon-only buttons must include `aria-label` for accessibility.
 
-## Integración Microsoft (Outlook Calendar)
+### Minimalist style on tenant screens
+- Tenant screens (CRM, storefront, login/signup) follow a flat, neutral style, like Claude or ChatGPT. Specification in `.claude/skills/minimal-ui/references/style-spec.md`.
+- No gradients, blur, colored shadows, hover scaling or uppercase labels. The tenant's colors and font are kept.
+- To audit or rewrite styles use the `minimal-ui` skill (scripts in `local-utils/minimal-ui/`).
+- The dark NewAigent brand pages (landing, legal, billing, 404) are not covered by this style.
 
-- **OAuth Flow**: `/api/apps/oauth/microsoft/start` y `/callback` — análogo al flujo de Google.
-- **Provider Enum**: `MICROSOFT` en `AppProvider` de Prisma.
-- **Sidebar**: La ruta `/admin/calendario` requiere `providersReq: ["GOOGLE", "MICROSOFT"]` — se muestra si cualquiera de los dos está conectado.
-- **Env vars**: `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, `MICROSOFT_TENANT_ID` (usar `"common"` para multi-tenant).
-- **Escritura de eventos**: el scope es `Calendars.ReadWrite` (start, callback y refresh). Las conexiones anteriores son de solo lectura y deben reconectarse; `/admin/apps` muestra un aviso cuando falta el scope. Las llamadas a Graph viven en `src/lib/microsoft-calendar.ts`.
+### Follow the tenant's style (theme in the database)
+- Every new page or component of the **public storefront** (`(public)/`) and the **CRM** (`admin/`) must respect the tenant's visual theme stored in the `ThemeConfig` table (`primaryColor`, `secondaryColor`, `accentColor`, `fontFamily`).
+- The theme is injected as CSS variables from the tenant layout. Always use `var(--color-primary)` / `bg-primary` / `text-primary` and the configured Tailwind utilities — **never** hardcoded color values (`#16a34a`, `green-600`, etc.) in tenant components.
+- In **marketing page** components (`marketing/`), fixed colors are allowed because they do not belong to any tenant.
+- If a new component needs an accent color different from the tenant's, it must expose it as a prop or CSS token — not hardcode it.
 
----
-
-## Páginas Legales y Consentimiento de Registro
-
-- **Rutas Legales**: `/terminos` (Términos de Servicio) y `/privacidad` (Política de Privacidad) disponibles en el storefront público y dominio raíz.
-- **Componente**: `src/components/legal/LegalPageLayout.tsx` maneja el diseño responsive, branding y soporte multilingüe.
-- **Consentimiento Obligatorio**: En `/registro` y en el modal de onboarding (`OnboardingModal.tsx`), el usuario debe marcar la casilla de aceptación de Términos y Política de Privacidad antes de habilitar el botón de creación de cuenta.
-
----
-
-## Arquitectura de Internacionalización (i18n)
-
-- **Hook Central**: `useTranslation()` desde `@/i18n`.
-- **Detección Automática**: Detecta el idioma principal configurado en el navegador del usuario (`navigator.languages[0]` / `navigator.language`) soportando Español (`es`) e Inglés (`en`).
-- **Diccionarios Tipados**: `src/i18n/types.ts`, `src/i18n/es.ts`, `src/i18n/en.ts`.
-- **Cero Textos Hardcodeados**: Todas las vistas del CRM (incluyendo `/admin/social-campaign`, `/admin/pacientes`, modales, selectores de objetivo/tono/frecuencia, alertas, placeholders y toasts) consumen sus textos desde `t.crm.*`.
-- **Rutas legales bilingues**: `/terminos` y `/privacidad` son las rutas en español; `/terms` y `/privacy` son las rutas alias en inglés. Ambas usan el mismo `LegalPageLayout` con i18n.
+### Multi-tenant rules (think about every business)
+- Every change is designed as a rule for **any** tenant, not for the example shown in a screenshot. A screenshot is a case, not the specification.
+- Do not write anything with the data of a specific business: labels, colors, verticals, product names or phrases.
+- Free text from a business or the bot (appointment reason, notes, replies) is shown as is, respecting its line breaks. Do not parse its format from the screen: the format depends on what the bot or the customer writes. If the format matters, fix it at the source (bot prompt or booking flow).
+- Before closing a UI change, check at least: an empty value, a long one, another vertical, dark mode and very light or very dark tenant colors.
+- On delivery, state which rule was applied and which cases it covers.
 
 ---
 
-## Módulo de Triage / Pacientes (feature-flagged)
+## Meta Integration (Facebook & Instagram)
 
-- **Toggle**: `Tenant.isTriageEnabled = true` habilita el módulo (default: `false`).
-- **CRM**: `/admin/pacientes` — lista tarjetas de `PatientProfile` con datos recopilados por el agente WhatsApp.
-- **API interna**: `GET/POST /api/internal/triage` — autenticada con `x-internal-key`. El agente AI de WhatsApp consulta si un paciente ya tiene triage completo (`isTriageComplete`) y guarda los datos al terminar.
-- **Flujo de datos**: WhatsApp AI (n8n) → `POST /api/internal/triage` → crea/actualiza `PatientProfile` → visible en `/admin/pacientes`.
-- Si `isTriageEnabled = false`, el endpoint devuelve `{ isTriageComplete: true }` para que n8n omita el flujo de triage sin errores.
-- **Nota**: Este módulo **NO fue eliminado**. Está activo y funcional, solo se oculta en la sidebar cuando `isTriageEnabled = false`.
+- **Unified OAuth**: Connects Facebook Pages and Instagram Professional Accounts through Meta's OAuth flow (`/api/apps/oauth/facebook/start` and `/callback`).
+- **Required scopes**: `email`, `pages_show_list`, `pages_manage_posts`, `pages_read_engagement`, `instagram_basic`, `instagram_content_publish`.
+- **Strict Instagram Professional requirement**: The Meta Graph API **blocks personal Instagram accounts** from publishing via API. The user must:
+  1. Switch the Instagram account to a Professional account (Business or Creator).
+  2. Link the Instagram account to their Facebook Page in Meta Business Suite.
+  3. Reconnect Meta from `/admin/apps` to associate the `igBusinessAccountId`.
+- **Automatic publishing with n8n**: The workflow publishes directly to Facebook (`POST /{pageId}/photos`) and Instagram (`POST /{igUserId}/media` -> `POST /{igUserId}/media_publish`).
 
 ---
 
-## Pipeline de Banners para Campañas Sociales (`/api/internal/render-post-banner`)
+## Microsoft Integration (Outlook Calendar)
+
+- **OAuth flow**: `/api/apps/oauth/microsoft/start` and `/callback` — analogous to the Google flow.
+- **Provider enum**: `MICROSOFT` in Prisma's `AppProvider`.
+- **Sidebar**: The `/admin/calendario` route requires `providersReq: ["GOOGLE", "MICROSOFT"]` — it is shown if either of the two is connected.
+- **Env vars**: `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, `MICROSOFT_TENANT_ID` (use `"common"` for multi-tenant).
+- **Event writing**: the scope is `Calendars.ReadWrite` (start, callback and refresh). Earlier connections are read-only and must be reconnected; `/admin/apps` shows a notice when the scope is missing. Graph calls live in `src/lib/microsoft-calendar.ts`.
+
+---
+
+## Legal Pages and Signup Consent
+
+- **Legal routes**: `/terminos` (Terms of Service) and `/privacidad` (Privacy Policy) available on the public storefront and the root domain.
+- **Component**: `src/components/legal/LegalPageLayout.tsx` handles the responsive layout, branding and multilingual support.
+- **Mandatory consent**: In `/registro` and in the onboarding modal (`OnboardingModal.tsx`), the user must tick the checkbox accepting the Terms and Privacy Policy before the account creation button is enabled.
+
+---
+
+## Internationalization (i18n) Architecture
+
+- **Central hook**: `useTranslation()` from `@/i18n`.
+- **Automatic detection**: Detects the main language configured in the user's browser (`navigator.languages[0]` / `navigator.language`), supporting Spanish (`es`) and English (`en`).
+- **Typed dictionaries**: `src/i18n/types.ts`, `src/i18n/es.ts`, `src/i18n/en.ts`.
+- **Zero hardcoded text**: All CRM views (including `/admin/social-campaign`, `/admin/pacientes`, modals, goal/tone/frequency selectors, alerts, placeholders and toasts) take their text from `t.crm.*`.
+- **Bilingual legal routes**: `/terminos` and `/privacidad` are the Spanish routes; `/terms` and `/privacy` are the English alias routes. Both use the same `LegalPageLayout` with i18n.
+
+---
+
+## Triage / Patients Module (feature-flagged)
+
+- **Toggle**: `Tenant.isTriageEnabled = true` enables the module (default: `false`).
+- **CRM**: `/admin/pacientes` — lists `PatientProfile` cards with data collected by the WhatsApp agent.
+- **Internal API**: `GET/POST /api/internal/triage` — authenticated with `x-internal-key`. The WhatsApp AI agent checks whether a patient already has a complete triage (`isTriageComplete`) and saves the data when it finishes.
+- **Data flow**: WhatsApp AI (n8n) → `POST /api/internal/triage` → creates/updates `PatientProfile` → visible in `/admin/pacientes`.
+- If `isTriageEnabled = false`, the endpoint returns `{ isTriageComplete: true }` so n8n skips the triage flow without errors.
+- **Note**: This module was **NOT removed**. It is active and functional, only hidden in the sidebar when `isTriageEnabled = false`.
+
+---
+
+## Banner Pipeline for Social Campaigns (`/api/internal/render-post-banner`)
 
 - **Endpoint**: `POST /api/internal/render-post-banner`
 - **Auth**: Header `x-internal-key` → `process.env.INTERNAL_API_KEY`
-- **Función**: Compone una imagen 1080×1080 con Cloudinary SDK:
-  1. Sube un overlay SVG con degradado oscuro (scrim), título hero, subtítulo y botón CTA pill
-  2. Combina el overlay con la foto base del producto (crop fill + gravity auto)
-  3. Devuelve la URL pública de Cloudinary del banner compuesto
-- **Llamado por**: n8n antes de publicar en Facebook/Instagram
-- **Parámetros body**: `imageUrl` (requerido), `tenantId` (obligatorio),- **Parámetros body**: `imageUrl` (requerido), `tenantId`, `hero`, `heroHighlight`, `support`, `cta`, `accentColor`
+- **Function**: Composes a 1080×1080 image with the Cloudinary SDK:
+  1. Uploads an SVG overlay with a dark gradient (scrim), hero title, subtitle and CTA pill button
+  2. Combines the overlay with the product's base photo (crop fill + gravity auto)
+  3. Returns the public Cloudinary URL of the composed banner
+- **Called by**: n8n before publishing to Facebook/Instagram
+- **Body parameters**: `imageUrl` (required), `tenantId` (mandatory), `hero`, `heroHighlight`, `support`, `cta`, `accentColor`
 - **Storage**: `newaigent/{tenantId}/campaigns/banner_{timestamp}`
 
 ---
 
-## Carpetas en Cloudinary
+## Cloudinary Folders
 
-- Cuenta única; la carpeta raíz es `newaigent` (constante `CLOUDINARY_ROOT_FOLDER` en `src/lib/cloudinary-root.ts`). Todo lo del negocio vive en `newaigent/<tenantId>/<tipo>`: `logo`, `products`, `carousel`, `campaigns` y `temp` (overlay temporal del banner).
-- El logo del registro se envía junto con el formulario (multipart: `payload` y `logo`) y `POST /api/tenants/register` lo sube a `newaigent/<tenantId>/logo` después de crear el negocio. No existe carpeta `signups`; `POST /api/upload/public` fue eliminado.
-- `render-post-banner` exige `tenantId` (400 si falta). Scripts de una sola vez: `local-utils/rename-cloudinary-root.ts` (renombró `nutriologas` a `newaigent`) y `local-utils/remove-cloudinary-signups.ts`.
-- Renombrar una carpeta en Cloudinary cambia las URLs de todo lo que contiene: cualquier URL guardada en la base de datos deja de funcionar.
+- Single account; the root folder is `newaigent` (constant `CLOUDINARY_ROOT_FOLDER` in `src/lib/cloudinary-root.ts`). Everything belonging to a business lives in `newaigent/<tenantId>/<type>`: `logo`, `products`, `carousel`, `campaigns` and `temp` (the banner's temporary overlay).
+- The signup logo is sent together with the form (multipart: `payload` and `logo`) and `POST /api/tenants/register` uploads it to `newaigent/<tenantId>/logo` after creating the business. There is no `signups` folder; `POST /api/upload/public` was removed.
+- `render-post-banner` requires `tenantId` (400 if missing). One-off scripts: `local-utils/rename-cloudinary-root.ts` (renamed `nutriologas` to `newaigent`) and `local-utils/remove-cloudinary-signups.ts`.
+- Renaming a folder in Cloudinary changes the URLs of everything it contains: any URL stored in the database stops working.
 
-## Verticales de Negocio y Adaptación de Servicios
+## Business Verticals and Service Adaptation
 
-- **Modelo en DB (`Tenant.vertical`)**: Enum `BusinessVertical` (`ECOMMERCE`, `HEALTH`, `VETERINARY`, `TOURISM`, `SERVICES`, `PET_CARE`, `TRAVEL`, `GENERAL`). Valores desconocidos o nulos usan el perfil de tienda (`ECOMMERCE`).
-- **Fuente única por giro**: `src/lib/vertical-profile.ts` (`getVerticalProfile(vertical, isBookingEnabled)`). Sidebar, storefront, asistente Newy AI, chat y formulario de productos leen de ahí; no comparen el nombre del giro a mano.
+- **DB model (`Tenant.vertical`)**: Enum `BusinessVertical` (`ECOMMERCE`, `HEALTH`, `VETERINARY`, `TOURISM`, `SERVICES`, `PET_CARE`, `TRAVEL`, `GENERAL`). Unknown or null values use the store profile (`ECOMMERCE`).
+- **Single source per vertical ("giro")**: `src/lib/vertical-profile.ts` (`getVerticalProfile(vertical, isBookingEnabled)`). Sidebar, storefront, the Newy AI assistant, chat and the product form read from there; do not compare the vertical's name by hand.
 
-| Giro | Pedidos | Catálogo primero (servicios) | Grupo de clientes | Mascotas | Herramientas de ventas de Newy AI |
+| Vertical | Orders | Catalog first (services) | Customer group | Pets | Newy AI sales tools |
 |---|---|---|---|---|---|
-| ECOMMERCE, GENERAL | sí | no | Clientes | no | sí |
-| HEALTH | no | sí | Pacientes | no | no |
-| VETERINARY, PET_CARE | no | sí | Mascotas | sí | no |
-| TOURISM, TRAVEL | no | sí | Viajeros | no | no |
-| SERVICES | no | sí | Clientes | no | no |
+| ECOMMERCE, GENERAL | yes | no | Customers | no | yes |
+| HEALTH | no | yes | Patients | no | no |
+| VETERINARY, PET_CARE | no | yes | Pets | yes | no |
+| TOURISM, TRAVEL | no | yes | Travelers | no | no |
+| SERVICES | no | yes | Customers | no | no |
 
-- Historial y citas solo aparecen con `isBookingEnabled`. Las herramientas de citas de Newy AI también dependen de ese interruptor (`toolsFor()` en `src/lib/ai/tools.ts`), y `POST /api/chat` rechaza cualquier herramienta fuera del conjunto del giro aunque el modelo la pida.
-- En la sidebar, la sección de productos cambia a "Servicios" para los giros que venden por cita (`serviceFirst`).
-- **Mascotas** (`VETERINARY`, `PET_CARE`): la reserva web (`BookingFlow`) y el bot piden nombre y especie de la mascota. Sin nombre, `POST /api/appointments` y `bot/book` responden `pet_required` (400). El historial agrupa por tutor, muestra las mascotas bajo cada tutor, filtra por mascota (`GET /api/admin/historial/[key]?petId=`) y muestra la mascota en cada visita. `/admin/citas` muestra "Mascotas: nombre" bajo el tutor. Los otros giros no consultan la tabla `pets`.
-- El historial usa la etiqueta del grupo de clientes (`t.crm.history.subjects`): Historial de pacientes, de mascotas, de viajeros o de clientes.
-- En la sidebar, la sección de productos cambia a "Servicios" para los giros que venden por cita (`serviceFirst`).
-- **Adaptación Dinámica**:
-  - Para verticales no enfocadas en e-commerce físico (médicos/ginecólogos, veterinarias con hotel de mascotas, agencias de viaje/tours), los productos se configuran como servicios con duración (`durationMinutes`) y agendamiento interactivo (`isBookingEnabled: true`).
-  - En la sidebar, la sección de productos cambia automáticamente a "Servicios" para profesionales de salud (`isHealth`).
-  - Storefront adapta el botón principal de compra a "Agendar Cita / Servicio" enrutando a `/agendar/[slug]`.
-- **Portal de Citas del Paciente**: Los clientes pueden ver sus citas agendadas o cancelarlas en `/mis-citas`.
-- **Reserva de Huéspedes e Invitados**: El endpoint `POST /api/appointments` permite reservar citas sin requerir cuenta previa. Guarda el nombre y teléfono del paciente tanto en los campos relacionales (`customerName`, `customerPhone`) como en `notes` como respaldo redundante.
-
----
-
-## Gestión Unificada de Agenda y Citas (`/admin/citas`)
-
-- **Vista Centralizada Única**: Unifica en una sola pantalla interactiva las citas nativas del CRM (creadas en la web o WhatsApp) y los eventos sincronizados desde **Google Calendar** y **Microsoft Outlook**.
-- **Mini-Calendario Interactivo**:
-  - Ubicado a la izquierda para navegación rápida por mes y día.
-  - Muestra puntos indicadores en los días que tienen citas (de cualquier origen).
-  - Al hacer clic en un día, filtra instantáneamente la lista unificada a esa fecha.
-- **Sin Cuadrículas Duplicadas**: Se eliminó la vista separada de FullCalendar al pie de la página para evitar discrepancias numéricas y garantizar que todas las citas compartan el mismo listado y métricas KPI (`TOTAL`, `POR CONFIRMAR`, `CONFIRMADAS`, `COMPLETADAS`).
-- **Insignias y Acciones por Origen**:
-  - Citas de Google Calendar: Muestran la insignia oficial `Google Calendar`, datos del evento y botón directo **"Abrir en Calendar ↗"**.
-  - Citas nativas: Muestran precio del servicio, teléfono con enlace directo a WhatsApp (`wa.me`), estado clínico y botones de acción (`Confirmar`, `Atendida`, `No vino`, `Notas clínicas`).
-- **Confirmación Automática por WhatsApp**:
-  - Al hacer clic en "Confirmar" en una cita, `PATCH /api/appointments/[id]` envía un mensaje automático al paciente vía WhatsApp con el nombre del consultorio, servicio, fecha, hora y duración estimada.
-- **Citas replicadas**: una cita creada desde la web o el bot se guarda en la base de datos y crea un evento en el calendario conectado (`externalProvider` / `externalEventId`). Ese evento no aparece por separado; los eventos creados a mano en el calendario sí aparecen.
-- **Redirección de Ruta**: `/admin/calendario` redirige directamente a `/admin/citas`.
+- History and appointments only appear with `isBookingEnabled`. Newy AI's appointment tools also depend on that switch (`toolsFor()` in `src/lib/ai/tools.ts`), and `POST /api/chat` rejects any tool outside the vertical's set even if the model requests it.
+- In the sidebar, the products section changes to "Servicios" (Services) for verticals that sell by appointment (`serviceFirst`).
+- **Pets** (`VETERINARY`, `PET_CARE`): the web booking (`BookingFlow`) and the bot ask for the pet's name and species. Without a name, `POST /api/appointments` and `bot/book` answer `pet_required` (400). The history groups by owner, shows the pets under each owner, filters by pet (`GET /api/admin/historial/[key]?petId=`) and shows the pet in each visit. `/admin/citas` shows "Mascotas: nombre" (Pets: name) under the owner. Other verticals do not query the `pets` table.
+- The history uses the customer group's label (`t.crm.history.subjects`): Patient history, pet history, traveler history or customer history.
+- **Dynamic adaptation**:
+  - For verticals not focused on physical e-commerce (doctors/gynecologists, veterinary clinics with pet hotels, travel agencies/tours), products are configured as services with duration (`durationMinutes`) and interactive scheduling (`isBookingEnabled: true`).
+  - In the sidebar, the products section automatically changes to "Servicios" for health professionals (`isHealth`).
+  - The storefront adapts the main purchase button to "Agendar Cita / Servicio" (Book Appointment / Service), routing to `/agendar/[slug]`.
+- **Patient appointment portal**: Customers can view their booked appointments or cancel them at `/mis-citas`.
+- **Guest booking**: The `POST /api/appointments` endpoint allows booking appointments without requiring a prior account. It stores the patient's name and phone both in the relational fields (`customerName`, `customerPhone`) and in `notes` as a redundant backup.
 
 ---
 
-## Conexión de WhatsApp e Integración con Evolution API
+## Unified Schedule and Appointment Management (`/admin/citas`)
 
-- **Banderas Requeridas en la Creación de Instancia**:
-  Al crear o conectar una instancia en `POST /api/apps/connect/whatsapp`, se aplican de forma estricta las siguientes banderas tanto en el payload de `/instance/create` como en `/settings/set` y `/webhook/set`:
-  1. `events: ["MESSAGES_UPSERT"]` (dispara webhook en mensajes entrantes).
-  2. `webhookBase64: true` (envía el payload del webhook en base64).
-  3. `rejectCall: true` (rechaza llamadas de voz automáticamente).
-  4. `groupsIgnore: true` (ignora mensajes de grupos).
-  5. `readMessages: true` (marca mensajes recibidos como leídos).
-  6. `alwaysOnline: true` (mantiene la sesión siempre activa en WhatsApp).
-  7. `readStatus: false` (desactiva la lectura de estados de WhatsApp).
+- **Single centralized view**: Unifies in one interactive screen the CRM's native appointments (created on the web or WhatsApp) and the events synced from **Google Calendar** and **Microsoft Outlook**.
+- **Interactive mini-calendar**:
+  - Located on the left for quick navigation by month and day.
+  - Shows indicator dots on days that have appointments (from any source).
+  - Clicking a day instantly filters the unified list to that date.
+- **No duplicate grids**: The separate FullCalendar view at the bottom of the page was removed to avoid numeric discrepancies and ensure all appointments share the same list and KPI metrics (`TOTAL`, `POR CONFIRMAR` (to confirm), `CONFIRMADAS` (confirmed), `COMPLETADAS` (completed)).
+- **Badges and actions by source**:
+  - Google Calendar appointments: Show the official `Google Calendar` badge, event data and a direct **"Abrir en Calendar ↗"** (Open in Calendar) button.
+  - Native appointments: Show the service price, phone with a direct WhatsApp link (`wa.me`), clinical status and action buttons (`Confirmar`, `Atendida`, `No vino`, `Notas clínicas` — Confirm, Attended, No-show, Clinical notes).
+- **Automatic WhatsApp confirmation**:
+  - When "Confirmar" is clicked on an appointment, `PATCH /api/appointments/[id]` sends an automatic WhatsApp message to the patient with the clinic name, service, date, time and estimated duration.
+- **Mirrored appointments**: an appointment created from the web or the bot is saved in the database and creates an event in the connected calendar (`externalProvider` / `externalEventId`). That event does not appear separately; events created by hand in the calendar do appear.
+- **Route redirect**: `/admin/calendario` redirects directly to `/admin/citas`.
+
+---
+
+## WhatsApp Connection and Evolution API Integration
+
+- **Required flags when creating an instance**:
+  When creating or connecting an instance in `POST /api/apps/connect/whatsapp`, the following flags are strictly applied in the `/instance/create` payload as well as in `/settings/set` and `/webhook/set`:
+  1. `events: ["MESSAGES_UPSERT"]` (fires the webhook on incoming messages).
+  2. `webhookBase64: true` (sends the webhook payload in base64).
+  3. `rejectCall: true` (automatically rejects voice calls).
+  4. `groupsIgnore: true` (ignores group messages).
+  5. `readMessages: true` (marks received messages as read).
+  6. `alwaysOnline: true` (keeps the session always active on WhatsApp).
+  7. `readStatus: false` (disables reading WhatsApp statuses).
   8. `syncFullHistory: false`.
-- **Detección Confiable de Conexión (`/api/apps/whatsapp/status`)**:
-  - Consulta `fetchInstances?instanceName=${instanceName}` en Evolution API.
-  - Verifica `connectionStatus === "open"` y extrae el número de teléfono desde `ownerJid` de inmediato.
-  - **QR que se renueva solo**: mientras el dueño espera, `GET /api/apps/whatsapp/status` pide un código nuevo a Evolution (`/instance/connect/<instancia>`) cuando el guardado tiene más de 25 segundos (`QR_TTL_MS`). Después de 8 renovaciones (`MAX_QR_REFRESHES`, unos 3 minutos) el estado es `qr_expired` y el modal muestra "El código QR expiró" con "Generar nuevo código", que vuelve a llamar `POST /api/apps/connect/whatsapp`. El momento de emisión y el conteo viven en `ConnectedApp.metadata` (`qrIssuedAt`, `qrRefreshes`). Helpers en `src/lib/whatsapp-qr.ts`. Ver spec 19.3.
-- **Sin Interrupción de Handshake**: Se eliminó la llamada recurrente a `/instance/connect` durante el sondeo que reiniciaba el socket mientras el teléfono escaneaba el código QR.
-- **Cierre Inmediato del Modal (`WhatsAppModal`)**:
-  - Polling a 2 segundos en `/admin/apps`. Al detectar `status === "connected"`, muestra la confirmación visual de éxito y cierra el modal automáticamente en 1.2 segundos.
-  - Al abrir el modal, realiza una verificación inmediata para auto-cerrarse si la sesión ya estaba vinculada.
+- **Reliable connection detection (`/api/apps/whatsapp/status`)**:
+  - Queries `fetchInstances?instanceName=${instanceName}` on Evolution API.
+  - Checks `connectionStatus === "open"` and extracts the phone number from `ownerJid` immediately.
+  - **Self-renewing QR**: while the owner waits, `GET /api/apps/whatsapp/status` requests a new code from Evolution (`/instance/connect/<instance>`) when the stored one is more than 25 seconds old (`QR_TTL_MS`). After 8 renewals (`MAX_QR_REFRESHES`, about 3 minutes) the status is `qr_expired` and the modal shows "El código QR expiró" (The QR code expired) with "Generar nuevo código" (Generate new code), which calls `POST /api/apps/connect/whatsapp` again. The issue time and the count live in `ConnectedApp.metadata` (`qrIssuedAt`, `qrRefreshes`). Helpers in `src/lib/whatsapp-qr.ts`. See spec 19.3.
+- **No handshake interruption**: The recurring call to `/instance/connect` during polling, which restarted the socket while the phone was scanning the QR code, was removed.
+- **Immediate modal close (`WhatsAppModal`)**:
+  - Polling every 2 seconds in `/admin/apps`. On detecting `status === "connected"`, it shows the visual success confirmation and closes the modal automatically after 1.2 seconds.
+  - When the modal opens, it performs an immediate check to close itself if the session was already linked.
 
-### Estado de la migración a WhatsApp Cloud API (Meta)
+### Status of the migration to WhatsApp Cloud API (Meta)
 
-- **Hoy**: todo el envío y la recepción pasan por Evolution API. `src/lib/whatsapp.ts` no tiene todavía soporte para la API oficial.
-- **Pendiente**: crear la app de Meta y la cuenta de WhatsApp Business, obtener el token de acceso permanente y el ID del número por tenant (se guardaría en `ConnectedApp.waInstanceId`), y aprobar las plantillas de recordatorio. Después, cambiar el envío y el webhook del workflow al formato de Meta.
-
+- **Today**: all sending and receiving goes through Evolution API. `src/lib/whatsapp.ts` does not yet support the official API.
+- **Pending**: create the Meta app and the WhatsApp Business account, obtain the permanent access token and the number ID per tenant (it would be stored in `ConnectedApp.waInstanceId`), and get the reminder templates approved. Afterwards, switch the sending and the workflow webhook to Meta's format.
