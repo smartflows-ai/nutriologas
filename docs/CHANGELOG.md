@@ -7,6 +7,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased] — 2026-10-26
 
 ### Changed
+- Booking page (`/agendar/[slug]`): times that are past or taken stay in the list as grey, disabled buttons instead of disappearing. `GET /api/appointments/availability` returns `allSlots` next to `availableSlots`; the bot and Newy AI still receive only free times.
+- Start times for services longer than 60 minutes step by one hour (a 120-minute service starts at 09:00, 10:00 ... 16:00) so the last slot that fits before closing is offered. Services of 60 minutes or less keep stepping by their own duration. Applies to the web, the WhatsApp bot and Newy AI (`daySlots` in `src/lib/business-hours.ts`).
 - Reminder timing in half hours: the reminder can go out and the visit can be released at any multiple of 30 minutes. Stored in minutes (`tenants.reminderLeadMinutes`, `tenants.confirmationDeadlineMinutes`); the hour columns are legacy. The settings card shows hours (1,5 = 1 h 30 min) and blocks any window that is not valid, with the reason. The settings API checks the same bounds.
 - WhatsApp bot greeting: a plain greeting gets a fixed reply from the server (no model call, no AI credits). The bot introduces itself ("soy el asistente de WhatsApp de [negocio]") when nobody wrote to the contact in the last 12 hours, not only on the first message. The chat workflow sends the reply and stores it as a bot message; the agent receives the introduction flag from the server. Re-import the chat workflow in n8n to apply.
 - WhatsApp bot: a booked or rescheduled appointment includes the office address and map link when the owner set a physical location. `bot/book` and `bot/reschedule` return `location` (null without a physical location); the chat workflow prompt adds the "Ubicación" line. Re-import the chat workflow in n8n to apply.
@@ -17,6 +19,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - API: `PATCH /api/tenants/reminders` rejects a deadline that is not earlier than the lead time (`reminder_window_invalid`).
 
 ### Fixed
+- The storefront homepage did not show the business hours saved in `/admin/negocio`. The about card now has an "Opening hours" row (Monday first, closed days marked, several blocks per day listed), with texts in Spanish and English (`locationUi.hoursLabel`).
 - Released visits stayed in Google or Outlook: when the calendar token was missing (expired and not refreshed), the link was cleared as if the event had been removed. The link is now kept, and the reminders job retries the removal of cancelled visits (up to 20 per run) and clears the link only after the event is gone.
 - Reminders: a visit booked after its reminder time no longer gets silence. If its release deadline is still ahead, the confirmation request goes out on the next run (about 15 minutes), and the visit is released if nobody answers SI by the deadline. Before, these visits were treated as confirmed and got no message at all.
 - Newy AI appointment data (`get_appointments`): it no longer sends the patient email, visit notes or clinical notes to the model. Times are clinic time (America/Mexico_City) instead of UTC, and "today", "tomorrow" and a chosen date use clinic days instead of the server clock.
