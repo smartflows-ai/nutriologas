@@ -56,8 +56,13 @@ export function buildGreetingReply(input: {
   businessName: string;
   language: string;
   introRequired: boolean;
+  /** Public address of the business's privacy notice; added to the introduction when given. */
+  privacyUrl?: string;
 }): string | null {
   if (!isPureGreeting(input.text)) return null;
   const texts = customerTexts(input.language);
-  return fill(input.introRequired ? texts.greetingIntro : texts.greetingShort, { negocio: input.businessName });
+  if (!input.introRequired) return fill(texts.greetingShort, { negocio: input.businessName });
+  const intro = fill(texts.greetingIntro, { negocio: input.businessName });
+  if (!input.privacyUrl) return intro;
+  return intro + "\n\n" + fill(texts.greetingPrivacy, { url: input.privacyUrl });
 }

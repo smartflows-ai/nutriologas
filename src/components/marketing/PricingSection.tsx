@@ -17,7 +17,7 @@ interface PriceBlock {
 }
 
 interface DynamicPricing {
-  es: Record<PriceSlot, PriceBlock>;
+  es: Record<PriceSlot | "plus", PriceBlock>;
   en: Record<PriceSlot, PriceBlock>;
 }
 
@@ -29,6 +29,10 @@ const FALLBACK_PRICES: Record<Vertical, { starter: [number, number]; pro: [numbe
   TOURISM: { starter: [500, 375], pro: [1200, 950] },
 };
 const FALLBACK_ENTERPRISE: [number, number] = [3999, 2999];
+// Mexico plans (MXN per month, monthly billing only). These are fallbacks: the prices come from Stripe (/api/billing/prices). The checkout still has two plans: Start uses STARTER, Plus and Pro use PRO.
+const MX_PRICES = { start: 499, plus: 899, pro: 1499 } as const;
+const MX_PRICE_SLOT = { start: "starter", plus: "plus", pro: "pro" } as const;
+const MX_PLAN_KEYS: Record<keyof typeof MX_PRICES, PlanKey> = { start: "STARTER", plus: "PRO", pro: "PRO" };
 const FALLBACK_EN: Record<string, [number, number]> = {
   "starter:ECOMMERCE": [29, 19], "pro:ECOMMERCE": [79, 59],
   "starter:HEALTH": [29, 19], "pro:HEALTH": [45, 35],
@@ -126,9 +130,40 @@ export default function PricingSection() {
     ];
   };
 
-  const plans = getVerticalPlans();
+  // Spanish (Mexico) shows Start, Plus and Pro. Other languages keep the original three plans.
+  const getMexicoPlans = () => {
+    const mx = t.pricing.mx;
+    const look = {
+      start: { color: "var(--mk-cyan)", glow: "rgba(6,182,212,0.15)", popular: false },
+      plus: { color: "var(--mk-violet)", glow: "rgba(124,58,237,0.25)", popular: true },
+      pro: { color: "var(--mk-indigo)", glow: "rgba(79,70,229,0.15)", popular: false },
+    };
+    return (Object.keys(MX_PRICES) as (keyof typeof MX_PRICES)[]).map((id) => {
+      const copy = mx.plans[id];
+      return {
+        id,
+        name: copy.name,
+        tagline: copy.tagline,
+        features: copy.features,
+        monthlyPrice: prices?.es?.[MX_PRICE_SLOT[id]]?.monthlyPrice ?? MX_PRICES[id],
+        annualPrice: prices?.es?.[MX_PRICE_SLOT[id]]?.monthlyPrice ?? MX_PRICES[id],
+        currency: prices?.es?.[MX_PRICE_SLOT[id]]?.currency ?? "MXN",
+        ...look[id],
+        planKey: MX_PLAN_KEYS[id] as PlanKey | null,
+        cta: t.pricing.startTrial,
+        conversations: copy.conversations,
+        measures: copy.measures,
+        implementationPrice: copy.implementationPrice,
+      };
+    });
+  };
 
-  const handlePlanClick = (plan: typeof plans[number]) => {
+  type CardPlan = Omit<ReturnType<typeof getVerticalPlans>[number], "id"> & { id: string; conversations?: number; measures?: string; implementationPrice?: number };
+  const plans: CardPlan[] = isEs ? getMexicoPlans() : getVerticalPlans();
+  // Mexico plans are monthly only
+  const showAnnual = annual && !isEs;
+
+  const handlePlanClick = (plan: CardPlan) => {
     if (!plan.planKey) {
       window.location.href = `mailto:info@newaigent.com?subject=${encodeURIComponent(t.pricing.enterpriseSubject)}`;
       return;
@@ -197,7 +232,8 @@ export default function PricingSection() {
               ))}
             </div>
 
-            {/* Billing toggle */}
+            {/* Billing toggle (not shown for Mexico: monthly only) */}
+            {!isEs && (
             <div className="inline-flex items-center gap-4 bg-mk-card border border-white/10 rounded-2xl p-1.5">
               <button
                 id="billing-monthly"
@@ -225,6 +261,7 @@ export default function PricingSection() {
                 </span>
               </button>
             </div>
+            )}
           </div>
 
           {/* Pricing cards */}
@@ -249,7 +286,7 @@ export default function PricingSection() {
                     style={{ background: `linear-gradient(135deg, ${plan.color}, var(--mk-indigo))` }}
                   >
                     <Star size={12} className="fill-white text-white" />
-                    <span>{t.pricing.mostPopular}</span>
+                    <span>{isEs ? t.pricing.mx.recommended : t.pricing.mostPopular}</span>
                   </div>
                 )}
 
@@ -265,15 +302,20 @@ export default function PricingSection() {
                 <div className="mb-8">
                   <div className="flex items-end gap-1">
                     <span className="text-5xl font-black text-white transition-all duration-300">
-                      ${(annual ? plan.annualPrice : plan.monthlyPrice).toLocaleString(locale)}
+                      ${(showAnnual ? plan.annualPrice : plan.monthlyPrice).toLocaleString(locale)}
                     </span>
                     <span className="text-white/50 mb-2 text-sm">
                       {plan.currency || fallbackCurrency} {t.pricing.perMonth}
                     </span>
                   </div>
-                  {annual && plan.monthlyPrice > plan.annualPrice && (
+                  {showAnnual && plan.monthlyPrice > plan.annualPrice && (
                     <p className="text-mk-emerald text-xs font-semibold mt-1">
                       {t.pricing.billedAnnually}{((plan.monthlyPrice - plan.annualPrice) * 12).toLocaleString(locale)} {plan.currency}{t.pricing.savePerYear}
+                    </p>
+                  )}
+                  {plan.conversations !== undefined && (
+                    <p className="text-white/60 text-sm mt-2">
+                      {plan.conversations.toLocaleString(locale)} {t.pricing.mx.conversationsPerMonth}
                     </p>
                   )}
                 </div>
@@ -292,6 +334,19 @@ export default function PricingSection() {
                     </li>
                   ))}
                 </ul>
+
+                {plan.measures && (
+                  <p className="text-white/50 text-sm border-t border-white/10 pt-4 mb-4">{plan.measures}</p>
+                )}
+                {plan.implementationPrice !== undefined && (
+                  <div className="flex items-center justify-between gap-3 rounded-2xl bg-white/5 px-4 py-3 mb-6">
+                    <div>
+                      <p className="text-white/70 text-sm">{t.pricing.mx.implementationLabel}</p>
+                      <p className="text-white/40 text-xs">{t.pricing.mx.implementationNote}</p>
+                    </div>
+                    <p className="text-white text-xl font-black">${plan.implementationPrice.toLocaleString(locale)}</p>
+                  </div>
+                )}
 
                 {/* CTA */}
                 <button
@@ -328,7 +383,7 @@ export default function PricingSection() {
         <OnboardingModal
           onClose={() => setShowModal(false)}
           initialPlan={selectedPlan}
-          initialBillingInterval={annual ? "annual" : "monthly"}
+          initialBillingInterval={showAnnual ? "annual" : "monthly"}
           initialVertical={selectedVertical}
         />
       )}

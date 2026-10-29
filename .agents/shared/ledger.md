@@ -663,3 +663,20 @@ Decisions made:
 **Found:** The plans promise things the product does not have yet: conversation counter and per-plan limits (the app meters AI credit in USD), waitlist, attendance reports, contact import. The app charges each reminder separately while the plan includes one per visit. Vercel Hobby does not allow commercial use. The n8n license needs review for a multi-customer service.
 
 **Open:** The t3.small cost screenshot did not arrive (all four attachments were the plans screenshot); AWS public prices were used. Confirm the exchange rate, whether plan prices include IVA, and the Meta and Stripe rates on their official pages.
+
+## 2026-10-29 — Legal texts and paid models for customer data
+
+**Done:** Rewrote the privacy notice and terms (`src/components/legal/legalContent.ts`, es and en, platform and business) so they match the product; added `src/lib/legal-entity.ts` (empty on purpose) and wired the business public data into `/privacidad` and `/terminos`. Moved customer data to paid models: the chat workflow uses `google/gemini-2.5-flash` with `openai/gpt-4o-mini` as fallback; OpenRouter requests send `provider.data_collection: "deny"` (optional zero data retention with `OPENROUTER_REQUIRE_ZDR`); `computeProviderCost` has a per-model price table. Added the privacy consent box to the booking form and the privacy link to the bot introduction. Checks: `tsc --noEmit` clean, `npm run build` compiles, `check-legal-content`, `check-ai-privacy`, `check-greeting` pass, workflow checker 0 problems.
+
+**Open (user actions):**
+1. Set `OPENROUTER_MODELS` in Vercel and `.env` with `google/gemini-2.5-flash` first and no `:free` models (the Newy chat still follows the old list until then).
+2. In the OpenRouter account, turn on the exclusion of providers that train on data (it also covers n8n, which sends no routing parameters).
+3. Re-import `n8n/workflows/n8n-chat-workflow-v2.json` in n8n.
+4. Fill `src/lib/legal-entity.ts` (legal name, address, privacy e-mail, retention, jurisdiction) and have a lawyer review the texts before deploying.
+5. Test the booking form (box required, health consent) and a first bot message (introduction with the privacy link).
+
+**Not done:** application-level encryption of integration tokens, storing consent evidence (needs a column), retention periods, marketing page claims (for example SLA 99.9 % on Enterprise), final plan prices, triage with OpenAI (review contract).
+
+## 2026-10-29 — Dev — Mexico plan prices on the landing page
+
+Owner confirmed Mexico prices: Start $499, Plus $899, Pro $1,499 MXN per month; setup fee $2,500, $5,500, $9,500 net, one time. United States prices are Stripe estimates (Starter $29/$228 per year, Pro $79/$708 per year); a stray US$1,600 per month price in the Pro Anual Dlls product looks like an error. Landing shows the Mexico plans for Spanish and keeps reading the prices from Stripe (new optional `STRIPE_PRICE_PLUS_MONTHLY` for Plus); the owner updates the Stripe prices. The checkout still uses two plans (STARTER, PRO) and must be reworked before charging Plus separately. Plan features are copied from the owner's screenshot and promise things not built yet (waitlist, attendance reports, contact import, conversation counter).

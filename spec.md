@@ -541,6 +541,10 @@ All instances provisioned via `POST /api/apps/connect/whatsapp` enforce the foll
 - WhatsApp page, Settings tab, "Mensajes al cliente" card (language and message texts): `PATCH /api/tenants/reminders` with those fields only.
 - WhatsApp page, Confirmaciones tab: `GET /api/apps/whatsapp/confirmations`, and `POST /api/apps/whatsapp/confirmations/[id]` with `action: confirm | release`.
 
+### Plans and prices (Mexico)
+
+Landing (Spanish): Start $499, Plus $899, Pro $1,499 MXN per month (250, 600, 1,200 conversations), setup fee $2,500, $5,500, $9,500 net one time. Monthly only. Prices are read from Stripe by `/api/billing/prices` (`STRIPE_PRICE_STARTER_MONTHLY`, `STRIPE_PRICE_PLUS_MONTHLY`, `STRIPE_PRICE_PRO_MONTHLY`) with these values as fallback; texts are in `pricing.mx` of the i18n dictionaries and the cards in `src/components/marketing/PricingSection.tsx`. Checkout still maps Start to STARTER and Plus and Pro to PRO. United States prices are pending (Stripe estimates in `.agents/docs/analisis-costos-y-precios-eeuu.md`).
+
 ## 21. Vertical Profile & Pets
 
 ### 21.1 Vertical profile
@@ -612,3 +616,12 @@ All instances provisioned via `POST /api/apps/connect/whatsapp` enforce the foll
 - Days and times are clinic time (America/Mexico_City) through `clinicDateKeyOf`, `addClinicDays` and `clinicDateTime` in `src/lib/clinic-time.ts`. The server clock is not used for "today", "tomorrow" or a chosen date.
 - Not sent to the model: WhatsApp message text, triage or patient profiles, payment data, integration tokens, other tenants' data.
 - Check: `local-utils/check-newy-tools.ts` runs the read-only tools on the live database and checks the field limits.
+
+
+### 21.13 Legal texts, privacy and paid models for customer data
+- Privacy notice and terms (`src/components/legal/legalContent.ts`, es and en) cover the platform and each business. The business is the responsible party; NewAigent is the processor. The text discloses the data handled (including health, pets, conversations, calendars), the providers and transfers, automatic cancellation of unconfirmed appointments, the AI assistant, retention and rights.
+- Operator data comes from `src/lib/legal-entity.ts`; empty fields are left out. Check: `local-utils/check-legal-content.ts` (same sections in both languages, no absolute promises, health section only where it applies).
+- Customer data goes to paid models (primary `google/gemini-2.5-flash`). `callOpenRouterWithCascade` sends `provider: { data_collection: "deny" }` and, with `OPENROUTER_REQUIRE_ZDR=true`, `zdr: true`. A 404 from OpenRouter (no endpoint matches the data policy) moves to the next model. Check: `local-utils/check-ai-privacy.ts`.
+- `computeProviderCost` uses a per-model price table (`MODEL_PRICES_PER_M`) instead of billing every non-free model at the retail rate.
+- The booking form asks for consent with a link to `/privacidad`, and for explicit consent to health data at health businesses. The bot introduction includes the business privacy link (`privacyUrl`).
+- Not done: application-level encryption of integration tokens, storing consent evidence (needs a column), retention periods, lawyer review.

@@ -290,6 +290,7 @@ El corazón del sistema. Cada negocio es un Tenant con:
 - Restricción única: `@@unique([tenantId, periodStart])`
 
 ### Subscription (Stripe)
+- Precios México (landing en español, `PricingSection.tsx`, `pricing.mx` en i18n): Start $499, Plus $899, Pro $1,499 MXN al mes; implementación única neta $2,500, $5,500 y $9,500; solo mensual. El checkout sigue con dos planes (Start usa STARTER; Plus y Pro usan PRO) y los precios salen de Stripe (`/api/billing/prices`; Plus usa la variable nueva `STRIPE_PRICE_PLUS_MONTHLY`, con $499, $899 y $1,499 de respaldo si falta alguno). Precios de Estados Unidos: estimados en Stripe, ver `.agents/docs/analisis-costos-y-precios-eeuu.md`.
 - Planes: STARTER, PRO, ENTERPRISE
 - Estados: TRIALING, ACTIVE, PAST_DUE, CANCELED, UNPAID
 - Billing gestionado por Stripe
@@ -319,6 +320,8 @@ Configuracion actual de produccion (modelos gratuitos primero, pagados como últ
 3. `openrouter/free` (Gratuito: $0.00) — Selección automática de OpenRouter.
 4. `anthropic/claude-sonnet-4.5` (Pago: $3.00 in / $15.00 out) — Respaldo de pago solo si todos los modelos gratuitos fallan o están saturados.
 5. `openai/gpt-4o` (Pago: $2.50 in / $10.00 out) — Último respaldo de pago.
+
+> **Decisión del 29 oct. 2026 (privacidad):** los datos de clientes (bot de WhatsApp, Newy AI) van a modelos de pago, principal `google/gemini-2.5-flash`. Los modelos gratuitos quedan solo para contenido sin datos personales (campañas sociales). Cada solicitud a OpenRouter manda `provider: { data_collection: "deny" }` (`providerPreferences()` en `src/lib/ai/openrouter.ts`); `OPENROUTER_REQUIRE_ZDR=true` agrega retención cero. En la cuenta de OpenRouter hay que activar también la exclusión de proveedores que entrenan (cubre a n8n). El costo real por modelo está en `MODEL_PRICES_PER_M` (`src/lib/credits.ts`). Ver `.agents/docs/analisis-modelos-gratuitos.md`.
 
 ### 3. Modelo de Negocio: Doble Contabilidad y Arbitraje SaaS
 El tenant siempre paga por **unidades de servicio de la plataforma** a la tarifa estándar de retail:
@@ -451,7 +454,7 @@ Flujo: `n8n/workflows/n8n-chat-workflow-v2.json` ("NewAigent - WhatsApp Bot (Cha
 - **Entrada**: Evolution API → webhook del workflow (`POST /:tenantSlug`) → guardas (`messages.upsert`, `fromMe = false`, texto y teléfono presentes).
 - **Tenant**: se resuelve desde el nombre de instancia de Evolution (`resolveBotTenant` en `src/lib/bot.ts`, busca `waInstanceName` o `waInstanceId`). Nunca se toma del modelo.
 - **Identidad del cliente**: su número de WhatsApp. `normalizeCustomerPhone` prefiere `remoteJidAlt`; un `@lid` sin alternativo se rechaza.
-- **Agente**: n8n Agent v2.2 con OpenRouter (cascada de modelos gratuitos, credencial de n8n), memoria Postgres `whatsapp_bot_memory` (ventana de 12 mensajes, clave `instancia:teléfono`) y 5 herramientas.
+- **Agente**: n8n Agent v2.2 con OpenRouter (modelos de pago: principal `google/gemini-2.5-flash`, respaldo `openai/gpt-4o-mini`; credencial de n8n), memoria Postgres `whatsapp_bot_memory` (ventana de 12 mensajes, clave `instancia:teléfono`) y 5 herramientas.
 - **Herramientas → endpoints internos** (`x-internal-key`):
 
   | Herramienta | Endpoint |
@@ -467,7 +470,7 @@ Flujo: `n8n/workflows/n8n-chat-workflow-v2.json` ("NewAigent - WhatsApp Bot (Cha
 - **Reglas de negocio**: los precios se pueden citar, nunca cambiar ni descontar. Citas dentro del horario semanal del negocio (`Tenant.businessHours`, `src/lib/business-hours.ts`, hora de Mexico), con duración por servicio. Solo se agendan artículos `isBookable`. El conflicto revisa citas nativas y el calendario conectado (Google u Outlook, `getBusyPeriods` en `src/lib/calendar-sync.ts`); si el calendario falla, solo se usa la base de datos. La web y el bot crean citas con el mismo servicio (`src/lib/appointments-service.ts`).
 - **Horas del paciente**: son hora de Mexico. Se construyen con `clinicDateTime()` (`src/lib/clinic-time.ts`, offset `-06:00`) y se leen con `clinicTimeOf()`. Nunca usar sufijo `Z` para una hora elegida por el paciente.
 - **Privacidad**: el system prompt prohíbe mencionar formatos técnicos, IDs, herramientas, errores, infraestructura y datos de otros clientes. Es una guía para el modelo, no una garantía. El nodo `Clean Reply` quita saludos repetidos y es el único filtro de salida.
-- **Saludo y presentación**: un saludo puro ("hola", "buenas tardes") lo responde el servidor con una plantilla, sin llamar al agente ni gastar créditos (`src/lib/greeting.ts`, `greetingReply` de `POST /api/internal/bot/context`). El bot se presenta ("Hola, soy el asistente de WhatsApp de [negocio]") si nadie escribió al contacto en las últimas 12 horas (`introRequired`); el agente lo recibe como PRESENTACION en el prompt. El saludo se guarda como mensaje del bot.
+- **Saludo y presentación**: un saludo puro ("hola", "buenas tardes") lo responde el servidor con una plantilla, sin llamar al agente ni gastar créditos (`src/lib/greeting.ts`, `greetingReply` de `POST /api/internal/bot/context`). El bot se presenta ("Hola, soy el asistente de WhatsApp de [negocio]") si nadie escribió al contacto en las últimas 12 horas (`introRequired`); el agente lo recibe como PRESENTACION en el prompt. El saludo se guarda como mensaje del bot. La presentación incluye el aviso de privacidad del negocio (`privacyUrl`, armado con `tenantPublicUrl` en `src/lib/tenant-url.ts`).
 - **Reporte de tokens**: `Collect Token Usage` suma el uso de todas las llamadas del agente y `Report Token Usage` lo envía a `POST /api/internal/tokens/report`, que lo cobra al tenant a tarifa retail. Si el proveedor no reporta uso, se estima (2,000 tokens de prompt por llamada más longitud de respuesta / 4).
 - **Créditos agotados**: el nodo "Guard: Credits OK" revisa `creditExhausted` (de `POST /api/internal/bot/context`) antes de llegar al agente. Si el tenant ya agotó su límite mensual, se salta la llamada al modelo y se envía una respuesta fija de degradación.
 - **Falla total de la cascada**: el nodo "Bot Agent" tiene `onError: continueErrorOutput`; si fallan todos los modelos, esa rama envía al cliente una respuesta fija de disculpa (en vez de silencio) y llama a `POST /api/internal/bot/alert-failure` para avisar al dueño (cooldown de 60 min, ver §"Alertas al Dueño del Tenant" en la sección de créditos).
@@ -534,6 +537,7 @@ ANTHROPIC_API_KEY=               # Claude API (fallback directo)
 OPENROUTER_API_KEY=              # OpenRouter API key (principal)
 OPENROUTER_MODEL=                # Modelo primario: anthropic/claude-sonnet-4.5
 OPENROUTER_MODELS=               # Cascade completo separado por comas (ver §2 Stack de Modelos)
+OPENROUTER_REQUIRE_ZDR=          # true exige endpoints con retención cero (puede dejar un modelo sin endpoint)
 OPENROUTER_INPUT_PRICE_PER_M=    # 3.00 (USD / 1M prompt tokens — tarifa retail)
 OPENROUTER_OUTPUT_PRICE_PER_M=   # 15.00 (USD / 1M completion tokens — tarifa retail)
 REMINDER_COST_USD=               # 0.0085 (USD que se cobra al tenant por cada recordatorio enviado)
@@ -746,6 +750,8 @@ Luego acceder a `http://doctor.localhost:3000` para ver el tenant "doctor".
 - **Rutas Legales**: `/terminos` (Términos de Servicio) y `/privacidad` (Política de Privacidad) disponibles en el storefront público y dominio raíz.
 - **Componente**: `src/components/legal/LegalPageLayout.tsx` maneja el diseño responsive, branding y soporte multilingüe.
 - **Consentimiento Obligatorio**: En `/registro` y en el modal de onboarding (`OnboardingModal.tsx`), el usuario debe marcar la casilla de aceptación de Términos y Política de Privacidad antes de habilitar el botón de creación de cuenta.
+- **Textos legales**: `src/components/legal/legalContent.ts` (español e inglés; plataforma y cada negocio). La versión del negocio recibe sus datos públicos (`LegalSubject`: nombre, responsable, dirección si hay local físico, WhatsApp, y si maneja datos de salud). No poner precios, límites de plan ni garantías absolutas en el texto; remitir a la página de precios. Quién opera NewAigent (razón social, domicilio, correo de privacidad, plazo de conservación, jurisdicción) está en `src/lib/legal-entity.ts` y está **vacío**: un campo vacío se omite del texto. Llenarlo y pedir revisión de un abogado antes de publicar. Comprobación: `npx tsx local-utils/check-legal-content.ts`.
+- **Aviso al capturar datos**: el flujo de agendar (`BookingFlow`) pide una casilla con enlace a `/privacidad` (y consentimiento de datos de salud en giros de salud). La presentación del bot incluye el enlace al aviso.
 
 ---
 

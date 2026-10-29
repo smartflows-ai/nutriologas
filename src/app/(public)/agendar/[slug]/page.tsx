@@ -52,6 +52,7 @@ export default async function AgendarPage({
           whatsappNumber: tenant.whatsappNumber,
           logoUrl: tenant.logoUrl,
           usesPets: getVerticalProfile(tenant.vertical, tenant.isBookingEnabled).usesPets,
+          handlesHealthData: tenant.vertical === "HEALTH",
         }}
         businessHours={parseBusinessHours(tenant.businessHours)}
       />

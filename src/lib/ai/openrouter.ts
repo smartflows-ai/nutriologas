@@ -27,6 +27,18 @@ export interface CascadeResult {
 }
 
 /**
+ * Provider routing preferences sent with every request.
+ * data_collection "deny" excludes providers that store prompts or may train on them.
+ * Zero data retention (zdr) is opt-in: it can leave a model with no endpoint, so it is enabled only by
+ * OPENROUTER_REQUIRE_ZDR=true.
+ */
+export function providerPreferences(): { data_collection: "deny"; zdr?: boolean } {
+  const prefs: { data_collection: "deny"; zdr?: boolean } = { data_collection: "deny" };
+  if (process.env.OPENROUTER_REQUIRE_ZDR === "true") prefs.zdr = true;
+  return prefs;
+}
+
+/**
  * Returns the prioritized stack of models to try in order.
  */
 export function getModelStack(): string[] {
@@ -88,6 +100,7 @@ export async function callOpenRouterWithCascade(
         body: JSON.stringify({
           model: currentModel,
           models: fallbackList,
+          provider: providerPreferences(),
           max_tokens: maxTokens,
           tools: options.tools ?? CHAT_TOOLS,
           tool_choice: "auto",
@@ -104,7 +117,8 @@ export async function callOpenRouterWithCascade(
 
         // 402 = insufficient credits on paid model → cascade to next (likely free) model
         // 429 = rate limit, 5xx = server errors → all retryable
-        const retryableStatuses = [402, 429, 500, 502, 503, 504];
+        // 404 = no endpoint of this model matches the data policy (provider.data_collection): try the next model
+        const retryableStatuses = [402, 404, 429, 500, 502, 503, 504];
         if (retryableStatuses.includes(res.status) && i < modelStack.length - 1) {
           console.warn(`[OpenRouter] Model "${currentModel}" failed with HTTP ${res.status} — trying next model in cascade.`);
           continue;
