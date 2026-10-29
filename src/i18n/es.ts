@@ -18,6 +18,7 @@ export const es: Translations = {
     currentValue: "Actual:",
     ownerLabel: "Responsable",
     directions: "Cómo llegar",
+    hoursLabel: "Horario de atención",
     addressMissing: "Elige la dirección de tu negocio.",
   },
   customerMessages: {

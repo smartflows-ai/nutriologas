@@ -64,6 +64,7 @@ export async function GET(req: NextRequest) {
       durationMinutes: duration,
       price: product.price,
       date: dateStr,
+      allSlots: candidates,
       availableSlots,
     });
   } catch (error: any) {

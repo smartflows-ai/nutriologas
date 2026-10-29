@@ -86,18 +86,22 @@ function toTime(minutes: number): string {
   return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
 }
 
+// Longest gap between offered start times, so a long service (surgery, tour) can still start every hour.
+const MAX_SLOT_STEP_MINUTES = 60;
+
 /**
  * Start times for one day. Inside each block the slots start at the block's opening time and step by the
- * service duration; a session must finish before its block closes, so it never spans a lunch break.
+ * service duration (at most one hour); a session must finish before its block closes, so it never spans a lunch break.
  */
 export function daySlots(hours: BusinessHours, date: string, durationMinutes: number): string[] {
   if (durationMinutes <= 0) return [];
 
+  const step = Math.min(durationMinutes, MAX_SLOT_STEP_MINUTES);
   const slots: string[] = [];
   for (const block of blocksForDate(hours, date)) {
     const open = toMinutes(block.start);
     const close = toMinutes(block.end);
-    for (let current = open; current + durationMinutes <= close; current += durationMinutes) {
+    for (let current = open; current + durationMinutes <= close; current += step) {
       slots.push(toTime(current));
     }
   }
@@ -167,4 +171,17 @@ export function upcomingCalendarText(hours: BusinessHours, now: Date = new Date(
     lines.push(`- ${label} (${key}${i === 0 ? ", hoy" : i === 1 ? ", mañana" : ""}): ${hoursText}`);
   }
   return lines.join("\n");
+}
+
+const WEEK_ORDER: Weekday[] = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+
+/** The week Monday first, one row per day, for showing the schedule to customers. An empty `blocks` means closed. */
+export function weeklyScheduleRows(hours: BusinessHours): { weekday: Weekday; blocks: DayHours[] }[] {
+  return WEEK_ORDER.map((weekday) => ({ weekday, blocks: hours[weekday] }));
+}
+
+/** Every start time of the day, each flagged free or not, so a screen can show taken times as disabled. */
+export function markSlots(candidates: string[], available: string[]): { time: string; available: boolean }[] {
+  const free = new Set(available);
+  return candidates.map((time) => ({ time, available: free.has(time) }));
 }
