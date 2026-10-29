@@ -1,8 +1,9 @@
 "use client";
 // src/components/shop/BookingFlow.tsx
-import { useState, useEffect } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import {
   Clock,
+  Check,
   ArrowRight,
   User,
   Mail,
@@ -16,7 +17,7 @@ import {
 import { formatPrice, localeFor, fill } from "@/lib/utils";
 import { buildFullPhone, DEFAULT_DIAL_CODE, PHONE_COUNTRIES } from "@/lib/phone";
 import { clinicDateTime } from "@/lib/clinic-time";
-import { BusinessHours, blocksForDate } from "@/lib/business-hours";
+import { BusinessHours, blocksForDate, markSlots } from "@/lib/business-hours";
 import { useTranslation } from "@/i18n";
 import { translateApiError } from "@/i18n/validation";
 import Link from "next/link";
@@ -42,9 +43,37 @@ interface Props {
   businessHours: BusinessHours;
 }
 
+// Text color that stays readable on the tenant's primary color: near-black or white, whichever contrasts more (WCAG relative luminance).
+const LIGHT_TEXT = "#ffffff";
+const DARK_TEXT = "#111827";
+const LUMINANCE_THRESHOLD = 0.179;
+
+function readableTextOn(rgbChannels: string): string {
+  const parts = rgbChannels.trim().split(/\s+/).map(Number);
+  if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return LIGHT_TEXT;
+  const [r, g, b] = parts.map((v) => {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return luminance > LUMINANCE_THRESHOLD ? DARK_TEXT : LIGHT_TEXT;
+}
+
+// useLayoutEffect warns during server rendering, so fall back to useEffect there.
+const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
 export default function BookingFlow({ product, tenant, businessHours }: Props) {
   const { t, lang } = useTranslation();
   const locale = localeFor(lang);
+
+  // Reads the tenant theme from the DOM so text on primary fills works for any tenant color, light or dark.
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [onPrimary, setOnPrimary] = useState(LIGHT_TEXT);
+  useIsomorphicLayoutEffect(() => {
+    if (!rootRef.current) return;
+    setOnPrimary(readableTextOn(getComputedStyle(rootRef.current).getPropertyValue("--color-primary-rgb")));
+  }, []);
+  const rootStyle = { "--on-primary": onPrimary } as React.CSSProperties;
 
   // Next 21 days, only the days the business is open (its weekly hours).
   const availableDays = (() => {
@@ -68,9 +97,11 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
   })();
 
   const [selectedDate, setSelectedDate] = useState<string>(availableDays[0]?.dateStr || "");
-  const [slots, setSlots] = useState<string[]>([]);
+  const [slots, setSlots] = useState<{ time: string; available: boolean }[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<string>("");
+  // Bumped to reload the slots for the selected date, e.g. after the server rejects a slot that was just taken.
+  const [reloadKey, setReloadKey] = useState(0);
 
   // Step 3: Patient form
   const [name, setName] = useState("");
@@ -89,21 +120,28 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
   // Load available slots when the date changes
   useEffect(() => {
     if (!selectedDate) return;
+    // A slower earlier request must not overwrite the slots of the date picked after it.
+    let cancelled = false;
     async function loadAvailability() {
       setLoadingSlots(true);
       setSelectedSlot("");
       try {
         const res = await fetch(`/api/appointments/availability?productId=${product.id}&date=${selectedDate}`);
         const data = await res.json();
-        setSlots(data.availableSlots || []);
+        if (!cancelled) setSlots(markSlots(data.allSlots || [], data.availableSlots || []));
       } catch (e) {
         console.error("Error loading availability:", e);
+        // Never keep another date's slots on screen after a failure.
+        if (!cancelled) setSlots([]);
       } finally {
-        setLoadingSlots(false);
+        if (!cancelled) setLoadingSlots(false);
       }
     }
     loadAvailability();
-  }, [selectedDate, product.id]);
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedDate, product.id, reloadKey]);
 
   const handleBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -142,6 +180,8 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
 
       const data = await res.json();
       if (!res.ok) {
+        // The slot was taken by someone else: refresh the list so it is no longer offered.
+        if (data.error === "slot_unavailable") setReloadKey((k) => k + 1);
         throw new Error(translateApiError(t, data.error) || t.booking.errorSchedule);
       }
 
@@ -174,16 +214,16 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
     // The service name is bolded inside the sentence, so split the translated text around {service}
     const [successBefore, successAfter = ""] = t.booking.successDesc.split("{service}");
     return (
-      <div className="max-w-xl mx-auto py-12 px-4 animate-fade-in text-center">
-        <div className="w-20 h-20 bg-gray-100 dark:bg-gray-800 text-primary rounded-xl flex items-center justify-center mx-auto mb-6 ">
+      <div ref={rootRef} style={rootStyle} className="max-w-xl mx-auto py-12 px-4 text-center">
+        <div className="w-20 h-20 bg-primary text-[color:var(--on-primary)] ring-1 ring-inset ring-gray-900/15 dark:ring-white/25 rounded-xl flex items-center justify-center mx-auto mb-6">
           <CheckCircle2 size={44} />
         </div>
 
-        <span className="px-3.5 py-1 rounded-full text-xs font-semibold bg-gray-100 dark:bg-gray-800 text-primary border border-gray-200 dark:border-gray-800">
+        <span className="px-3.5 py-1 rounded-full text-xs font-semibold bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-800">
           {t.booking.successBadge}
         </span>
 
-        <h2 className="text-2xl md:text-3xl font-extrabold text-gray-900 dark:text-white mt-3">
+        <h2 className="text-2xl md:text-3xl font-semibold text-gray-900 dark:text-white mt-3">
           {fill(t.booking.successTitle, { name: name.split(" ")[0] })}
         </h2>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 max-w-md mx-auto">
@@ -195,23 +235,23 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
         {/* Appointment summary */}
         <div className="card p-6 my-8 text-left space-y-4 border border-primary/10 dark:border-primary/30 bg-gray-100 dark:bg-gray-800">
           <div className="flex justify-between items-center pb-3 border-b border-gray-100 dark:border-gray-800">
-            <span className="text-xs text-gray-500 font-semibold ">{t.booking.summaryService}</span>
+            <span className="text-xs text-gray-500 font-semibold">{t.booking.summaryService}</span>
             <span className="text-sm font-semibold text-gray-900 dark:text-white">{product.name}</span>
           </div>
           <div className="flex justify-between items-center pb-3 border-b border-gray-100 dark:border-gray-800">
-            <span className="text-xs text-gray-500 font-semibold ">{t.booking.summaryDateTime}</span>
-            <span className="text-sm font-semibold text-primary">
+            <span className="text-xs text-gray-500 font-semibold">{t.booking.summaryDateTime}</span>
+            <span className="text-sm font-semibold text-gray-900 dark:text-white">
               {fill(t.booking.dateTimeValue, { date: selectedDate, time: selectedSlot })}
             </span>
           </div>
           <div className="flex justify-between items-center pb-3 border-b border-gray-100 dark:border-gray-800">
-            <span className="text-xs text-gray-500 font-semibold ">{t.booking.summaryDuration}</span>
+            <span className="text-xs text-gray-500 font-semibold">{t.booking.summaryDuration}</span>
             <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
               {fill(t.booking.durationValue, { minutes: product.durationMinutes || 30 })}
             </span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-xs text-gray-500 font-semibold ">{t.booking.summaryPrice}</span>
+            <span className="text-xs text-gray-500 font-semibold">{t.booking.summaryPrice}</span>
             <span className="text-base font-semibold text-gray-900 dark:text-white">{formatPrice(product.price, locale)}</span>
           </div>
         </div>
@@ -222,7 +262,7 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
             href={getWhatsAppBookingLink()}
             target="_blank"
             rel="noopener noreferrer"
-            className="w-full py-4 px-6 rounded-xl bg-primary hover:bg-secondary text-white font-semibold text-sm flex items-center justify-center gap-2 transition-all mb-4"
+            className="w-full py-4 px-6 rounded-xl bg-primary hover:bg-primary/90 text-[color:var(--on-primary)] ring-1 ring-inset ring-gray-900/15 dark:ring-white/25 font-semibold text-sm flex items-center justify-center gap-2 transition-colors mb-4"
           >
             <MessageCircle size={20} />
             {t.booking.whatsappConfirm}
@@ -230,11 +270,11 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
         )}
 
         <div className="flex items-center justify-center gap-4 text-xs font-semibold text-gray-500 mt-6">
-          <Link href="/mis-citas" className="hover:text-secondary underline">
+          <Link href="/mis-citas" className="hover:text-gray-900 dark:hover:text-white underline">
             {t.booking.viewMyAppointments}
           </Link>
           <span>•</span>
-          <Link href="/" className="hover:text-secondary underline">
+          <Link href="/" className="hover:text-gray-900 dark:hover:text-white underline">
             {t.booking.backHome}
           </Link>
         </div>
@@ -244,12 +284,12 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
 
   // ── Booking form ─────────────────────────────────────────────
   return (
-    <div className="max-w-4xl mx-auto py-8 px-4">
+    <div ref={rootRef} style={rootStyle} className="max-w-4xl mx-auto py-8 px-4">
       {/* Header info */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 pb-8 border-b border-gray-100 dark:border-gray-800 mb-8">
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 dark:bg-gray-800 text-primary dark:bg-gray-800 flex items-center gap-1.5">
+            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 flex items-center gap-1.5">
               <Clock size={13} /> {fill(t.booking.sessionDuration, { minutes: product.durationMinutes || 30 })}
             </span>
             {product.category && (
@@ -258,7 +298,7 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
               </span>
             )}
           </div>
-          <h1 className="text-2xl md:text-3xl font-extrabold text-gray-900 dark:text-white">
+          <h1 className="text-2xl md:text-3xl font-semibold text-gray-900 dark:text-white">
             {product.name}
           </h1>
           <p className="text-gray-500 dark:text-gray-400 text-sm mt-1 max-w-xl">
@@ -276,7 +316,7 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
         {/* Step 1: Date */}
         <div>
           <h3 className="text-base font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
-            <span className="w-6 h-6 rounded-full bg-primary text-white text-xs flex items-center justify-center font-semibold">1</span>
+            <span className="w-6 h-6 rounded-full bg-primary text-[color:var(--on-primary)] ring-1 ring-inset ring-gray-900/15 dark:ring-white/25 text-xs flex items-center justify-center font-semibold">1</span>
             {t.booking.step1}
           </h3>
 
@@ -286,11 +326,12 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
               return (
                 <button
                   type="button"
+                  aria-pressed={isSelected}
                   key={d.dateStr}
                   onClick={() => setSelectedDate(d.dateStr)}
-                  className={`flex flex-col items-center justify-center min-w-[70px] py-3.5 px-3 rounded-xl border transition-all text-center flex-shrink-0 ${
+                  className={`flex flex-col items-center justify-center min-w-[70px] py-3.5 px-3 rounded-xl border transition-colors text-center flex-shrink-0 ${
                     isSelected
-                      ? "bg-primary text-white border-primary scale-105"
+                      ? "bg-primary text-[color:var(--on-primary)] border-gray-900 ring-1 ring-gray-900 dark:border-white dark:ring-white"
                       : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-800 hover:border-primary/50"
                   }`}
                 >
@@ -306,55 +347,62 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
         {/* Step 2: Time */}
         <div>
           <h3 className="text-base font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
-            <span className="w-6 h-6 rounded-full bg-primary text-white text-xs flex items-center justify-center font-semibold">2</span>
+            <span className="w-6 h-6 rounded-full bg-primary text-[color:var(--on-primary)] ring-1 ring-inset ring-gray-900/15 dark:ring-white/25 text-xs flex items-center justify-center font-semibold">2</span>
             {t.booking.step2}
           </h3>
 
           {loadingSlots ? (
             <div className="flex items-center gap-3 py-6 text-gray-400 text-xs">
-              <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
               {t.booking.checkingAvailability}
             </div>
-          ) : slots.length === 0 ? (
-            <div className="p-6 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 rounded-xl text-amber-800 dark:text-amber-300 text-xs flex items-center gap-3">
+          ) : (
+            <>
+              {!slots.some((slot) => slot.available) && (
+            <div role="status" className="p-6 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl text-gray-600 dark:text-gray-300 text-xs flex items-center gap-3">
               <AlertCircle size={18} className="flex-shrink-0" />
               <span>{t.booking.noSlots}</span>
             </div>
-          ) : (
+              )}
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2.5">
-              {slots.map((slot) => {
+              {slots.map(({ time: slot, available }) => {
                 const isSelected = selectedSlot === slot;
                 return (
                   <button
                     type="button"
+                    aria-pressed={isSelected}
+                    disabled={!available}
                     key={slot}
                     onClick={() => setSelectedSlot(slot)}
-                    className={`py-3 px-2 rounded-xl text-xs font-semibold border transition-all flex items-center justify-center gap-1.5 ${
-                      isSelected
-                        ? "bg-primary text-white border-primary scale-102"
+                    className={`py-3 px-2 rounded-xl text-xs font-semibold border transition-colors flex items-center justify-center gap-1.5 ${
+                      !available
+                        ? "bg-gray-100 dark:bg-gray-900 text-gray-400 dark:text-gray-600 border-gray-100 dark:border-gray-800 cursor-not-allowed line-through"
+                        : isSelected
+                        ? "bg-primary text-[color:var(--on-primary)] border-gray-900 ring-1 ring-gray-900 dark:border-white dark:ring-white"
                         : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-800 hover:border-primary/50 hover:bg-primary/5"
                     }`}
                   >
-                    <Clock size={12} className={isSelected ? "text-white" : "text-primary"} />
+                    {isSelected ? <Check size={12} /> : <Clock size={12} className="text-gray-400" />}
                     {slot}
                   </button>
                 );
               })}
             </div>
+            </>
           )}
         </div>
 
         {/* Step 3: Patient details */}
         <div>
           <h3 className="text-base font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
-            <span className="w-6 h-6 rounded-full bg-primary text-white text-xs flex items-center justify-center font-semibold">3</span>
+            <span className="w-6 h-6 rounded-full bg-primary text-[color:var(--on-primary)] ring-1 ring-inset ring-gray-900/15 dark:ring-white/25 text-xs flex items-center justify-center font-semibold">3</span>
             {t.booking.step3}
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-gray-700 dark:text-gray-200 mb-1 flex items-center gap-1.5">
-                <User size={13} className="text-primary" /> {t.booking.fullName}
+              <label className="text-xs font-semibold text-gray-700 dark:text-gray-200 mb-1 flex items-center gap-1.5">
+                <User size={13} className="text-gray-500 dark:text-gray-400" /> {t.booking.fullName}
               </label>
               <input
                 type="text"
@@ -404,8 +452,8 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
             )}
 
             <div>
-              <label className="block text-xs font-semibold text-gray-700 dark:text-gray-200 mb-1 flex items-center gap-1.5">
-                <Phone size={13} className="text-primary" /> {t.booking.phone}
+              <label className="text-xs font-semibold text-gray-700 dark:text-gray-200 mb-1 flex items-center gap-1.5">
+                <Phone size={13} className="text-gray-500 dark:text-gray-400" /> {t.booking.phone}
               </label>
               <div className="flex gap-2">
                 <select
@@ -432,8 +480,8 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-xs font-semibold text-gray-700 dark:text-gray-200 mb-1 flex items-center gap-1.5">
-                <Mail size={13} className="text-primary" /> {t.booking.email}
+              <label className="text-xs font-semibold text-gray-700 dark:text-gray-200 mb-1 flex items-center gap-1.5">
+                <Mail size={13} className="text-gray-500 dark:text-gray-400" /> {t.booking.email}
               </label>
               <input
                 type="email"
@@ -446,8 +494,8 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-xs font-semibold text-gray-700 dark:text-gray-200 mb-1 flex items-center gap-1.5">
-                <FileText size={13} className="text-primary" /> {t.booking.notes}
+              <label className="text-xs font-semibold text-gray-700 dark:text-gray-200 mb-1 flex items-center gap-1.5">
+                <FileText size={13} className="text-gray-500 dark:text-gray-400" /> {t.booking.notes}
               </label>
               <textarea
                 rows={3}
@@ -461,7 +509,7 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
         </div>
 
         {error && (
-          <div className="p-4 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/40 rounded-xl text-rose-600 text-xs flex items-center gap-2">
+          <div role="alert" className="p-4 bg-gray-50 dark:bg-gray-900 border border-gray-400 dark:border-gray-500 rounded-xl text-gray-900 dark:text-white text-xs font-medium flex items-center gap-2">
             <AlertCircle size={16} />
             <span>{error}</span>
           </div>
@@ -470,18 +518,18 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
         {/* Action button */}
         <div className="pt-4 border-t border-gray-100 dark:border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2 text-xs text-gray-500">
-            <ShieldCheck size={16} className="text-primary" />
+            <ShieldCheck size={16} className="text-gray-500 dark:text-gray-400" />
             <span>{t.booking.privacyNote}</span>
           </div>
 
           <button
             type="submit"
             disabled={submitting || !selectedSlot}
-            className="w-full sm:w-auto px-8 py-4 rounded-xl bg-primary hover:bg-secondary text-white font-extrabold text-sm transition-all disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2"
+            className="w-full sm:w-auto px-8 py-4 rounded-xl bg-primary hover:bg-primary/90 text-[color:var(--on-primary)] ring-1 ring-inset ring-gray-900/15 dark:ring-white/25 font-semibold text-sm transition-colors disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2"
           >
             {submitting ? (
               <>
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
                 {t.booking.submitting}
               </>
             ) : (
