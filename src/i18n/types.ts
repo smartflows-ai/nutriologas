@@ -20,6 +20,7 @@ export interface Translations {
     currentValue: string;
     ownerLabel: string;
     directions: string;
+    hoursLabel: string;
     addressMissing: string;
   };
   customerMessages: {
