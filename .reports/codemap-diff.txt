@@ -1,0 +1,10 @@
+Codemap report - 2026-10-28
+Previous codemaps: none (first generation, no diff to compute).
+Created: docs/CODEMAPS/{architecture,backend,frontend,data,dependencies}.md
+Scanned: 249 files in src, 87 route handlers, 36 pages, 23 prisma models, middleware.ts.
+Staleness: none (new).
+Discrepancies found vs CLAUDE.md:
+- n8n/workflows/ does not exist in the repo (CLAUDE.md cites n8n-chat-workflow-v2.json and others); only n8n/docs/ is present.
+- Upstash Redis is documented in env vars but no code under src uses it.
+- Product map in CLAUDE.md lists api/internal/places/*, code has api/places/* (public, rate limited).
+- local-utils/ (cited in CLAUDE.md) does not exist in this checkout.
