@@ -86,24 +86,18 @@ function toTime(minutes: number): string {
   return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
 }
 
-// Services up to this length step by their own duration; longer ones (surgery, tour) step by LONG_SERVICE_STEP_MINUTES
-// so the last start that fits before closing is offered and a 90 minute service can start on the half hour.
-const SHORT_SERVICE_MAX_MINUTES = 60;
-const LONG_SERVICE_STEP_MINUTES = 30;
-
 /**
  * Start times for one day. Inside each block the slots start at the block's opening time and step by the
- * service duration, or every 30 minutes when the service is longer than an hour; a session must finish before its block closes, so it never spans a lunch break.
+ * service duration; a session must finish before its block closes, so it never spans a lunch break.
  */
 export function daySlots(hours: BusinessHours, date: string, durationMinutes: number): string[] {
   if (durationMinutes <= 0) return [];
 
-  const step = durationMinutes <= SHORT_SERVICE_MAX_MINUTES ? durationMinutes : LONG_SERVICE_STEP_MINUTES;
   const slots: string[] = [];
   for (const block of blocksForDate(hours, date)) {
     const open = toMinutes(block.start);
     const close = toMinutes(block.end);
-    for (let current = open; current + durationMinutes <= close; current += step) {
+    for (let current = open; current + durationMinutes <= close; current += durationMinutes) {
       slots.push(toTime(current));
     }
   }
