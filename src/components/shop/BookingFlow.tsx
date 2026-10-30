@@ -38,6 +38,8 @@ interface Props {
     logoUrl: string | null;
     // Veterinary and pet-care businesses ask for the pet's name and species.
     usesPets: boolean;
+    // Health businesses ask for explicit consent to process the health details the patient writes.
+    handlesHealthData: boolean;
   };
   businessHours: BusinessHours;
 }
@@ -80,6 +82,7 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
   const [petName, setPetName] = useState("");
   const [petSpecies, setPetSpecies] = useState<string>("dog");
   const [notes, setNotes] = useState("");
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -117,6 +120,10 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
     }
     if (tenant.usesPets && !petName.trim()) {
       setError(t.apiErrors.pet_required);
+      return;
+    }
+    if (!privacyAccepted) {
+      setError(t.booking.privacyConsentBefore + t.booking.privacyConsentLink);
       return;
     }
 
@@ -467,6 +474,26 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
           </div>
         )}
 
+        {/* Privacy notice: shown where the patient's data is captured */}
+        <label className="flex items-start gap-3 text-xs text-gray-600 dark:text-gray-400 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={privacyAccepted}
+            onChange={(e) => setPrivacyAccepted(e.target.checked)}
+            className="mt-0.5 w-4 h-4 accent-primary shrink-0"
+          />
+          <span className="space-y-1">
+            <span className="block">
+              {t.booking.privacyConsentBefore}
+              <Link href="/privacidad" target="_blank" rel="noopener noreferrer" className="underline decoration-primary underline-offset-2">
+                {t.booking.privacyConsentLink}
+              </Link>
+              {fill(t.booking.privacyConsentAfter, { name: tenant.name })}
+            </span>
+            {tenant.handlesHealthData && <span className="block">{t.booking.privacyConsentHealth}</span>}
+          </span>
+        </label>
+
         {/* Action button */}
         <div className="pt-4 border-t border-gray-100 dark:border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2 text-xs text-gray-500">
@@ -476,7 +503,7 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
 
           <button
             type="submit"
-            disabled={submitting || !selectedSlot}
+            disabled={submitting || !selectedSlot || !privacyAccepted}
             className="w-full sm:w-auto px-8 py-4 rounded-xl bg-primary hover:bg-secondary text-white font-extrabold text-sm transition-all disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2"
           >
             {submitting ? (
