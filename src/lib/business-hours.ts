@@ -86,22 +86,18 @@ function toTime(minutes: number): string {
   return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
 }
 
-// Longest gap between offered start times, so a long service (surgery, tour) can still start every hour.
-const MAX_SLOT_STEP_MINUTES = 60;
-
 /**
  * Start times for one day. Inside each block the slots start at the block's opening time and step by the
- * service duration (at most one hour); a session must finish before its block closes, so it never spans a lunch break.
+ * service duration; a session must finish before its block closes, so it never spans a lunch break.
  */
 export function daySlots(hours: BusinessHours, date: string, durationMinutes: number): string[] {
   if (durationMinutes <= 0) return [];
 
-  const step = Math.min(durationMinutes, MAX_SLOT_STEP_MINUTES);
   const slots: string[] = [];
   for (const block of blocksForDate(hours, date)) {
     const open = toMinutes(block.start);
     const close = toMinutes(block.end);
-    for (let current = open; current + durationMinutes <= close; current += step) {
+    for (let current = open; current + durationMinutes <= close; current += durationMinutes) {
       slots.push(toTime(current));
     }
   }

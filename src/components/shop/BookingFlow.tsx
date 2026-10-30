@@ -68,6 +68,7 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
 
   // Reads the tenant theme from the DOM so text on primary fills works for any tenant color, light or dark.
   const rootRef = useRef<HTMLDivElement>(null);
+  const slotsRef = useRef<HTMLDivElement>(null);
   const [onPrimary, setOnPrimary] = useState(LIGHT_TEXT);
   useIsomorphicLayoutEffect(() => {
     if (!rootRef.current) return;
@@ -181,7 +182,10 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
       const data = await res.json();
       if (!res.ok) {
         // The slot was taken by someone else: refresh the list so it is no longer offered.
-        if (data.error === "slot_unavailable") setReloadKey((k) => k + 1);
+        if (data.error === "slot_unavailable") {
+          setReloadKey((k) => k + 1);
+          slotsRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
         throw new Error(translateApiError(t, data.error) || t.booking.errorSchedule);
       }
 
@@ -345,7 +349,7 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
         </div>
 
         {/* Step 2: Time */}
-        <div>
+        <div ref={slotsRef}>
           <h3 className="text-base font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
             <span className="w-6 h-6 rounded-full bg-primary text-[color:var(--on-primary)] ring-1 ring-inset ring-gray-900/15 dark:ring-white/25 text-xs flex items-center justify-center font-semibold">2</span>
             {t.booking.step2}
@@ -359,35 +363,35 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
           ) : (
             <>
               {!slots.some((slot) => slot.available) && (
-            <div role="status" className="p-6 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl text-gray-600 dark:text-gray-300 text-xs flex items-center gap-3">
-              <AlertCircle size={18} className="flex-shrink-0" />
-              <span>{t.booking.noSlots}</span>
-            </div>
+                <div role="status" className="mb-4 p-6 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl text-gray-600 dark:text-gray-300 text-xs flex items-center gap-3">
+                  <AlertCircle size={18} className="flex-shrink-0" />
+                  <span>{t.booking.noSlots}</span>
+                </div>
               )}
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2.5">
-              {slots.map(({ time: slot, available }) => {
-                const isSelected = selectedSlot === slot;
-                return (
-                  <button
-                    type="button"
-                    aria-pressed={isSelected}
-                    disabled={!available}
-                    key={slot}
-                    onClick={() => setSelectedSlot(slot)}
-                    className={`py-3 px-2 rounded-xl text-xs font-semibold border transition-colors flex items-center justify-center gap-1.5 ${
-                      !available
-                        ? "bg-gray-100 dark:bg-gray-900 text-gray-400 dark:text-gray-600 border-gray-100 dark:border-gray-800 cursor-not-allowed line-through"
-                        : isSelected
-                        ? "bg-primary text-[color:var(--on-primary)] border-gray-900 ring-1 ring-gray-900 dark:border-white dark:ring-white"
-                        : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-800 hover:border-primary/50 hover:bg-primary/5"
-                    }`}
-                  >
-                    {isSelected ? <Check size={12} /> : <Clock size={12} className="text-gray-400" />}
-                    {slot}
-                  </button>
-                );
-              })}
-            </div>
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2.5">
+                {slots.map(({ time: slot, available }) => {
+                  const isSelected = selectedSlot === slot;
+                  return (
+                    <button
+                      type="button"
+                      aria-pressed={isSelected}
+                      disabled={!available}
+                      key={slot}
+                      onClick={() => setSelectedSlot(slot)}
+                      className={`py-3 px-2 rounded-xl text-xs font-semibold border transition-colors flex items-center justify-center gap-1.5 ${
+                        !available
+                          ? "bg-gray-100 dark:bg-gray-900 text-gray-400 dark:text-gray-600 border-gray-100 dark:border-gray-800 cursor-not-allowed line-through"
+                          : isSelected
+                          ? "bg-primary text-[color:var(--on-primary)] border-gray-900 ring-1 ring-gray-900 dark:border-white dark:ring-white"
+                          : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-800 hover:border-primary/50 hover:bg-primary/5"
+                      }`}
+                    >
+                      {isSelected ? <Check size={12} /> : <Clock size={12} className="text-gray-400" />}
+                      {slot}
+                    </button>
+                  );
+                })}
+              </div>
             </>
           )}
         </div>
