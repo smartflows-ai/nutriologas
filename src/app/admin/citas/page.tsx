@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { formatPrice, localeFor, fill } from "@/lib/utils";
 import { useTranslation } from "@/i18n";
+import { useCalendarAccount } from "@/hooks/useCalendarAccount";
 import { translateApiError } from "@/i18n/validation";
 import Pagination from "@/components/admin/Pagination";
 import VisitNoteDialog from "@/components/admin/VisitNoteDialog";
@@ -214,6 +215,7 @@ function CitasContent() {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [editingNotesId, setEditingNotesId] = useState<string | null>(null);
   const [hasCalendarIntegration, setHasCalendarIntegration] = useState(false);
+  const calendarAccount = useCalendarAccount();
 
   const STATUS_LABEL: Record<string, string> = {
     PENDING: t.agenda.statusPending,
@@ -365,9 +367,15 @@ function CitasContent() {
         {/* Header actions */}
         <div className="flex items-center gap-2">
           {hasCalendarIntegration ? (
-            <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-primary text-xs font-semibold border border-gray-200 dark:border-gray-800">
-              <span className="w-1.5 h-1.5 rounded-full bg-primary" />
-              {t.agenda.gcalSynced}
+            <span
+              className="hidden sm:inline-flex items-center gap-1.5 max-w-sm px-3 py-1.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 text-xs font-semibold border border-gray-200 dark:border-gray-800"
+              title={calendarAccount?.email ? fill(t.agenda.calendarAccount, { email: calendarAccount.email }) : undefined}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+              <span className="shrink-0">{calendarAccount?.provider === "MICROSOFT" ? t.agenda.outlookSynced : t.agenda.gcalSynced}</span>
+              {calendarAccount?.email && (
+                <span className="min-w-0 truncate font-normal text-gray-600 dark:text-gray-300">{calendarAccount.email}</span>
+              )}
             </span>
           ) : (
             <Link
