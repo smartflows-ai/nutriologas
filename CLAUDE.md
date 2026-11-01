@@ -706,6 +706,34 @@ Then open `http://doctor.localhost:3000` to see the "doctor" tenant.
 - Run `/ecc:update-codemaps` after large features or refactors, then review the diff before committing.
 - Playbook (install rules, command map, hooks): https://claude.ai/artifact/5LaD5NNMcgZ2NN1X3T62ey
 
+### Human gate and re-route rules
+Rescued from the old `.agents/` scaffold, because ECC has no equivalent. Applies to people and to any AI assistant working on this repo.
+
+**Stop and get explicit human approval before:**
+- Deploying to production (`vercel --prod`). No exceptions, even for a hotfix.
+- Applying a schema change to the database (`npm run db:push`). Confirm first, as noted under "Pending".
+- Any action that destructively modifies or deletes database data.
+- Escalating a P1 incident (the bot or booking is down for customers).
+
+**Also non-negotiable** (in addition to the constraints above):
+- No `dangerouslySetInnerHTML` on content that came from a user, a customer or the bot.
+- `npm run build` must pass with zero errors before a change is approved for review.
+
+**Re-route rules:**
+
+| Situation | Action |
+|---|---|
+| `/ecc:code-review` asks for changes | Back to implementation with the review notes as input; review again. |
+| Tests find a P1 bug | Fix first; no deploy until it is re-tested. |
+| `/ecc:security-scan` finds a critical issue | Block the deploy, tell the user, fix it before anything else. |
+| P1 incident in production | Treat it as a new requirement (ticket in the board), and tell the user right away. |
+
+**Fast track** (skip the plan step, keep the review):
+- Typo, copy or i18n-key-only change: implement, then `/ecc:code-review`.
+- CSS token tweak or docs-only change: no plan, no new tests.
+- Dependency bump: `/ecc:security-scan` first.
+- Hotfix: implement, review, security scan, then the human gate above.
+
 ### Architecture docs
 Token-lean maps live in `docs/CODEMAPS/`: `architecture.md`, `backend.md`, `frontend.md`, `data.md`, `dependencies.md`. Read the relevant map before exploring code. Regenerate them instead of editing by hand.
 
