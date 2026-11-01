@@ -13,6 +13,10 @@ export async function GET() {
           monthly: process.env.STRIPE_PRICE_STARTER_MONTHLY,
           annual: process.env.STRIPE_PRICE_STARTER_ANNUAL,
         },
+        plus: {
+          monthly: process.env.STRIPE_PRICE_PLUS_MONTHLY,
+          annual: undefined,
+        },
         pro: {
           monthly: process.env.STRIPE_PRICE_PRO_MONTHLY,
           annual: process.env.STRIPE_PRICE_PRO_ANNUAL,
@@ -50,6 +54,7 @@ export async function GET() {
     const [
       esStarterMonthly,
       esStarterAnnual,
+      esPlusMonthly,
       esProMonthly,
       esProAnnual,
       enStarterMonthly,
@@ -59,6 +64,7 @@ export async function GET() {
     ] = await Promise.all([
       getPriceInfo(priceIds.es.starter.monthly),
       getPriceInfo(priceIds.es.starter.annual),
+      getPriceInfo(priceIds.es.plus.monthly),
       getPriceInfo(priceIds.es.pro.monthly),
       getPriceInfo(priceIds.es.pro.annual),
       getPriceInfo(priceIds.en.starter.monthly),
@@ -86,8 +92,9 @@ export async function GET() {
 
     const result = {
       es: {
-        starter: computePlanPricing(esStarterMonthly, esStarterAnnual, 500, 375, "MXN"),
-        pro: computePlanPricing(esProMonthly, esProAnnual, 1500, 1000, "MXN"),
+        starter: computePlanPricing(esStarterMonthly, esStarterAnnual, 499, 375, "MXN"),
+        plus: computePlanPricing(esPlusMonthly, null, 899, 674, "MXN"),
+        pro: computePlanPricing(esProMonthly, esProAnnual, 1499, 1000, "MXN"),
         enterprise: {
           monthlyPrice: 3999,
           annualPrice: 2999,

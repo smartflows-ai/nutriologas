@@ -34,6 +34,7 @@ export interface Translations {
     confirmationLanguageName: string;
     greetingIntro: string;
     greetingShort: string;
+    greetingPrivacy: string;
   };
   nav: {
     features: string;
@@ -139,6 +140,13 @@ export interface Translations {
     startTrial: string;
     contactSales: string;
     finePrint: string;
+    mx: {
+      recommended: string;
+      conversationsPerMonth: string;
+      implementationLabel: string;
+      implementationNote: string;
+      plans: Record<"start" | "plus" | "pro", { name: string; tagline: string; conversations: number; features: string[]; measures: string; implementationPrice: number }>;
+    };
   };
   testimonials: {
     items: { role: string; quote: string }[];
@@ -1132,6 +1140,10 @@ export interface Translations {
     notes: string;
     notesPlaceholder: string;
     privacyNote: string;
+    privacyConsentBefore: string;
+    privacyConsentLink: string;
+    privacyConsentAfter: string;
+    privacyConsentHealth: string;
     submitting: string;
     submit: string;
   };

@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
   const needsIntro = introRequired(lastOutgoing?.timestamp ?? null);
   const greetingReply =
     typeof text === "string" && text
-      ? buildGreetingReply({ text, businessName: bot.tenantName, language: bot.messageLanguage, introRequired: needsIntro })
+      ? buildGreetingReply({ text, businessName: bot.tenantName, language: bot.messageLanguage, introRequired: needsIntro, privacyUrl: bot.privacyUrl })
       : null;
 
   const [products, faqs, creditStatus] = await Promise.all([
@@ -77,6 +77,7 @@ export async function POST(req: NextRequest) {
     // whether it must introduce itself in this reply.
     greetingReply,
     introRequired: needsIntro,
+    privacyUrl: bot.privacyUrl,
     // Read-only catalog: the agent may quote these prices but cannot change them.
     // bookable = sold by appointment; false means information only (no date, no booking tools).
     products: products.map((p) => ({

@@ -3,6 +3,7 @@ import { Metadata } from "next";
 import { getTenantSlug } from "@/lib/tenant";
 import { prisma } from "@/lib/db";
 import TermsClient from "./TermsClient";
+import type { LegalSubject } from "@/components/legal/legalContent";
 
 export async function generateMetadata(): Promise<Metadata> {
   const slug = getTenantSlug();
@@ -37,16 +38,33 @@ export default async function TermsPage() {
 
   let tenantName: string | undefined = undefined;
   let tenantLogoUrl: string | null = null;
+  let subject: LegalSubject | undefined = undefined;
 
   if (slug) {
     try {
       const tenant = await prisma.tenant.findFirst({
         where: { OR: [{ slug }, { customDomain: slug }] },
-        select: { name: true, logoUrl: true },
+        select: {
+          name: true,
+          logoUrl: true,
+          ownerName: true,
+          hasPhysicalLocation: true,
+          address: true,
+          whatsappNumber: true,
+          vertical: true,
+          isTriageEnabled: true,
+        },
       });
       if (tenant) {
         tenantName = tenant.name;
         tenantLogoUrl = tenant.logoUrl;
+        subject = {
+          name: tenant.name,
+          ownerName: tenant.ownerName,
+          address: tenant.hasPhysicalLocation ? tenant.address : null,
+          whatsappNumber: tenant.whatsappNumber,
+          handlesHealthData: tenant.vertical === "HEALTH" || tenant.isTriageEnabled,
+        };
       }
     } catch (e) {
       console.error("[terms/page.tsx] error fetching tenant:", e);
@@ -58,6 +76,7 @@ export default async function TermsPage() {
       isRootDomain={isRootDomain}
       tenantName={tenantName}
       tenantLogoUrl={tenantLogoUrl}
+      subject={subject}
     />
   );
 }

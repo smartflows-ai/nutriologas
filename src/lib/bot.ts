@@ -5,6 +5,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { locationTextForBot } from "@/lib/location";
+import { tenantPublicUrl } from "@/lib/tenant-url";
 import { getVerticalProfile } from "@/lib/vertical-profile";
 import { BusinessHours, formatBusinessHours, parseBusinessHours, slotWithinHours, upcomingCalendarText } from "@/lib/business-hours";
 
@@ -19,6 +20,7 @@ export interface BotTenant {
   tenantId: string;
   tenantName: string;
   messageLanguage: string;
+  privacyUrl: string;
   businessInfo: string | null;
   ownerName: string | null;
   locationText: string;
@@ -51,6 +53,8 @@ export async function resolveBotTenant(instance: unknown): Promise<BotTenant | n
           id: true,
           name: true,
           messageLanguage: true,
+          slug: true,
+          customDomain: true,
           businessInfo: true,
           vertical: true,
           ownerName: true,
@@ -73,6 +77,7 @@ export async function resolveBotTenant(instance: unknown): Promise<BotTenant | n
     tenantId: app.tenant.id,
     tenantName: app.tenant.name,
     messageLanguage: app.tenant.messageLanguage,
+    privacyUrl: tenantPublicUrl(app.tenant, "/privacidad"),
     businessInfo: app.tenant.businessInfo,
     ownerName: app.tenant.ownerName,
     locationText: locationTextForBot(app.tenant),

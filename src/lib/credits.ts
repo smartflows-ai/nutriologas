@@ -40,9 +40,15 @@ export function computeBilledCost(promptTokens: number, completionTokens: number
 /**
  * Computes the actual wholesale cost owed to OpenRouter for this interaction (COGS).
  * - Free models (*:free and openrouter/free): $0.00
- * - OpenAI GPT-4o: $2.50 / $10.00 per 1M
- * - Claude Sonnet / Default: uses env rates (default $3.00 / $15.00 per 1M)
+ * - Known models: the price table below (USD per 1M tokens; approximate, check openrouter.ai/models)
+ * - Anything else (Claude Sonnet / default): uses env rates (default $3.00 / $15.00 per 1M)
  */
+const MODEL_PRICES_PER_M: { match: RegExp; input: number; output: number }[] = [
+  { match: /gpt-4o-mini/, input: 0.15, output: 0.6 },
+  { match: /gpt-4o/, input: 2.5, output: 10 },
+  { match: /gemini-2.5-flash/, input: 0.3, output: 2.5 },
+  { match: /deepseek/, input: 0.2, output: 0.8 },
+];
 export function computeProviderCost(
   promptTokens: number,
   completionTokens: number,
@@ -53,10 +59,9 @@ export function computeProviderCost(
     if (normalized.endsWith(":free") || normalized === "openrouter/free") {
       return 0;
     }
-    if (normalized.includes("gpt-4o") && !normalized.includes("mini")) {
-      const inputCost  = (promptTokens     / 1_000_000) * 2.50;
-      const outputCost = (completionTokens / 1_000_000) * 10.00;
-      return inputCost + outputCost;
+    const known = MODEL_PRICES_PER_M.find((entry) => entry.match.test(normalized));
+    if (known) {
+      return (promptTokens / 1_000_000) * known.input + (completionTokens / 1_000_000) * known.output;
     }
   }
 

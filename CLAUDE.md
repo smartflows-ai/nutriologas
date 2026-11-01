@@ -290,6 +290,7 @@ The heart of the system. Each business is a Tenant with:
 - Unique constraint: `@@unique([tenantId, periodStart])`
 
 ### Subscription (Stripe)
+- Mexico prices (Spanish landing, `PricingSection.tsx`, `pricing.mx` in i18n): Start $499, Plus $899, Pro $1,499 MXN per month; one-time net setup fee $2,500, $5,500 and $9,500; monthly only. Checkout still has two plans (Start uses STARTER; Plus and Pro use PRO) and prices come from Stripe (`/api/billing/prices`; Plus uses the new variable `STRIPE_PRICE_PLUS_MONTHLY`, with $499, $899 and $1,499 as fallback if any is missing). United States prices: estimated in Stripe, see `docs/analisis-costos-y-precios-eeuu.md`.
 - Plans: STARTER, PRO, ENTERPRISE
 - Statuses: TRIALING, ACTIVE, PAST_DUE, CANCELED, UNPAID
 - Billing managed by Stripe
@@ -319,6 +320,8 @@ Current production configuration (free models first, paid models as a last resor
 3. `openrouter/free` (Free: $0.00) — OpenRouter automatic selection.
 4. `anthropic/claude-sonnet-4.5` (Paid: $3.00 in / $15.00 out) — Paid backup only if all free models fail or are saturated.
 5. `openai/gpt-4o` (Paid: $2.50 in / $10.00 out) — Last paid backup.
+
+> **Decision of Oct. 29, 2026 (privacy):** customer data (WhatsApp bot, Newy AI) goes to paid models, primary `google/gemini-2.5-flash`. Free models are kept only for content without personal data (social campaigns). Every OpenRouter request sends `provider: { data_collection: "deny" }` (`providerPreferences()` in `src/lib/ai/openrouter.ts`); `OPENROUTER_REQUIRE_ZDR=true` adds zero retention. In the OpenRouter account, also turn on the exclusion of providers that train on data (it covers n8n). The real cost per model is in `MODEL_PRICES_PER_M` (`src/lib/credits.ts`). See `docs/analisis-modelos-gratuitos.md`.
 
 ### 3. Business model: double accounting and SaaS arbitrage
 The tenant always pays for **platform service units** at the standard retail rate:
@@ -451,7 +454,7 @@ Flow: `n8n/workflows/n8n-chat-workflow-v2.json` ("NewAigent - WhatsApp Bot (Chat
 - **Input**: Evolution API → workflow webhook (`POST /:tenantSlug`) → guards (`messages.upsert`, `fromMe = false`, text and phone present).
 - **Tenant**: resolved from the Evolution instance name (`resolveBotTenant` in `src/lib/bot.ts`, looks up `waInstanceName` or `waInstanceId`). Never taken from the model.
 - **Customer identity**: their WhatsApp number. `normalizeCustomerPhone` prefers `remoteJidAlt`; a `@lid` without an alternative is rejected.
-- **Agent**: n8n Agent v2.2 with OpenRouter (free model cascade, n8n credential), Postgres memory `whatsapp_bot_memory` (12-message window, key `instance:phone`) and 5 tools.
+- **Agent**: n8n Agent v2.2 with OpenRouter (paid models: primary `google/gemini-2.5-flash`, fallback `openai/gpt-4o-mini`; n8n credential), Postgres memory `whatsapp_bot_memory` (12-message window, key `instance:phone`) and 5 tools.
 - **Tools → internal endpoints** (`x-internal-key`):
 
   | Tool | Endpoint |
@@ -467,7 +470,7 @@ Flow: `n8n/workflows/n8n-chat-workflow-v2.json` ("NewAigent - WhatsApp Bot (Chat
 - **Business rules**: prices may be quoted, never changed or discounted. Appointments within the business's weekly hours (`Tenant.businessHours`, `src/lib/business-hours.ts`, Mexico time), with per-service duration. Only `isBookable` items are scheduled. Conflict checking covers native appointments and the connected calendar (Google or Outlook, `getBusyPeriods` in `src/lib/calendar-sync.ts`); if the calendar fails, only the database is used. The web and the bot create appointments with the same service (`src/lib/appointments-service.ts`).
 - **Patient times**: they are Mexico time. They are built with `clinicDateTime()` (`src/lib/clinic-time.ts`, offset `-06:00`) and read with `clinicTimeOf()`. Never use a `Z` suffix for a time chosen by the patient.
 - **Privacy**: the system prompt forbids mentioning technical formats, IDs, tools, errors, infrastructure and other customers' data. It is a guide for the model, not a guarantee. The `Clean Reply` node removes repeated greetings and is the only output filter.
-- **Greeting and introduction**: a pure greeting ("hola", "buenas tardes") is answered by the server with a template, without calling the agent or spending credits (`src/lib/greeting.ts`, `greetingReply` of `POST /api/internal/bot/context`). The bot introduces itself ("Hola, soy el asistente de WhatsApp de [negocio]") if nobody wrote to the contact in the last 12 hours (`introRequired`); the agent receives it as PRESENTACION in the prompt. The greeting is stored as a bot message.
+- **Greeting and introduction**: a pure greeting ("hola", "buenas tardes") is answered by the server with a template, without calling the agent or spending credits (`src/lib/greeting.ts`, `greetingReply` of `POST /api/internal/bot/context`). The bot introduces itself ("Hola, soy el asistente de WhatsApp de [negocio]") if nobody wrote to the contact in the last 12 hours (`introRequired`); the agent receives it as PRESENTACION in the prompt. The greeting is stored as a bot message. The introduction includes the business privacy notice (`privacyUrl`, built with `tenantPublicUrl` in `src/lib/tenant-url.ts`).
 - **Token reporting**: `Collect Token Usage` adds up the usage of all agent calls and `Report Token Usage` sends it to `POST /api/internal/tokens/report`, which charges the tenant at the retail rate. If the provider does not report usage, it is estimated (2,000 prompt tokens per call plus response length / 4).
 - **Credits exhausted**: the "Guard: Credits OK" node checks `creditExhausted` (from `POST /api/internal/bot/context`) before reaching the agent. If the tenant already exhausted its monthly limit, the model call is skipped and a fixed degradation reply is sent.
 - **Total cascade failure**: the "Bot Agent" node has `onError: continueErrorOutput`; if every model fails, that branch sends the customer a fixed apology reply (instead of silence) and calls `POST /api/internal/bot/alert-failure` to notify the owner (60-min cooldown, see §"Tenant owner alerts" in the credits section).
@@ -534,6 +537,7 @@ ANTHROPIC_API_KEY=               # Claude API (direct fallback)
 OPENROUTER_API_KEY=              # OpenRouter API key (primary)
 OPENROUTER_MODEL=                # Primary model: anthropic/claude-sonnet-4.5
 OPENROUTER_MODELS=               # Full cascade, comma-separated (see §2 Model stack)
+OPENROUTER_REQUIRE_ZDR=          # true requires zero-retention endpoints (can leave a model without an endpoint)
 OPENROUTER_INPUT_PRICE_PER_M=    # 3.00 (USD / 1M prompt tokens — retail rate)
 OPENROUTER_OUTPUT_PRICE_PER_M=   # 15.00 (USD / 1M completion tokens — retail rate)
 REMINDER_COST_USD=               # 0.0085 (USD charged to the tenant for each reminder sent)
@@ -779,6 +783,8 @@ When an ECC rule conflicts with this file, this file wins. In particular:
 - **Legal routes**: `/terminos` (Terms of Service) and `/privacidad` (Privacy Policy) available on the public storefront and the root domain.
 - **Component**: `src/components/legal/LegalPageLayout.tsx` handles the responsive layout, branding and multilingual support.
 - **Mandatory consent**: In `/registro` and in the onboarding modal (`OnboardingModal.tsx`), the user must tick the checkbox accepting the Terms and Privacy Policy before the account creation button is enabled.
+- **Legal texts**: `src/components/legal/legalContent.ts` (Spanish and English; platform and each business). The business version receives its public data (`LegalSubject`: name, owner, address if there is a physical location, WhatsApp, and whether it handles health data). Do not put prices, plan limits or absolute guarantees in the text; point to the pricing page. Who operates NewAigent (legal name, address, privacy e-mail, retention period, jurisdiction) lives in `src/lib/legal-entity.ts` and is **empty**: an empty field is left out of the text. Fill it in and ask a lawyer to review before publishing. Check: `npx tsx local-utils/check-legal-content.ts`.
+- **Notice when capturing data**: the booking flow (`BookingFlow`) asks for a checkbox with a link to `/privacidad` (and consent for health data at health businesses). The bot introduction includes the link to the notice.
 
 ---
 
