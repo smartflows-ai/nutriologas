@@ -6,8 +6,9 @@ import Link from "next/link";
 import { getTranslationServer } from "@/i18n/server";
 import { getTenantSlug } from "@/lib/tenant";
 import MarketingPage from "@/components/marketing/MarketingPage";
-import { MapPin, UserRound } from "lucide-react";
+import { Clock, MapPin, UserRound } from "lucide-react";
 import { directionsUrl } from "@/lib/location";
+import { parseBusinessHours, weeklyScheduleRows } from "@/lib/business-hours";
 import { getVerticalProfile } from "@/lib/vertical-profile";
 
 async function getHomeData(): Promise<any> {
@@ -71,6 +72,7 @@ export default async function TenantPage() {
     : isBooking
     ? t.storefrontUi.serviceSectionDesc
     : t.storefront.home.discoverProducts;
+  const scheduleRows = isBooking ? weeklyScheduleRows(parseBusinessHours(tenant?.businessHours)) : [];
   const catalogBtnText = serviceFirst || isBooking ? t.storefrontUi.viewServices : t.storefront.home.viewCatalog;
 
   return (
@@ -83,7 +85,7 @@ export default async function TenantPage() {
       )}
 
       {/* Info del negocio */}
-      {(tenant?.businessInfo || tenant?.ownerName || (tenant?.hasPhysicalLocation && tenant?.address)) && (
+      {(tenant?.businessInfo || tenant?.ownerName || (tenant?.hasPhysicalLocation && tenant?.address) || scheduleRows.length > 0) && (
         <section id="nosotros" className="py-16 sm:py-24 bg-slate-50 dark:bg-gray-950">
           <div className="mx-auto max-w-3xl px-6">
             <div className="card p-6 sm:p-10">
@@ -96,7 +98,7 @@ export default async function TenantPage() {
                   {tenant.businessInfo}
                 </p>
               )}
-              {(tenant.ownerName || (tenant.hasPhysicalLocation && tenant.address)) && (
+              {(tenant.ownerName || (tenant.hasPhysicalLocation && tenant.address) || scheduleRows.length > 0) && (
                 <dl className="mt-8 divide-y divide-gray-100 dark:divide-gray-800 border-t border-gray-100 dark:border-gray-800">
                   {tenant.ownerName && (
                     <div className="flex items-center justify-between gap-4 py-3">
@@ -127,6 +129,26 @@ export default async function TenantPage() {
                         >
                           {t.locationUi.directions}
                         </a>
+                      </dd>
+                    </div>
+                  )}
+                  {scheduleRows.length > 0 && (
+                    <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                      <dt className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 shrink-0">
+                        <Clock size={16} strokeWidth={1.5} className="shrink-0" />
+                        {t.locationUi.hoursLabel}
+                      </dt>
+                      <dd className="min-w-0 sm:w-64">
+                        <ul className="space-y-1">
+                          {scheduleRows.map(({ weekday, blocks }) => (
+                            <li key={weekday} className="flex justify-between gap-4 text-sm text-gray-900 dark:text-white">
+                              <span>{t.crm.business.hoursDays[weekday]}</span>
+                              <span className="text-right text-gray-700 dark:text-gray-300">
+                                {blocks.length > 0 ? blocks.map((b) => `${b.start} - ${b.end}`).join(", ") : t.crm.business.hoursClosed}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
                       </dd>
                     </div>
                   )}

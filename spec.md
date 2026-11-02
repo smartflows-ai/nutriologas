@@ -543,7 +543,7 @@ All instances provisioned via `POST /api/apps/connect/whatsapp` enforce the foll
 
 ### Plans and prices (Mexico)
 
-Landing (Spanish): Start $499, Plus $899, Pro $1,499 MXN per month (250, 600, 1,200 conversations), setup fee $2,500, $5,500, $9,500 net one time. Monthly only. Prices are read from Stripe by `/api/billing/prices` (`STRIPE_PRICE_STARTER_MONTHLY`, `STRIPE_PRICE_PLUS_MONTHLY`, `STRIPE_PRICE_PRO_MONTHLY`) with these values as fallback; texts are in `pricing.mx` of the i18n dictionaries and the cards in `src/components/marketing/PricingSection.tsx`. Checkout still maps Start to STARTER and Plus and Pro to PRO. United States prices are pending (Stripe estimates in `.agents/docs/analisis-costos-y-precios-eeuu.md`).
+Landing (Spanish): Start $499, Plus $899, Pro $1,499 MXN per month (250, 600, 1,200 conversations), setup fee $2,500, $5,500, $9,500 net one time. Monthly only. Prices are read from Stripe by `/api/billing/prices` (`STRIPE_PRICE_STARTER_MONTHLY`, `STRIPE_PRICE_PLUS_MONTHLY`, `STRIPE_PRICE_PRO_MONTHLY`) with these values as fallback; texts are in `pricing.mx` of the i18n dictionaries and the cards in `src/components/marketing/PricingSection.tsx`. Checkout still maps Start to STARTER and Plus and Pro to PRO. United States prices are pending (Stripe estimates in `docs/analisis-costos-y-precios-eeuu.md`).
 
 ## 21. Vertical Profile & Pets
 

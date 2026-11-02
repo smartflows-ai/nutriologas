@@ -5,12 +5,13 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Plug, Check, X, ExternalLink, Loader2, Calendar as CalendarIcon, CheckCircle2,
-  Bot, MessageSquare, Globe, AlertTriangle} from "lucide-react";
+  Bot, MessageSquare, Globe, AlertTriangle, Mail} from "lucide-react";
 import { useRef } from "react";
 import { toggleAssistant, disconnectApp, refreshSidebar } from "./actions";
 import { useTranslation } from "@/i18n";
 import { fill, localeFor } from "@/lib/utils";
 import { toast } from "@/hooks/useToast";
+import { useCalendarAccount } from "@/hooks/useCalendarAccount";
 import ConfirmModal from "@/components/admin/ConfirmModal";
 
 // ── Feature definitions ─────────────────────────────────────────
@@ -263,6 +264,7 @@ function WhatsAppConnectModal({
 export default function AppsPage() {
   const { t, lang } = useTranslation();
   const router = useRouter();
+  const calendarAccount = useCalendarAccount();
   const [apps, setApps] = useState<ConnectedAppInfo[]>([]);
   const [isAssistantEnabled, setIsAssistantEnabled] = useState(false);
   const [togglingAssistant, setTogglingAssistant] = useState(false);
@@ -428,6 +430,17 @@ export default function AppsPage() {
                           <span className="font-semibold text-gray-900 dark:text-white truncate max-w-[120px]">{activeConn.pageName}</span>
                         )}
                       </p>
+
+                      {/* Calendar account: lets the admin check it is the right calendar */}
+                      {calendarAccount?.email && activeConn.provider === calendarAccount.provider && (
+                        <p
+                          className="text-xs text-gray-600 dark:text-gray-300 flex items-center gap-1.5 min-w-0"
+                          title={`${t.crm.apps.linkedAccount}: ${calendarAccount.email}`}
+                        >
+                          <Mail size={12} strokeWidth={1.5} className="shrink-0 text-gray-500 dark:text-gray-400" aria-label={t.crm.apps.linkedAccount} />
+                          <span className="truncate">{calendarAccount.email}</span>
+                        </p>
+                      )}
 
                       {/* Instagram Business Account status for Meta card */}
                       {activeConn.provider === "FACEBOOK" && (

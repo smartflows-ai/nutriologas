@@ -20,6 +20,7 @@ export interface Translations {
     currentValue: string;
     ownerLabel: string;
     directions: string;
+    hoursLabel: string;
     addressMissing: string;
   };
   customerMessages: {
@@ -597,6 +598,7 @@ export interface Translations {
       connected: string;
       using: string;
       linkedOn: string;
+      linkedAccount: string;
       notAvailable: string;
       disableAssistant: string;
       enableAssistant: string;
@@ -1199,6 +1201,8 @@ export interface Translations {
     title: string;
     subtitle: string;
     gcalSynced: string;
+    outlookSynced: string;
+    calendarAccount: string;
     connectGcal: string;
     reload: string;
     integrations: string;

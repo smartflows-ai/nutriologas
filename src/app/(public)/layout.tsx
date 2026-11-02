@@ -9,6 +9,12 @@ import { themeColorVars } from "@/lib/theme-vars";
 import { getVerticalProfile } from "@/lib/vertical-profile";
 import { getTranslationServer } from "@/i18n/server";
 
+// Test number for the storefront WhatsApp button. It never applies in production, so no tenant can show it by mistake.
+function devWhatsAppOverride(): string | null {
+  if (process.env.NODE_ENV === "production") return null;
+  return process.env.DEV_WHATSAPP_NUMBER?.trim() || null;
+}
+
 async function getTenantPublicData() {
   const t = getTranslationServer();
   try {
@@ -18,7 +24,7 @@ async function getTenantPublicData() {
       include: { theme: true }
     });
     return { 
-      whatsapp: tenant?.whatsappNumber ?? "", 
+      whatsapp: devWhatsAppOverride() ?? tenant?.whatsappNumber ?? "",
       name: tenant?.name ?? t.storefrontUi.storeFallback,
       logoUrl: tenant?.logoUrl ?? null,
       theme: tenant?.theme,

@@ -168,3 +168,16 @@ export function upcomingCalendarText(hours: BusinessHours, now: Date = new Date(
   }
   return lines.join("\n");
 }
+
+const WEEK_ORDER: Weekday[] = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+
+/** The week Monday first, one row per day, for showing the schedule to customers. An empty `blocks` means closed. */
+export function weeklyScheduleRows(hours: BusinessHours): { weekday: Weekday; blocks: DayHours[] }[] {
+  return WEEK_ORDER.map((weekday) => ({ weekday, blocks: hours[weekday] }));
+}
+
+/** Every start time of the day, each flagged free or not, so a screen can show taken times as disabled. */
+export function markSlots(candidates: string[], available: string[]): { time: string; available: boolean }[] {
+  const free = new Set(available);
+  return candidates.map((time) => ({ time, available: free.has(time) }));
+}
