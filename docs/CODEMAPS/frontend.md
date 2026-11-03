@@ -1,4 +1,4 @@
-<!-- Generated: 2026-10-28 | Files scanned: 36 pages + 52 components | Token estimate: ~800 -->
+<!-- Generated: 2026-11-03 | Files scanned: 36 pages + 57 components | Token estimate: ~860 -->
 # Frontend
 
 ## Page tree (src/app)
@@ -18,7 +18,7 @@ shop/       Navbar ProductCard ProductGallery ProductSort HeroCarousel AddToCart
             BookingFlow (pet fields for VETERINARY|PET_CARE) ConektaCheckout
             CustomerAppointmentsList ReviewForm ReviewSection WhatsAppButton SessionProviderWrapper
 admin/      AdminSidebar (serviceFirst label, integration filtering) CreditsBadge CreditsDrawer(portal)
-            TrialBanner TrialExpiredGate ReminderSettingsCard ReminderMessagesCard
+            TrialBanner TrialExpiredGate ReminderSettingsCard ReminderMessagesCard (deadline-time button only in the confirmation field)
             PendingConfirmations VisitNoteDialog ImageCropperModal FormPanel Pagination ConfirmModal
 crm/        SalesChart AppointmentsChart ProductsChart RatingsChart CampaignMetrics CalendarView DashboardFilters
 chat/       ChatAssistant AssistantThinkingIndicator
@@ -28,6 +28,7 @@ legal/      LegalPageLayout  order/ DownloadTicketButton PrintButton
 ```
 
 ## State and data
+- /admin/citas shows the "reminder not delivered" badge via `lib/reminder-badge.ts` (active visit, failed attempts, no reminderSentAt, future date); text in t.agenda.*, neutral style, no technical reason.
 - Cart: zustand store `src/store/cart.ts`. Toasts: `hooks/useToast.ts` (sonner).
 - Server components read tenant via header `x-tenant-slug`; session via `lib/session.ts`.
 - Client data: fetch to /api/*; forms use react-hook-form + zod.

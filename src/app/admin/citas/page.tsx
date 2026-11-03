@@ -16,6 +16,7 @@ import {
   RefreshCw,
   Plug,
   ExternalLink,
+  AlertTriangle,
 } from "lucide-react";
 import { formatPrice, localeFor, fill } from "@/lib/utils";
 import { useTranslation } from "@/i18n";
@@ -23,6 +24,7 @@ import { useCalendarAccount } from "@/hooks/useCalendarAccount";
 import { translateApiError } from "@/i18n/validation";
 import Pagination from "@/components/admin/Pagination";
 import VisitNoteDialog from "@/components/admin/VisitNoteDialog";
+import { reminderNotDelivered } from "@/lib/reminder-badge";
 import { toast } from "sonner";
 import Link from "next/link";
 
@@ -56,6 +58,8 @@ interface AppointmentItem {
     image: string | null;
   };
   pet?: { name: string } | null;
+  reminderSentAt?: string | null;
+  reminderAttempts?: number;
 }
 
 // Status colors are semantic (pending, confirmed, cancelled), so they stay fixed and do not follow the tenant theme.
@@ -562,6 +566,17 @@ function CitasContent() {
                         {appt.source === "microsoft" && (
                           <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
                             Outlook
+                          </span>
+                        )}
+
+                        {/* Reminder that failed to send: neutral style so it follows the tenant theme in light and dark */}
+                        {reminderNotDelivered(appt) && (
+                          <span
+                            title={fill(t.agenda.reminderNotDeliveredHint, { count: appt.reminderAttempts ?? 0 })}
+                            className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-800"
+                          >
+                            <AlertTriangle size={12} strokeWidth={2} aria-hidden="true" />
+                            {t.agenda.reminderNotDelivered}
                           </span>
                         )}
 

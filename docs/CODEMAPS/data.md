@@ -1,7 +1,8 @@
-<!-- Generated: 2026-10-28 | Files scanned: prisma/schema.prisma (638 lines) | Token estimate: ~750 -->
+<!-- Generated: 2026-11-03 | Files scanned: prisma/schema.prisma (642 lines) + prisma/sql | Token estimate: ~850 -->
 # Data (Prisma, PostgreSQL)
 
-Every table carries tenantId. No migrations folder: schema applied with `npm run db:push`.
+Every table carries tenantId. No Prisma migration history. Schema changes are manual SQL in `prisma/sql/<change>/{up,down}.sql` (verified on a throwaway DB, backup first, DB before code).
+`npm run db:push` is NOT safe against the real DB: it would drop `whatsapp_bot_memory` (n8n bot memory, table unknown to Prisma).
 
 ## Models
 ```
@@ -25,7 +26,9 @@ Tenant ─┬ ThemeConfig (1:1)
 BusinessVertical (ECOMMERCE HEALTH VETERINARY TOURISM SERVICES PET_CARE TRAVEL GENERAL) · UserRole · AppProvider · ItemType · OrderStatus · PaymentMethod · CampaignFrequency · SocialPlatform · PlanId · SubscriptionStatus · AppointmentStatus
 
 ## Appointment (lines 558-603)
-Fields: appointmentDate, durationMinutes, notes, internalNotes, customerName/Phone/Email, patientKey (52+10 digits), petId, externalProvider+externalEventId, reminderSentAt, customerConfirmedAt, autoReleasedAt. Legacy: googleEventId, remindersSent.
+Fields: appointmentDate, durationMinutes, notes, internalNotes, customerName/Phone/Email, patientKey (52+10 digits), petId, externalProvider+externalEventId, reminderSentAt, customerConfirmedAt, autoReleasedAt.
+Failed sends: reminderAttempts (Int, default 0), reminderLastError (safe text, never sent to the browser), reminderLastAttemptAt. Cleared by a good send or a reschedule (reminder-state.ts). Added by prisma/sql/16-reminder-attempts.
+Legacy: googleEventId, remindersSent.
 Indexes: (tenantId), (tenantId,appointmentDate), (tenantId,patientKey), (tenantId,petId).
 
 ## Tenant config groups
@@ -36,5 +39,6 @@ Indexes: (tenantId), (tenantId,appointmentDate), (tenantId,patientKey), (tenantI
 - Credits: aiCreditLimitUsd, botFailureAlertedAt
 
 ## Pending
-- db:push not run for WhatsAppChat.botEnabled/botPausedReason (per CLAUDE.md); confirm before applying.
+- Schema and DB in sync (checked 2026-11-02) except `whatsapp_bot_memory` (declare or exclude before any db:push).
+- No test database: local dev and production share one DB. Mirror DB, periodic backups and prisma migrate adoption are separate tasks.
 - Row Level Security not enabled; isolation is app-level only.

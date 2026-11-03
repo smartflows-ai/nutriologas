@@ -4,6 +4,16 @@
 
 import { prisma } from "@/lib/db";
 import { AppProvider } from "@prisma/client";
+import {
+  REFRESH_COOLDOWN_MS,
+  REFRESH_TIMEOUT_MS,
+  createRefreshCooldown,
+  isPermanentRefreshFailure,
+} from "@/lib/oauth-refresh";
+
+// A connection whose refresh failed temporarily rests for a minute, so a provider that is down or limiting us is
+// not hit on every request and no request waits on it again and again.
+const refreshCooldown = createRefreshCooldown(REFRESH_COOLDOWN_MS);
 
 // ── Token refresh configurations per provider ────────────────────────────
 const REFRESH_CONFIGS: Record<string, {
@@ -56,16 +66,32 @@ export async function getAppToken(
   const config = REFRESH_CONFIGS[provider];
   if (!config) return null;
 
+  const cooldownKey = `${tenantId}:${provider}`;
+  if (refreshCooldown.isCoolingDown(cooldownKey)) return null;
+
   try {
     const res = await fetch(config.tokenUrl, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams(config.buildBody(app.refreshToken)).toString(),
+      signal: AbortSignal.timeout(REFRESH_TIMEOUT_MS),
     });
 
     if (!res.ok) {
-      console.error(`[connected-apps] Failed to refresh ${provider} token:`, await res.text());
-      await prisma.connectedApp.delete({ where: { id: app.id } }).catch(() => {});
+      const body = await res.text();
+      // The connection is removed only when the provider says the permission is gone for good. A rate limit, a
+      // server error or a wrong setting on our side must not disconnect the customer's calendar: keep it and retry.
+      const permanent = isPermanentRefreshFailure(res.status, body);
+      console.error(
+        `[connected-apps] Failed to refresh ${provider} token (HTTP ${res.status}, ${permanent ? "permission revoked, disconnecting" : "temporary, connection kept"}):`,
+        body.slice(0, 300),
+      );
+      if (permanent) {
+        await prisma.connectedApp.delete({ where: { id: app.id } }).catch(() => {});
+        refreshCooldown.clear(cooldownKey);
+      } else {
+        refreshCooldown.mark(cooldownKey);
+      }
       return null;
     }
 
@@ -83,9 +109,12 @@ export async function getAppToken(
       },
     });
 
+    refreshCooldown.clear(cooldownKey);
     return newAccessToken;
   } catch (err) {
+    // Network error or timeout: temporary, so the connection stays and rests before the next attempt.
     console.error(`[connected-apps] Error refreshing ${provider} token:`, err);
+    refreshCooldown.mark(cooldownKey);
     return null;
   }
 }

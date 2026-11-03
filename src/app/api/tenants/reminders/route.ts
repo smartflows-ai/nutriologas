@@ -5,7 +5,7 @@ import { z } from "zod";
 import { getAppSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { apiError } from "@/lib/api-errors";
-import { validateConfirmationTemplate, validateTemplateLength } from "@/lib/reminder-messages";
+import { validateConfirmationTemplate, validateKnownTags, validateNoDeadlineTag, validateTemplateLength } from "@/lib/reminder-messages";
 
 const SELECT = {
   remindersEnabled: true,
@@ -67,6 +67,14 @@ export async function PATCH(req: Request) {
       const tooLong = validateTemplateLength(text);
       if (tooLong) return apiError(tooLong as "template_too_long", 400);
     }
+  }
+  for (const text of [data.reminderTemplate, data.confirmationTemplate, data.cancellationTemplate]) {
+    const unknown = text ? validateKnownTags(text) : null;
+    if (unknown) return apiError(unknown as "template_unknown_tag", 400);
+  }
+  for (const text of [data.reminderTemplate, data.cancellationTemplate]) {
+    const problem = text ? validateNoDeadlineTag(text) : null;
+    if (problem) return apiError(problem as "template_deadline_not_allowed", 400);
   }
   if (data.confirmationTemplate) {
     const problem = validateConfirmationTemplate(data.confirmationTemplate);

@@ -30,7 +30,10 @@ function visitValues(visit: VisitForAction) {
 }
 
 /** Cancels the visit for lack of confirmation, frees the slot and tells the customer. */
-export async function releaseVisit(visit: VisitForAction, now: Date = new Date()): Promise<void> {
+export async function releaseVisit(
+  visit: VisitForAction,
+  now: Date = new Date(),
+): Promise<{ customerNotified: boolean }> {
   await cancelAppointment(
     visit.tenantId,
     { id: visit.id, externalProvider: visit.externalProvider, externalEventId: visit.externalEventId },
@@ -38,16 +41,18 @@ export async function releaseVisit(visit: VisitForAction, now: Date = new Date()
   );
   await prisma.appointment.update({ where: { id: visit.id }, data: { autoReleasedAt: now } });
 
-  if (visit.customerPhone) {
-    await sendWhatsAppMessage({
-      tenantId: visit.tenantId,
-      to: visit.customerPhone,
-      text: renderTemplate(
-        visit.cancellationTemplate ?? customerTexts(visit.messageLanguage).cancellationTemplate,
-        visitValues(visit),
-      ),
-    });
-  }
+  // Without a phone there is nothing to deliver, so it does not count as an undelivered text.
+  if (!visit.customerPhone) return { customerNotified: true };
+
+  const sent = await sendWhatsAppMessage({
+    tenantId: visit.tenantId,
+    to: visit.customerPhone,
+    text: renderTemplate(
+      visit.cancellationTemplate ?? customerTexts(visit.messageLanguage).cancellationTemplate,
+      visitValues(visit),
+    ),
+  });
+  return { customerNotified: sent.success };
 }
 
 /** Marks the visit confirmed by the customer (or by the owner on their behalf) and tells the customer. */
