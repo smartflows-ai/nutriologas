@@ -5,6 +5,7 @@ import { AppointmentStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { patientKeyOf } from "@/lib/patient-key";
 import { findOrCreatePet } from "@/lib/pets";
+import { rescheduleResetState } from "@/lib/reminder-state";
 import {
   CalendarLink,
   dateKeyInClinicZone,
@@ -154,9 +155,7 @@ export async function rescheduleAppointment(input: RescheduleInput) {
       where: { id: appointment.id },
       data: {
         appointmentDate: input.newStart,
-        reminderSentAt: null, // a new time gets its own reminder and confirmation
-        customerConfirmedAt: null,
-        autoReleasedAt: null,
+        ...rescheduleResetState(), // a new time gets its own reminder, confirmation and failure history
       },
       include: appointmentInclude,
     });

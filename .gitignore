@@ -47,4 +47,3 @@ next-env.d.ts
 
 # ai
 .agent
-local-utils/

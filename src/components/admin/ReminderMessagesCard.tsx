@@ -77,6 +77,8 @@ export default function ReminderMessagesCard() {
   };
 
   const detailNames = [tx.tokenService, tx.tokenDate, tx.tokenTime, tx.tokenDeadline, tx.tokenBusiness];
+  // The deadline time only exists in the confirmation text; offering it elsewhere would send it with brackets.
+  const detailNamesWithoutDeadline = detailNames.filter((name) => name !== tx.tokenDeadline);
 
   if (loading) return null;
   if (!settings) {
@@ -120,7 +122,7 @@ export default function ReminderMessagesCard() {
           label={tx.reminderTemplateLabel}
           value={settings.reminderTemplate}
           onChange={(value) => update({ reminderTemplate: value })}
-          detailNames={detailNames}
+          detailNames={detailNamesWithoutDeadline}
           insertLabel={tx.templateInsertLabel}
         />
         <TemplateField
@@ -136,7 +138,7 @@ export default function ReminderMessagesCard() {
           label={tx.cancellationTemplateLabel}
           value={settings.cancellationTemplate}
           onChange={(value) => update({ cancellationTemplate: value })}
-          detailNames={detailNames}
+          detailNames={detailNamesWithoutDeadline}
           insertLabel={tx.templateInsertLabel}
         />
         <p className="text-xs text-gray-500 dark:text-gray-400">{tx.templateDefaultHint}</p>

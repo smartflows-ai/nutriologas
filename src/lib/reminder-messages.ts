@@ -28,6 +28,11 @@ const LABEL_TO_KEY = new Map<string, TokenKey>(
 
 const DEADLINE_LABELS = DICTIONARIES.map((dict) => dict.crm.business.tokenDeadline.toLowerCase());
 
+/** True when the text has the deadline tag. Spaces and capitals inside the brackets are ignored, as when it is filled in. */
+function usesDeadlineTag(template: string): boolean {
+  return Array.from(template.matchAll(/\[([^\[\]]+)\]/g)).some((m) => DEADLINE_LABELS.includes(m[1].trim().toLowerCase()));
+}
+
 export const MAX_TEMPLATE_LENGTH = 600;
 
 export type MessageLanguage = "es" | "en";
@@ -45,10 +50,15 @@ export interface ReminderValues {
 }
 
 export function renderTemplate(template: string, values: ReminderValues): string {
-  return template.replace(/\[([^\[\]]+)\]/g, (match, label: string) => {
+  return template.replace(/\[([^\[\]]+)\]/g, (match, label: string, offset: number, whole: string) => {
     const key = LABEL_TO_KEY.get(label.trim().toLowerCase());
     if (!key) return match;
-    return values[key] ?? match;
+    const value = values[key];
+    if (value === undefined) return match;
+    // "a.m." and "p.m." already end with a period: when the template closes its sentence right after the tag,
+    // that period is the same one, so the customer does not read "10:00 a.m..".
+    const nextChar = whole[offset + match.length];
+    return value.endsWith(".") && nextChar === "." ? value.slice(0, -1) : value;
   });
 }
 
@@ -68,15 +78,43 @@ export function clinicTime(instant: Date, language: string): string {
     : formatSlotTime(instant);
 }
 
+// "si" is also the Spanish conditional ("Si no la confirmas..."), so the lowercase word alone proves nothing.
+// It counts only as SI in capitals, or right after a verb that asks for a reply.
+const REPLY_VERBS = "responde|contesta|escribe|manda|envia|reply|answer|type|write|send";
+const REPLY_PHRASE = new RegExp(`\\b(?:${REPLY_VERBS})\\b[\\s"'*_]*\\bsi\\b`, "i");
+
+function asksToReplySi(textWithoutAccents: string): boolean {
+  return /\bSI\b/.test(textWithoutAccents) || REPLY_PHRASE.test(textWithoutAccents);
+}
+
 /**
  * Checks a business's confirmation text. It must include the deadline and the word SI,
  * otherwise the customer is never told how to confirm or when the visit is released.
  */
 export function validateConfirmationTemplate(template: string): string | null {
-  const lower = template.toLowerCase();
-  if (!DEADLINE_LABELS.some((label) => lower.includes(`[${label}]`))) return "confirmation_missing_deadline";
-  if (!/\bSI\b/i.test(template)) return "confirmation_missing_si";
+  if (!usesDeadlineTag(template)) return "confirmation_missing_deadline";
+  // Accents are ignored, like the bot does when it reads the reply: "Sí" and "SI" both count as the word.
+  const withoutAccents = template.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  if (!asksToReplySi(withoutAccents)) return "confirmation_missing_si";
   return null;
+}
+
+/**
+ * Every bracketed word must be one of the five tags. Anything else (a typo such as [Nombre]) would reach the
+ * customer exactly as typed, with its brackets, so the text is rejected when saved.
+ */
+export function validateKnownTags(template: string): string | null {
+  const tags = Array.from(template.matchAll(/\[([^\[\]]+)\]/g));
+  return tags.some((m) => !LABEL_TO_KEY.has(m[1].trim().toLowerCase())) ? "template_unknown_tag" : null;
+}
+
+/**
+ * The deadline time only exists for the confirmation text: a reminder can go out with no deadline at all
+ * (confirmation off, or a window too short to ask). In the reminder and cancellation texts the tag would reach
+ * the customer in brackets, so those texts are rejected when saved.
+ */
+export function validateNoDeadlineTag(template: string): string | null {
+  return usesDeadlineTag(template) ? "template_deadline_not_allowed" : null;
 }
 
 export function validateTemplateLength(template: string): string | null {

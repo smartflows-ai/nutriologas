@@ -1,10 +1,31 @@
-Codemap report - 2026-10-28
-Previous codemaps: none (first generation, no diff to compute).
-Created: docs/CODEMAPS/{architecture,backend,frontend,data,dependencies}.md
-Scanned: 249 files in src, 87 route handlers, 36 pages, 23 prisma models, middleware.ts.
-Staleness: none (new).
-Discrepancies found vs CLAUDE.md:
-- n8n/workflows/ does not exist in the repo (CLAUDE.md cites n8n-chat-workflow-v2.json and others); only n8n/docs/ is present.
-- Upstash Redis is documented in env vars but no code under src uses it.
-- Product map in CLAUDE.md lists api/internal/places/*, code has api/places/* (public, rate limited).
-- local-utils/ (cited in CLAUDE.md) does not exist in this checkout.
+Codemap report - 2026-11-03
+Previous codemaps: 2026-10-28 (docs/CODEMAPS/{architecture,backend,frontend,data,dependencies}.md). Updated in place.
+Change size per map (lines touched of the original): architecture ~9%, backend ~15%, data ~20%, dependencies ~14%, frontend ~5%. Under the 30% review threshold. Originals are in git (git diff docs/CODEMAPS).
+Scanned: 258 files in src (was 249), 88 route handlers (was 87), 36 pages, 57 components (was 52), 54 files in src/lib (was 45), prisma/schema.prisma 642 lines (was 638).
+
+Added since last scan (ticket #16, all uncommitted):
+- src/lib/reminder-run.ts, reminder-data.ts, reminder-state.ts, reminder-badge.ts, oauth-refresh.ts
+- prisma/sql/16-reminder-attempts/{up,down}.sql + prisma/sql/README.md (first manual migration; up.sql already applied to the real DB)
+- local-utils/: 7 test files (node:test via tsx), reminder-sim.ts, check-google-connection.ts, check-token-refresh.ts, prisma-diff.config.ts
+- .claude/commands/n8n.md (read-only n8n inspection command)
+Modified: reminders/run route (502 rule, failure recording), tenants/reminders route (3 new validations), appointments route (drops reminderLastError),
+  appointments-service (reschedule reset), reminder-actions (releaseVisit returns customerNotified), reminder-messages (validators, period rule),
+  connected-apps (refresh policy), ReminderMessagesCard, admin/citas page (badge), i18n es/en/types, prisma/schema.prisma (3 Appointment fields), CLAUDE.md, .env.example.
+
+New dependencies: none in package.json. New runtime use of tsx 4 (already a dev dependency) to run tests and scripts.
+New env vars (documented, not used by the app): N8N_API_URL, N8N_API_KEY (only the /n8n command).
+Architecture changes:
+- reminders/run now = route (load + wire) / reminder-data (real I/O) / reminder-run (per-visit logic, injected I/O) / reminder-state (what is written).
+- Failed sends are stored on the appointment; the run answers 502 when every attempted send fails.
+- OAuth refresh: connection deleted only on a permanent error; 8 s timeout and 60 s cooldown on temporary ones.
+- Schema changes now go through manual SQL (db:push would drop whatsapp_bot_memory).
+Staleness: none (all five codemaps regenerated today).
+
+Discrepancies found vs CLAUDE.md (previous report -> now):
+- n8n/workflows/ still does not exist in the repo (only n8n/docs/). Live instance is the source of truth (/n8n).
+- Upstash Redis is documented in env vars but no code under src uses it (unchanged).
+- local-utils/ now exists in this checkout (resolved).
+- "No test runner" is now "node:test through tsx, no coverage tool or CI step".
+- CLAUDE.md "Pending" no longer lists botEnabled/businessHours as unapplied: the real DB already has them (checked 2026-11-02).
+- Product map in CLAUDE.md lists api/internal/places/*, code has api/places/* (unchanged).
+Not verified by this scan: the 88th route handler (the count rose by one while the ticket added none; likely from work merged before this branch).

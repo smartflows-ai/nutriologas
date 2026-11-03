@@ -15,6 +15,7 @@ import { patientKeyOf } from "@/lib/patient-key";
 import { parseBusinessHours, slotWithinHours } from "@/lib/business-hours";
 import { isBookable } from "@/lib/bookable";
 import { dropLinkedExternal, fetchExternalAppointments } from "@/lib/external-calendar";
+import { omitReminderError } from "@/lib/reminder-state";
 
 const MONTH_RE = /^\d{4}-\d{2}$/;
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -55,7 +56,7 @@ async function getAdminAgenda(req: NextRequest, tenantId: string) {
   });
 
   const formattedNative = nativeAppointments.map((a) => ({
-    ...a,
+    ...omitReminderError(a),
     source: "native" as const,
     customerName: a.customerName || a.user?.name || "Paciente",
     customerPhone: a.customerPhone || null,
@@ -184,7 +185,7 @@ export async function GET(req: NextRequest) {
     });
 
     const formattedNative = nativeAppointments.map((a) => ({
-      ...a,
+      ...omitReminderError(a),
       source: "native" as const,
       customerName: a.customerName || a.user?.name || "Paciente",
       customerPhone: a.customerPhone || null,

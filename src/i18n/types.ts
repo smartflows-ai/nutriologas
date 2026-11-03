@@ -1226,6 +1226,8 @@ export interface Translations {
     emptyForDate: string;
     emptyDesc: string;
     patientFallback: string;
+    reminderNotDelivered: string;
+    reminderNotDeliveredHint: string;
     consultFallback: string;
     openCalendar: string;
     reason: string;
@@ -1528,6 +1530,8 @@ export interface Translations {
     address_required: string;
     confirmation_missing_deadline: string;
     confirmation_missing_si: string;
+    template_deadline_not_allowed: string;
+    template_unknown_tag: string;
     template_too_long: string;
     reminder_settings_invalid: string;
     reminder_window_invalid: string;

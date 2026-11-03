@@ -125,7 +125,7 @@ src/
         campaigns/alert-failure ← POST: Notifies the owner via WhatsApp when a social campaign fails to publish
         places/search   ← POST (public, rate-limited per IP): Google Places address suggestions
         places/details  ← POST (public, rate-limited per IP): address and coordinates of a place
-        reminders/run   ← POST: Sends reminders, charges for each one and releases unconfirmed appointments (every 15 min from n8n, no LLM)
+        reminders/run   ← POST: Sends reminders, charges for each one and releases unconfirmed appointments (every 15 min from n8n, no LLM). Answers 502 when every attempted send failed; body `{ dryRun: true }` lists the work without acting
       admin/pacientes   ← GET: List of PatientProfiles for the CRM (filtered by tenantId)
       tenants/          ← Tenant management API
       tenants/business/ ← GET/PUT business profile. Slug is read-only.
@@ -180,7 +180,8 @@ src/
   types/                ← TypeScript type augmentations (NextAuth JWT)
 prisma/
   schema.prisma         ← Full data models
-local-utils/            ← Test scripts, debugging and local utilities that are NOT part of the production app
+  sql/                  ← Manual schema changes, one folder per change with up.sql and down.sql (see "Schema changes")
+local-utils/            ← Tests (`*.test.ts`, node:test), simulators, diagnostics and local utilities that are NOT part of the production app
 middleware.ts           ← Multi-tenant gatekeeper + route protection
 ```
 
@@ -242,6 +243,7 @@ The heart of the system. Each business is a Tenant with:
 - `externalProvider` (`AppProvider`) and `externalEventId` → calendar (`GOOGLE` or `MICROSOFT`) and id of the event that mirrors the appointment; `null` if no calendar is connected
 - `googleEventId` → legacy, replaced by `externalEventId`; removed after running `local-utils/backfill-appointment-calendar-links.mjs`
 - `reminderSentAt`, `customerConfirmedAt`, `autoReleasedAt` → reminder sent, confirmed by the customer, and released without confirmation. Rescheduling the appointment resets them. `remindersSent` is legacy.
+- `reminderAttempts`, `reminderLastError`, `reminderLastAttemptAt` → failed reminder sends: number of failed attempts, a short reason and the time of the last one. A successful send or a reschedule clears them (`src/lib/reminder-state.ts`). The reason is stored through `safeFailureReason`, so it never carries a provider name or a raw response body (white-label rule); the full detail goes only to the server log. These fields are not sent to the browser: `GET /api/appointments` drops `reminderLastError` (`omitReminderError`).
 
 - `petId` → the owner's pet (only for pet verticals: `VETERINARY`, `PET_CARE`). Null in the rest. See the `Pet` model.
 
@@ -265,6 +267,8 @@ The heart of the system. Each business is a Tenant with:
   - `waContext` (Text) → custom business context for the WhatsApp agent
 - Facebook/Instagram for social campaigns
 - `@@unique([tenantId, provider])` → a tenant can have only one app of each type
+- **Token refresh** (`getAppToken` in `src/lib/connected-apps.ts`, decision in `src/lib/oauth-refresh.ts`): the connection is deleted **only** when the provider says the permission is gone (`invalid_grant`, `interaction_required`, `consent_required`, `login_required`, with HTTP 400 or 401). A rate limit, a 5xx, a wrong client setting on our side, a network error or a timeout keep the connection and return `null` for that call. The refresh call times out after 8 s, and a connection that failed temporarily rests for 60 s (in memory, per server instance) before the next attempt. Before this rule any error deleted the connection, which silently disconnected the calendar and left mirrored events impossible to delete.
+- Google Calendar uses the account's **primary** calendar: that account's real events count as busy time and appear in `/admin/citas`. The connection requests more scopes than the calendar needs (`gmail.send`, `spreadsheets.readonly`); trimming them is pending. If the Google app is in "Testing" mode in Google Cloud, the refresh token expires after 7 days and the connection is lost again.
 
 ### PatientProfile
 - Patient triage profile, linked 1:1 to `User`
@@ -490,15 +494,23 @@ Flow: `n8n/workflows/n8n-chat-workflow-v2.json` ("NewAigent - WhatsApp Bot (Chat
 - **Workflow**: `n8n/workflows/n8n-reminders-workflow.json`. A Schedule Trigger every 15 minutes calls `POST /api/internal/reminders/run`. The interval sets the precision: a reminder or a release goes out at most 15 minutes late.
 - **Reminder settings** (`/admin/whatsapp`, Configuración tab, "Recordatorios y confirmación" card, `PATCH /api/tenants/reminders` with only these fields): `remindersEnabled`, `reminderLeadMinutes` (60–4320 minutes, in multiples of 30, before the appointment at which the reminder goes out; the card shows them in hours with half hours), `confirmationRequired`, `confirmationDeadlineMinutes` (30–2880 minutes, in multiples of 30, before the appointment at which it is released). `confirmationDeadlineMinutes < reminderLeadMinutes` must hold (`reminder_window_invalid`).
 - **Customer messages** (`/admin/whatsapp`, Configuración tab, "Mensajes al cliente" card, `PATCH /api/tenants/reminders` with only these fields): `messageLanguage` (`es` | `en`) and three optional texts (`reminderTemplate`, `confirmationTemplate`, `cancellationTemplate`). Empty = the language's default text.
-- **Tenant texts**: the tenant writes data with bracketed tags: `[Servicio]`, `[Fecha]`, `[Hora]`, `[Hora límite]`, `[Nombre del negocio]` (service, date, time, deadline time, business name). The tags are taken from the i18n dictionaries (`crm.business.token*`) and the server accepts those of any language. The confirmation text must include the deadline time and the word SI (`validateConfirmationTemplate`). Never show braces or technical names to the tenant or the customer.
+- **Tenant texts**: the tenant writes data with bracketed tags: `[Servicio]`, `[Fecha]`, `[Hora]`, `[Hora límite]`, `[Nombre del negocio]` (service, date, time, deadline time, business name). The tags are taken from the i18n dictionaries (`crm.business.token*`) and the server accepts those of any language. Never show braces or technical names to the tenant or the customer. Texts are validated on save (`PATCH /api/tenants/reminders`, rules in `src/lib/reminder-messages.ts`), because any bracketed word that is not filled in reaches the customer exactly as typed:
+  - Every bracketed word must be one of the five tags (`validateKnownTags`, error `template_unknown_tag`). Tags ignore case and spaces inside the brackets, and accept the labels of any language.
+  - `[Hora límite]` only exists for the confirmation text, so the reminder and cancellation texts reject it (`validateNoDeadlineTag`, `template_deadline_not_allowed`). A reminder can go out with no deadline at all. The card offers the "Deadline time" button only in the confirmation field.
+  - The confirmation text must include the deadline tag and an explicit instruction to reply SI (`validateConfirmationTemplate`): `SI` in capitals, or `si` right after a verb such as responde, escribe, contesta, manda (reply, type, send). Accents are ignored like the bot does, so `Sí` counts. The Spanish conditional "Si no la confirmas…" does not count by itself.
+  - `renderTemplate` drops the final period of a value (`a.m.`, `p.m.`) when the template closes the sentence with another period right after the tag.
 - **Default customer texts**: `customerMessages` in `src/i18n/es.ts` and `en.ts` (reminder, confirmation, footer without confirmation, cancellation, confirmation reply). Dates and times with `clinicLongDate` and `clinicTime` according to `messageLanguage`.
 - **Rules** (`src/lib/reminders.ts`, pure functions): the notice goes out `reminderLeadMinutes` before the appointment, at the exact time (also at night); the release is `appointment time − confirmationDeadlineMinutes`. The window to reply (notice to release) must be at least 30 minutes. If the appointment was booked after the notice time, the notice goes out at booking (if the window allows). If the window is smaller, or confirmation is off: a late-booked appointment receives nothing (counts as confirmed); otherwise, only a simple reminder. No phone: no message and it is never released.
+- **Structure**: the route only loads the visits and wires the real I/O. The per-visit decisions are in `src/lib/reminder-run.ts` (`runReminderBatch`, I/O injected so it is testable without a database or WhatsApp), the real I/O in `src/lib/reminder-data.ts` (`loadReminderVisits`, `realReminderDeps`), and what is written after a send, a failure or a reschedule in `src/lib/reminder-state.ts`.
+- **Failures are not silent**: one visit that throws never stops the others. A failed send stores the attempt on the visit (`reminderAttempts`, `reminderLastError`, `reminderLastAttemptAt`) and is listed in the response `failures`. If every attempted send failed (`sent = 0` and `failed > 0`, not in `dryRun`), the route answers **502** so n8n shows the run as an error without editing the workflow (n8n marks any 2xx as success); a partial failure stays 200. There is no hard retry cap: a failed send costs nothing and is retried every run until the appointment starts. The owner is not alerted through WhatsApp for this, because that is the channel that may be down; the signal is the CRM badge and the n8n run status.
+- **CRM badge**: `/admin/citas` shows "Recordatorio no entregado" (`t.agenda.reminderNotDelivered`) on an active (`PENDING` or `CONFIRMED`) native appointment that has failed attempts, no `reminderSentAt`, and a future date (`reminderNotDelivered` in `src/lib/reminder-badge.ts`). It shows only the attempt count, never the technical reason.
 - **Sending** (`reminders/run`): sends once per appointment (`Appointment.reminderSentAt`). If sending fails, it neither marks nor charges; it is retried on the next run. Each successful send charges `REMINDER_COST_USD` (default `0.0085`) with `recordMessageCharge()`: it adds to `totalCostUsd`, increments `AiTokenLedger.reminderCount` and records `REMINDER_PROVIDER_COST_USD` (default `0`) as the real cost. Reminders go out even without credits and may exceed the limit; the owner is notified only once per period.
 - **Release**: if confirmation was requested, `reminderSentAt` exists, there is no `customerConfirmedAt` and the deadline has passed, `releaseVisit()` (`src/lib/reminder-actions.ts`) calls `cancelAppointment` (status `CANCELLED`, deletes the Google/Outlook event, frees the slot) and sends the cancellation text. `autoReleasedAt` is set.
 - **Customer confirmation**: `POST /api/internal/bot/confirm` (`x-internal-key`). Replies `sí`/`confirmo`/`de acuerdo`… (yes/I confirm/agreed) count only if the reply is short and contains no negations, changes or questions (`isClearConfirmation`). If it confirms: `customerConfirmedAt`, status `CONFIRMED` and a confirmation reply. If it is not a confirmation: `handled: false` and the message continues to the agent. The chat flow calls this endpoint before the agent ("Check Confirmation" node); the agent has the `confirm_appointment` tool as a backup.
 - **Owner list** ("Confirmaciones" tab in `/admin/whatsapp`): `GET /api/apps/whatsapp/confirmations`, and `POST /api/apps/whatsapp/confirmations/[id]` with `action: "confirm" | "release"`. "Liberar ahora" (release now) uses the same `releaseVisit`.
 - **Channel**: `sendWhatsAppMessage` (Evolution). With Meta's official API, a reminder outside the 24 h window will need an approved template.
-- **Pending**: deploy the code, re-import `n8n/workflows/n8n-chat-workflow-v2.json` and `n8n/workflows/n8n-reminders-workflow.json`, test with real WhatsApp and a connected calendar, and status badges in `/admin/citas`.
+- **Testing the flow in minutes**: `local-utils/reminder-sim.ts` runs the real job (same code as production) on one test visit named `PRUEBA #16` with a simulated clock, because the settings cannot go below 60 min before the visit and a 30 min answer window. Modes: `fail` (send forced to fail, no WhatsApp), `send` (real WhatsApp, charges the tenant), `release` (cancels, deletes the calendar event, real cancellation text). Without `--yes` it only prints. Usage: `npx tsx --env-file=.env local-utils/reminder-sim.ts --id <appointmentId> --mode fail|send|release [--yes]`. It writes to the real database and sends real messages, so use it with your own number and ask first.
+- **Status (ticket #16)**: tested end to end with real WhatsApp and Google Calendar (reminder, confirmation with SI, release, event created and deleted). **Pending**: deploy the code, verify in production (eligible visits get their message, the 502 shows in n8n, the event is deleted with the real clock), re-import `n8n/workflows/n8n-chat-workflow-v2.json` and `n8n/workflows/n8n-reminders-workflow.json`, and test a custom cancellation text and the English language in a real send.
 
 ---
 
@@ -586,6 +598,9 @@ FACEBOOK_APP_SECRET=
 
 # ─── n8n Automation ─────────────────────────────────────────────────────────────
 N8N_FACEBOOK_WEBHOOK_URL=        # n8n webhook URL to trigger publications
+# Only read by the /n8n command (read-only inspection of the n8n instance), never by the app:
+N8N_API_URL=                     # https://<your-n8n-host>/api/v1  (no trailing slash)
+N8N_API_KEY=                     # n8n > Settings > n8n API. Without Enterprise it has full access: treat it as a secret
 
 # ─── Internal APIs (n8n → Next.js) ──────────────────────────────────────────────
 # IMPORTANT: All endpoints under /api/internal/ verify this header: x-internal-key
@@ -612,11 +627,32 @@ UPSTASH_REDIS_REST_TOKEN=
 npm run dev              # Development server at localhost:3000
 npm run build            # Production build
 npm run db:generate      # Regenerate the Prisma client
-npm run db:push          # Apply the schema to the DB without a migration
+npm run db:push          # Apply the schema to the DB without a migration. NOT safe against the real database today (see "Schema changes")
 npm run db:seed          # Create sample data
 npm run db:studio        # Open Prisma Studio (DB UI)
 vercel --prod            # Deploy to production
+
+npx tsx --test local-utils/*.test.ts     # Automated tests (node:test, no database needed)
+npx tsc --noEmit                         # Type check
+npx tsx --env-file=.env local-utils/<script>.ts   # Scripts that touch the database: tsx does NOT load .env by itself
 ```
+
+> ⚠️ **`npm run build` and `npm run dev` share the `.next` folder.** Running a build while the dev server is up breaks the dev server (CSS and chunks answer 404). Stop the dev server, or restart it with `rm -rf .next && npm run dev` afterwards. OAuth for Google and Facebook only works on port 3000 locally (the redirect URI is fixed to `http://localhost:3000`); Google also refuses to sign in from a browser driven by automation, so connect the calendar from your normal browser.
+
+### Schema changes (manual SQL, up and down)
+
+`npm run db:push` compares the **whole** `schema.prisma` with the real database and applies every difference. The real database has a table Prisma does not know: `whatsapp_bot_memory` (the WhatsApp agent's conversation memory in n8n). `db:push` would **drop it** and the bot would lose its memory. The project has no migration history yet (`prisma migrate` adoption is a separate task), so a schema change goes as a folder in `prisma/sql/<change>/` with:
+- `up.sql`: additive when possible (new nullable columns or columns with a default), so the old code keeps working until the new code is deployed.
+- `down.sql`: the exact reverse. Written by hand (Prisma does not generate it). It deletes the data held in what it removes, so it runs only to undo the change and after the code that reads it is gone.
+
+How to make one safely:
+1. Add the fields to `schema.prisma` and write both files.
+2. Verify on a throwaway local PostgreSQL (same major version as production): load the schema-only dump, then compare with `DIFF_URL=<url> npx prisma migrate diff --config local-utils/prisma-diff.config.ts --from-config-datasource --to-schema prisma/schema.prisma --script` before `up.sql` (only your change shows), after `up.sql` (nothing about your change) and after `down.sql` (your change shows again). The only expected leftover is the `whatsapp_bot_memory` drop.
+3. Take a verified backup first (`pg_dump` of the same major version, custom format, stored **outside the repo** with owner-only permissions; it holds personal data), and a fresh one right before applying. `pg_dump` refuses a server newer than itself.
+4. Get explicit human approval, then apply `up.sql` in one transaction (`psql -v ON_ERROR_STOP=1 -1 -f up.sql`) and verify types, defaults and that existing rows did not change.
+5. **Order: database first, code after.** New code reads the new columns; if it ships first, every appointment query fails (reminders, agenda, bot, CRM). Old code ignores extra columns, so the reverse is safe. Merging to `main` deploys through CI/CD, so a merge counts as a deploy.
+
+Done so far: `prisma/sql/16-reminder-attempts/` (ticket #16). There is no separate test database yet: local development uses the real one, so treat every local write as a production write.
 
 ---
 
@@ -653,12 +689,16 @@ Then open `http://doctor.localhost:3000` to see the "doctor" tenant.
 - OXXO Pay requires polling Conekta webhooks to confirm payment
 
 ### Pending
-- **Unapplied schema migration**: `WhatsAppChat.botEnabled` and `botPausedReason` require `npm run db:push`. Confirm before applying.
+- **Schema in sync**: verified on 2026-11-02 with a read-only `prisma migrate diff`: `botEnabled`, `botPausedReason` and `businessHours` are already applied. The only difference between `schema.prisma` and the database is `whatsapp_bot_memory` (declare it in the schema or exclude it before anyone runs `db:push`).
+- **No test database**: local development and production share one database. A separate mirror database for tests, periodic backups and `prisma migrate` adoption are pending tasks.
 - **Web appointments from before the time fix**: they were saved with UTC time (6 hours ahead). Fix with `local-utils/shift-web-appointments-utc-fix.mjs` (first without `--write`) and manually move the calendar events that get listed.
 - **Hardcoded secrets in n8n workflows** (internal key, Evolution API key, OpenRouter key in the social campaign). Move to credentials when n8n allows it, and rotate them.
 - **Social workflow**: if a publication fails after the text was generated, its tokens are not reported.
 - **Pets**: the `pets` table and `appointments.petId` exist in the database, but tests with real data are pending: the database queried on Oct. 26 was empty. `local-utils/check-pets.ts` still needs to be run with a real tenant and `n8n/workflows/n8n-chat-workflow-v2.json` re-imported.
-- **Reminders**: the end-to-end test (real WhatsApp, connected calendar) and the status badges in `/admin/citas` are pending.
+- **Reminders**: tested end to end locally; deploy and production verification are pending (see "Appointment Reminders and Confirmation").
+- **/agendar with an admin session**: the booking form replaces the patient's phone and email with the signed-in account's. Booking a test visit for another person needs a session-less browser.
+- **Calendar sync fails silently**: if the connected calendar errors when booking, the appointment is saved only in the database, with no event and no notice.
+- **Reminder job race**: if saving `reminderSentAt` fails after a successful send, the next run sends again; there is no lock between overlapping runs. If `releaseVisit` fails after cancelling, the customer never gets the cancellation text.
 - Row Level Security in Supabase (currently only app-level filtering)
 - Rate limiting on `/api/chat`
 - Trial expiry gate: `TrialBanner` and `TrialExpiredGate` exist, but the trial expiry gate in the admin layout still does not fully block all routes
@@ -705,13 +745,21 @@ Then open `http://doctor.localhost:3000` to see the "doctor" tenant.
 - Use `/ecc:build-fix` when the build breaks, `/ecc:security-scan` before shipping auth, payment or tenant code.
 - Run `/ecc:update-codemaps` after large features or refactors, then review the diff before committing.
 - Playbook (install rules, command map, hooks): https://claude.ai/artifact/5LaD5NNMcgZ2NN1X3T62ey
+- After writing a plan, always open it with `/ecc:plan-canvas` and wait for the verdict; do not just offer it. No code until the canvas verdict is approve or the user confirms in chat.
+- For browser checks with the ECC browser: save screenshots outside the repo or in a git-excluded folder (they show real names, phones and e-mails and the repo is public), and stop before submitting any form; the user submits it.
+
+### `/n8n` command (read-only inspection of the n8n instance)
+- Defined in `.claude/commands/n8n.md` with `disable-model-invocation: true`: it runs only when the user types it, never because the topic came up.
+- Needs `N8N_API_URL` and `N8N_API_KEY` in `.env` (see `.env.example`). It only does `GET`: whether a workflow is active, its schedule, its last executions and what it calls. The workflows are not in the repo, so the live instance is the source of truth.
+- It never prints raw workflow JSON (the workflows hold hardcoded secrets and the repo is public). Before any approved write to n8n it saves the full JSON **outside the repo** (`~/.n8n-backups/`, owner-only), and it asks with `AskUserQuestion` naming the workflow, the exact change and the backup path. Approval of a plan is not approval of the write.
 
 ### Human gate and re-route rules
 Rescued from the old `.agents/` scaffold, because ECC has no equivalent. Applies to people and to any AI assistant working on this repo.
 
 **Stop and get explicit human approval before:**
 - Deploying to production (`vercel --prod`). No exceptions, even for a hotfix.
-- Applying a schema change to the database (`npm run db:push`). Confirm first, as noted under "Pending".
+- Applying a schema change to the database. Never with `npm run db:push` against the real database (it would drop `whatsapp_bot_memory`): use the manual `up.sql` flow in "Schema changes", with a verified backup first.
+- Any write to n8n (see the `/n8n` command below), any real WhatsApp message sent as a test, and any other outward-facing action (publishing to the public issue tracker, a commit or a PR the user has not asked for).
 - Any action that destructively modifies or deletes database data.
 - Escalating a P1 incident (the bot or booking is down for customers).
 
@@ -740,11 +788,11 @@ Token-lean maps live in `docs/CODEMAPS/`: `architecture.md`, `backend.md`, `fron
 ### Precedence over ECC rules
 When an ECC rule conflicts with this file, this file wins. In particular:
 - Tenant isolation (`tenantId` from the session, never from input), `@/lib/db` for Prisma, white-label vocabulary, i18n, no emojis, minimal UI and tenant theme tokens are mandatory.
-- The ECC rules for 80% coverage and TDD are the target, but the repo has no test runner yet. Adding one is a separate task.
+- The ECC rules for 80% coverage and TDD are the target. The repo has no coverage tool or CI test step yet, but pure logic is tested with `node:test` through `tsx` in `local-utils/*.test.ts` (`npx tsx --test local-utils/*.test.ts`): write the failing test first, then the code. Logic that talks to the database or the network is built with its I/O injected so it can be tested without them (see `src/lib/reminder-run.ts`). Adding a real runner and coverage is a separate task.
 - The ECC "never mutate" rule applies to new code. Do not rewrite existing Prisma or Zustand code only to satisfy it.
 
-### Known gaps (verified 2026-10-28)
-- `local-utils/` and `n8n/workflows/` are cited in this file but do not exist in this checkout. Treat them as external until restored.
+### Known gaps (verified 2026-11-03)
+- `n8n/workflows/` is cited in this file but does not exist in this checkout. Treat it as external: the live n8n instance is the source of truth (use `/n8n`). `local-utils/` now exists with tests and utilities.
 - Upstash Redis is listed in the env vars but no code under `src/` uses it.
 
 ---

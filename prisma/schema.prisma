@@ -575,6 +575,10 @@ model Appointment {
   reminderSentAt      DateTime?
   customerConfirmedAt DateTime?
   autoReleasedAt      DateTime?
+  // Failed reminder sends (ticket #16): cleared on a successful send or when the visit is rescheduled.
+  reminderAttempts      Int       @default(0)
+  reminderLastError     String?   @db.Text
+  reminderLastAttemptAt DateTime?
 
   appointmentDate DateTime          // fecha y hora de la cita
   durationMinutes Int               // duración en minutos

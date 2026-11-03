@@ -1,22 +1,37 @@
 // src/app/api/internal/reminders/run/route.ts
 // POST: Sends due appointment reminders and releases visits nobody confirmed.
 // Called every 15 min by the reminders workflow. No LLM. Body { dryRun?: boolean } lists the work without acting.
+// The per-visit rules live in src/lib/reminder-run.ts; this route only loads the visits and wires the real I/O.
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import { isInternalKeyValid, ACTIVE_APPOINTMENT_STATUSES } from "@/lib/bot";
-import { sendWhatsAppMessage } from "@/lib/whatsapp";
-import { releaseVisit } from "@/lib/reminder-actions";
+import { isInternalKeyValid } from "@/lib/bot";
+import { loadReminderVisits, realReminderDeps } from "@/lib/reminder-data";
 import { syncCalendarDelete } from "@/lib/calendar-sync";
-import { planReminder, releaseAt } from "@/lib/reminders";
-import { recordMessageCharge, reminderCostUsd } from "@/lib/credits";
-import {
-  clinicLongDate,
-  clinicTime,
-  customerTexts,
-  renderTemplate,
-} from "@/lib/reminder-messages";
+import { reminderRunStatus, runReminderBatch } from "@/lib/reminder-run";
 
-const LOOKAHEAD_HOURS = 96; // covers reminders up to 72 h before a visit, plus a day of margin
+const STUCK_CALENDAR_BATCH = 20;
+
+/** Retry: cancelled visits whose calendar event was not removed yet. The link is cleared only once the event is gone. */
+async function removeStuckCalendarEvents(): Promise<{ removed: number; errors: string[] }> {
+  const stuck = await prisma.appointment.findMany({
+    where: { status: "CANCELLED", externalEventId: { not: null } },
+    select: { id: true, tenantId: true, externalProvider: true, externalEventId: true },
+    take: STUCK_CALENDAR_BATCH,
+  });
+  let removed = 0;
+  const errors: string[] = [];
+  for (const a of stuck) {
+    try {
+      if (await syncCalendarDelete(a.tenantId, a)) {
+        await prisma.appointment.update({ where: { id: a.id }, data: { externalProvider: null, externalEventId: null } });
+        removed++;
+      }
+    } catch (error: unknown) {
+      errors.push(`${a.id}: ${error instanceof Error ? error.message : "error"}`);
+    }
+  }
+  return { removed, errors };
+}
 
 export async function POST(req: NextRequest) {
   if (!isInternalKeyValid(req)) return Response.json({ error: "No autorizado" }, { status: 401 });
@@ -24,141 +39,26 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const dryRun = body?.dryRun === true;
   const now = new Date();
-  const horizon = new Date(now.getTime() + LOOKAHEAD_HOURS * 60 * 60000);
 
-  const appointments = await prisma.appointment.findMany({
-    where: {
-      status: { in: [...ACTIVE_APPOINTMENT_STATUSES] },
-      appointmentDate: { gt: now, lte: horizon },
-      tenant: { remindersEnabled: true },
-    },
-    select: {
-      id: true,
-      tenantId: true,
-      customerPhone: true,
-      appointmentDate: true,
-      durationMinutes: true,
-      createdAt: true,
-      reminderSentAt: true,
-      customerConfirmedAt: true,
-      autoReleasedAt: true,
-      externalProvider: true,
-      externalEventId: true,
-      product: { select: { name: true } },
-      tenant: {
-        select: {
-          name: true,
-          messageLanguage: true,
-          reminderLeadMinutes: true,
-          confirmationRequired: true,
-          confirmationDeadlineMinutes: true,
-          reminderTemplate: true,
-          confirmationTemplate: true,
-          cancellationTemplate: true,
-        },
-      },
-    },
-    orderBy: { appointmentDate: "asc" },
-  });
+  const visits = await loadReminderVisits(now);
+  const batch = await runReminderBatch(visits, now, realReminderDeps, { dryRun });
 
-  const result = { checked: appointments.length, sent: 0, released: 0, skipped: 0, failed: 0, calendarRemoved: 0, dryRun, actions: [] as object[] };
-
-  for (const appt of appointments) {
-    const t = appt.tenant;
-    const plan = planReminder({
-      apptStart: appt.appointmentDate,
-      createdAt: appt.createdAt,
-      leadMinutes: t.reminderLeadMinutes,
-      deadlineMinutes: t.confirmationDeadlineMinutes,
-      confirmationRequired: t.confirmationRequired,
-    });
-    const deadline = releaseAt(appt.appointmentDate, t.confirmationDeadlineMinutes);
-    const hasPhone = Boolean(appt.customerPhone);
-
-    // Release: a confirmation was requested, the deadline passed, and the customer did not answer.
-    if (
-      appt.reminderSentAt &&
-      !appt.customerConfirmedAt &&
-      !appt.autoReleasedAt &&
-      plan.requestConfirmation &&
-      now.getTime() >= deadline.getTime()
-    ) {
-      if (dryRun) {
-        result.actions.push({ action: "release", appointmentId: appt.id, deadline: deadline.toISOString() });
-        continue;
-      }
-      await releaseVisit({
-        id: appt.id,
-        tenantId: appt.tenantId,
-        customerPhone: appt.customerPhone,
-        appointmentDate: appt.appointmentDate,
-        externalProvider: appt.externalProvider,
-        externalEventId: appt.externalEventId,
-        productName: appt.product.name,
-        tenantName: t.name,
-        messageLanguage: t.messageLanguage,
-        cancellationTemplate: t.cancellationTemplate,
-      }, now);
-      result.released++;
-      continue;
-    }
-
-    // Reminder: due, not sent yet, and the visit still has a reachable phone.
-    const due = now.getTime() >= plan.sendAt.getTime();
-    if (!appt.reminderSentAt && due && (plan.requestConfirmation || plan.sendPlain)) {
-      if (!hasPhone) {
-        result.skipped++;
-        continue;
-      }
-
-      const texts = customerTexts(t.messageLanguage);
-      const values = {
-        servicio: appt.product.name,
-        fecha: clinicLongDate(appt.appointmentDate, t.messageLanguage),
-        hora: clinicTime(appt.appointmentDate, t.messageLanguage),
-        negocio: t.name,
-      };
-      const confirmationPart = plan.requestConfirmation
-        ? `\n\n${renderTemplate(t.confirmationTemplate ?? texts.confirmationTemplate, {
-            ...values,
-            hora_limite: clinicTime(plan.releaseAt!, t.messageLanguage),
-          })}`
-        : `\n\n${texts.plainFooter}`;
-      const text = renderTemplate(t.reminderTemplate ?? texts.reminderTemplate, values) + confirmationPart;
-
-      if (dryRun) {
-        result.actions.push({ action: "remind", appointmentId: appt.id, confirmation: plan.requestConfirmation, sendAt: plan.sendAt.toISOString() });
-        continue;
-      }
-
-      const sent = await sendWhatsAppMessage({ tenantId: appt.tenantId, to: appt.customerPhone!, text });
-      if (!sent.success) {
-        // Nothing is marked or charged, so the next run retries.
-        console.error("[reminders/run] Send failed:", appt.id, sent.reason);
-        result.failed++;
-        continue;
-      }
-
-      await prisma.appointment.update({ where: { id: appt.id }, data: { reminderSentAt: now } });
-      await recordMessageCharge(appt.tenantId, reminderCostUsd());
-      result.sent++;
-    }
+  for (const f of batch.failures) {
+    console.error("[reminders/run] failure", JSON.stringify(f));
   }
 
-  // Retry: cancelled visits whose calendar event was not removed yet (missing token or provider error).
-  // The link is cleared only after the event is really gone.
-  const stuck = await prisma.appointment.findMany({
-    where: { status: "CANCELLED", externalEventId: { not: null } },
-    select: { id: true, tenantId: true, externalProvider: true, externalEventId: true },
-    take: 20,
-  });
-  for (const a of stuck) {
-    if (dryRun) continue;
-    if (await syncCalendarDelete(a.tenantId, a)) {
-      await prisma.appointment.update({ where: { id: a.id }, data: { externalProvider: null, externalEventId: null } });
-      result.calendarRemoved++;
-    }
-  }
+  const calendar = dryRun ? { removed: 0, errors: [] } : await removeStuckCalendarEvents();
+  if (calendar.errors.length > 0) console.error("[reminders/run] calendar cleanup errors", calendar.errors);
 
-  return Response.json({ success: true, ...result });
+  const status = reminderRunStatus(batch, dryRun);
+  return Response.json(
+    {
+      success: status === 200,
+      checked: visits.length,
+      dryRun,
+      calendarRemoved: calendar.removed,
+      ...batch,
+    },
+    { status },
+  );
 }
