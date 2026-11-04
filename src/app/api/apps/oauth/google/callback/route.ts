@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { saveAppConnection } from "@/lib/connected-apps";
 import { prisma } from "@/lib/db";
+import { pickOAuthUser } from "@/lib/oauth-user";
 
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
@@ -55,7 +56,7 @@ export async function GET(req: NextRequest) {
   });
 
   if (!tokenRes.ok) {
-    return NextResponse.redirect(new URL("/admin/apps?error=token_exchange", req.url));
+    return NextResponse.redirect(new URL("/admin/apps?error=token_exchange", stateParam || req.url));
   }
 
   const data = await tokenRes.json();
@@ -77,37 +78,39 @@ export async function GET(req: NextRequest) {
   // 5. Find user by email to get tenantId and userId
   // Try session fallback FIRST (more reliable for admin users)
   let sessionUserEmail: string | null = null;
+  let sessionUserId: string | null = null;
   try {
     const session = await getServerSession(authOptions);
     if (session?.user) {
       sessionUserEmail = (session.user as any).email;
+      sessionUserId = (session.user as any).id ?? null;
     }
   } catch (err) {
   }
+
+  // Errors go back to the tenant the flow started from (state), not to req.url: in local it resolves to
+  // localhost:3000 without the tenant, where the owner cannot sign in.
+  const backTo = (error: string) => NextResponse.redirect(new URL(`/admin/apps?error=${error}`, stateParam || req.url));
   
   // Use session email if available, otherwise use Google API email
   const finalEmail = sessionUserEmail || userEmail;
   
   if (!finalEmail) {
-    return NextResponse.redirect(new URL("/admin/apps?error=no_email", req.url));
+    return backTo("no_email");
   }
   
   userEmail = finalEmail;
 
   // Look up user with tenant relationship included
-  const user = await prisma.user.findFirst({
-    where: { email: userEmail },
-    include: { tenant: true },
-  });
+  const user = pickOAuthUser(
+    await prisma.user.findMany({ where: { email: userEmail }, include: { tenant: true } }),
+    sessionUserId,
+  );
 
-  if (!user) {
-    return NextResponse.redirect(new URL("/admin/apps?error=user_not_found", req.url));
-  }
+  if (!user) return backTo("user_not_found");
 
   // 6. Check if user is ADMIN
-  if (user.role !== "ADMIN") {
-    return NextResponse.redirect(new URL("/admin/apps?error=not_admin", req.url));
-  }
+  if (user.role !== "ADMIN") return backTo("not_admin");
 
   // 7. Save the connection
   try {
