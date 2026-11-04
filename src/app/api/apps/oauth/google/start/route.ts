@@ -49,7 +49,6 @@ export async function GET(req: NextRequest) {
   // Force Google to use this specific email
   if (session.user.email) {
     authUrl.searchParams.set("login_hint", session.user.email);
-    authUrl.searchParams.set("hd", session.user.email.split("@")[1] || "");
   }
 
   return NextResponse.redirect(authUrl.toString());
