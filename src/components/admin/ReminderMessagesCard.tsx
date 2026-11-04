@@ -3,12 +3,12 @@
 // Customer message settings: language and the reminder, confirmation and cancellation texts.
 // Saves on its own through /api/tenants/reminders, sending only these fields.
 import { useEffect, useRef, useState } from "react";
-import { Check, Loader2, AlertCircle, MessageSquare } from "lucide-react";
+import { Check, Loader2, AlertCircle, MessageSquare, Wrench } from "lucide-react";
 import { useTranslation } from "@/i18n";
 import { translateApiError } from "@/i18n/validation";
 import { es } from "@/i18n/es";
 import { en } from "@/i18n/en";
-import { templateIssues, type TemplateIssue, type TemplateKind } from "@/lib/reminder-template-rules";
+import { suggestFix, templateIssues, type TemplateIssue, type TemplateKind } from "@/lib/reminder-template-rules";
 
 interface MessageSettings {
   messageLanguage: "es" | "en";
@@ -133,6 +133,7 @@ export default function ReminderMessagesCard() {
         <TemplateField
           id="reminder-template"
           issues={issuesByKind.reminder}
+          kind="reminder"
           label={tx.reminderTemplateLabel}
           value={settings.reminderTemplate}
           onChange={(value) => update({ reminderTemplate: value })}
@@ -142,6 +143,7 @@ export default function ReminderMessagesCard() {
         <TemplateField
           id="confirmation-template"
           issues={issuesByKind.confirmation}
+          kind="confirmation"
           label={tx.confirmationTemplateLabel}
           value={settings.confirmationTemplate}
           onChange={(value) => update({ confirmationTemplate: value })}
@@ -151,6 +153,7 @@ export default function ReminderMessagesCard() {
         <TemplateField
           id="cancellation-template"
           issues={issuesByKind.cancellation}
+          kind="cancellation"
           label={tx.cancellationTemplateLabel}
           value={settings.cancellationTemplate}
           onChange={(value) => update({ cancellationTemplate: value })}
@@ -214,9 +217,11 @@ function TemplateField({
   detailNames,
   insertLabel,
   issues,
+  kind,
 }: {
   id: string;
   issues: TemplateIssue[];
+  kind: TemplateKind;
   label: string;
   value: string | null;
   onChange: (value: string) => void;
@@ -283,6 +288,26 @@ function TemplateField({
                   {fragment}
                 </button>
               ))}
+              {(() => {
+                const fix = suggestFix(value ?? "", issue, kind, tx.tokenTime);
+                if (!fix) return null;
+                const label =
+                  fix.action === "replace_time"
+                    ? tx.fixReplaceWithTime.replace("{tag}", tx.tokenTime)
+                    : fix.action === "remove_paragraph"
+                      ? tx.fixRemoveParagraph
+                      : tx.fixRemoveFragment;
+                return (
+                  <button
+                    type="button"
+                    onClick={() => onChange(fix.text)}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-medium text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800"
+                  >
+                    <Wrench size={12} />
+                    {label}
+                  </button>
+                );
+              })()}
             </li>
           ))}
         </ul>

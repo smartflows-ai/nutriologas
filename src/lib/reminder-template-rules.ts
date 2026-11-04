@@ -130,3 +130,44 @@ export function validateConfirmationTemplate(template: string): string | null {
   if (deadlineTags(template).length === 0) return "confirmation_missing_deadline";
   return siRequests(template).length === 0 ? "confirmation_missing_si" : null;
 }
+
+export type FixAction = "replace_time" | "remove_paragraph" | "remove_fragment";
+
+export interface TemplateFix {
+  action: FixAction;
+  /** The text once the fix is applied. */
+  text: string;
+}
+
+function removeFragments(template: string, fragments: string[]): string {
+  const without = fragments.reduce((text, fragment) => text.split(fragment).join(""), template);
+  // Close the gap the removal leaves ("Hola [x], te" -> "Hola , te" -> "Hola, te").
+  return without.replace(/[ \t]+([,.;:!?])/g, "$1").replace(/[ \t]{2,}/g, " ").trim();
+}
+
+function removeParagraphsWith(template: string, fragments: string[]): string | null {
+  const paragraphs = template.split(/\n[ \t]*\n/);
+  const kept = paragraphs.filter((paragraph) => !fragments.some((fragment) => paragraph.includes(fragment)));
+  // Never empty the whole text: with a single paragraph the caller removes just the fragment.
+  return kept.length > 0 && kept.length < paragraphs.length ? kept.join("\n\n").trim() : null;
+}
+
+/**
+ * The one-click fix for a problem, or null when it concerns the whole text and the owner must write it.
+ * `timeLabel` is the label of the appointment-time tag in the owner's language (the deadline cannot be used there).
+ */
+export function suggestFix(template: string, issue: TemplateIssue, kind: TemplateKind, timeLabel: string): TemplateFix | null {
+  if (issue.fragments.length === 0) return null;
+
+  if (issue.code === "template_deadline_not_allowed" && kind === "cancellation") {
+    const text = issue.fragments.reduce((current, fragment) => current.split(fragment).join(`[${timeLabel}]`), template);
+    return { action: "replace_time", text };
+  }
+
+  const removesParagraph = issue.code === "template_deadline_not_allowed" || issue.code === "template_repeats_confirmation";
+  if (removesParagraph) {
+    const text = removeParagraphsWith(template, issue.fragments);
+    if (text !== null) return { action: "remove_paragraph", text };
+  }
+  return { action: "remove_fragment", text: removeFragments(template, issue.fragments) };
+}

@@ -213,3 +213,48 @@ test("templateProblem is the code of the first issue", () => {
   assert.equal(templateProblem("Hola [Telefono]", "reminder"), "template_unknown_tag");
   assert.equal(templateProblem("Cita de [Servicio]", "reminder"), null);
 });
+
+// One-click fixes next to each problem.
+import { suggestFix } from "../src/lib/reminder-template-rules";
+
+const PROD_REMINDER =
+  "Recordatorio de tu cita en [Nombre del negocio].\n\nServicio: [Servicio]\nFecha: [Fecha]\nHora: [Hora]\n\n¿Confirmas tu cita? Responde SI para confirmarla. Si no la confirmas antes de las [Hora límite]., se cancelará y el horario quedará libre.";
+
+test("a reminder with the confirmation paragraph is fixed by removing that paragraph, and is then valid", () => {
+  const [issue] = templateIssues(PROD_REMINDER, "reminder");
+  const fix = suggestFix(PROD_REMINDER, issue, "reminder", "Hora");
+  assert.equal(fix?.action, "remove_paragraph");
+  assert.equal(fix?.text, "Recordatorio de tu cita en [Nombre del negocio].\n\nServicio: [Servicio]\nFecha: [Fecha]\nHora: [Hora]");
+  assert.deepEqual(templateIssues(fix!.text, "reminder"), []);
+});
+
+test("a cancellation with the deadline tag is fixed by replacing it with the time tag", () => {
+  const text = "Tu cita de [Servicio] el [Fecha] a las [Hora límite]. en [Nombre del negocio] fue cancelada.";
+  const issue = templateIssues(text, "cancellation")[0];
+  const fix = suggestFix(text, issue, "cancellation", "Hora");
+  assert.equal(fix?.action, "replace_time");
+  assert.equal(fix?.text, "Tu cita de [Servicio] el [Fecha] a las [Hora]. en [Nombre del negocio] fue cancelada.");
+  assert.deepEqual(templateIssues(fix!.text, "cancellation"), []);
+});
+
+test("a single-paragraph reminder only loses the offending fragment, never the whole text", () => {
+  const text = "Cita de [Servicio] el [Fecha]. Responde SI para confirmarla.";
+  const issue = templateIssues(text, "reminder")[0];
+  const fix = suggestFix(text, issue, "reminder", "Hora");
+  assert.equal(fix?.action, "remove_fragment");
+  assert.notEqual(fix?.text.trim(), "");
+  assert.match(fix!.text, /Cita de \[Servicio\]/);
+});
+
+test("an unknown tag is fixed by removing just that tag, without leaving a gap", () => {
+  const text = "Hola [Telefono], tu cita es el [Fecha].";
+  const issue = templateIssues(text, "reminder")[0];
+  const fix = suggestFix(text, issue, "reminder", "Hora");
+  assert.equal(fix?.action, "remove_fragment");
+  assert.equal(fix?.text, "Hola, tu cita es el [Fecha].");
+});
+
+test("problems about the whole text have no one-click fix", () => {
+  const issue = templateIssues("Te esperamos el [Fecha].", "confirmation")[0];
+  assert.equal(suggestFix("Te esperamos el [Fecha].", issue, "confirmation", "Hora"), null);
+});
