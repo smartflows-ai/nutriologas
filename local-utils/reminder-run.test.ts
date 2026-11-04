@@ -12,6 +12,7 @@ function visit(overrides: Partial<ReminderVisit> = {}): ReminderVisit {
     id: "a1",
     tenantId: "t1",
     customerPhone: "525500000001",
+    customerName: null,
     appointmentDate: new Date(NOW.getTime() + 23 * HOUR), // reminder (24 h before) was due 1 h ago
     createdAt: new Date(NOW.getTime() - 48 * HOUR),
     reminderSentAt: null,

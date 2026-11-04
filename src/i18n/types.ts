@@ -570,6 +570,7 @@ export interface Translations {
       tokenTime: string;
       tokenDeadline: string;
       tokenBusiness: string;
+      tokenName: string;
       messageLanguageLabel: string;
       messageLanguageHint: string;
       messagesSection: string;

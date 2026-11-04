@@ -22,6 +22,7 @@ function visit(tenant: Partial<ReminderVisit["tenant"]> = {}): ReminderVisit {
     id: "a1",
     tenantId: "t1",
     customerPhone: "525500000002",
+    customerName: null,
     appointmentDate: new Date(NOW.getTime() + 23 * HOUR),
     createdAt: new Date(NOW.getTime() - 48 * HOUR),
     reminderSentAt: null,
@@ -72,7 +73,7 @@ test("tags are case-insensitive, tolerate spaces, and accept English labels", ()
 });
 
 test("an unknown tag is left exactly as the owner typed it", () => {
-  assert.equal(renderTemplate("Hola [Nombre]", VALUES), "Hola [Nombre]");
+  assert.equal(renderTemplate("Hola [Telefono]", VALUES), "Hola [Telefono]");
 });
 
 test("the deadline tag stays visible when the message has no deadline to give", () => {
@@ -149,7 +150,7 @@ test("the confirmation text still accepts the deadline tag", () => {
 
 // Any bracketed word that is not one of the five tags would reach the customer exactly as typed, so it is rejected on save.
 test("a bracketed word that is not a known tag is rejected, whatever the language of the text", () => {
-  assert.equal(validateKnownTags("Hola [Nombre]"), "template_unknown_tag");
+  assert.equal(validateKnownTags("Hola [Telefono]"), "template_unknown_tag");
   assert.equal(validateKnownTags("Cita el [Fecha] [ver mapa]"), "template_unknown_tag");
   assert.equal(validateKnownTags("Hello [Customer]"), "template_unknown_tag");
 });

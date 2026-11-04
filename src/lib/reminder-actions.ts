@@ -11,6 +11,7 @@ export interface VisitForAction {
   id: string;
   tenantId: string;
   customerPhone: string | null;
+  customerName: string | null;
   appointmentDate: Date;
   externalProvider: AppProvider | null;
   externalEventId: string | null;
@@ -26,6 +27,7 @@ function visitValues(visit: VisitForAction) {
     fecha: clinicLongDate(visit.appointmentDate, visit.messageLanguage),
     hora: clinicTime(visit.appointmentDate, visit.messageLanguage),
     negocio: visit.tenantName,
+    nombre: visit.customerName,
   };
 }
 

@@ -80,7 +80,7 @@ export default function ReminderMessagesCard() {
   const invalidLabels = { reminder: tx.reminderTemplateLabel, confirmation: tx.confirmationTemplateLabel, cancellation: tx.cancellationTemplateLabel };
   const invalidNames = (settings?.invalidTemplates ?? []).map((kind) => invalidLabels[kind]);
 
-  const detailNames = [tx.tokenService, tx.tokenDate, tx.tokenTime, tx.tokenDeadline, tx.tokenBusiness];
+  const detailNames = [tx.tokenService, tx.tokenDate, tx.tokenTime, tx.tokenDeadline, tx.tokenBusiness, tx.tokenName];
   // The deadline time only exists in the confirmation text; offering it elsewhere would send it with brackets.
   const detailNamesWithoutDeadline = detailNames.filter((name) => name !== tx.tokenDeadline);
 

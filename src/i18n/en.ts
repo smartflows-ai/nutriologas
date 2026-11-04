@@ -688,6 +688,7 @@ export const en: Translations = {
       tokenTime: "Time",
       tokenDeadline: "Deadline time",
       tokenBusiness: "Business name",
+      tokenName: "Customer name",
       messageLanguageLabel: "Customer message language",
       messageLanguageHint: "Reminders, confirmations and cancellations are sent in this language.",
       messagesSection: "Customer messages",

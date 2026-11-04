@@ -9,11 +9,11 @@ import { runReminderBatch, type ReminderDeps, type ReminderVisit } from "../src/
 const HOUR = 60 * 60 * 1000;
 const NOW = new Date("2026-11-02T18:00:00.000Z");
 
-// The three texts found in production (business name replaced by a generic one).
+// The three texts found in production (business name generic; the confirmation had a tag that did not exist then, here [Telefono] stands for any unknown tag).
 const STORED_REMINDER =
   "Recordatorio de tu cita en [Nombre del negocio].\n\nServicio: [Servicio]\nFecha: [Fecha]\nHora: [Hora]\n\n¿Confirmas tu cita? Responde SI para confirmarla. Si no la confirmas antes de las [Hora límite]., se cancelará y el horario quedará libre.";
 const STORED_CONFIRMATION =
-  "Hola [Nombre], te esperamos en [Nombre del negocio] para tu [Servicio] [Fecha]\n\nPara confirmar responde SI antes de las [Hora límite].. Si no, liberaremos el horario.";
+  "Hola [Telefono], te esperamos en [Nombre del negocio] para tu [Servicio] [Fecha]\n\nPara confirmar responde SI antes de las [Hora límite].. Si no, liberaremos el horario.";
 const STORED_CANCELLATION =
   "Tu cita de [Servicio] el [Fecha] a las [Hora límite]. en [Nombre del negocio] fue cancelada por falta de confirmación.";
 
@@ -61,6 +61,7 @@ function visit(templates: Partial<ReminderVisit["tenant"]>): ReminderVisit {
     id: "a1",
     tenantId: "t1",
     customerPhone: "525500000001",
+    customerName: null,
     appointmentDate: new Date(NOW.getTime() + 23 * HOUR),
     createdAt: new Date(NOW.getTime() - 48 * HOUR),
     reminderSentAt: null,
@@ -130,4 +131,45 @@ test("usableTemplate falls back for a reminder that asks to reply SI", () => {
 test("the sent message asks to confirm only once when the stored reminder already asks for SI", async () => {
   const text = await sentText(visit({ reminderTemplate: REMINDER_ASKING_SI }));
   assert.equal((text.match(/\bSI\b/g) ?? []).length, 1, text);
+});
+
+// [Nombre] is the customer's name. It is valid in every text, and with no name it disappears without leaving gaps.
+import { renderTemplate, templateProblem, validateKnownTags } from "../src/lib/reminder-messages";
+
+test("[Nombre] is a known tag in every kind of text", () => {
+  assert.equal(validateKnownTags("Hola [Nombre], tu cita es el [Fecha]."), null);
+  assert.equal(templateProblem("Hola [Nombre], tu cita de [Servicio].", "reminder"), null);
+  assert.equal(templateProblem("Hola [Nombre], tu cita de [Servicio] fue cancelada.", "cancellation"), null);
+});
+
+test("[Nombre] is filled with the customer's first name", () => {
+  assert.equal(renderTemplate("Hola [Nombre], te esperamos.", { ...values, nombre: "Maria Fernanda Lopez" }), "Hola Maria, te esperamos.");
+});
+
+test("[Nombre] with no name leaves no hole before punctuation", () => {
+  assert.equal(renderTemplate("Hola [Nombre], te esperamos.", { ...values, nombre: null }), "Hola, te esperamos.");
+  assert.equal(renderTemplate("Hola [Nombre], te esperamos.", { ...values, nombre: "   " }), "Hola, te esperamos.");
+  assert.equal(renderTemplate("Hola [Nombre], te esperamos.", values), "Hola, te esperamos.");
+});
+
+test("[Nombre] with no name leaves no double space in the middle of a sentence", () => {
+  assert.equal(renderTemplate("Tu cita, [Nombre] de [Servicio]", { ...values, nombre: null }), "Tu cita, de Consulta");
+  assert.equal(renderTemplate("Estimado [Nombre] gracias", { ...values, nombre: null }), "Estimado gracias");
+});
+
+test("the English label of the name tag is accepted too", () => {
+  assert.equal(validateKnownTags("Hi [Customer name], see you."), null);
+});
+
+test("a reminder with [Nombre] and no customer name goes out with no bracket", async () => {
+  const v = visit({ reminderTemplate: "Hola [Nombre], recordatorio de [Servicio] el [Fecha] a las [Hora]." });
+  const text = await sentText({ ...v, customerName: null });
+  assert.equal(text.includes("["), false, text);
+  assert.match(text, /^Hola, recordatorio/);
+});
+
+test("a reminder with [Nombre] uses the customer's first name when there is one", async () => {
+  const v = visit({ reminderTemplate: "Hola [Nombre], recordatorio de [Servicio]." });
+  const text = await sentText({ ...v, customerName: "Juan Perez" });
+  assert.match(text, /^Hola Juan, recordatorio/);
 });

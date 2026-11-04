@@ -20,6 +20,7 @@ export interface ReminderVisit {
   id: string;
   tenantId: string;
   customerPhone: string | null;
+  customerName: string | null;
   appointmentDate: Date;
   createdAt: Date;
   reminderSentAt: Date | null;
@@ -80,6 +81,7 @@ function reminderText(visit: ReminderVisit, requestConfirmation: boolean, releas
     fecha: clinicLongDate(visit.appointmentDate, t.messageLanguage),
     hora: clinicTime(visit.appointmentDate, t.messageLanguage),
     negocio: t.name,
+    nombre: visit.customerName,
   };
   const warn = (kind: string) => (problem: string) =>
     console.warn(`[reminders] stored ${kind} text ignored (${problem}) for tenant ${visit.tenantId}; default used`);

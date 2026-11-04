@@ -13,6 +13,7 @@ const TOKEN_FIELDS = [
   { key: "hora", labelKey: "tokenTime" },
   { key: "hora_limite", labelKey: "tokenDeadline" },
   { key: "negocio", labelKey: "tokenBusiness" },
+  { key: "nombre", labelKey: "tokenName" },
 ] as const;
 
 type TokenKey = (typeof TOKEN_FIELDS)[number]["key"];
@@ -47,12 +48,25 @@ export interface ReminderValues {
   hora: string;
   hora_limite?: string;
   negocio: string;
+  /** Customer's name as typed when booking. Null or blank when unknown: the tag then disappears. */
+  nombre?: string | null;
+}
+
+/** First name only: "Hola [Nombre]" reads naturally, a full name with two surnames does not. */
+export function firstName(name: string | null | undefined): string {
+  return (name ?? "").trim().split(/\s+/)[0] ?? "";
 }
 
 export function renderTemplate(template: string, values: ReminderValues): string {
-  return template.replace(/\[([^\[\]]+)\]/g, (match, label: string, offset: number, whole: string) => {
+  let nameWasEmpty = false;
+  const filled = template.replace(/\[([^\[\]]+)\]/g, (match, label: string, offset: number, whole: string) => {
     const key = LABEL_TO_KEY.get(label.trim().toLowerCase());
     if (!key) return match;
+    if (key === "nombre") {
+      const name = firstName(values.nombre);
+      if (!name) nameWasEmpty = true;
+      return name;
+    }
     const value = values[key];
     if (value === undefined) return match;
     // "a.m." and "p.m." already end with a period: when the template closes its sentence right after the tag,
@@ -60,6 +74,8 @@ export function renderTemplate(template: string, values: ReminderValues): string
     const nextChar = whole[offset + match.length];
     return value.endsWith(".") && nextChar === "." ? value.slice(0, -1) : value;
   });
+  // An unknown name leaves its tag empty: close the gap ("Hola , te" -> "Hola, te", "de  la" -> "de la").
+  return nameWasEmpty ? filled.replace(/[ \t]+([,.;:!?])/g, "$1").replace(/[ \t]{2,}/g, " ") : filled;
 }
 
 /** Long date in the clinic zone, in the business language. */
