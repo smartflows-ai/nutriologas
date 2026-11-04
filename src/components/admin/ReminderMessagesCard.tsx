@@ -89,6 +89,9 @@ export default function ReminderMessagesCard() {
   };
   const hasIssues = Object.values(issuesByKind).some((list) => list.length > 0);
 
+  // What goes out when a field is left empty: shown in the field so the owner can read it.
+  const defaults = (settings?.messageLanguage === "en" ? en : es).customerMessages;
+
   const detailNames = [tx.tokenService, tx.tokenDate, tx.tokenTime, tx.tokenDeadline, tx.tokenBusiness, tx.tokenName];
   // The deadline time only exists in the confirmation text; offering it elsewhere would send it with brackets.
   const detailNamesWithoutDeadline = detailNames.filter((name) => name !== tx.tokenDeadline);
@@ -134,6 +137,7 @@ export default function ReminderMessagesCard() {
           id="reminder-template"
           issues={issuesByKind.reminder}
           kind="reminder"
+          defaultText={defaults.reminderTemplate}
           label={tx.reminderTemplateLabel}
           value={settings.reminderTemplate}
           onChange={(value) => update({ reminderTemplate: value })}
@@ -144,6 +148,7 @@ export default function ReminderMessagesCard() {
           id="confirmation-template"
           issues={issuesByKind.confirmation}
           kind="confirmation"
+          defaultText={defaults.confirmationTemplate}
           label={tx.confirmationTemplateLabel}
           value={settings.confirmationTemplate}
           onChange={(value) => update({ confirmationTemplate: value })}
@@ -154,6 +159,7 @@ export default function ReminderMessagesCard() {
           id="cancellation-template"
           issues={issuesByKind.cancellation}
           kind="cancellation"
+          defaultText={defaults.cancellationTemplate}
           label={tx.cancellationTemplateLabel}
           value={settings.cancellationTemplate}
           onChange={(value) => update({ cancellationTemplate: value })}
@@ -218,10 +224,12 @@ function TemplateField({
   insertLabel,
   issues,
   kind,
+  defaultText,
 }: {
   id: string;
   issues: TemplateIssue[];
   kind: TemplateKind;
+  defaultText: string;
   label: string;
   value: string | null;
   onChange: (value: string) => void;
@@ -266,6 +274,7 @@ function TemplateField({
         rows={3}
         maxLength={600}
         value={value ?? ""}
+        placeholder={defaultText}
         onChange={(e) => onChange(e.target.value)}
         aria-invalid={hasIssues}
         aria-describedby={hasIssues ? `${id}-issues` : undefined}
