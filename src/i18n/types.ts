@@ -576,6 +576,8 @@ export interface Translations {
       messagesSection: string;
       messagesSectionDesc: string;
       saveMessagesBtn: string;
+      fixTemplatesToSave: string;
+      locateInText: string;
       saveRemindersBtn: string;
       savedReminders: string;
       reminderLoadError: string;

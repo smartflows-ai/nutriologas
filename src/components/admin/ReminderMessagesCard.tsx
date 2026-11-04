@@ -8,6 +8,7 @@ import { useTranslation } from "@/i18n";
 import { translateApiError } from "@/i18n/validation";
 import { es } from "@/i18n/es";
 import { en } from "@/i18n/en";
+import { templateIssues, type TemplateIssue, type TemplateKind } from "@/lib/reminder-template-rules";
 
 interface MessageSettings {
   messageLanguage: "es" | "en";
@@ -80,6 +81,14 @@ export default function ReminderMessagesCard() {
   const invalidLabels = { reminder: tx.reminderTemplateLabel, confirmation: tx.confirmationTemplateLabel, cancellation: tx.cancellationTemplateLabel };
   const invalidNames = (settings?.invalidTemplates ?? []).map((kind) => invalidLabels[kind]);
 
+  // The same checks the server runs, while the owner types: a text with a problem cannot be saved.
+  const issuesByKind: Record<TemplateKind, TemplateIssue[]> = {
+    reminder: settings?.reminderTemplate?.trim() ? templateIssues(settings.reminderTemplate.trim(), "reminder") : [],
+    confirmation: settings?.confirmationTemplate?.trim() ? templateIssues(settings.confirmationTemplate.trim(), "confirmation") : [],
+    cancellation: settings?.cancellationTemplate?.trim() ? templateIssues(settings.cancellationTemplate.trim(), "cancellation") : [],
+  };
+  const hasIssues = Object.values(issuesByKind).some((list) => list.length > 0);
+
   const detailNames = [tx.tokenService, tx.tokenDate, tx.tokenTime, tx.tokenDeadline, tx.tokenBusiness, tx.tokenName];
   // The deadline time only exists in the confirmation text; offering it elsewhere would send it with brackets.
   const detailNamesWithoutDeadline = detailNames.filter((name) => name !== tx.tokenDeadline);
@@ -123,6 +132,7 @@ export default function ReminderMessagesCard() {
       <div className="space-y-4 pt-2">
         <TemplateField
           id="reminder-template"
+          issues={issuesByKind.reminder}
           label={tx.reminderTemplateLabel}
           value={settings.reminderTemplate}
           onChange={(value) => update({ reminderTemplate: value })}
@@ -131,6 +141,7 @@ export default function ReminderMessagesCard() {
         />
         <TemplateField
           id="confirmation-template"
+          issues={issuesByKind.confirmation}
           label={tx.confirmationTemplateLabel}
           value={settings.confirmationTemplate}
           onChange={(value) => update({ confirmationTemplate: value })}
@@ -139,6 +150,7 @@ export default function ReminderMessagesCard() {
         />
         <TemplateField
           id="cancellation-template"
+          issues={issuesByKind.cancellation}
           label={tx.cancellationTemplateLabel}
           value={settings.cancellationTemplate}
           onChange={(value) => update({ cancellationTemplate: value })}
@@ -164,9 +176,15 @@ export default function ReminderMessagesCard() {
         </div>
       )}
 
-      <div className="flex items-center justify-between pt-2">
+      <div className="flex items-center justify-between gap-4 pt-2">
         <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-          {saved && (
+          {hasIssues && (
+            <span id="template-issues-hint" className="inline-flex items-center gap-1.5 text-red-600 dark:text-red-400">
+              <AlertCircle size={14} />
+              {tx.fixTemplatesToSave}
+            </span>
+          )}
+          {!hasIssues && saved && (
             <span className="inline-flex items-center gap-1.5">
               <Check size={14} />
               {tx.savedReminders}
@@ -176,7 +194,8 @@ export default function ReminderMessagesCard() {
         <button
           type="button"
           onClick={handleSave}
-          disabled={saving}
+          disabled={saving || hasIssues}
+          aria-describedby={hasIssues ? "template-issues-hint" : undefined}
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-primary hover:bg-primary/90 transition-all disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
         >
           {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
@@ -194,15 +213,29 @@ function TemplateField({
   onChange,
   detailNames,
   insertLabel,
+  issues,
 }: {
   id: string;
+  issues: TemplateIssue[];
   label: string;
   value: string | null;
   onChange: (value: string) => void;
   detailNames: string[];
   insertLabel: string;
 }) {
+  const { t } = useTranslation();
+  const tx = t.crm.business;
   const ref = useRef<HTMLTextAreaElement>(null);
+  const hasIssues = issues.length > 0;
+
+  // Selects the fragment in the text so the owner sees exactly where it is.
+  const locate = (fragment: string) => {
+    const el = ref.current;
+    const start = el ? el.value.indexOf(fragment) : -1;
+    if (!el || start < 0) return;
+    el.focus();
+    el.setSelectionRange(start, start + fragment.length);
+  };
 
   const insert = (detail: string) => {
     const text = value ?? "";
@@ -229,8 +262,31 @@ function TemplateField({
         maxLength={600}
         value={value ?? ""}
         onChange={(e) => onChange(e.target.value)}
-        className={inputClass}
+        aria-invalid={hasIssues}
+        aria-describedby={hasIssues ? `${id}-issues` : undefined}
+        className={hasIssues ? `${inputClass} border-red-400 dark:border-red-500 focus:border-red-500` : inputClass}
       />
+      {hasIssues && (
+        <ul id={`${id}-issues`} className="space-y-1.5" role="alert">
+          {issues.map((issue) => (
+            <li key={issue.code} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-red-700 dark:text-red-300">
+              <AlertCircle size={14} className="shrink-0" />
+              <span>{translateApiError(t, issue.code)}</span>
+              {Array.from(new Set(issue.fragments)).map((fragment) => (
+                <button
+                  key={fragment}
+                  type="button"
+                  onClick={() => locate(fragment)}
+                  title={tx.locateInText}
+                  className="px-1.5 py-0.5 rounded-md font-mono bg-red-50 dark:bg-red-950/40 border border-red-300 dark:border-red-800 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-950"
+                >
+                  {fragment}
+                </button>
+              ))}
+            </li>
+          ))}
+        </ul>
+      )}
       <div className="flex flex-wrap items-center gap-1.5">
         <span className="text-xs text-gray-500 dark:text-gray-400 mr-1">{insertLabel}</span>
         {detailNames.map((detail) => (

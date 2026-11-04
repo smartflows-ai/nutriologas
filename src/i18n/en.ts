@@ -694,6 +694,8 @@ export const en: Translations = {
       messagesSection: "Customer messages",
       messagesSectionDesc: "Language and texts of the reminders, confirmations and cancellations.",
       saveMessagesBtn: "Save messages",
+      fixTemplatesToSave: "Fix the texts marked in red to be able to save.",
+      locateInText: "Show in the text",
       saveRemindersBtn: "Save reminders",
       savedReminders: "Reminders saved",
       reminderLoadError: "Could not load the reminder settings.",

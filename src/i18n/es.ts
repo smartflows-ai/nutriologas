@@ -694,6 +694,8 @@ export const es: Translations = {
       messagesSection: "Mensajes al cliente",
       messagesSectionDesc: "Idioma y textos de los recordatorios, las confirmaciones y las cancelaciones.",
       saveMessagesBtn: "Guardar mensajes",
+      fixTemplatesToSave: "Corrige los textos marcados en rojo para poder guardar.",
+      locateInText: "Ver en el texto",
       saveRemindersBtn: "Guardar recordatorios",
       savedReminders: "Recordatorios guardados",
       reminderLoadError: "No se pudo cargar la configuración de recordatorios.",

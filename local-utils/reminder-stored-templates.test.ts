@@ -173,3 +173,43 @@ test("a reminder with [Nombre] uses the customer's first name when there is one"
   const text = await sentText({ ...v, customerName: "Juan Perez" });
   assert.match(text, /^Hola Juan, recordatorio/);
 });
+
+// Live validation in the settings card: every problem comes with the fragments to highlight.
+import { templateIssues } from "../src/lib/reminder-template-rules";
+
+test("templateIssues is empty for a valid text of each kind", () => {
+  assert.deepEqual(templateIssues("Cita de [Servicio] el [Fecha] a las [Hora].", "reminder"), []);
+  assert.deepEqual(templateIssues("Responde SI antes de las [Hora límite].", "confirmation"), []);
+  assert.deepEqual(templateIssues("Cancelada: [Servicio] a las [Hora].", "cancellation"), []);
+});
+
+test("templateIssues points at the deadline tag in a reminder", () => {
+  const issues = templateIssues("Antes de las [Hora límite]., se cancela.", "reminder");
+  assert.deepEqual(issues, [{ code: "template_deadline_not_allowed", fragments: ["[Hora límite]"] }]);
+});
+
+test("templateIssues points at every unknown tag", () => {
+  const issues = templateIssues("Hola [Telefono] y [Edad], cita [Fecha].", "reminder");
+  assert.deepEqual(issues, [{ code: "template_unknown_tag", fragments: ["[Telefono]", "[Edad]"] }]);
+});
+
+test("templateIssues points at the SI request inside a reminder", () => {
+  const issues = templateIssues("Cita el [Fecha]. Responde SI para confirmarla.", "reminder");
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0].code, "template_repeats_confirmation");
+  assert.match(issues[0].fragments[0], /SI/);
+});
+
+test("templateIssues reports a confirmation that lacks the deadline and the SI request", () => {
+  const codes = templateIssues("Te esperamos el [Fecha].", "confirmation").map((i) => i.code);
+  assert.deepEqual(codes, ["confirmation_missing_deadline", "confirmation_missing_si"]);
+});
+
+test("templateIssues reports a text that is too long", () => {
+  assert.equal(templateIssues("x".repeat(601), "cancellation")[0].code, "template_too_long");
+});
+
+test("templateProblem is the code of the first issue", () => {
+  assert.equal(templateProblem("Hola [Telefono]", "reminder"), "template_unknown_tag");
+  assert.equal(templateProblem("Cita de [Servicio]", "reminder"), null);
+});
