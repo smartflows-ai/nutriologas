@@ -571,6 +571,8 @@ export interface Translations {
       tokenDeadline: string;
       tokenBusiness: string;
       tokenName: string;
+      addConfirmationRequest: string;
+      confirmationRequestSnippet: string;
       messageLanguageLabel: string;
       messageLanguageHint: string;
       messagesSection: string;

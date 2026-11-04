@@ -154,6 +154,7 @@ export default function ReminderMessagesCard() {
           onChange={(value) => update({ confirmationTemplate: value })}
           detailNames={detailNames}
           insertLabel={tx.templateInsertLabel}
+          snippet={{ label: tx.addConfirmationRequest, text: (settings.messageLanguage === "en" ? en : es).crm.business.confirmationRequestSnippet }}
         />
         <TemplateField
           id="cancellation-template"
@@ -222,6 +223,7 @@ function TemplateField({
   onChange,
   detailNames,
   insertLabel,
+  snippet,
   issues,
   kind,
   defaultText,
@@ -235,6 +237,8 @@ function TemplateField({
   onChange: (value: string) => void;
   detailNames: string[];
   insertLabel: string;
+  /** A ready-made sentence the owner can add with one click (the confirmation request). */
+  snippet?: { label: string; text: string };
 }) {
   const { t } = useTranslation();
   const tx = t.crm.business;
@@ -250,17 +254,25 @@ function TemplateField({
     el.setSelectionRange(start, start + fragment.length);
   };
 
-  const insert = (detail: string) => {
+  const insertText = (token: string) => {
     const text = value ?? "";
     const el = ref.current;
     const start = el?.selectionStart ?? text.length;
     const end = el?.selectionEnd ?? text.length;
-    const token = `[${detail}]`;
     onChange(text.slice(0, start) + token + text.slice(end));
     requestAnimationFrame(() => {
       el?.focus();
       el?.setSelectionRange(start + token.length, start + token.length);
     });
+  };
+
+  const insert = (detail: string) => insertText(`[${detail}]`);
+
+  // The confirmation request goes in its own paragraph at the end, so it never lands in the middle of a sentence.
+  const addSnippet = () => {
+    if (!snippet) return;
+    const text = (value ?? "").trimEnd();
+    onChange(text ? `${text}\n\n${snippet.text}` : snippet.text);
   };
 
   return (
@@ -297,6 +309,16 @@ function TemplateField({
                   {fragment}
                 </button>
               ))}
+              {issue.code === "confirmation_missing_si" && snippet && (
+                <button
+                  type="button"
+                  onClick={addSnippet}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-medium text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800"
+                >
+                  <Wrench size={12} />
+                  {snippet.label}
+                </button>
+              )}
               {(() => {
                 const fix = suggestFix(value ?? "", issue, kind, tx.tokenTime);
                 if (!fix) return null;
@@ -333,6 +355,15 @@ function TemplateField({
             {detail}
           </button>
         ))}
+        {snippet && (
+          <button
+            type="button"
+            onClick={addSnippet}
+            className="px-2.5 py-1 rounded-lg text-xs font-medium text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+          >
+            {snippet.label}
+          </button>
+        )}
       </div>
     </div>
   );

@@ -50,22 +50,28 @@ function deadlineTags(template: string): string[] {
     .map((tag) => tag.text);
 }
 
-// "si" is also the Spanish conditional ("Si no la confirmas..."), so the lowercase word alone proves nothing.
-// It counts only as SI in capitals, or right after a verb that asks for a reply.
+// Words a customer can answer with that the bot reads as a yes (`isClearConfirmation`, src/lib/confirmation-words.ts;
+// a test keeps both lists in step). The confirmation text may ask for any of them.
+export const REPLY_WORDS = ["si", "yes", "ok", "okay", "confirmo"] as const;
+
+// "si" is also the Spanish conditional ("Si no la confirmas..."), so a lowercase word alone proves nothing.
+// A word counts after a verb that asks for a reply ("Responde OK", "Reply with a YES"), and SI or YES in capitals
+// count by themselves. OK never counts alone: it is too common in ordinary sentences.
 const REPLY_VERBS = "responde|contesta|escribe|manda|envia|reply|answer|type|write|send";
-const REPLY_PHRASE = new RegExp(`\\b(?:${REPLY_VERBS})\\b[\\s"'*_]*\\bsi\\b`, "ig");
-const CAPITAL_SI = /\bSI\b/g;
+const WORDS = REPLY_WORDS.join("|");
+const REPLY_PHRASE = new RegExp(`\\b(?:${REPLY_VERBS})\\b[\\s"'*_]*(?:(?:con|with|un|una|a|an)\\s+)?[\\s"'*_]*\\b(?:${WORDS})\\b`, "ig");
+const CAPITAL_WORD = /\b(?:SI|YES)\b/g;
 
 function withoutAccents(text: string): string {
   return text.normalize("NFD").replace(/[̀-ͯ]/g, "");
 }
 
-/** The pieces of the text that ask the customer to reply SI. Empty when it does not ask. */
+/** The pieces of the text that ask the customer to reply with a confirming word. Empty when it does not ask. */
 function siRequests(template: string): string[] {
   const plain = withoutAccents(template);
   const phrases = Array.from(plain.matchAll(REPLY_PHRASE));
-  // A capital SI inside a phrase such as "Responde SI" is already part of that phrase.
-  const loneSi = Array.from(plain.matchAll(CAPITAL_SI)).filter(
+  // A capital word inside a phrase such as "Responde SI" is already part of that phrase.
+  const loneSi = Array.from(plain.matchAll(CAPITAL_WORD)).filter(
     (si) => !phrases.some((p) => si.index! >= p.index! && si.index! < p.index! + p[0].length),
   );
   // Accent stripping keeps one character per letter, so positions in `plain` are positions in the original.
@@ -77,7 +83,7 @@ function siRequests(template: string): string[] {
  * - Any kind: too long, or a bracketed word that is not one of the tags.
  * - Reminder and cancellation: no deadline tag (it only exists in the confirmation); a reminder must not ask for SI,
  *   because the confirmation request is added after it.
- * - Confirmation: needs the deadline tag and an explicit request to reply SI.
+ * - Confirmation: needs the deadline tag and an explicit request to reply with a confirming word (SI, YES, OK...).
  */
 export function templateIssues(template: string, kind: TemplateKind): TemplateIssue[] {
   const issues: TemplateIssue[] = [];
