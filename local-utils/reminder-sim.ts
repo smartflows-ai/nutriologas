@@ -6,13 +6,14 @@
 // fail    clock = reminder due time + 1 min, the send is FORCED to fail. No WhatsApp goes out. Writes the failed attempt.
 // send    clock = reminder due time + 1 min, REAL WhatsApp to the visit's phone, marks it sent and charges the tenant.
 // release clock = confirmation deadline + 1 min, releases the visit (REAL cancellation text) if it was not confirmed.
-// Without --yes it only prints what it would do. It refuses any visit whose customer name is not "PRUEBA #16".
+// Without --yes it only prints what it would do. It refuses any visit whose customer name is not one of TEST_NAMES.
 import { prisma } from "../src/lib/db";
 import { loadReminderVisits, realReminderDeps } from "../src/lib/reminder-data";
 import { runReminderBatch, type ReminderDeps } from "../src/lib/reminder-run";
 import { planReminder, releaseAt } from "../src/lib/reminders";
 
-const TEST_NAME = "PRUEBA #16";
+// Only visits with one of these customer names can be simulated, so a real patient is never touched.
+const TEST_NAMES = ["PRUEBA #16", "prueba local"];
 const MINUTE_MS = 60_000;
 
 function arg(name: string): string | undefined {
@@ -29,7 +30,7 @@ async function main() {
   }
 
   const row = await prisma.appointment.findUnique({ where: { id }, select: { customerName: true } });
-  if (row?.customerName !== TEST_NAME) throw new Error(`refused: this is not a "${TEST_NAME}" visit`);
+  if (!row?.customerName || !TEST_NAMES.includes(row.customerName)) throw new Error(`refused: the customer name is not one of ${TEST_NAMES.map((n) => `"${n}"`).join(", ")}`);
 
   const [visit] = await loadReminderVisits(new Date(), id);
   if (!visit) throw new Error("visit not found or no longer active");
