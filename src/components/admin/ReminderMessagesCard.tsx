@@ -14,6 +14,7 @@ interface MessageSettings {
   reminderTemplate: string | null;
   confirmationTemplate: string | null;
   cancellationTemplate: string | null;
+  invalidTemplates?: ("reminder" | "confirmation" | "cancellation")[];
 }
 
 const inputClass =
@@ -75,6 +76,9 @@ export default function ReminderMessagesCard() {
       setSaving(false);
     }
   };
+
+  const invalidLabels = { reminder: tx.reminderTemplateLabel, confirmation: tx.confirmationTemplateLabel, cancellation: tx.cancellationTemplateLabel };
+  const invalidNames = (settings?.invalidTemplates ?? []).map((kind) => invalidLabels[kind]);
 
   const detailNames = [tx.tokenService, tx.tokenDate, tx.tokenTime, tx.tokenDeadline, tx.tokenBusiness];
   // The deadline time only exists in the confirmation text; offering it elsewhere would send it with brackets.
@@ -142,6 +146,15 @@ export default function ReminderMessagesCard() {
           insertLabel={tx.templateInsertLabel}
         />
         <p className="text-xs text-gray-500 dark:text-gray-400">{tx.templateDefaultHint}</p>
+        {invalidNames.length > 0 && (
+          <div
+            role="alert"
+            className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 flex items-start gap-3 text-amber-800 dark:text-amber-300 text-sm"
+          >
+            <AlertCircle size={16} className="shrink-0 mt-0.5" />
+            <span>{tx.invalidStoredTemplates.replace("{names}", invalidNames.join(", "))}</span>
+          </div>
+        )}
       </div>
 
       {error && (

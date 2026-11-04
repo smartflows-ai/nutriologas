@@ -3,7 +3,7 @@
 // is testable without a database or WhatsApp. One bad visit never stops the others, and every failure is reported.
 import type { AppProvider } from "@prisma/client";
 import { planReminder, releaseAt } from "@/lib/reminders";
-import { clinicLongDate, clinicTime, customerTexts, renderTemplate } from "@/lib/reminder-messages";
+import { clinicLongDate, clinicTime, customerTexts, renderTemplate, usableTemplate } from "@/lib/reminder-messages";
 
 export interface ReminderTenant {
   name: string;
@@ -81,13 +81,15 @@ function reminderText(visit: ReminderVisit, requestConfirmation: boolean, releas
     hora: clinicTime(visit.appointmentDate, t.messageLanguage),
     negocio: t.name,
   };
+  const warn = (kind: string) => (problem: string) =>
+    console.warn(`[reminders] stored ${kind} text ignored (${problem}) for tenant ${visit.tenantId}; default used`);
   const tail = requestConfirmation
-    ? renderTemplate(t.confirmationTemplate ?? texts.confirmationTemplate, {
+    ? renderTemplate(usableTemplate(t.confirmationTemplate, "confirmation", texts.confirmationTemplate, warn("confirmation")), {
         ...values,
         hora_limite: clinicTime(releaseInstant as Date, t.messageLanguage),
       })
     : texts.plainFooter;
-  return `${renderTemplate(t.reminderTemplate ?? texts.reminderTemplate, values)}\n\n${tail}`;
+  return `${renderTemplate(usableTemplate(t.reminderTemplate, "reminder", texts.reminderTemplate, warn("reminder")), values)}\n\n${tail}`;
 }
 
 async function processVisit(visit: ReminderVisit, now: Date, deps: ReminderDeps, dryRun: boolean): Promise<Outcome> {

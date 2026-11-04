@@ -117,6 +117,55 @@ export function validateNoDeadlineTag(template: string): string | null {
   return usesDeadlineTag(template) ? "template_deadline_not_allowed" : null;
 }
 
+/**
+ * The reminder goes out followed by the confirmation text, which already asks the customer to reply SI.
+ * A reminder that asks it too would make the customer read the request twice.
+ */
+export function validateReminderNoConfirmation(template: string): string | null {
+  const withoutAccents = template.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return asksToReplySi(withoutAccents) ? "template_repeats_confirmation" : null;
+}
+
 export function validateTemplateLength(template: string): string | null {
   return template.length > MAX_TEMPLATE_LENGTH ? "template_too_long" : null;
+}
+
+export type TemplateKind = "reminder" | "confirmation" | "cancellation";
+
+/** The first problem a stored text has for its kind, or null when it can go out as written. Same rules as when it is saved. */
+export function templateProblem(template: string, kind: TemplateKind): string | null {
+  const common = validateTemplateLength(template) ?? validateKnownTags(template);
+  if (common) return common;
+  if (kind === "confirmation") return validateConfirmationTemplate(template);
+  const noDeadline = validateNoDeadlineTag(template);
+  if (noDeadline) return noDeadline;
+  return kind === "reminder" ? validateReminderNoConfirmation(template) : null;
+}
+
+/**
+ * The text to send: the stored one when it passes the save-time checks, otherwise the default.
+ * Saving is checked, but texts stored before those checks existed would reach the customer with raw tags in
+ * brackets, so the same checks run again at send time. `onFallback` lets the caller log why (never shown to the customer).
+ */
+export function usableTemplate(
+  stored: string | null | undefined,
+  kind: TemplateKind,
+  fallback: string,
+  onFallback?: (problem: string) => void,
+): string {
+  if (!stored || stored.trim() === "") return fallback;
+  const problem = templateProblem(stored, kind);
+  if (!problem) return stored;
+  onFallback?.(problem);
+  return fallback;
+}
+
+/** Cancellation notice: the business text when valid, the language default otherwise. */
+export function cancellationText(
+  stored: string | null | undefined,
+  values: ReminderValues,
+  language: string,
+  onFallback?: (problem: string) => void,
+): string {
+  return renderTemplate(usableTemplate(stored, "cancellation", customerTexts(language).cancellationTemplate, onFallback), values);
 }

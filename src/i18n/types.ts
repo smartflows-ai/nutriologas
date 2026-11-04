@@ -563,6 +563,7 @@ export interface Translations {
       confirmationTemplateLabel: string;
       cancellationTemplateLabel: string;
       templateDefaultHint: string;
+      invalidStoredTemplates: string;
       templateInsertLabel: string;
       tokenService: string;
       tokenDate: string;
@@ -1531,6 +1532,7 @@ export interface Translations {
     confirmation_missing_deadline: string;
     confirmation_missing_si: string;
     template_deadline_not_allowed: string;
+    template_repeats_confirmation: string;
     template_unknown_tag: string;
     template_too_long: string;
     reminder_settings_invalid: string;
