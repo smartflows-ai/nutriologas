@@ -1056,15 +1056,10 @@ export interface Translations {
     planStarter: string;
     planPro: string;
     planPlus: string;
-    plusFeatureCalendar: string;
-    plusFeatureConfirmations: string;
     perMonth: string;
-    starterFeatureStorefront: string;
-    starterFeatureCampaigns: string;
-    starterFeatureCopilot: string;
-    proFeatureEverything: string;
-    proFeatureDomain: string;
-    proFeatureCopilot: string;
+    startFeatures: string[];
+    plusFeatures: string[];
+    proFeatures: string[];
     paymentMethod: string;
     cardholderName: string;
     cardholderPlaceholder: string;
