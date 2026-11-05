@@ -5,12 +5,13 @@ import type { AppProvider } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { sendWhatsAppMessage } from "@/lib/whatsapp";
 import { cancelAppointment } from "@/lib/appointments-service";
-import { clinicLongDate, clinicTime, customerTexts, renderTemplate } from "@/lib/reminder-messages";
+import { cancellationText, clinicLongDate, clinicTime, customerTexts, renderTemplate } from "@/lib/reminder-messages";
 
 export interface VisitForAction {
   id: string;
   tenantId: string;
   customerPhone: string | null;
+  customerName: string | null;
   appointmentDate: Date;
   externalProvider: AppProvider | null;
   externalEventId: string | null;
@@ -26,6 +27,7 @@ function visitValues(visit: VisitForAction) {
     fecha: clinicLongDate(visit.appointmentDate, visit.messageLanguage),
     hora: clinicTime(visit.appointmentDate, visit.messageLanguage),
     negocio: visit.tenantName,
+    nombre: visit.customerName,
   };
 }
 
@@ -47,9 +49,8 @@ export async function releaseVisit(
   const sent = await sendWhatsAppMessage({
     tenantId: visit.tenantId,
     to: visit.customerPhone,
-    text: renderTemplate(
-      visit.cancellationTemplate ?? customerTexts(visit.messageLanguage).cancellationTemplate,
-      visitValues(visit),
+    text: cancellationText(visit.cancellationTemplate, visitValues(visit), visit.messageLanguage, (problem) =>
+      console.warn(`[reminders] stored cancellation text ignored (${problem}) for tenant ${visit.tenantId}; default used`),
     ),
   });
   return { customerNotified: sent.success };

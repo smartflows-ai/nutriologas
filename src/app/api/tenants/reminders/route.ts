@@ -5,7 +5,7 @@ import { z } from "zod";
 import { getAppSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { apiError } from "@/lib/api-errors";
-import { validateConfirmationTemplate, validateKnownTags, validateNoDeadlineTag, validateTemplateLength } from "@/lib/reminder-messages";
+import { templateProblem, validateConfirmationTemplate, validateReminderNoConfirmation, validateKnownTags, validateNoDeadlineTag, validateTemplateLength } from "@/lib/reminder-messages";
 
 const SELECT = {
   remindersEnabled: true,
@@ -45,7 +45,18 @@ export async function GET() {
 
   const tenant = await prisma.tenant.findUnique({ where: { id: session.user.tenantId }, select: SELECT });
   if (!tenant) return apiError("tenant_not_found", 404);
-  return NextResponse.json(tenant);
+  // Texts saved before the save-time checks existed: they are not sent as written (the default goes out instead),
+  // so the owner is told which ones to rewrite. Only the kind is returned, never the reason.
+  const invalidTemplates = (
+    [
+      ["reminder", tenant.reminderTemplate],
+      ["confirmation", tenant.confirmationTemplate],
+      ["cancellation", tenant.cancellationTemplate],
+    ] as const
+  )
+    .filter(([kind, text]) => text && templateProblem(text, kind))
+    .map(([kind]) => kind);
+  return NextResponse.json({ ...tenant, invalidTemplates });
 }
 
 export async function PATCH(req: Request) {
@@ -76,6 +87,8 @@ export async function PATCH(req: Request) {
     const problem = text ? validateNoDeadlineTag(text) : null;
     if (problem) return apiError(problem as "template_deadline_not_allowed", 400);
   }
+  const repeats = data.reminderTemplate ? validateReminderNoConfirmation(data.reminderTemplate) : null;
+  if (repeats) return apiError(repeats as "template_repeats_confirmation", 400);
   if (data.confirmationTemplate) {
     const problem = validateConfirmationTemplate(data.confirmationTemplate);
     if (problem) return apiError(problem as "confirmation_missing_si", 400);

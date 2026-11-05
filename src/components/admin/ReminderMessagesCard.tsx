@@ -3,17 +3,19 @@
 // Customer message settings: language and the reminder, confirmation and cancellation texts.
 // Saves on its own through /api/tenants/reminders, sending only these fields.
 import { useEffect, useRef, useState } from "react";
-import { Check, Loader2, AlertCircle, MessageSquare } from "lucide-react";
+import { Check, Loader2, AlertCircle, MessageSquare, Wrench } from "lucide-react";
 import { useTranslation } from "@/i18n";
 import { translateApiError } from "@/i18n/validation";
 import { es } from "@/i18n/es";
 import { en } from "@/i18n/en";
+import { suggestFix, templateIssues, type TemplateIssue, type TemplateKind } from "@/lib/reminder-template-rules";
 
 interface MessageSettings {
   messageLanguage: "es" | "en";
   reminderTemplate: string | null;
   confirmationTemplate: string | null;
   cancellationTemplate: string | null;
+  invalidTemplates?: ("reminder" | "confirmation" | "cancellation")[];
 }
 
 const inputClass =
@@ -76,7 +78,21 @@ export default function ReminderMessagesCard() {
     }
   };
 
-  const detailNames = [tx.tokenService, tx.tokenDate, tx.tokenTime, tx.tokenDeadline, tx.tokenBusiness];
+  const invalidLabels = { reminder: tx.reminderTemplateLabel, confirmation: tx.confirmationTemplateLabel, cancellation: tx.cancellationTemplateLabel };
+  const invalidNames = (settings?.invalidTemplates ?? []).map((kind) => invalidLabels[kind]);
+
+  // The same checks the server runs, while the owner types: a text with a problem cannot be saved.
+  const issuesByKind: Record<TemplateKind, TemplateIssue[]> = {
+    reminder: settings?.reminderTemplate?.trim() ? templateIssues(settings.reminderTemplate.trim(), "reminder") : [],
+    confirmation: settings?.confirmationTemplate?.trim() ? templateIssues(settings.confirmationTemplate.trim(), "confirmation") : [],
+    cancellation: settings?.cancellationTemplate?.trim() ? templateIssues(settings.cancellationTemplate.trim(), "cancellation") : [],
+  };
+  const hasIssues = Object.values(issuesByKind).some((list) => list.length > 0);
+
+  // What goes out when a field is left empty: shown in the field so the owner can read it.
+  const defaults = (settings?.messageLanguage === "en" ? en : es).customerMessages;
+
+  const detailNames = [tx.tokenService, tx.tokenDate, tx.tokenTime, tx.tokenDeadline, tx.tokenBusiness, tx.tokenName];
   // The deadline time only exists in the confirmation text; offering it elsewhere would send it with brackets.
   const detailNamesWithoutDeadline = detailNames.filter((name) => name !== tx.tokenDeadline);
 
@@ -119,6 +135,9 @@ export default function ReminderMessagesCard() {
       <div className="space-y-4 pt-2">
         <TemplateField
           id="reminder-template"
+          issues={issuesByKind.reminder}
+          kind="reminder"
+          defaultText={defaults.reminderTemplate}
           label={tx.reminderTemplateLabel}
           value={settings.reminderTemplate}
           onChange={(value) => update({ reminderTemplate: value })}
@@ -127,14 +146,21 @@ export default function ReminderMessagesCard() {
         />
         <TemplateField
           id="confirmation-template"
+          issues={issuesByKind.confirmation}
+          kind="confirmation"
+          defaultText={defaults.confirmationTemplate}
           label={tx.confirmationTemplateLabel}
           value={settings.confirmationTemplate}
           onChange={(value) => update({ confirmationTemplate: value })}
           detailNames={detailNames}
           insertLabel={tx.templateInsertLabel}
+          snippet={{ label: tx.addConfirmationRequest, text: (settings.messageLanguage === "en" ? en : es).crm.business.confirmationRequestSnippet }}
         />
         <TemplateField
           id="cancellation-template"
+          issues={issuesByKind.cancellation}
+          kind="cancellation"
+          defaultText={defaults.cancellationTemplate}
           label={tx.cancellationTemplateLabel}
           value={settings.cancellationTemplate}
           onChange={(value) => update({ cancellationTemplate: value })}
@@ -142,6 +168,15 @@ export default function ReminderMessagesCard() {
           insertLabel={tx.templateInsertLabel}
         />
         <p className="text-xs text-gray-500 dark:text-gray-400">{tx.templateDefaultHint}</p>
+        {invalidNames.length > 0 && (
+          <div
+            role="alert"
+            className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 flex items-start gap-3 text-amber-800 dark:text-amber-300 text-sm"
+          >
+            <AlertCircle size={16} className="shrink-0 mt-0.5" />
+            <span>{tx.invalidStoredTemplates.replace("{names}", invalidNames.join(", "))}</span>
+          </div>
+        )}
       </div>
 
       {error && (
@@ -151,9 +186,15 @@ export default function ReminderMessagesCard() {
         </div>
       )}
 
-      <div className="flex items-center justify-between pt-2">
+      <div className="flex items-center justify-between gap-4 pt-2">
         <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-          {saved && (
+          {hasIssues && (
+            <span id="template-issues-hint" className="inline-flex items-center gap-1.5 text-red-600 dark:text-red-400">
+              <AlertCircle size={14} />
+              {tx.fixTemplatesToSave}
+            </span>
+          )}
+          {!hasIssues && saved && (
             <span className="inline-flex items-center gap-1.5">
               <Check size={14} />
               {tx.savedReminders}
@@ -163,7 +204,8 @@ export default function ReminderMessagesCard() {
         <button
           type="button"
           onClick={handleSave}
-          disabled={saving}
+          disabled={saving || hasIssues}
+          aria-describedby={hasIssues ? "template-issues-hint" : undefined}
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-primary hover:bg-primary/90 transition-all disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
         >
           {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
@@ -181,27 +223,56 @@ function TemplateField({
   onChange,
   detailNames,
   insertLabel,
+  snippet,
+  issues,
+  kind,
+  defaultText,
 }: {
   id: string;
+  issues: TemplateIssue[];
+  kind: TemplateKind;
+  defaultText: string;
   label: string;
   value: string | null;
   onChange: (value: string) => void;
   detailNames: string[];
   insertLabel: string;
+  /** A ready-made sentence the owner can add with one click (the confirmation request). */
+  snippet?: { label: string; text: string };
 }) {
+  const { t } = useTranslation();
+  const tx = t.crm.business;
   const ref = useRef<HTMLTextAreaElement>(null);
+  const hasIssues = issues.length > 0;
 
-  const insert = (detail: string) => {
+  // Selects the fragment in the text so the owner sees exactly where it is.
+  const locate = (fragment: string) => {
+    const el = ref.current;
+    const start = el ? el.value.indexOf(fragment) : -1;
+    if (!el || start < 0) return;
+    el.focus();
+    el.setSelectionRange(start, start + fragment.length);
+  };
+
+  const insertText = (token: string) => {
     const text = value ?? "";
     const el = ref.current;
     const start = el?.selectionStart ?? text.length;
     const end = el?.selectionEnd ?? text.length;
-    const token = `[${detail}]`;
     onChange(text.slice(0, start) + token + text.slice(end));
     requestAnimationFrame(() => {
       el?.focus();
       el?.setSelectionRange(start + token.length, start + token.length);
     });
+  };
+
+  const insert = (detail: string) => insertText(`[${detail}]`);
+
+  // The confirmation request goes in its own paragraph at the end, so it never lands in the middle of a sentence.
+  const addSnippet = () => {
+    if (!snippet) return;
+    const text = (value ?? "").trimEnd();
+    onChange(text ? `${text}\n\n${snippet.text}` : snippet.text);
   };
 
   return (
@@ -215,9 +286,63 @@ function TemplateField({
         rows={3}
         maxLength={600}
         value={value ?? ""}
+        placeholder={defaultText}
         onChange={(e) => onChange(e.target.value)}
-        className={inputClass}
+        aria-invalid={hasIssues}
+        aria-describedby={hasIssues ? `${id}-issues` : undefined}
+        className={hasIssues ? `${inputClass} border-red-400 dark:border-red-500 focus:border-red-500` : inputClass}
       />
+      {hasIssues && (
+        <ul id={`${id}-issues`} className="space-y-1.5" role="alert">
+          {issues.map((issue) => (
+            <li key={issue.code} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-red-700 dark:text-red-300">
+              <AlertCircle size={14} className="shrink-0" />
+              <span>{translateApiError(t, issue.code)}</span>
+              {Array.from(new Set(issue.fragments)).map((fragment) => (
+                <button
+                  key={fragment}
+                  type="button"
+                  onClick={() => locate(fragment)}
+                  title={tx.locateInText}
+                  className="px-1.5 py-0.5 rounded-md font-mono bg-red-50 dark:bg-red-950/40 border border-red-300 dark:border-red-800 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-950"
+                >
+                  {fragment}
+                </button>
+              ))}
+              {issue.code === "confirmation_missing_si" && snippet && (
+                <button
+                  type="button"
+                  onClick={addSnippet}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-medium text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800"
+                >
+                  <Wrench size={12} />
+                  {snippet.label}
+                </button>
+              )}
+              {(() => {
+                const fix = suggestFix(value ?? "", issue, kind, tx.tokenTime);
+                if (!fix) return null;
+                const label =
+                  fix.action === "replace_time"
+                    ? tx.fixReplaceWithTime.replace("{tag}", tx.tokenTime)
+                    : fix.action === "remove_paragraph"
+                      ? tx.fixRemoveParagraph
+                      : tx.fixRemoveFragment;
+                return (
+                  <button
+                    type="button"
+                    onClick={() => onChange(fix.text)}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-medium text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800"
+                  >
+                    <Wrench size={12} />
+                    {label}
+                  </button>
+                );
+              })()}
+            </li>
+          ))}
+        </ul>
+      )}
       <div className="flex flex-wrap items-center gap-1.5">
         <span className="text-xs text-gray-500 dark:text-gray-400 mr-1">{insertLabel}</span>
         {detailNames.map((detail) => (
@@ -230,6 +355,15 @@ function TemplateField({
             {detail}
           </button>
         ))}
+        {snippet && (
+          <button
+            type="button"
+            onClick={addSnippet}
+            className="px-2.5 py-1 rounded-lg text-xs font-medium text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+          >
+            {snippet.label}
+          </button>
+        )}
       </div>
     </div>
   );

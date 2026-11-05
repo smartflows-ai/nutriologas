@@ -9,8 +9,13 @@ import {
   validateConfirmationTemplate,
   validateKnownTags,
   validateNoDeadlineTag,
+  validateReminderNoConfirmation,
   validateTemplateLength,
 } from "../src/lib/reminder-messages";
+import { REPLY_WORDS } from "../src/lib/reminder-template-rules";
+import { isClearConfirmation } from "../src/lib/confirmation-words";
+import { es } from "../src/i18n/es";
+import { en } from "../src/i18n/en";
 import { runReminderBatch, type ReminderDeps, type ReminderVisit } from "../src/lib/reminder-run";
 
 const HOUR = 60 * 60 * 1000;
@@ -22,6 +27,7 @@ function visit(tenant: Partial<ReminderVisit["tenant"]> = {}): ReminderVisit {
     id: "a1",
     tenantId: "t1",
     customerPhone: "525500000002",
+    customerName: null,
     appointmentDate: new Date(NOW.getTime() + 23 * HOUR),
     createdAt: new Date(NOW.getTime() - 48 * HOUR),
     reminderSentAt: null,
@@ -72,7 +78,7 @@ test("tags are case-insensitive, tolerate spaces, and accept English labels", ()
 });
 
 test("an unknown tag is left exactly as the owner typed it", () => {
-  assert.equal(renderTemplate("Hola [Nombre]", VALUES), "Hola [Nombre]");
+  assert.equal(renderTemplate("Hola [Telefono]", VALUES), "Hola [Telefono]");
 });
 
 test("the deadline tag stays visible when the message has no deadline to give", () => {
@@ -149,7 +155,7 @@ test("the confirmation text still accepts the deadline tag", () => {
 
 // Any bracketed word that is not one of the five tags would reach the customer exactly as typed, so it is rejected on save.
 test("a bracketed word that is not a known tag is rejected, whatever the language of the text", () => {
-  assert.equal(validateKnownTags("Hola [Nombre]"), "template_unknown_tag");
+  assert.equal(validateKnownTags("Hola [Telefono]"), "template_unknown_tag");
   assert.equal(validateKnownTags("Cita el [Fecha] [ver mapa]"), "template_unknown_tag");
   assert.equal(validateKnownTags("Hello [Customer]"), "template_unknown_tag");
 });
@@ -227,4 +233,39 @@ test("a deadline tag with spaces or capitals inside the brackets satisfies the c
 
 test("a confirmation text with a different tag in place of the deadline is still rejected", () => {
   assert.equal(validateConfirmationTemplate("Responde SI antes de las [Hora]."), "confirmation_missing_deadline");
+});
+
+// The customer may answer with any word the bot reads as a yes, so the text only needs to ask for one of them.
+test("a confirmation text may ask for any confirming word the bot understands", () => {
+  for (const word of ["SI", "YES", "OK", "Okay", "confirmo", "Sí", "yes"]) {
+    assert.equal(validateConfirmationTemplate(`Responde ${word} antes de las [Hora límite].`), null, word);
+    assert.equal(validateConfirmationTemplate(`Reply with ${word} before [Deadline time].`), null, word);
+  }
+  assert.equal(validateConfirmationTemplate("Responde con un SI o un OK antes de las [Hora límite]."), null);
+  assert.equal(validateConfirmationTemplate("Antes de las [Hora límite], contesta OK."), null);
+});
+
+test("every word the text rule accepts is read as a yes by the bot", () => {
+  for (const word of REPLY_WORDS) assert.equal(isClearConfirmation(word), true, word);
+});
+
+test("a confirmation text that asks for no word, or for a word the bot would not read, is still rejected", () => {
+  assert.equal(validateConfirmationTemplate("Responde antes de las [Hora límite]."), "confirmation_missing_si");
+  assert.equal(validateConfirmationTemplate("Responde BANANA antes de las [Hora límite]."), "confirmation_missing_si");
+  assert.equal(validateConfirmationTemplate("Mira la foto OK de las [Hora límite]."), "confirmation_missing_si");
+});
+
+test("the reminder text cannot ask for any confirming word either", () => {
+  assert.equal(validateReminderNoConfirmation("Responde YES para confirmar."), "template_repeats_confirmation");
+  assert.equal(validateReminderNoConfirmation("Contesta OK."), "template_repeats_confirmation");
+});
+
+test("the bot reads English yes words as a confirmation", () => {
+  for (const reply of ["yes", "Yes!", "yep", "yeah", "sure"]) assert.equal(isClearConfirmation(reply), true, reply);
+  assert.equal(isClearConfirmation("yes but can we move it"), false);
+});
+
+test("the insertable confirmation request satisfies the confirmation rule in both languages", () => {
+  assert.equal(validateConfirmationTemplate(`${es.crm.business.confirmationRequestSnippet} [Hora límite]`), null);
+  assert.equal(validateConfirmationTemplate(`${en.crm.business.confirmationRequestSnippet} [Deadline time]`), null);
 });

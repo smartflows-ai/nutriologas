@@ -2,7 +2,7 @@
 // Recognizes a clear "sí" in a customer's reply. Pure, no I/O.
 // Lives outside the route file: Next.js route files may only export route handlers and config.
 
-const CONFIRM_WORDS = /^(si|confirmo|confirmada|confirmado|ok|okay|de acuerdo|claro|perfecto|va|sale|dale|sip|simon|listo)\b/;
+const CONFIRM_WORDS = /^(si|confirmo|confirmada|confirmado|ok|okay|de acuerdo|claro|perfecto|va|sale|dale|sip|simon|listo|yes|yep|yeah|sure)\b/;
 const NOT_A_CONFIRMATION = /\b(no|cancel|cambi|mover|reagend|otra|otro|despues|luego|pero)/;
 const MAX_WORDS = 5;
 
