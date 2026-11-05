@@ -65,7 +65,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           isTriageEnabled={tenant?.isTriageEnabled ?? false}
           isBookingEnabled={tenant?.isBookingEnabled ?? true}
           vertical={tenant?.vertical ?? "ECOMMERCE"}
+          plan={sub?.plan ?? "STARTER"}
           connectedApps={tenant?.connectedApps.map(a => a.provider) ?? []}
+          enabledTools={tenant?.enabledTools ?? []}
         />
 
         {/* Main content — pt-16 on mobile to clear the hamburger button */}

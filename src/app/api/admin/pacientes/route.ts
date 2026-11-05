@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { planLockResponse } from "@/lib/capability-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +14,8 @@ export async function GET() {
     }
 
     const tenantId = (session.user as any).tenantId;
+    const denied = await planLockResponse(tenantId, "patients");
+    if (denied) return denied;
 
     const patients = await prisma.patientProfile.findMany({
       where: { tenantId },

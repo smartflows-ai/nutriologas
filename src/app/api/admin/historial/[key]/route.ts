@@ -7,6 +7,7 @@ import { apiError } from "@/lib/api-errors";
 import { getPatientTimeline } from "@/lib/patients";
 import { prisma } from "@/lib/db";
 import { getVerticalProfile } from "@/lib/vertical-profile";
+import { planLockResponse } from "@/lib/capability-guard";
 
 export async function GET(req: NextRequest, { params }: { params: { key: string } }) {
   try {
@@ -19,6 +20,8 @@ export async function GET(req: NextRequest, { params }: { params: { key: string 
     }
 
     const tenantId = (session.user as any).tenantId;
+    const denied = await planLockResponse(tenantId, "history");
+    if (denied) return denied;
     const tenant = await prisma.tenant.findUnique({
       where: { id: tenantId },
       select: { vertical: true, isBookingEnabled: true },

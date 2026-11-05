@@ -295,7 +295,9 @@ The heart of the system. Each business is a Tenant with:
 
 ### Subscription (Stripe)
 - Mexico prices (Spanish landing, `PricingSection.tsx`, `pricing.mx` in i18n): Start $499, Plus $899, Pro $1,499 MXN per month; one-time net setup fee $2,500, $5,500 and $9,500; monthly only. Checkout still has two plans (Start uses STARTER; Plus and Pro use PRO) and prices come from Stripe (`/api/billing/prices`; Plus uses the new variable `STRIPE_PRICE_PLUS_MONTHLY`, with $499, $899 and $1,499 as fallback if any is missing). United States prices: estimated in Stripe, see `docs/analisis-costos-y-precios-eeuu.md`.
-- Plans: STARTER, PRO, ENTERPRISE
+- Plans (`PlanId`): STARTER (Start), PLUS (Plus), PRO (Pro), ENTERPRISE. CLINICA, VETERINARY and TOURISM still exist in the enum but nothing uses them (retirement pending).
+- **PLUS status:** the value is in the production database (`prisma/sql/17-plan-plus`). The code that understands PLUS (locks, capabilities, subscribe route) is NOT deployed yet. Never set a tenant to PLUS until that code is live: the old code cannot read the value and the tenant's CRM breaks (this happened once on doctorg and was reverted).
+- **Which tools each plan includes:** `src/lib/capabilities.ts` (registry, `enforcedPlan`). Locked tools are hidden from the sidebar, shown in the App Store with a legend, and blocked on the server (pages redirect to `/admin/suscripcion`, APIs answer 403 `plan_required`). Guards: `src/lib/capability-guard.ts`. Tests: `local-utils/capabilities.test.ts`, `local-utils/plan-guard.test.ts`.
 - Statuses: TRIALING, ACTIVE, PAST_DUE, CANCELED, UNPAID
 - Billing managed by Stripe
 - `trialEndsAt` → trial period expiration date (14 days from creation)
@@ -312,6 +314,7 @@ Each tenant has a monthly AI credit spending budget ($15 USD for Starter).
 | Plan | Monthly credit |
 |---|---|
 | **STARTER** | **$15.00 USD** (default) |
+| **PLUS** | **$15.00 USD** |
 | **PRO** | **$50.00 USD** |
 | **ENTERPRISE** | **$200.00 USD** |
 
@@ -652,7 +655,7 @@ How to make one safely:
 4. Get explicit human approval, then apply `up.sql` in one transaction (`psql -v ON_ERROR_STOP=1 -1 -f up.sql`) and verify types, defaults and that existing rows did not change.
 5. **Order: database first, code after.** New code reads the new columns; if it ships first, every appointment query fails (reminders, agenda, bot, CRM). Old code ignores extra columns, so the reverse is safe. Merging to `main` deploys through CI/CD, so a merge counts as a deploy.
 
-Done so far: `prisma/sql/16-reminder-attempts/` (ticket #16). There is no separate test database yet: local development uses the real one, so treat every local write as a production write.
+Done so far: `prisma/sql/16-reminder-attempts/` (ticket #16). `prisma/sql/17-plan-plus/` (PLUS value in `PlanId`), applied to production on 2026-11-05 after a verified backup; the code that uses PLUS is not deployed yet. There is no separate test database yet: local development uses the real one, so treat every local write as a production write.
 
 ---
 
@@ -702,6 +705,28 @@ Then open `http://doctor.localhost:3000` to see the "doctor" tenant.
 - Row Level Security in Supabase (currently only app-level filtering)
 - Rate limiting on `/api/chat`
 - Trial expiry gate: `TrialBanner` and `TrialExpiredGate` exist, but the trial expiry gate in the admin layout still does not fully block all routes
+
+### Plans, tools and billing: pending (as of 2026-11-05)
+Built on branch `feat/plan-plus-tools`, not committed or deployed. Database changes applied to production: `prisma/sql/17-plan-plus` (PLUS value) and `prisma/sql/18-enabled-tools` (`tenants.enabledTools`), each after a verified backup.
+
+Do not set a business to PLUS until the code that understands PLUS is live.
+
+- **Deploy the plan work.** Commit and open a pull request, then merge (merging deploys). Then run a browser check on a real login: sidebar, App Store cards, activation, locked pages, the 403 responses, and the checkout in MXN and USD.
+- **Live Stripe prices.** The Plus prices in `.env` are test-mode prices. Production (Vercel) needs live-mode IDs for `STRIPE_PRICE_PLUS_MONTHLY` (MXN, $899) and `STRIPE_PRICE_PLUS_MONTHLY_DLLS` (USD, $49), plus the matching live Start and Pro prices.
+- **Mexico Start price.** The Stripe price for Start in MXN reads $500, but the published price is $499. Confirm which one is right.
+- **"View plans" upgrade path (later phase).** Locked tools show "Contact Newy team" as a plain label for now. Add a billing link or contact channel once the owner decides how plan changes happen.
+- **Plus candidates.** The US analysis (`docs/analisis-costos-y-precios-eeuu.md`) compares $39, $49 and $59. $49 was chosen; the 600-conversation Plus quota is an assumption to confirm.
+- **Plus annual.** Not offered. Mexico is monthly only, and Plus is monthly only in the US too.
+- **Patient history at Plus.** Not built: decision D4 puts full patient history at Pro. A basic visit list at Plus would be a new tool.
+- **WhatsApp confirmations.** Locked at Plus (tab and both APIs) and listed as a line in the WhatsApp card. The in-page lock is covered by tests on the API and guard wiring, not on screen.
+- **n8n endpoints.** `due` skips tenants below Pro. `context` and `webhooks/social-campaign` are not plan-checked (see the note on the n8n workflow before changing them: a 403 would stop the workflow, and the webhook also carries the AI credit charge).
+- **Social Campaigns activation.** It uses its Meta connection, not the owner activation step. Decide whether it should have one too.
+- **Owner activation for existing Pro businesses.** A business that moves to Pro starts with no tools turned on, so the owner must activate Patient history and Patients in the App Store. Tell existing Pro customers before the release.
+- **Retire old plan values.** CLINICA, VETERINARY and TOURISM are still in the `PlanId` enum. Check the database for rows that use them, then retire them with a manual SQL change.
+- **Plan phase 4 (missing tools).** Conversation counter and limits, users per plan (1, 2 and 3), waitlist, attendance reports, contact import (Pro), team roles, human handoff alert, bot safety protocols, per-product bot guidance, product priority, offers and discounts, Doctoralia integration. Each goes in the capability registry first (scope, plan, verticals, section, AI, built).
+- **Plans and billing docs.** The plan file `~/.claude/plans/read-the-businnes-verticals-fluffy-breeze.md` still shows the open decisions as pending; update it when these are closed.
+- **Automated tests.** The guards and the registry are covered by `local-utils/capabilities.test.ts`, `plan-guard.test.ts` and `billing-currency.test.ts`. There are no browser or end-to-end tests yet.
+- **Database password.** The production password was pasted in chat on 2026-11-05. Rotate it in Supabase, then update `.env` and Vercel.
 
 ---
 

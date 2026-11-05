@@ -7,6 +7,7 @@ import { apiError } from "@/lib/api-errors";
 import { listPatients } from "@/lib/patients";
 import { prisma } from "@/lib/db";
 import { getVerticalProfile } from "@/lib/vertical-profile";
+import { planLockResponse } from "@/lib/capability-guard";
 
 const PAGE_SIZE = 20;
 
@@ -18,6 +19,8 @@ export async function GET(req: NextRequest) {
     }
 
     const tenantId = (session.user as any).tenantId;
+    const denied = await planLockResponse(tenantId, "history");
+    if (denied) return denied;
     const { searchParams } = new URL(req.url);
     const q = (searchParams.get("q") ?? "").slice(0, 80);
     const page = Math.max(1, Number(searchParams.get("page")) || 1);

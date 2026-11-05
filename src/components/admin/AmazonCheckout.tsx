@@ -53,8 +53,12 @@ function CheckoutForm({ onSuccess, onCancel }: AmazonCheckoutProps) {
   const elements = useElements();
   const { t } = useTranslation();
 
-  const [selectedPlan, setSelectedPlan] = useState<"STARTER" | "PRO">("STARTER");
+  const [selectedPlan, setSelectedPlan] = useState<"STARTER" | "PLUS" | "PRO">("STARTER");
   const [interval, setInterval] = useState<"monthly" | "annual">("monthly");
+  // Plus is monthly only: switching to annual moves the selection back to Start.
+  useEffect(() => {
+    if (interval === "annual" && selectedPlan === "PLUS") setSelectedPlan("STARTER");
+  }, [interval, selectedPlan]);
   const [cardholderName, setCardholderName] = useState("");
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [loadingSecret, setLoadingSecret] = useState(true);
@@ -85,10 +89,36 @@ function CheckoutForm({ onSuccess, onCancel }: AmazonCheckoutProps) {
     initSetupIntent();
   }, []);
 
-  // Pricing calculations
-  const priceStarter = interval === "monthly" ? 29 : 24; // 24/mo billed annually
-  const pricePro = interval === "monthly" ? 79 : 64;
-  const currentPrice = selectedPlan === "PRO" ? pricePro : priceStarter;
+  // Currency and prices come from the server (the business's currency: MXN for Mexico, USD otherwise).
+  const [checkoutConfig, setCheckoutConfig] = useState<{
+    currency: "mxn" | "usd";
+    prices: {
+      starter: { monthly: number | null; annualPerMonth: number | null };
+      plus: { monthly: number | null };
+      pro: { monthly: number | null; annualPerMonth: number | null };
+    };
+  } | null>(null);
+  useEffect(() => {
+    fetch("/api/billing/checkout-config")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => { if (data) setCheckoutConfig(data); })
+      .catch(() => {});
+  }, []);
+  const currency = checkoutConfig?.currency ?? "usd";
+  const currencyCode = currency.toUpperCase();
+  const isMxn = currency === "mxn";
+  // Mexico has monthly prices only.
+  useEffect(() => {
+    if (isMxn && interval === "annual") setInterval("monthly");
+  }, [isMxn, interval]);
+
+  // Pricing calculations (fallbacks match the published prices if Stripe cannot be read)
+  const fallback = isMxn ? { starter: 499, plus: 899, pro: 1499 } : { starter: 29, plus: 49, pro: 79 };
+  const cfg = checkoutConfig?.prices;
+  const priceStarter = interval === "monthly" ? (cfg?.starter.monthly ?? fallback.starter) : (cfg?.starter.annualPerMonth ?? 24);
+  const pricePro = interval === "monthly" ? (cfg?.pro.monthly ?? fallback.pro) : (cfg?.pro.annualPerMonth ?? 64);
+  const pricePlus = cfg?.plus.monthly ?? fallback.plus; // monthly only
+  const currentPrice = selectedPlan === "PRO" ? pricePro : selectedPlan === "PLUS" ? pricePlus : priceStarter;
   const billingTotal = interval === "annual" ? currentPrice * 12 : currentPrice;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -171,7 +201,7 @@ function CheckoutForm({ onSuccess, onCancel }: AmazonCheckoutProps) {
     }
   };
 
-  const planCard = (plan: "STARTER" | "PRO", price: number, features: string[]) => {
+  const planCard = (plan: "STARTER" | "PLUS" | "PRO", price: number, features: string[]) => {
     const selected = selectedPlan === plan;
     return (
       <div
@@ -182,12 +212,12 @@ function CheckoutForm({ onSuccess, onCancel }: AmazonCheckoutProps) {
       >
         <div className="flex justify-between items-start mb-1">
           <span className="font-bold text-sm text-white">
-            {plan === "PRO" ? t.billing.planPro : t.billing.planStarter}
+            {plan === "PRO" ? t.billing.planPro : plan === "PLUS" ? t.billing.planPlus : t.billing.planStarter}
           </span>
           {selected && <Check size={16} className="text-mk-violet-light" />}
         </div>
         <div className="text-xl font-black text-white mb-2">
-          ${price} <span className="text-xs font-normal text-white/50">{t.billing.perMonth}</span>
+          ${price} <span className="text-xs font-normal text-white/50">{t.billing.perMonth.replace("USD", currencyCode)}</span>
         </div>
         <ul className="text-xs text-white/60 space-y-1">
           {features.map((feature) => (
@@ -206,9 +236,8 @@ function CheckoutForm({ onSuccess, onCancel }: AmazonCheckoutProps) {
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="bg-mk-raised text-white px-6 py-4 flex items-center justify-between border-b border-white/10">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-mk-gradient flex items-center justify-center text-white font-bold text-lg">
-            N
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/NewAigent-white-pet.png" alt="NewAigent" className="w-8 h-8 rounded-lg object-contain" />
           <div>
             <span className="font-bold tracking-tight text-white text-base">NewAigent</span>
             <span className="text-xs text-white/50 ml-2 border-l border-white/15 pl-2">{t.billing.secureCheckout}</span>
@@ -250,18 +279,22 @@ function CheckoutForm({ onSuccess, onCancel }: AmazonCheckoutProps) {
                   onClick={() => setInterval("annual")}
                   className={`px-3 py-1 rounded-md font-medium transition-all ${
                     interval === "annual" ? "bg-mk-violet text-white shadow" : "text-white/60 hover:text-white"
-                  }`}
+                  } ${isMxn ? "hidden" : ""}`}
                 >
                   {t.billing.intervalAnnual} <span className="text-mk-emerald font-bold">{t.billing.annualSavings}</span>
                 </button>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className={`grid grid-cols-1 gap-3 ${interval === "monthly" ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
               {planCard("STARTER", priceStarter, [
                 t.billing.starterFeatureStorefront,
                 t.billing.starterFeatureCampaigns,
                 t.billing.starterFeatureCopilot,
+              ])}
+              {interval === "monthly" && planCard("PLUS", pricePlus, [
+                t.billing.plusFeatureCalendar,
+                t.billing.plusFeatureConfirmations,
               ])}
               {planCard("PRO", pricePro, [
                 t.billing.proFeatureEverything,
@@ -352,22 +385,22 @@ function CheckoutForm({ onSuccess, onCancel }: AmazonCheckoutProps) {
               <div className="flex justify-between text-white/60">
                 <span>{t.billing.planLabel}</span>
                 <span className="font-semibold text-white">
-                  {selectedPlan === "PRO" ? t.billing.planNamePro : t.billing.planNameStarter} ({interval === "annual" ? t.billing.intervalAnnual : t.billing.intervalMonthly})
+                  {selectedPlan === "PRO" ? t.billing.planNamePro : selectedPlan === "PLUS" ? t.billing.planNamePlus : t.billing.planNameStarter} ({interval === "annual" ? t.billing.intervalAnnual : t.billing.intervalMonthly})
                 </span>
               </div>
               <div className="flex justify-between text-white/60">
                 <span>{t.billing.subtotal}</span>
-                <span>${billingTotal}.00 USD</span>
+                <span>${billingTotal}.00 {currencyCode}</span>
               </div>
               <div className="flex justify-between text-white/60">
                 <span>{t.billing.estimatedTaxes}</span>
-                <span>$0.00 USD</span>
+                <span>$0.00 {currencyCode}</span>
               </div>
 
               <div className="pt-3 border-t border-white/10 flex justify-between items-baseline">
                 <span className="text-base font-bold text-white">{t.billing.totalToday}</span>
                 <span className="mk-text-gradient text-2xl font-black">
-                  ${billingTotal}.00 <span className="text-xs font-normal">USD</span>
+                  ${billingTotal}.00 <span className="text-xs font-normal">{currencyCode}</span>
                 </span>
               </div>
               <p className="text-[11px] text-white/50 italic">

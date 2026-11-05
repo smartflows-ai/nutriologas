@@ -4,6 +4,8 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { CAPABILITIES, isPlanLockedInCatalog, toolStatus } from "@/lib/capabilities";
+import { capabilityContextForTenant } from "@/lib/capability-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -47,5 +49,13 @@ export async function GET() {
     };
   });
 
-  return NextResponse.json({ apps: safeApps, isAssistantEnabled: tenant?.isAssistantEnabled ?? false, isTriageEnabled: tenant?.isTriageEnabled ?? false });
+  // Tools above the tenant's plan: the App Store shows them with a legend and a link to billing.
+  const ctx = await capabilityContextForTenant(tenantId);
+  const planLocked = ctx ? CAPABILITIES.filter((c) => isPlanLockedInCatalog(c, ctx)).map((c) => c.id) : [];
+  // Owner-activated tools: locked / available / active / hidden, shown on their App Store cards.
+  const toolStatuses = ctx
+    ? Object.fromEntries(CAPABILITIES.filter((c) => c.activatable).map((c) => [c.id, toolStatus(c, ctx)]))
+    : {};
+
+  return NextResponse.json({ apps: safeApps, isAssistantEnabled: tenant?.isAssistantEnabled ?? false, isTriageEnabled: tenant?.isTriageEnabled ?? false, planLocked, toolStatuses });
 }

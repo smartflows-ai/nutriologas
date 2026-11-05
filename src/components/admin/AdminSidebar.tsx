@@ -28,6 +28,7 @@ import {
   UserSearch
 } from "lucide-react";
 import { getVerticalProfile } from "@/lib/vertical-profile";
+import { visibleCapabilities, toCapabilityPlan, type CapabilityContext } from "@/lib/capabilities";
 import SignOutButton from "@/components/admin/SignOutButton";
 import CreditsBadge from "@/components/admin/CreditsBadge";
 
@@ -38,7 +39,9 @@ interface Props {
   isTriageEnabled?: boolean;
   isBookingEnabled?: boolean;
   vertical?: string;
+  plan?: string;
   connectedApps: string[];
+  enabledTools?: string[];
 }
 
 import { useTranslation } from "@/i18n";
@@ -66,7 +69,9 @@ export default function AdminSidebar({
   isTriageEnabled = false, 
   isBookingEnabled = true,
   vertical = "ECOMMERCE",
-  connectedApps 
+  plan = "STARTER",
+  connectedApps,
+  enabledTools = []
 }: Props) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -123,25 +128,22 @@ export default function AdminSidebar({
   }, [open]);
 
   // ── Filtrado Dinamico de Menu ──
+  // Which routes this tenant sees: src/lib/capabilities.ts (plan is not enforced yet, so START).
+  const capabilityCtx: CapabilityContext = {
+    vertical,
+    plan: toCapabilityPlan(plan),
+    isBookingEnabled,
+    isAssistantEnabled,
+    isTriageEnabled,
+    connectedApps,
+    enabledTools,
+  };
+  // Tools above the plan are not listed here; they appear in the App Store with a legend.
+  const visibleRoutes = new Set(visibleCapabilities(capabilityCtx).map((c) => c.route));
   const navCategories = baseCategories.map(category => {
     return {
       ...category,
-      items: category.items.filter(item => {
-        // Evaluate AI Assistant requirement
-        if (item.isAssistant && !isAssistantEnabled) return false;
-        if (item.isTriage && !isTriageEnabled) return false;
-        if (item.isBooking && !isBookingEnabled) return false;
-        // Physical orders only for stores (see vertical-profile.ts)
-        if (item.isOrders && !profile.hasOrders) return false;
-
-        // Evaluate Integrations requirement (if requires at least one of providersReq)
-        if (item.providersReq) {
-          const hasConnectedProvider = item.providersReq.some((p: string) => connectedApps.includes(p));
-          if (!hasConnectedProvider) return false;
-        }
-
-        return true;
-      })
+      items: category.items.filter(item => visibleRoutes.has(item.href))
     };
   });
 

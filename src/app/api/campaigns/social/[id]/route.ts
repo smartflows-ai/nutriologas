@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { CampaignFrequency, SocialPlatform } from "@prisma/client";
+import { planLockResponse } from "@/lib/capability-guard";
 
 function computeNextPostAt(frequency: CampaignFrequency, from = new Date()): Date {
   const d = new Date(from);
@@ -30,6 +31,11 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 
   const tenantId = session ? (session.user as any).tenantId as string : undefined;
+  // Admin edits are plan-checked; the n8n path (internal secret, no session) is not.
+  if (tenantId) {
+    const denied = await planLockResponse(tenantId, "social-campaign");
+    if (denied) return denied;
+  }
   const body = await req.json();
 
   // Build update data
@@ -99,6 +105,8 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
   const tenantId = (session.user as any).tenantId as string;
+  const denied = await planLockResponse(tenantId, "social-campaign");
+  if (denied) return denied;
 
   await prisma.socialCampaign.deleteMany({
     where: { id: params.id, tenantId },

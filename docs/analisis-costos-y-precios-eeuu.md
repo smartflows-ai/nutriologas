@@ -13,7 +13,7 @@ Fecha: 2026-10-29. Moneda: dólares (USD). Los precios son los **estimados** que
 Observaciones:
 
 - El producto **Pro Anual Dlls** tiene además un precio de US$1,600 **por mes**. Parece un error (20 veces el mensual de Pro). Hay que archivarlo en Stripe si no es intencional.
-- Estados Unidos no tiene plan intermedio (en México son Start, Plus y Pro). Los nombres en Stripe siguen siendo Starter y Pro.
+- Plus se añade también en Estados Unidos (decisión D6): mensual solamente, precio por confirmar. Ver la sección 3b. Los nombres en Stripe hoy son Starter y Pro; falta crear el precio de Plus.
 - No hay cobro único de implementación definido para Estados Unidos; este análisis no lo incluye.
 - Las cuotas de conversaciones por plan no están definidas para Estados Unidos. Supuesto: Starter 250 y Pro 1,200, iguales a Start y Pro de México.
 
@@ -46,6 +46,21 @@ Contribución = ingreso menos comisión de pago, WhatsApp, modelo y colchón. Se
 | Pro | anual | 100 % | US$2.02 | US$43.60 (74 %) | -US$15.55 (-26 %) |
 | Pro | anual | 60 % | US$1.21 | US$48.82 (83 %) | US$13.33 (23 %) |
 
+### 3b. Plus, precios candidatos (mensual)
+
+Cuota supuesta: 600 conversaciones y 100 consultas del CRM al mes. Neto = precio menos comisión de pago.
+
+| Precio | Neto | Uso | WhatsApp | Gemini 2.5 Flash (modelo actual) | GPT-4o (premium) |
+|---|---|---|---|---|---|
+| US$39 | US$37.57 | 100 % | US$1.01 | US$30.44 (78 %) | US$0.86 (2 %) |
+| US$39 | US$37.57 | 60 % | US$0.60 | US$33.05 (85 %) | US$15.30 (39 %) |
+| US$49 | US$47.28 | 100 % | US$1.01 | US$40.15 (82 %) | US$10.57 (22 %) |
+| US$49 | US$47.28 | 60 % | US$0.60 | US$42.76 (87 %) | US$25.01 (51 %) |
+| US$59 | US$56.99 | 100 % | US$1.01 | US$49.86 (85 %) | US$20.28 (34 %) |
+| US$59 | US$56.99 | 60 % | US$0.60 | US$52.47 (89 %) | US$34.72 (59 %) |
+
+Lectura: con Gemini 2.5 Flash todos los planes dejan margen aun usando toda la cuota.
+
 Lectura: con Gemini 2.5 Flash todos los planes dejan margen aun usando toda la cuota. El plan anual de Starter (US$19 al mes) es el más delgado; con GPT-4o el margen se reduce mucho y el plan Pro anual pierde dinero si el cliente usa toda la cuota, así que ese modelo necesita tope.
 
 ## 4. Punto de equilibrio
@@ -67,7 +82,7 @@ El costo fijo se comparte con México: n8n, Evolution y la base de datos son los
 
 ## 5. Pendiente
 
-1. Definir el nombre y la cuota de conversaciones de cada plan en Estados Unidos, y si existe un plan intermedio.
+1. Elegir el precio mensual de Plus en Estados Unidos (ver 3b) y crearlo en Stripe; confirmar la cuota de conversaciones de Plus (supuesto 600).
 2. Definir el cobro único de implementación para Estados Unidos.
 3. Decidir si el descuento anual debe ser igual en los dos planes (hoy 34 % en Starter y 25 % en Pro).
 4. Archivar el precio de US$1,600 por mes en Pro Anual Dlls si es un error.

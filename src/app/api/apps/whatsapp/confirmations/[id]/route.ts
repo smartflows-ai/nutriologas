@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db";
 import { apiError } from "@/lib/api-errors";
 import { ACTIVE_APPOINTMENT_STATUSES } from "@/lib/bot";
 import { confirmVisit, releaseVisit } from "@/lib/reminder-actions";
+import { planLockResponse } from "@/lib/capability-guard";
 
 const bodySchema = z.object({ action: z.enum(["confirm", "release"]) });
 
@@ -18,6 +19,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   if (!parsed.success) return apiError("reminder_settings_invalid", 400);
 
   const tenantId = session.user.tenantId;
+  const denied = await planLockResponse(tenantId, "confirmations");
+  if (denied) return denied;
   const visit = await prisma.appointment.findFirst({
     where: {
       id: params.id,

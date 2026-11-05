@@ -4,6 +4,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getCreditStatus, pauseCampaignsForTenant } from "@/lib/credits";
+import { CAPABILITIES, isPlanLocked } from "@/lib/capabilities";
+import { capabilityContextForTenant } from "@/lib/capability-guard";
 
 export async function GET(req: NextRequest) {
   const secret = req.headers.get("x-internal-secret");
@@ -37,8 +39,18 @@ export async function GET(req: NextRequest) {
   // Verify credit status per tenant before handing over to n8n
   const campaigns = [];
   const tenantCreditsChecked = new Map<string, boolean>();
+  // Tenants whose plan is below Social Campaigns (Pro) do not get posts generated.
+  const tenantPlanLocked = new Map<string, boolean>();
 
   for (const c of rawCampaigns) {
+    let locked = tenantPlanLocked.get(c.tenantId);
+    if (locked === undefined) {
+      const ctx = await capabilityContextForTenant(c.tenantId);
+      locked = ctx ? isPlanLocked(CAPABILITIES.find((x) => x.id === "social-campaign")!, ctx) : false;
+      tenantPlanLocked.set(c.tenantId, locked);
+    }
+    if (locked) continue;
+
     let hasCredits = tenantCreditsChecked.get(c.tenantId);
     if (hasCredits === undefined) {
       try {

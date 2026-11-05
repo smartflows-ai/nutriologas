@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Plug, Check, X, ExternalLink, Loader2, Calendar as CalendarIcon, CheckCircle2,
-  Bot, MessageSquare, Globe, AlertTriangle, Mail} from "lucide-react";
+  Bot, MessageSquare, Globe, AlertTriangle, Mail, Lock, ClipboardList, UserSearch} from "lucide-react";
 import { useRef } from "react";
 import { toggleAssistant, disconnectApp, refreshSidebar } from "./actions";
 import { useTranslation } from "@/i18n";
@@ -22,6 +22,10 @@ interface FeatureDef {
   icon: string | React.ReactNode;
   comingSoon?: boolean;
   isInternalToggle?: boolean;
+  // Registry id (src/lib/capabilities.ts) when the tool is plan-gated
+  capabilityId?: string;
+  // Plan-gated feature listed inside this card (registry id)
+  subCapabilityId?: string;
   providers: {
     id: string; // e.g., 'GOOGLE', 'MICROSOFT'
     name: string;
@@ -56,6 +60,8 @@ const FEATURES: FeatureDef[] = [
     description: "Mensajería y atención automatizada a clientes vía WhatsApp.",
     icon: <MessageSquare size={22} />,
     comingSoon: false,
+    // Plan-gated feature inside this card (its own registry id); shown as a line when the plan locks it.
+    subCapabilityId: "confirmations",
     providers: [
       { id: "WHATSAPP", name: "WhatsApp", connectUrl: "#", isCustomAction: true }
     ]
@@ -65,9 +71,27 @@ const FEATURES: FeatureDef[] = [
     name: "Campañas Sociales",
     description: "Genera y publica contenido automático con IA en Facebook e Instagram.",
     icon: <Globe size={22} />,
+    capabilityId: "social-campaign",
     providers: [
       { id: "FACEBOOK", name: "Meta (Facebook/Instagram)", connectUrl: "/api/apps/oauth/facebook/start" }
     ]
+  },
+  // Plan-gated tools with no app to connect: shown as store cards only while the plan locks them.
+  {
+    id: "history",
+    name: "Historial de pacientes",
+    description: "Consulta el historial completo de cada paciente o cliente y sus notas.",
+    icon: <ClipboardList size={22} />,
+    capabilityId: "history",
+    providers: []
+  },
+  {
+    id: "patients",
+    name: "Pacientes",
+    description: "Perfiles de pacientes que el asistente de WhatsApp registra.",
+    icon: <UserSearch size={22} />,
+    capabilityId: "patients",
+    providers: []
   },
 ];
 
@@ -266,6 +290,10 @@ export default function AppsPage() {
   const router = useRouter();
   const calendarAccount = useCalendarAccount();
   const [apps, setApps] = useState<ConnectedAppInfo[]>([]);
+  const [planLocked, setPlanLocked] = useState<string[]>([]);
+  // Owner-activated plan tools: "locked" | "available" | "active" | "hidden" (see src/lib/capabilities.ts)
+  const [toolStatuses, setToolStatuses] = useState<Record<string, string>>({});
+  const [togglingTool, setTogglingTool] = useState<string | null>(null);
   const [isAssistantEnabled, setIsAssistantEnabled] = useState(false);
   const [togglingAssistant, setTogglingAssistant] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -276,6 +304,24 @@ export default function AppsPage() {
   const [confirmState, setConfirmState] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
   const [notificationState, setNotificationState] = useState<{ title: string; message: string; type: "error" | "success" } | null>(null);
 
+  const toggleTool = async (id: string, enabled: boolean) => {
+    setTogglingTool(id);
+    try {
+      const res = await fetch(`/api/apps/tools/${id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled }),
+      });
+      if (!res.ok) throw new Error("toggle");
+      await fetchApps();
+      await refreshSidebar();
+    } catch {
+      toast(t.integrationsUi.assistantToggleFailed);
+    } finally {
+      setTogglingTool(null);
+    }
+  };
+
   const fetchApps = async () => {
     setLoading(true);
     try {
@@ -283,6 +329,8 @@ export default function AppsPage() {
       if (res.ok) {
         const data = await res.json();
         setApps(data.apps ?? []);
+        setPlanLocked(data.planLocked ?? []);
+        setToolStatuses(data.toolStatuses ?? {});
         setIsAssistantEnabled(data.isAssistantEnabled ?? false);
       }
     } catch (e) {
@@ -383,6 +431,13 @@ export default function AppsPage() {
             const activeConn = getActiveConnectionForFeature(feat);
             const isConnected = feat.isInternalToggle ? isAssistantEnabled : !!activeConn;
             const isDisconnecting = activeConn ? disconnecting === activeConn.provider : false;
+            const toolState = feat.capabilityId ? toolStatuses[feat.capabilityId] : undefined;
+            const toolActive = toolState === "active";
+            const lockedByPlan = !!feat.capabilityId && (toolState ? toolState === "locked" : planLocked.includes(feat.capabilityId));
+            const subLockedByPlan = !!feat.subCapabilityId && planLocked.includes(feat.subCapabilityId);
+            // Tools with no app to connect only appear here while the plan locks them.
+            // Tools with no app to connect stay in the store while the business has them (locked, available or active).
+            if (!lockedByPlan && feat.providers.length === 0 && !feat.isInternalToggle && (!toolState || toolState === "hidden")) return null;
 
             return (
               <div
@@ -410,15 +465,22 @@ export default function AppsPage() {
                       </div>
                     </div>
 
-                    {isConnected && (
+                    {(isConnected || toolActive) && (
                       <span className="flex items-center gap-1 text-xs font-medium text-primary bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-full whitespace-nowrap">
-                        <Check size={12} /> {t.crm.apps.connected}
+                        <Check size={12} /> {toolActive ? t.crm.apps.toolActive : t.crm.apps.connected}
                       </span>
                     )}
                   </div>
 
                   {/* Description */}
                   <p className="text-xs text-gray-500 mb-4 leading-relaxed flex-1">{(t.crm.apps.features as any)[feat.id]?.desc || feat.description}</p>
+
+                  {subLockedByPlan && (
+                    <p className="mb-4 flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-300">
+                      <Lock size={12} strokeWidth={2} className="shrink-0 text-gray-400" aria-hidden="true" />
+                      {t.crm.apps.includesConfirmations}
+                    </p>
+                  )}
 
                   {/* Connected info */}
                   {isConnected && activeConn && (
@@ -471,6 +533,14 @@ export default function AppsPage() {
                     </div>
                   )}
 
+                  {/* Plan legend: tool is above the tenant's plan (decision D3: show with upsell) */}
+                  {lockedByPlan && (
+                    <div className="mb-4 flex items-start gap-2 p-2.5 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-xs text-gray-600 dark:text-gray-300">
+                      <Lock size={12} strokeWidth={2} className="shrink-0 mt-0.5 text-gray-400" aria-hidden="true" />
+                      <span>{t.crm.apps.planLockedLegend}</span>
+                    </div>
+                  )}
+
                   {/* Actions */}
                   <div className="mt-auto">
                     {feat.comingSoon ? (
@@ -515,6 +585,19 @@ export default function AppsPage() {
                         )}
                         {t.crm.apps.disconnect} {getProviderName(activeConn.provider)}
                       </button>
+                    ) : toolState === "available" || toolState === "active" ? (
+                      <button
+                        onClick={() => toggleTool(feat.capabilityId!, !toolActive)}
+                        disabled={togglingTool === feat.capabilityId}
+                        className={`w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg transition-colors disabled:opacity-50 ${toolActive ? "border border-transparent text-red-600 hover:border-red-200 hover:bg-red-50" : "bg-primary text-white hover:bg-primary/90"}`}
+                      >
+                        {togglingTool === feat.capabilityId ? <Loader2 size={14} className="animate-spin" /> : (toolActive ? <X size={14} /> : <Check size={14} />)}
+                        {toolActive ? t.crm.apps.toolDeactivate : t.crm.apps.toolActivate}
+                      </button>
+                    ) : lockedByPlan ? (
+                      <p className="w-full text-center px-3 py-2 border border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-300 text-xs font-medium rounded-lg">
+                        {t.crm.apps.contactTeam}
+                      </p>
                     ) : (
                       <div className="flex flex-col gap-2">
                         <p className="text-[11px] font-medium text-gray-400 text-center mb-1">
