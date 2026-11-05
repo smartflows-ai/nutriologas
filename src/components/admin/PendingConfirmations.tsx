@@ -2,7 +2,7 @@
 // src/components/admin/PendingConfirmations.tsx
 // Visits waiting for the customer's SI after a reminder, with confirm and release-now actions.
 import { useCallback, useEffect, useState } from "react";
-import { Check, Loader2, Phone, XCircle } from "lucide-react";
+import { Check, Loader2, Lock, Phone, XCircle } from "lucide-react";
 import { useTranslation } from "@/i18n";
 import { localeFor } from "@/lib/utils";
 
@@ -24,10 +24,19 @@ export default function PendingConfirmations() {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Set when the plan does not include confirmations (the API answers 403 plan_required).
+  const [planLocked, setPlanLocked] = useState(false);
 
   const load = useCallback(async () => {
     try {
       const res = await fetch("/api/apps/whatsapp/confirmations");
+      if (res.status === 403) {
+        const body = await res.json().catch(() => null);
+        if (body?.error === "plan_required") {
+          setPlanLocked(true);
+          return;
+        }
+      }
       if (!res.ok) throw new Error("load");
       const data = await res.json();
       setItems(data.items ?? []);
@@ -75,6 +84,20 @@ export default function PendingConfirmations() {
     return (
       <div className="flex items-center gap-3 py-6 text-gray-400 text-sm">
         <Loader2 size={16} className="animate-spin" />
+      </div>
+    );
+  }
+
+  if (planLocked) {
+    return (
+      <div className="flex items-start gap-2 p-3 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-sm text-gray-600 dark:text-gray-300">
+        <Lock size={14} strokeWidth={2} className="shrink-0 mt-0.5 text-gray-400" aria-hidden="true" />
+        <div className="flex-1">
+          <p>{t.crm.apps.planLockedLegend}</p>
+          <p className="inline-block mt-2 px-3 py-2 border border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-300 text-xs font-medium rounded-lg">
+            {t.crm.apps.contactTeam}
+          </p>
+        </div>
       </div>
     );
   }

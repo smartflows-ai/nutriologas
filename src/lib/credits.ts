@@ -12,6 +12,7 @@ import { notifyTenantOwner } from "@/lib/whatsapp";
 // ── Plan limits (USD per month) ─────────────────────────────────────────────
 export const PLAN_CREDIT_LIMITS: Record<string, number> = {
   STARTER:    15.0,
+  PLUS:       15.0,
   PRO:        50.0,
   ENTERPRISE: 200.0,
 };

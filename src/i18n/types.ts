@@ -609,6 +609,13 @@ export interface Translations {
       linkedOn: string;
       linkedAccount: string;
       notAvailable: string;
+      planLockedLegend: string;
+      viewPlans: string;
+      contactTeam: string;
+      includesConfirmations: string;
+      toolActive: string;
+      toolActivate: string;
+      toolDeactivate: string;
       disableAssistant: string;
       enableAssistant: string;
       disconnect: string;
@@ -1048,6 +1055,9 @@ export interface Translations {
     annualSavings: string;
     planStarter: string;
     planPro: string;
+    planPlus: string;
+    plusFeatureCalendar: string;
+    plusFeatureConfirmations: string;
     perMonth: string;
     starterFeatureStorefront: string;
     starterFeatureCampaigns: string;
@@ -1067,6 +1077,7 @@ export interface Translations {
     planLabel: string;
     planNameStarter: string;
     planNamePro: string;
+    planNamePlus: string;
     subtotal: string;
     estimatedTaxes: string;
     totalToday: string;

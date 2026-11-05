@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { CampaignFrequency, SocialPlatform } from "@prisma/client";
+import { planLockResponse } from "@/lib/capability-guard";
 
 function computeNextPostAt(frequency: CampaignFrequency, from = new Date()): Date {
   const d = new Date(from);
@@ -25,6 +26,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
   const tenantId = (session.user as any).tenantId as string;
+  const denied = await planLockResponse(tenantId, "social-campaign");
+  if (denied) return denied;
 
   const campaigns = await prisma.socialCampaign.findMany({
     where: { tenantId },
@@ -41,6 +44,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
   const tenantId = (session.user as any).tenantId as string;
+  const denied = await planLockResponse(tenantId, "social-campaign");
+  if (denied) return denied;
 
   const body = await req.json();
   const {

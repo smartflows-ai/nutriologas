@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { planLockResponse } from "@/lib/capability-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,8 @@ export async function GET(req: Request) {
     const session = await getServerSession(authOptions);
     if (!session?.user?.tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const tenantId = session.user.tenantId;
+    const denied = await planLockResponse(tenantId, "social-campaign");
+    if (denied) return denied;
 
     const { searchParams } = new URL(req.url);
     const page = parseInt(searchParams.get("page") || "1", 10);

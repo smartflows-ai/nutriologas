@@ -6,12 +6,15 @@ import { prisma } from "@/lib/db";
 import { apiError } from "@/lib/api-errors";
 import { ACTIVE_APPOINTMENT_STATUSES } from "@/lib/bot";
 import { releaseAt } from "@/lib/reminders";
+import { planLockResponse } from "@/lib/capability-guard";
 
 export async function GET() {
   const session = await getAppSession();
   if (!session?.user || session.user.role !== "ADMIN") return apiError("unauthorized", 401);
 
   const tenantId = session.user.tenantId;
+  const denied = await planLockResponse(tenantId, "confirmations");
+  if (denied) return denied;
   const now = new Date();
   const tenant = await prisma.tenant.findUnique({
     where: { id: tenantId },

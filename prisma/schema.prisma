@@ -35,6 +35,8 @@ model Tenant {
   longitude           Float?
   isAssistantEnabled Boolean @default(true)
   isTriageEnabled    Boolean @default(false)
+  // Plan tools the owner has activated in the App Store (registry ids, see src/lib/capabilities.ts).
+  enabledTools       String[] @default([])
   vertical           BusinessVertical @default(ECOMMERCE) @map("businessVertical")
   isBookingEnabled   Boolean          @default(false)
   boardingCapacity   Int?             // Capacidad de hospedaje (veterinaria/hotel)
@@ -469,6 +471,7 @@ model SocialPost {
 // ─── SUSCRIPCIONES (Stripe - Platform Billing) ──────────
 enum PlanId {
   STARTER
+  PLUS
   PRO
   CLINICA
   VETERINARY

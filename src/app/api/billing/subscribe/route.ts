@@ -6,6 +6,8 @@ import { authOptions } from "@/lib/auth";
 import { stripe } from "@/lib/stripe";
 import { prisma } from "@/lib/db";
 import { PlanId } from "@prisma/client";
+import { isOfferedIn, priceEnvNames, type BillingPlan } from "@/lib/billing-currency";
+import { billingCurrencyForTenant } from "@/lib/billing-currency-server";
 
 export async function POST(req: NextRequest) {
   try {
@@ -48,18 +50,15 @@ export async function POST(req: NextRequest) {
     });
 
     // 2. Resolve Price ID
-    const planUpper = (plan.toUpperCase() === "PRO" ? "PRO" : "STARTER") as PlanId;
-    let priceId = "";
-
-    if (planUpper === "PRO") {
-      priceId = interval === "annual"
-        ? (process.env.STRIPE_PRICE_PRO_ANNUAL_DLLS || process.env.STRIPE_PRICE_PRO_ANNUAL || "")
-        : (process.env.STRIPE_PRICE_PRO_MONTHLY_DLLS || process.env.STRIPE_PRICE_PRO_MONTHLY || "");
-    } else {
-      priceId = interval === "annual"
-        ? (process.env.STRIPE_PRICE_STARTER_ANNUAL_DLLS || process.env.STRIPE_PRICE_STARTER_ANNUAL || "")
-        : (process.env.STRIPE_PRICE_STARTER_MONTHLY_DLLS || process.env.STRIPE_PRICE_STARTER_MONTHLY || "");
+    const planUpper = (["PRO", "PLUS"].includes(plan.toUpperCase()) ? plan.toUpperCase() : "STARTER") as PlanId;
+    // The currency is decided on the server (Stripe allows one per customer), never taken from the request.
+    const currency = await billingCurrencyForTenant(tenantId);
+    if (!isOfferedIn(planUpper as BillingPlan, interval, currency)) {
+      return NextResponse.json({ error: "plan_not_offered" }, { status: 400 });
     }
+    const priceId = priceEnvNames(planUpper as BillingPlan, interval, currency)
+      .map((name) => process.env[name] || "")
+      .find((id) => id) || "";
 
     if (!priceId) {
       return NextResponse.json({ error: "Precio de Stripe no configurado para este plan" }, { status: 500 });
