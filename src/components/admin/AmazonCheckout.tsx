@@ -76,7 +76,7 @@ function CheckoutForm({ onSuccess, onCancel }: AmazonCheckoutProps) {
         const data = await res.json();
         if (data.clientSecret) {
           setClientSecret(data.clientSecret);
-          if (data.currentPlan === "PRO") setSelectedPlan("PRO");
+          if (data.currentPlan === "PRO" || data.currentPlan === "PLUS") setSelectedPlan(data.currentPlan);
         } else {
           setErrorMsg(data.error || t.billing.errorInitFailed);
         }
@@ -287,20 +287,9 @@ function CheckoutForm({ onSuccess, onCancel }: AmazonCheckoutProps) {
             </div>
 
             <div className={`grid grid-cols-1 gap-3 ${interval === "monthly" ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
-              {planCard("STARTER", priceStarter, [
-                t.billing.starterFeatureStorefront,
-                t.billing.starterFeatureCampaigns,
-                t.billing.starterFeatureCopilot,
-              ])}
-              {interval === "monthly" && planCard("PLUS", pricePlus, [
-                t.billing.plusFeatureCalendar,
-                t.billing.plusFeatureConfirmations,
-              ])}
-              {planCard("PRO", pricePro, [
-                t.billing.proFeatureEverything,
-                t.billing.proFeatureDomain,
-                t.billing.proFeatureCopilot,
-              ])}
+              {planCard("STARTER", priceStarter, t.billing.startFeatures)}
+              {interval === "monthly" && planCard("PLUS", pricePlus, t.billing.plusFeatures)}
+              {planCard("PRO", pricePro, t.billing.proFeatures)}
             </div>
           </div>
 
@@ -404,7 +393,7 @@ function CheckoutForm({ onSuccess, onCancel }: AmazonCheckoutProps) {
                 </span>
               </div>
               <p className="text-[11px] text-white/50 italic">
-                {(interval === "annual" ? t.billing.renewsAnnual : t.billing.renewsMonthly).replace("{amount}", String(billingTotal))}{" "}
+                {(interval === "annual" ? t.billing.renewsAnnual : t.billing.renewsMonthly).replace("{amount}", String(billingTotal)).replace("{currency}", currencyCode)}{" "}
                 {t.billing.cancelAnytime}
               </p>
             </div>
