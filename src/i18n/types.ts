@@ -33,7 +33,6 @@ export interface Translations {
     ownerConfirmedText: string;
     confirmationLanguageName: string;
     greetingIntro: string;
-    greetingShort: string;
     greetingPrivacy: string;
   };
   nav: {

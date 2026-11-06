@@ -31,7 +31,6 @@ export const es: Translations = {
     ownerConfirmedText: "Tu cita de *[Servicio]* el [Fecha] a las [Hora] queda confirmada. ¡Te esperamos!",
     confirmationLanguageName: "Español",
     greetingIntro: "Hola, soy el asistente de WhatsApp de *{negocio}*. ¿En qué te puedo ayudar?",
-    greetingShort: "¡Hola! ¿En qué te puedo ayudar?",
     greetingPrivacy: "Aviso de privacidad: {url}",
   },
   nav: {

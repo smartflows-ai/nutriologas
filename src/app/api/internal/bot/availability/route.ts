@@ -8,10 +8,13 @@ import { daySlots } from "@/lib/business-hours";
 import { isBookable } from "@/lib/bookable";
 import { getBusyPeriods, isSlotFree } from "@/lib/calendar-sync";
 
+/** Hours offered per reply: a short list, never the whole day. */
+const SLOTS_OFFERED_PER_REPLY = 3;
+
 export async function POST(req: NextRequest) {
   if (!isInternalKeyValid(req)) return Response.json({ error: "No autorizado" }, { status: 401 });
 
-  const { instance, productId, date } = await req.json().catch(() => ({}));
+  const { instance, productId, date, after } = await req.json().catch(() => ({}));
   const bot = await resolveBotTenant(instance);
   if (!bot) return Response.json({ error: "Instancia de WhatsApp no encontrada" }, { status: 404 });
 
@@ -42,10 +45,15 @@ export async function POST(req: NextRequest) {
 
   // Past slots on today's date are not offered.
   const now = Date.now();
-  const offered = availableSlots.filter((time) => {
+  const upcoming = availableSlots.filter((time) => {
     const slot = buildSlot(date, time, duration, bot.businessHours);
     return slot ? slot.start.getTime() > now : false;
   });
+
+  // The bot offers a few hours at a time. `after` (HH:mm) asks for the next ones following the last offered hour.
+  const afterTime = typeof after === "string" && /^\d{2}:\d{2}$/.test(after) ? after : null;
+  const later = afterTime ? upcoming.filter((time) => time > afterTime) : upcoming;
+  const offered = later.slice(0, SLOTS_OFFERED_PER_REPLY);
 
   return Response.json({
     success: true,
@@ -54,9 +62,10 @@ export async function POST(req: NextRequest) {
     timezone: "America/Mexico_City (UTC-06:00)",
     durationMinutes: duration,
     availableSlots: offered,
+    hasMore: later.length > offered.length,
     message:
       offered.length > 0
-        ? `Hay ${offered.length} horarios disponibles el ${date}.`
-        : `No hay horarios disponibles el ${date} para este servicio.`,
+        ? `Hay horarios disponibles el ${date}. Ofrece solo estos ${offered.length}.`
+        : `No hay mas horarios disponibles el ${date} para este servicio.`,
   });
 }
