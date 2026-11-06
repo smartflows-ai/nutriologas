@@ -17,7 +17,7 @@ import { isBookable } from "@/lib/bookable";
 import { cleanPetName } from "@/lib/pets";
 import { patientKeyOf } from "@/lib/patient-key";
 import { getKnownPatient } from "@/lib/patients";
-import { guestEmailFor, mergePatient, missingIntake, resolveModality, type Modality } from "@/lib/patient-intake";
+import { guestEmailFor, mergePatient, missingIntake, referralOf, resolveBookingPhone, resolveModality, type Modality } from "@/lib/patient-intake";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
   if (!isInternalKeyValid(req)) return Response.json({ error: "No autorizado" }, { status: 401 });
 
   const body = await req.json().catch(() => ({}));
-  const { instance, productId, date, time, customerName, customerPhone, customerEmail, customerAge, modality, notes, petName, petSpecies, intake } = body;
+  const { instance, productId, date, time, customerName, customerPhone, customerEmail, customerAge, modality, notes, petName, petSpecies, intake, patientPhone } = body;
   const isV2 = intake === "v2";
 
   const bot = await resolveBotTenant(instance);
@@ -45,8 +45,26 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Who the visit is for: the number that writes, or another person's own number when the customer books for
+  // someone else (intake v2). The visit, the history and the reminders follow that number.
+  let visitPhone = String(customerPhone);
+  if (isV2) {
+    const booking = resolveBookingPhone(String(customerPhone), patientPhone);
+    if (!booking.ok) {
+      return Response.json(
+        { success: false, error: booking.error, message: "El numero de WhatsApp del paciente no parece valido: pidelo de nuevo con lada." },
+        { status: 400 }
+      );
+    }
+    visitPhone = booking.phone;
+  }
+  const forOther = visitPhone !== String(customerPhone);
+  // Who recommended: the person writing, with the name we already have for their number.
+  const sender = forOther ? await getKnownPatient(bot.tenantId, patientKeyOf(String(customerPhone))) : null;
+  const referral = referralOf(forOther, String(customerPhone), sender?.name ?? null);
+
   // Who is booking: a registered patient comes from their latest visit, a new one from what the agent collected.
-  const patientKey = patientKeyOf(String(customerPhone));
+  const patientKey = patientKeyOf(visitPhone);
   let patient: PatientData;
   if (isV2) {
     if (!patientKey) {
@@ -127,7 +145,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Guest account per patient: by email when there is one, otherwise a stable placeholder per phone number.
-  const accountEmail = patient.email ?? guestEmailFor(patientKey ?? String(customerPhone).replace(/\D/g, ""));
+  const accountEmail = patient.email ?? guestEmailFor(patientKey ?? visitPhone.replace(/\D/g, ""));
   let user = await prisma.user.findFirst({ where: { tenantId: bot.tenantId, email: accountEmail } });
   if (!user) {
     user = await prisma.user.create({
@@ -142,7 +160,7 @@ export async function POST(req: NextRequest) {
     petName: pet || null,
     reason,
     fallbackReason: "Cita agendada por WhatsApp",
-    phone: customerPhone,
+    phone: visitPhone,
     age: patient.age,
     modality: patient.modality,
   });
@@ -155,10 +173,12 @@ export async function POST(req: NextRequest) {
     durationMinutes: duration,
     status: "CONFIRMED",
     customerName: patient.name,
-    customerPhone,
+    customerPhone: visitPhone,
     customerEmail: patient.email,
     customerAge: patient.age,
     modality: patient.modality,
+    referredByKey: referral.referredByKey,
+    referredByName: referral.referredByName,
     notes: reason,
     petName: pet || null,
     petSpecies: bot.usesPets ? petSpecies ?? null : null,
@@ -187,6 +207,9 @@ export async function POST(req: NextRequest) {
       time: formatSlotTime(slot.start),
       durationMinutes: duration,
       modality: patient.modality,
+      // Who the visit is for, so the bot can name them and say the reminder goes to their number.
+      patientName: patient.name,
+      forOtherPerson: forOther,
       // The video link for an online visit; null when none could be created (the clinic sends it) or in person.
       meetLink,
       // Office address and map link for an in person visit (or any visit in the legacy version).

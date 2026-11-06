@@ -590,6 +590,8 @@ model Appointment {
   customerAge     Int?              // edad del paciente al agendar (0 a 120); se copia de su última cita
   modality        AppointmentModality? // presencial o en línea; null en citas anteriores
   meetUrl         String?           // enlace de la videoconsulta cuando la cita es en línea
+  referredByKey   String?           // patientKey de quien agendó esta cita para otra persona (recomendación automática)
+  referredByName  String?           // su nombre cuando la agendó
   patientKey      String?           // digits of customerPhone, normalized (src/lib/patient-key.ts); groups visits per patient
   externalProvider AppProvider?     // GOOGLE | MICROSOFT: calendario que replica esta cita
   externalEventId String?           // id del evento en ese calendario
@@ -622,6 +624,7 @@ model Appointment {
   @@index([tenantId, appointmentDate])
   @@index([tenantId, patientKey])
   @@index([tenantId, petId])
+  @@index([tenantId, referredByKey])
   @@map("appointments")
 }
 

@@ -46,6 +46,9 @@ export interface CreateAppointmentInput {
   customerAge?: number | null;
   /** In person or online; null for callers that do not ask (older flows). */
   modality?: Modality | null;
+  /** Set when the visit was booked for someone else: who recommended (see referralOf). */
+  referredByKey?: string | null;
+  referredByName?: string | null;
   notes: string | null;
   // Only for veterinary and pet-care tenants (see vertical-profile.ts); validated by the route.
   petName?: string | null;
@@ -118,6 +121,8 @@ export async function createAppointment(input: CreateAppointmentInput): Promise<
         customerEmail: input.customerEmail,
         customerAge: input.customerAge ?? null,
         modality: input.modality ?? null,
+        referredByKey: input.referredByKey ?? null,
+        referredByName: input.referredByName ?? null,
       },
       include: appointmentInclude,
     });

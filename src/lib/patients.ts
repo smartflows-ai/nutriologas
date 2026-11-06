@@ -93,6 +93,8 @@ export async function getPatientTimeline(
         customerEmail: true,
         customerAge: true,
         modality: true,
+        referredByKey: true,
+        referredByName: true,
         product: { select: { name: true } },
         petId: true,
         pet: { select: { name: true } },
@@ -136,6 +138,11 @@ export async function getPatientTimeline(
     emails: Array.from(
       new Set(appointments.map((a) => a.customerEmail).filter((e): e is string => !!e && !isSyntheticEmail(e)))
     ),
+    // Who recommended this patient: whoever booked their oldest visit that was made for them (visits are newest first).
+    referredBy: (() => {
+      const first = [...appointments].reverse().find((a) => a.referredByKey);
+      return first ? { key: first.referredByKey as string, name: first.referredByName } : null;
+    })(),
     // Latest age on record (visits are newest first).
     age: appointments.find((a) => a.customerAge !== null)?.customerAge ?? null,
     lastSeenAt: latest?.appointmentDate ?? null,

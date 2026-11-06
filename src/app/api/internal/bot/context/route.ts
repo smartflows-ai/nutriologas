@@ -87,8 +87,9 @@ export async function POST(req: NextRequest) {
     introRequired: needsIntro,
     privacyUrl: bot.privacyUrl,
     // Patient registry for this number: what to ask (intake) and how the business sees patients (modalityMode:
-    // IN_PERSON, ONLINE, or ASK when the patient chooses). Name and age are for the agent's replies only.
-    patient: known ? { known: true, name: known.name, age: known.age, hasEmail: !!known.email } : { known: false },
+    // IN_PERSON, ONLINE, or ASK when the patient chooses). The stored name, age and email are shown to the patient
+    // (it is their own number) so they confirm them before booking; email is null when they gave none.
+    patient: known ? { known: true, name: known.name, age: known.age, email: known.email } : { known: false },
     intake: intakeNeeds(known),
     modalityMode: modalityModeOf(bot.serviceModes),
     // Read-only catalog: the agent may quote these prices but cannot change them.
