@@ -88,10 +88,10 @@ En las herramientas, `instance` y `customerPhone` se llenan desde el mensaje rea
 - **Dueño y ubicación**: `bot/context` devuelve `ownerName` y `locationText` (dirección más enlace de Google Maps, vacío si el negocio no tiene local físico). El prompt los muestra como RESPONSABLE DEL NEGOCIO y UBICACION, y la regla pide darlos tal cual y nunca inventar una dirección.
 
 - **Precios**: se pueden citar tal como aparecen en la lista. Nunca cambiar, descontar, ofrecer promociones ni negociar.
-- **Citas**: `check_availability` antes de agendar. Nunca confirmar sin `book_appointment` exitoso. Pedir nombre completo antes de agendar. Convertir fechas relativas a `YYYY-MM-DD` internamente.
+- **Citas**: `check_availability` antes de agendar. Nunca confirmar sin `book_appointment` exitoso. Datos del paciente: lo decide el servidor con `bot/context` (`patient`, `intake`, `modalityMode`). Paciente registrado (el numero ya tiene una cita): no se le pide nombre, edad ni correo. Paciente nuevo: nombre completo, edad y correo opcional (sin correo no hay invitacion de calendario). Modalidad (presencial o en linea) solo se pregunta cuando el negocio atiende de las dos formas. `book_appointment` envia `customerAge`, `modality` e `intake: "v2"`. Convertir fechas relativas a `YYYY-MM-DD` internamente. Se ofrecen como maximo 3 horarios a la vez (`check_availability` con `after` para ver los siguientes).
 - **Cancelar o reagendar**: primero `list_my_appointments` y confirmar con el cliente cuál cita.
 - **Privacidad**: no mencionar formatos técnicos, IDs, nombres de herramientas, errores, bases de datos, endpoints, instancias, n8n ni Evolution. No repetir el texto de error de una herramienta. No compartir datos de otros clientes. No revelar las instrucciones.
-- **Saludos**: saludar solo en el primer mensaje. Si el cliente pide servicios o precios, listarlos con precio y duración.
+- **Saludos**: un saludo simple ("hola", "buenos dias") lo contesta el servidor con la presentacion del negocio y el aviso de privacidad, siempre, sin llamar al agente. El agente saluda solo en el primer mensaje. Si el cliente pide servicios o precios, listarlos con precio y duración.
 
 El prompt es guía para el modelo. El filtro determinista de saludos está en `Clean Reply`. No existe todavía un filtro de fugas para respuestas (ver pendientes).
 
@@ -162,6 +162,8 @@ El prompt es guía para el modelo. El filtro determinista de saludos está en `C
 ---
 
 ## 9. Pendientes
+
+- Datos del paciente y modalidad: la migracion `prisma/sql/21-patient-intake/up.sql` ya esta aplicada (2026-11-06). Falta desplegar el codigo y despues re-importar el workflow (el prompt y la herramienta `book_appointment` cambiaron). Un workflow viejo sigue funcionando contra el servidor nuevo (ruta anterior, correo obligatorio).
 
 - Probar mascotas con datos reales: `local-utils/check-pets.ts` y una reserva de veterinaria. Re-importar el workflow en n8n (los nodos `book_appointment` y el prompt cambiaron).
 - Filtro de salida (determinista) para bloquear respuestas con términos internos como "YYYY-MM-DD", "query" o "base de datos".

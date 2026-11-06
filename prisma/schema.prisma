@@ -35,6 +35,8 @@ model Tenant {
   longitude           Float?
   isAssistantEnabled Boolean @default(true)
   isTriageEnabled    Boolean @default(false)
+  // How the business sees patients: in person, online or both. Both means the bot and the web ask each visit.
+  serviceModes       ServiceModes @default(IN_PERSON)
   // Plan tools the owner has activated in the App Store (registry ids, see src/lib/capabilities.ts).
   enabledTools       String[] @default([])
   vertical           BusinessVertical @default(ECOMMERCE) @map("businessVertical")
@@ -554,6 +556,17 @@ model AiTokenLedger {
 }
 
 // ─── CITAS Y RESERVAS ────────────────────────────────────
+enum AppointmentModality {
+  IN_PERSON
+  ONLINE
+}
+
+enum ServiceModes {
+  IN_PERSON
+  ONLINE
+  BOTH
+}
+
 enum AppointmentStatus {
   PENDING
   CONFIRMED
@@ -573,7 +586,10 @@ model Appointment {
 
   customerName    String?
   customerPhone   String?
-  customerEmail   String?           // email que escribió el cliente al agendar
+  customerEmail   String?           // email que escribió el cliente al agendar (opcional: sin correo no hay invitación)
+  customerAge     Int?              // edad del paciente al agendar (0 a 120); se copia de su última cita
+  modality        AppointmentModality? // presencial o en línea; null en citas anteriores
+  meetUrl         String?           // enlace de la videoconsulta cuando la cita es en línea
   patientKey      String?           // digits of customerPhone, normalized (src/lib/patient-key.ts); groups visits per patient
   externalProvider AppProvider?     // GOOGLE | MICROSOFT: calendario que replica esta cita
   externalEventId String?           // id del evento en ese calendario

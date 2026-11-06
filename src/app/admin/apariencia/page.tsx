@@ -35,6 +35,7 @@ export default function AparienciaPage() {
     if (values.primaryColor) {
       document.documentElement.style.setProperty("--color-primary", preview["--color-primary"]);
       document.documentElement.style.setProperty("--color-primary-rgb", preview["--color-primary-rgb"]);
+      document.documentElement.style.setProperty("--on-primary", preview["--on-primary"]);
     }
     if (values.secondaryColor) {
       document.documentElement.style.setProperty("--color-secondary", preview["--color-secondary"]);

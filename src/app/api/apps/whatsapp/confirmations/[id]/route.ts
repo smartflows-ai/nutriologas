@@ -38,6 +38,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       appointmentDate: true,
       externalProvider: true,
       externalEventId: true,
+      modality: true,
+      meetUrl: true,
       product: { select: { name: true } },
       tenant: { select: { name: true, messageLanguage: true, cancellationTemplate: true } },
     },
@@ -56,6 +58,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     tenantName: visit.tenant.name,
     messageLanguage: visit.tenant.messageLanguage,
     cancellationTemplate: visit.tenant.cancellationTemplate,
+    modality: visit.modality,
+    meetUrl: visit.meetUrl,
   };
 
   if (parsed.data.action === "confirm") await confirmVisit(action);

@@ -680,3 +680,25 @@ Decisions made:
 ## 2026-10-29 — Dev — Mexico plan prices on the landing page
 
 Owner confirmed Mexico prices: Start $499, Plus $899, Pro $1,499 MXN per month; setup fee $2,500, $5,500, $9,500 net, one time. United States prices are Stripe estimates (Starter $29/$228 per year, Pro $79/$708 per year); a stray US$1,600 per month price in the Pro Anual Dlls product looks like an error. Landing shows the Mexico plans for Spanish and keeps reading the prices from Stripe (new optional `STRIPE_PRICE_PLUS_MONTHLY` for Plus); the owner updates the Stripe prices. The checkout still uses two plans (STARTER, PRO) and must be reworked before charging Plus separately. Plan features are copied from the owner's screenshot and promise things not built yet (waitlist, attendance reports, contact import, conversation counter).
+
+## 2026-11-06 — Dev — Patient intake and visit modality without a patients table
+
+Decision: a "known patient" is a WhatsApp number that already has an appointment in the business; its name, email and age come from the latest visit and are copied forward on each booking. No new patients table (patients are already derived from appointments by `patientKey`); one can be added later by backfilling from appointments. How a business sees patients is a per-business setting (`Tenant.serviceModes`, default in person only, so nothing changes until the owner changes it). Age is asked in every vertical. The web booking page changed together with the bot, but it does not look a patient up by phone (that would expose name and age to anyone typing a number).
+
+Compatibility: `bot/book` enforces the new rules only when the request carries `intake: "v2"`, so a workflow that was not re-imported keeps working. Rollout order: apply `prisma/sql/21-patient-intake/up.sql`, deploy, then re-import the chat workflow.
+
+Behavior change to know: Google events of in person visits no longer get a Meet link. Meeting link decision: for now the link is created with Google Meet only, through the connected Google calendar. Postponed: a business-entered own link (Zoom or another telehealth tool) and Teams links for Outlook.
+
+**Done (same day):** `prisma/sql/21-patient-intake/up.sql` applied to the real database after a verified `pg_dump` (custom format, kept outside the repo, owner-only). Checked: 4 new columns with the expected types and defaults, both tenants read `IN_PERSON`, 32 appointments and 15 users unchanged, no existing row got new values. Not run: the throwaway-database `migrate diff` check (no test database). Found while testing: the Prisma client reads every tenant column, so running the new code against a database without the migration breaks every tenant lookup (the subdomain falls back to the default page); the database must be migrated before the code runs, as the schema procedure says.
+
+**Done (same day):** the Meet link of an online visit is appended to the reminder, the SI confirmation reply and the owner's confirmation messages (`withMeetingLink`).
+
+**Open:** deploy, re-import the chat workflow, test with a real number, review the new screens in a browser (light and dark, very light and very dark tenant colors).
+
+## 2026-11-06 — Dev — Agenda defaults to today; text color on the tenant color is a theme token
+
+Decision: `/admin/citas` opens on today's appointments (clinic calendar day, not the browser's), with the date scope and the status as two labeled filter rows. The KPI cards and the status counts follow the chosen day, because a count that ignores the list it sits next to reads as a bug; the calendar dots keep covering the month.
+
+Decision: white text on `bg-primary` is not allowed. The theme sets `--on-primary` (white or near-black, whichever contrasts more; `readableTextOn` in `src/lib/theme-vars.ts`) and screens use `text-[color:var(--on-primary)]`. For the default green that is dark text. Found by the UI audit: the "Today" chip was about 2:1 on a soft pink tenant color. New shared pieces: `FilterChip`, `RadioOption`, and the `scrollbar-slim` style.
+
+**Open:** about 29 older `bg-primary ... text-white` uses are not swept yet (apps, pacientes, pedidos, productos, reviews, social-campaign, whatsapp, Pagination, ChatAssistant, CalendarView, Navbar, ProductCard).

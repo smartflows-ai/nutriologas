@@ -8,6 +8,7 @@ import { apiError } from "@/lib/api-errors";
 import { cancelAppointment, rescheduleAppointment } from "@/lib/appointments-service";
 import { syncCalendarDelete } from "@/lib/calendar-sync";
 import { saveVisitNote } from "@/lib/appointment-notes";
+import { withMeetingLink } from "@/lib/reminder-messages";
 
 export async function PATCH(
   req: NextRequest,
@@ -118,7 +119,10 @@ export async function PATCH(
           hour12: true,
         });
 
-        const message = `¡Hola, ${patientName}! 👋\n\nTu cita en *${tenantName}* ha sido *CONFIRMADA* con éxito por el especialista. 🩺✨\n\n📅 *Fecha:* ${formattedDate}\n⏰ *Horario:* ${formattedTime}\n🩺 *Servicio:* ${serviceName}\n⏱️ *Duración estimada:* ${updated.durationMinutes} min\n\nSi tienes alguna duda o necesitas reagendar, puedes responder a este mensaje. ¡Te esperamos!`;
+        const baseMessage = `¡Hola, ${patientName}! 👋\n\nTu cita en *${tenantName}* ha sido *CONFIRMADA* con éxito por el especialista. 🩺✨\n\n📅 *Fecha:* ${formattedDate}\n⏰ *Horario:* ${formattedTime}\n🩺 *Servicio:* ${serviceName}\n⏱️ *Duración estimada:* ${updated.durationMinutes} min\n\nSi tienes alguna duda o necesitas reagendar, puedes responder a este mensaje. ¡Te esperamos!`;
+
+        // This message is written in Spanish; an online visit also gets its video call link.
+        const message = withMeetingLink(baseMessage, updated, "es");
 
         const waRes = await sendWhatsAppMessage({
           tenantId,

@@ -17,6 +17,8 @@ import {
   Plug,
   ExternalLink,
   AlertTriangle,
+  MapPin,
+  Video,
 } from "lucide-react";
 import { formatPrice, localeFor, fill } from "@/lib/utils";
 import { useTranslation } from "@/i18n";
@@ -25,6 +27,9 @@ import { translateApiError } from "@/i18n/validation";
 import Pagination from "@/components/admin/Pagination";
 import VisitNoteDialog from "@/components/admin/VisitNoteDialog";
 import { reminderNotDelivered } from "@/lib/reminder-badge";
+import { isSyntheticEmail } from "@/lib/patient-intake";
+import { clinicDateKeyOf } from "@/lib/clinic-time";
+import FilterChip from "@/components/ui/FilterChip";
 import { toast } from "sonner";
 import Link from "next/link";
 
@@ -51,6 +56,9 @@ interface AppointmentItem {
     category: string | null;
   };
   customerEmail?: string | null;
+  customerAge?: number | null;
+  modality?: "IN_PERSON" | "ONLINE" | null;
+  meetUrl?: string | null;
   user?: {
     id: string;
     name: string | null;
@@ -89,7 +97,6 @@ function MiniCalendar({
 }) {
   const { t, lang } = useTranslation();
   const locale = localeFor(lang);
-  const today = new Date();
 
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
   const firstDayOfWeek = new Date(viewYear, viewMonth, 1).getDay();
@@ -156,10 +163,7 @@ function MiniCalendar({
           const dateKey = `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
           const isSelected = selectedDate === dateKey;
           const hasAppt = appointmentDates.has(dateKey);
-          const isToday =
-            today.getFullYear() === viewYear &&
-            today.getMonth() === viewMonth &&
-            today.getDate() === day;
+          const isToday = dateKey === todayDateKey();
 
           return (
             <button
@@ -167,7 +171,7 @@ function MiniCalendar({
               onClick={() => onSelectDate(isSelected ? "" : dateKey)}
               className={`relative h-8 w-8 mx-auto rounded-xl flex flex-col items-center justify-center text-xs font-medium transition-all ${
                 isSelected
-                  ? "bg-primary text-white font-semibold ring-2 ring-primary ring-offset-2 dark:ring-offset-gray-900"
+                  ? "bg-primary text-[color:var(--on-primary)] font-semibold ring-2 ring-primary ring-offset-2 dark:ring-offset-gray-900"
                   : isToday
                   ? "border border-primary text-primary font-semibold"
                   : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
@@ -199,6 +203,12 @@ function MiniCalendar({
   );
 }
 
+// Today on the clinic calendar (Mexico City), as YYYY-MM-DD: the same day the bot and the reminders use,
+// whatever timezone the browser is in.
+function todayDateKey(): string {
+  return clinicDateKeyOf(new Date());
+}
+
 function CitasContent() {
   const { t, lang } = useTranslation();
   const locale = localeFor(lang);
@@ -211,10 +221,12 @@ function CitasContent() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [viewYear, setViewYear] = useState(() => new Date().getFullYear());
-  const [viewMonth, setViewMonth] = useState(() => new Date().getMonth());
+  const [viewYear, setViewYear] = useState(() => Number(todayDateKey().slice(0, 4)));
+  const [viewMonth, setViewMonth] = useState(() => Number(todayDateKey().slice(5, 7)) - 1);
   const [activeTab, setActiveTab] = useState<string>("ALL");
-  const [selectedDate, setSelectedDate] = useState<string>("");
+  // The page opens on today's appointments; the date chips above the list switch between today, a chosen day and all dates.
+  const [selectedDate, setSelectedDate] = useState<string>(todayDateKey);
+  const todayKey = todayDateKey();
   const [searchTerm, setSearchTerm] = useState("");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [editingNotesId, setEditingNotesId] = useState<string | null>(null);
@@ -453,28 +465,45 @@ function CitasContent() {
 
         {/* Right column: filters + unified appointments list */}
         <div className="lg:col-span-8 xl:col-span-9 space-y-4">
-          {/* Status tabs + search */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
-              {[
-                { id: "ALL", label: t.agenda.tabAll, count: totalCount },
-                { id: "PENDING", label: t.agenda.tabPending, count: pendingCount },
-                { id: "CONFIRMED", label: t.agenda.tabConfirmed, count: confirmedCount },
-                { id: "COMPLETED", label: t.agenda.tabCompleted, count: completedCount },
-                { id: "CANCELLED", label: t.agenda.tabCancelled, count: cancelledCount },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => changeTab(tab.id)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${
-                    activeTab === tab.id
-                      ? "bg-primary text-white "
-                      : "bg-white dark:bg-gray-900 text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 border border-gray-100 dark:border-gray-800"
-                  }`}
-                >
-                  {tab.label} {tab.count > 0 && `(${tab.count})`}
-                </button>
-              ))}
+          {/* Filters: the day scope and the status each have their own labeled row; search sits on the right */}
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+            <div className="space-y-2 min-w-0">
+              <div className="flex items-start gap-3">
+                <span className="w-14 shrink-0 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
+                  {t.agenda.filterDate}
+                </span>
+                <div role="group" aria-label={t.agenda.filterDate} className="flex flex-wrap items-center gap-1.5">
+                  {[
+                    { id: "today", label: t.agenda.dateToday, active: selectedDate === todayKey, date: todayKey },
+                    ...(selectedDate && selectedDate !== todayKey
+                      ? [{ id: "picked", label: selectedDateLabel, active: true, date: selectedDate }]
+                      : []),
+                    { id: "all", label: t.agenda.dateAll, active: selectedDate === "", date: "" },
+                  ].map((chip) => (
+                    <FilterChip key={chip.id} active={chip.active} onClick={() => changeDate(chip.date)}>
+                      {chip.label}
+                    </FilterChip>
+                  ))}
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <span className="w-14 shrink-0 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
+                  {t.agenda.filterStatus}
+                </span>
+                <div role="group" aria-label={t.agenda.filterStatus} className="flex flex-wrap items-center gap-1.5">
+                  {[
+                    { id: "ALL", label: t.agenda.tabAll, count: totalCount },
+                    { id: "PENDING", label: t.agenda.tabPending, count: pendingCount },
+                    { id: "CONFIRMED", label: t.agenda.tabConfirmed, count: confirmedCount },
+                    { id: "COMPLETED", label: t.agenda.tabCompleted, count: completedCount },
+                    { id: "CANCELLED", label: t.agenda.tabCancelled, count: cancelledCount },
+                  ].map((tab) => (
+                    <FilterChip key={tab.id} active={activeTab === tab.id} onClick={() => changeTab(tab.id)}>
+                      {tab.label} {tab.count > 0 && `(${tab.count})`}
+                    </FilterChip>
+                  ))}
+                </div>
+              </div>
             </div>
             <div className="relative min-w-[220px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={15} />
@@ -580,6 +609,18 @@ function CitasContent() {
                           </span>
                         )}
 
+                        {/* In person or online: neutral style so it follows the tenant theme in light and dark */}
+                        {appt.modality && (
+                          <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-800">
+                            {appt.modality === "ONLINE" ? (
+                              <Video size={12} strokeWidth={2} aria-hidden="true" />
+                            ) : (
+                              <MapPin size={12} strokeWidth={2} aria-hidden="true" />
+                            )}
+                            {appt.modality === "ONLINE" ? t.agenda.modalityOnline : t.agenda.modalityInPerson}
+                          </span>
+                        )}
+
                         {/* Price badge for native consultations */}
                         {!isExternal && appt.product?.price ? (
                           <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
@@ -593,6 +634,11 @@ function CitasContent() {
                           <span className="flex items-center gap-1.5 font-medium text-gray-800 dark:text-gray-200">
                             <User size={14} className="text-gray-400" />
                             {patientName}
+                            {appt.customerAge != null && (
+                              <span className="font-normal text-gray-500 dark:text-gray-400">
+                                {fill(t.agenda.ageYears, { age: appt.customerAge })}
+                              </span>
+                            )}
                           </span>
                         )}
                         {appt.pet?.name && (
@@ -611,11 +657,22 @@ function CitasContent() {
                             {patientPhone}
                           </a>
                         ) : null}
-                        {contactEmail && !contactEmail.includes("@booking.local") ? (
+                        {contactEmail && !isSyntheticEmail(contactEmail) ? (
                           <span className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400 break-all">
                             <Mail size={14} className="text-gray-400 shrink-0" />
                             {contactEmail}
                           </span>
+                        ) : null}
+                        {appt.modality === "ONLINE" && appt.meetUrl ? (
+                          <a
+                            href={appt.meetUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 text-primary hover:underline w-fit"
+                          >
+                            <Video size={14} aria-hidden="true" />
+                            {t.agenda.openMeeting}
+                          </a>
                         ) : null}
                       </div>
 
@@ -673,7 +730,7 @@ function CitasContent() {
                             <button
                               disabled={updatingId === appt.id}
                               onClick={() => updateStatus(appt.id, "CONFIRMED")}
-                              className="px-3 py-1.5 rounded-xl bg-primary hover:bg-secondary text-white font-semibold text-xs flex items-center gap-1 shadow-sm transition-all disabled:opacity-50"
+                              className="px-3 py-1.5 rounded-xl bg-primary hover:bg-secondary text-[color:var(--on-primary)] font-semibold text-xs flex items-center gap-1 shadow-sm transition-all disabled:opacity-50"
                             >
                               <Check size={13} />
                               {t.agenda.confirm}
@@ -692,7 +749,7 @@ function CitasContent() {
                             <button
                               disabled={updatingId === appt.id}
                               onClick={() => updateStatus(appt.id, "COMPLETED")}
-                              className="px-3 py-1.5 rounded-xl bg-primary hover:opacity-90 text-white font-semibold text-xs flex items-center gap-1 transition-all disabled:opacity-50"
+                              className="px-3 py-1.5 rounded-xl bg-primary hover:opacity-90 text-[color:var(--on-primary)] font-semibold text-xs flex items-center gap-1 transition-all disabled:opacity-50"
                             >
                               <CheckCircle2 size={13} />
                               {t.agenda.attended}
