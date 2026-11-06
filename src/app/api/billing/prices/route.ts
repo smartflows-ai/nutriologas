@@ -27,6 +27,10 @@ export async function GET() {
           monthly: process.env.STRIPE_PRICE_STARTER_MONTHLY_DLLS,
           annual: process.env.STRIPE_PRICE_STARTER_ANNUAL_DLLS,
         },
+        plus: {
+          monthly: process.env.STRIPE_PRICE_PLUS_MONTHLY_DLLS,
+          annual: undefined,
+        },
         pro: {
           monthly: process.env.STRIPE_PRICE_PRO_MONTHLY_DLLS,
           annual: process.env.STRIPE_PRICE_PRO_ANNUAL_DLLS,
@@ -59,6 +63,7 @@ export async function GET() {
       esProAnnual,
       enStarterMonthly,
       enStarterAnnual,
+      enPlusMonthly,
       enProMonthly,
       enProAnnual,
     ] = await Promise.all([
@@ -69,6 +74,7 @@ export async function GET() {
       getPriceInfo(priceIds.es.pro.annual),
       getPriceInfo(priceIds.en.starter.monthly),
       getPriceInfo(priceIds.en.starter.annual),
+      getPriceInfo(priceIds.en.plus.monthly),
       getPriceInfo(priceIds.en.pro.monthly),
       getPriceInfo(priceIds.en.pro.annual),
     ]);
@@ -103,6 +109,7 @@ export async function GET() {
       },
       en: {
         starter: computePlanPricing(enStarterMonthly, enStarterAnnual, 29, 19, "USD"),
+        plus: computePlanPricing(enPlusMonthly, null, 49, 37, "USD"),
         pro: computePlanPricing(enProMonthly, enProAnnual, 79, 59, "USD"),
         enterprise: {
           monthlyPrice: 199,

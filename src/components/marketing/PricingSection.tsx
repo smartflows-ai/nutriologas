@@ -8,7 +8,7 @@ import { Check, Star, Stethoscope, ShoppingBag, PawPrint, Plane } from "lucide-r
 
 type PlanKey = "STARTER" | "PRO";
 type Vertical = "HEALTH" | "ECOMMERCE" | "VETERINARY" | "TOURISM";
-type PriceSlot = "starter" | "pro" | "enterprise";
+type PriceSlot = "starter" | "plus" | "pro";
 
 interface PriceBlock {
   monthlyPrice: number;
@@ -17,30 +17,18 @@ interface PriceBlock {
 }
 
 interface DynamicPricing {
-  es: Record<PriceSlot | "plus", PriceBlock>;
+  es: Record<PriceSlot, PriceBlock>;
   en: Record<PriceSlot, PriceBlock>;
 }
 
-// Fallback prices, used until /api/billing/prices responds. [monthly, annual] per language.
-const FALLBACK_PRICES: Record<Vertical, { starter: [number, number]; pro: [number, number] }> = {
-  ECOMMERCE: { starter: [500, 375], pro: [1500, 1000] },
-  HEALTH: { starter: [500, 375], pro: [800, 600] },
-  VETERINARY: { starter: [500, 375], pro: [1000, 800] },
-  TOURISM: { starter: [500, 375], pro: [1200, 950] },
-};
-const FALLBACK_ENTERPRISE: [number, number] = [3999, 2999];
-// Mexico plans (MXN per month, monthly billing only). These are fallbacks: the prices come from Stripe (/api/billing/prices). The checkout still has two plans: Start uses STARTER, Plus and Pro use PRO.
-const MX_PRICES = { start: 499, plus: 899, pro: 1499 } as const;
-const MX_PRICE_SLOT = { start: "starter", plus: "plus", pro: "pro" } as const;
-const MX_PLAN_KEYS: Record<keyof typeof MX_PRICES, PlanKey> = { start: "STARTER", plus: "PRO", pro: "PRO" };
-const FALLBACK_EN: Record<string, [number, number]> = {
-  "starter:ECOMMERCE": [29, 19], "pro:ECOMMERCE": [79, 59],
-  "starter:HEALTH": [29, 19], "pro:HEALTH": [45, 35],
-  "starter:VETERINARY": [29, 19], "pro:VETERINARY": [55, 42],
-  "starter:TOURISM": [29, 19], "pro:TOURISM": [65, 50],
-  "enterprise:": [199, 149],
-};
-
+// Start, Plus and Pro, monthly billing only. These are fallbacks: the prices come from Stripe (/api/billing/prices).
+// Mexico in MXN; other languages in USD (Plus US price is the chosen estimate, pending the live Stripe price).
+const FALLBACK_PRICES = {
+  es: { start: 499, plus: 899, pro: 1499 },
+  en: { start: 29, plus: 49, pro: 79 },
+} as const;
+const PRICE_SLOT = { start: "starter", plus: "plus", pro: "pro" } as const;
+const PLAN_KEYS: Record<keyof typeof PRICE_SLOT, PlanKey> = { start: "STARTER", plus: "PRO", pro: "PRO" }; // signup still has two plans: Plus starts a Pro trial (TODO)
 const VERTICAL_ICONS: { id: Vertical; icon: typeof Stethoscope }[] = [
   { id: "HEALTH", icon: Stethoscope },
   { id: "ECOMMERCE", icon: ShoppingBag },
@@ -49,7 +37,6 @@ const VERTICAL_ICONS: { id: Vertical; icon: typeof Stethoscope }[] = [
 ];
 
 export default function PricingSection() {
-  const [annual, setAnnual] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<PlanKey>("STARTER");
   const [selectedVertical, setSelectedVertical] = useState<Vertical>("HEALTH");
@@ -73,95 +60,36 @@ export default function PricingSection() {
   const langKey = isEs ? "es" : "en";
   const fallbackCurrency = isEs ? "MXN" : "USD";
 
-  // Price for a plan slot: API value when loaded, otherwise the fallback table for the active language
-  const priceFor = (slot: PriceSlot, vertical: Vertical) => {
-    const api = prices?.[langKey]?.[slot];
-    if (api) return { monthly: api.monthlyPrice, annual: api.annualPrice, currency: api.currency };
-    const fallbackKey = slot === "enterprise" ? "enterprise:" : `${slot}:${vertical}`;
-    const [monthly, annualPrice] = isEs
-      ? slot === "enterprise" ? FALLBACK_ENTERPRISE : FALLBACK_PRICES[vertical][slot]
-      : FALLBACK_EN[fallbackKey];
-    return { monthly, annual: annualPrice, currency: fallbackCurrency };
-  };
-
-  // Plans for the selected vertical. ECOMMERCE keeps the original copy keys; other verticals use the dictionary.
-  const getVerticalPlans = () => {
-    const isEcommerce = selectedVertical === "ECOMMERCE";
-    const planCopy = (slot: PriceSlot) => {
-      if (isEcommerce) {
-        if (slot === "starter") return { name: "Starter", tagline: t.pricing.starterTagline, features: t.pricing.starterFeatures };
-        if (slot === "pro") return { name: "Pro", tagline: t.pricing.proTagline, features: t.pricing.proFeatures };
-        return { name: "Enterprise", tagline: t.pricing.enterpriseTagline, features: t.pricing.enterpriseFeatures };
-      }
-      const copy = t.pricing.verticals[selectedVertical][slot];
-      return { name: copy.name, tagline: copy.tagline, features: copy.features ?? t.pricing.enterpriseFeatures };
-    };
-
-    const build = (slot: PriceSlot, look: { color: string; glow: string; popular: boolean }) => {
-      const copy = planCopy(slot);
-      const price = priceFor(slot, selectedVertical);
-      return {
-        id: slot,
-        name: copy.name,
-        tagline: copy.tagline,
-        features: copy.features,
-        monthlyPrice: price.monthly,
-        annualPrice: price.annual,
-        currency: price.currency,
-        color: look.color,
-        glow: look.glow,
-        popular: look.popular,
-        planKey: slot === "enterprise" ? null : (slot === "starter" ? "STARTER" : "PRO") as PlanKey | null,
-        cta: slot === "enterprise" ? t.pricing.contactSales : t.pricing.startTrial,
-      };
-    };
-
-    const proLook = {
-      ECOMMERCE: { color: "var(--mk-violet)", glow: "rgba(124,58,237,0.2)" },
-      HEALTH: { color: "var(--mk-violet)", glow: "rgba(124,58,237,0.25)" },
-      VETERINARY: { color: "var(--mk-emerald)", glow: "rgba(16,185,129,0.25)" },
-      TOURISM: { color: "var(--mk-amber)", glow: "rgba(245,158,11,0.25)" },
-    }[selectedVertical];
-
-    return [
-      build("starter", { color: "var(--mk-cyan)", glow: "rgba(6,182,212,0.15)", popular: false }),
-      build("pro", { ...proLook, popular: true }),
-      build("enterprise", { color: "var(--mk-indigo)", glow: "rgba(79,70,229,0.15)", popular: false }),
-    ];
-  };
-
-  // Spanish (Mexico) shows Start, Plus and Pro. Other languages keep the original three plans.
-  const getMexicoPlans = () => {
+  // Every language shows Start, Plus and Pro. The setup fee exists only for Mexico (none defined for the US yet).
+  const getPlans = () => {
     const mx = t.pricing.mx;
     const look = {
       start: { color: "var(--mk-cyan)", glow: "rgba(6,182,212,0.15)", popular: false },
       plus: { color: "var(--mk-violet)", glow: "rgba(124,58,237,0.25)", popular: true },
       pro: { color: "var(--mk-indigo)", glow: "rgba(79,70,229,0.15)", popular: false },
     };
-    return (Object.keys(MX_PRICES) as (keyof typeof MX_PRICES)[]).map((id) => {
+    return (Object.keys(PRICE_SLOT) as (keyof typeof PRICE_SLOT)[]).map((id) => {
       const copy = mx.plans[id];
       return {
         id,
         name: copy.name,
         tagline: copy.tagline,
         features: copy.features,
-        monthlyPrice: prices?.es?.[MX_PRICE_SLOT[id]]?.monthlyPrice ?? MX_PRICES[id],
-        annualPrice: prices?.es?.[MX_PRICE_SLOT[id]]?.monthlyPrice ?? MX_PRICES[id],
-        currency: prices?.es?.[MX_PRICE_SLOT[id]]?.currency ?? "MXN",
+        monthlyPrice: prices?.[langKey]?.[PRICE_SLOT[id]]?.monthlyPrice ?? FALLBACK_PRICES[langKey][id],
+        annualPrice: prices?.[langKey]?.[PRICE_SLOT[id]]?.monthlyPrice ?? FALLBACK_PRICES[langKey][id],
+        currency: prices?.[langKey]?.[PRICE_SLOT[id]]?.currency ?? fallbackCurrency,
         ...look[id],
-        planKey: MX_PLAN_KEYS[id] as PlanKey | null,
+        planKey: PLAN_KEYS[id] as PlanKey | null,
         cta: t.pricing.startTrial,
         conversations: copy.conversations,
         measures: copy.measures,
-        implementationPrice: copy.implementationPrice,
+        implementationPrice: isEs ? copy.implementationPrice : undefined,
       };
     });
   };
 
-  type CardPlan = Omit<ReturnType<typeof getVerticalPlans>[number], "id"> & { id: string; conversations?: number; measures?: string; implementationPrice?: number };
-  const plans: CardPlan[] = isEs ? getMexicoPlans() : getVerticalPlans();
-  // Mexico plans are monthly only
-  const showAnnual = annual && !isEs;
+  type CardPlan = ReturnType<typeof getPlans>[number];
+  const plans: CardPlan[] = getPlans();
 
   const handlePlanClick = (plan: CardPlan) => {
     if (!plan.planKey) {
@@ -232,36 +160,6 @@ export default function PricingSection() {
               ))}
             </div>
 
-            {/* Billing toggle (not shown for Mexico: monthly only) */}
-            {!isEs && (
-            <div className="inline-flex items-center gap-4 bg-mk-card border border-white/10 rounded-2xl p-1.5">
-              <button
-                id="billing-monthly"
-                onClick={() => setAnnual(false)}
-                className={`px-5 py-2 rounded-xl text-sm font-semibold transition-all duration-200 ${
-                  !annual
-                    ? "bg-mk-violet text-white shadow-[0_0_20px_rgba(124,58,237,0.4)]"
-                    : "text-white/60 hover:text-white"
-                }`}
-              >
-                {t.pricing.monthly}
-              </button>
-              <button
-                id="billing-annual"
-                onClick={() => setAnnual(true)}
-                className={`px-5 py-2 rounded-xl text-sm font-semibold transition-all duration-200 ${
-                  annual
-                    ? "bg-mk-violet text-white shadow-[0_0_20px_rgba(124,58,237,0.4)]"
-                    : "text-white/60 hover:text-white"
-                }`}
-              >
-                {t.pricing.annual}
-                <span className="ml-2 text-[10px] bg-mk-emerald/20 text-mk-emerald px-1.5 py-0.5 rounded-full border border-mk-emerald/30">
-                  {t.pricing.save}
-                </span>
-              </button>
-            </div>
-            )}
           </div>
 
           {/* Pricing cards */}
@@ -302,17 +200,12 @@ export default function PricingSection() {
                 <div className="mb-8">
                   <div className="flex items-end gap-1">
                     <span className="text-5xl font-black text-white transition-all duration-300">
-                      ${(showAnnual ? plan.annualPrice : plan.monthlyPrice).toLocaleString(locale)}
+                      ${plan.monthlyPrice.toLocaleString(locale)}
                     </span>
                     <span className="text-white/50 mb-2 text-sm">
                       {plan.currency || fallbackCurrency} {t.pricing.perMonth}
                     </span>
                   </div>
-                  {showAnnual && plan.monthlyPrice > plan.annualPrice && (
-                    <p className="text-mk-emerald text-xs font-semibold mt-1">
-                      {t.pricing.billedAnnually}{((plan.monthlyPrice - plan.annualPrice) * 12).toLocaleString(locale)} {plan.currency}{t.pricing.savePerYear}
-                    </p>
-                  )}
                   {plan.conversations !== undefined && (
                     <p className="text-white/60 text-sm mt-2">
                       {plan.conversations.toLocaleString(locale)} {t.pricing.mx.conversationsPerMonth}
@@ -383,7 +276,7 @@ export default function PricingSection() {
         <OnboardingModal
           onClose={() => setShowModal(false)}
           initialPlan={selectedPlan}
-          initialBillingInterval={showAnnual ? "annual" : "monthly"}
+          initialBillingInterval="monthly"
           initialVertical={selectedVertical}
         />
       )}

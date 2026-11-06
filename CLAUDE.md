@@ -298,6 +298,7 @@ The heart of the system. Each business is a Tenant with:
 - Mexico prices (Spanish landing, `PricingSection.tsx`, `pricing.mx` in i18n): Start $499, Plus $899, Pro $1,499 MXN per month; one-time net setup fee $2,500, $5,500 and $9,500; monthly only. Checkout still has two plans (Start uses STARTER; Plus and Pro use PRO) and prices come from Stripe (`/api/billing/prices`; Plus uses the new variable `STRIPE_PRICE_PLUS_MONTHLY`, with $499, $899 and $1,499 as fallback if any is missing). United States prices: estimated in Stripe, see `docs/analisis-costos-y-precios-eeuu.md`.
 - Plans (`PlanId`): STARTER (Start), PLUS (Plus), PRO (Pro), ENTERPRISE. CLINICA, VETERINARY and TOURISM still exist in the enum but nothing uses them (retirement pending).
 - **PLUS status:** the value is in the production database (`prisma/sql/17-plan-plus`). The code that understands PLUS (locks, capabilities, subscribe route) is NOT deployed yet. Never set a tenant to PLUS until that code is live: the old code cannot read the value and the tenant's CRM breaks (this happened once on doctorg and was reverted).
+- **Plan copy (2026-11-05):** Facebook/Instagram campaigns belong to **Pro** (registry, landing and `due` route agree); Google Calendar appointments are open to Start. The checkout cards (`billing.startFeatures`, `plusFeatures`, `proFeatures` in i18n) list only what is built, taken from the landing lists (`pricing.mx`); the landing lists stay as published. Prices always come from Stripe. The landing shows Start, Plus and Pro in every language (USD for English, no setup fee or US quotas defined yet; Plus US fallback $49, env `STRIPE_PRICE_PLUS_MONTHLY_DLLS`). The old `pricing.starterFeatures` and `proFeatures` copy is unused.
 - **Which tools each plan includes:** `src/lib/capabilities.ts` (registry, `enforcedPlan`). Locked tools are hidden from the sidebar, shown in the App Store with a legend, and blocked on the server (pages redirect to `/admin/suscripcion`, APIs answer 403 `plan_required`). Guards: `src/lib/capability-guard.ts`. Tests: `tests/capabilities.test.ts`, `tests/plan-guard.test.ts`.
 - Statuses: TRIALING, ACTIVE, PAST_DUE, CANCELED, UNPAID
 - Billing managed by Stripe
@@ -309,13 +310,13 @@ The heart of the system. Each business is a Tenant with:
 
 ## AI Token Credits System (Platform AI Metering)
 
-Each tenant has a monthly AI credit spending budget ($15 USD for Starter).
+Each tenant has a monthly AI credit spending budget ($15 USD for Start, $25 for Plus, $50 for Pro).
 
 ### 1. Plan limits
 | Plan | Monthly credit |
 |---|---|
 | **STARTER** | **$15.00 USD** (default) |
-| **PLUS** | **$15.00 USD** |
+| **PLUS** | **$25.00 USD** |
 | **PRO** | **$50.00 USD** |
 | **ENTERPRISE** | **$200.00 USD** |
 
@@ -724,6 +725,9 @@ Do not set a business to PLUS until the code that understands PLUS is live.
 - **Social Campaigns activation.** It uses its Meta connection, not the owner activation step. Decide whether it should have one too.
 - **Owner activation for existing Pro businesses.** A business that moves to Pro starts with no tools turned on, so the owner must activate Patient history and Patients in the App Store. Tell existing Pro customers before the release.
 - **Retire old plan values.** CLINICA, VETERINARY and TOURISM are still in the `PlanId` enum. Check the database for rows that use them, then retire them with a manual SQL change.
+- **TODO tools promised by the landing, not built:** conversation counter and per-plan limits (250, 600, 1,200), handoff to authorized staff, waitlist and rescheduling, attendance statuses and reports, basic and custom conversation history, follow-up CRM, persistent multi-chat, patient reactivation and loyalty, contact import (Pro), users per plan (1, 2, 3). Build each one, add it to the capability registry, then add its line to the checkout lists.
+- **TODO review request by WhatsApp.** After a visit is marked attended, send a WhatsApp message with a "leave a review" link to the business's Google reviews, in the style of a delivery confirmation message (thanks, short text, one button or link). `Tenant.placeId` already exists, so the link can be `https://search.google.com/local/writereview?placeid=<placeId>` (needs `placeId`, so only businesses with a Google Maps address). Decide the plan, the delay, the template (tenant-editable like the reminder texts) and whether it is charged like a reminder.
+- **TODO signup with Plus.** The landing Plus card still starts a Pro trial because `POST /api/tenants/register` and `getStripePriceId` only know STARTER and PRO.
 - **Plan phase 4 (missing tools).** Conversation counter and limits, users per plan (1, 2 and 3), waitlist, attendance reports, contact import (Pro), team roles, human handoff alert, bot safety protocols, per-product bot guidance, product priority, offers and discounts, Doctoralia integration. Each goes in the capability registry first (scope, plan, verticals, section, AI, built).
 - **Plans and billing docs.** The plan file `~/.claude/plans/read-the-businnes-verticals-fluffy-breeze.md` still shows the open decisions as pending; update it when these are closed.
 - **Automated tests.** The guards and the registry are covered by `tests/capabilities.test.ts`, `plan-guard.test.ts` and `billing-currency.test.ts`. There are no browser or end-to-end tests yet.
