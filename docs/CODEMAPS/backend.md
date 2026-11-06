@@ -21,9 +21,9 @@ calendar/events   places/{search,details}   upload/cloudinary
 ## Internal (x-internal-key, called by n8n)
 ```
 internal/bot/context        -> prompt data, greetingReply (every greeting introduces), calendarText, creditExhausted,
-                               patient {known,name,age,hasEmail}, intake {askName,askAge,askEmail}, modalityMode (IN_PERSON|ONLINE|ASK)
+                               patient {known,name,age,email}, intake {askName,askAge,askEmail}, modalityMode (IN_PERSON|ONLINE|ASK)
 internal/bot/availability   -> at most 3 free hours (availableSlots, hasMore); `after` HH:mm returns the next ones
-internal/bot/book           -> body intake:"v2": patient_info_required / modality_required / invalid_email; no intake = legacy (email_required)
+internal/bot/book           -> body intake:"v2": patient_info_required / modality_required / invalid_email / invalid_patient_phone (patientPhone = visit for another person); no intake = legacy (email_required)
 internal/bot/{cancel,reschedule,my-appointments (modality, meetLink),confirm (reply + meet link),contact-status,pending,alert-failure}
 internal/reminders/run      -> reminder-data (load + real deps) + reminder-run (batch) + reminder-state; 502 if all sends fail; body {dryRun}
 internal/{tokens/report,triage,tenant-context,render-post-banner,whatsapp/sync}

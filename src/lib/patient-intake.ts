@@ -1,7 +1,9 @@
 // src/lib/patient-intake.ts
 // Rules for the first booking of a patient (name, age, optional email) and for the visit modality
 // (in person or online). Pure functions, no I/O: the routes load the data and call these.
-//
+
+import { patientKeyOf } from "@/lib/patient-key";
+
 // A "known patient" is a WhatsApp number that already has an appointment in the business. Its name, email and
 // age come from the latest visit (see getKnownPatient in patients.ts), so the bot never asks them twice.
 
@@ -82,6 +84,57 @@ export function mergePatient(
     email: cleanText(input.email).toLowerCase() || known?.email || null,
     age: parseAge(input.age) ?? known?.age ?? null,
   };
+}
+
+export type BookingPhoneResult =
+  | { ok: true; phone: string; forOther: boolean }
+  | { ok: false; error: "invalid_patient_phone" };
+
+/**
+ * The phone the visit is saved under. Normally the number that writes to the bot; when the customer books for
+ * someone else the bot sends that person's number, so the history, the reminder and the confirmation reply go to
+ * them. The sender's own number written in another format is still the sender.
+ */
+export function resolveBookingPhone(senderPhone: string, patientPhone: unknown): BookingPhoneResult {
+  const typed = typeof patientPhone === "string" ? patientPhone.trim() : "";
+  if (!typed) return { ok: true, phone: senderPhone, forOther: false };
+  const key = patientKeyOf(typed);
+  if (!key) return { ok: false, error: "invalid_patient_phone" };
+  if (key === patientKeyOf(senderPhone)) return { ok: true, phone: senderPhone, forOther: false };
+  return { ok: true, phone: key, forOther: true };
+}
+
+export interface Referral {
+  referredByKey: string | null;
+  referredByName: string | null;
+}
+
+/**
+ * A visit booked for someone else is an automatic recommendation: it remembers who wrote (their phone key and
+ * name at that moment). A visit for the person writing has none.
+ */
+export function referralOf(forOther: boolean, senderPhone: string, senderName: string | null): Referral {
+  if (!forOther) return { referredByKey: null, referredByName: null };
+  return { referredByKey: patientKeyOf(senderPhone), referredByName: senderName };
+}
+
+/** The booker's name from the WhatsApp profile: trimmed, single spaces, at most 80 characters, null when empty. */
+export function cleanSenderName(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const name = raw.replace(/\s+/g, " ").trim().slice(0, 80);
+  return name || null;
+}
+
+/**
+ * Where-clause for "the visits of the person writing": their own (by the typed phone or by patientKey, because a
+ * visit booked for them is saved under the 52 + 10 digits key while WhatsApp writes 521 + 10 digits), and the ones
+ * they booked for others.
+ */
+export function visitsOfSender(senderPhone: string): {
+  OR: Array<{ customerPhone: string } | { patientKey: string } | { referredByKey: string }>;
+} {
+  const key = patientKeyOf(senderPhone);
+  return { OR: [{ customerPhone: senderPhone }, ...(key ? [{ patientKey: key }, { referredByKey: key }] : [])] };
 }
 
 const GUEST_EMAIL_DOMAIN = "wa.guest.local";

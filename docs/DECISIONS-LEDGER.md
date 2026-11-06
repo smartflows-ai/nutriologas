@@ -518,7 +518,7 @@ Decisions made:
 
 **Lesson:** Writing Spanish text with `node -e` in the shell is unsafe: backticks inside the text run as commands and quotes break the file. Use the edit tool or a quoted heredoc for any text that contains code formatting.
 
-**Open:** Re-import `local-utils/n8n-chat-workflow-v2.json` and `local-utils/n8n-reminders-workflow.json` in n8n, deploy, then test: a reminder reaches a real phone, a "sí" confirms, silence releases the visit (calendar event removed, slot free, cancellation sent), "Liberar ahora" works from the Confirmaciones tab, and an English business gets English messages. Verify the Meta rate on Meta's rate card before raising the price.
+**Open:** Re-import `n8n/workflows/n8n-chat-workflow-v2.json` in n8n (the reminders workflow is already re-imported), deploy, then test: a reminder reaches a real phone, a "sí" confirms, silence releases the visit (calendar event removed, slot free, cancellation sent), "Liberar ahora" works from the Confirmaciones tab, and an English business gets English messages. Verify the Meta rate on Meta's rate card before raising the price.
 
 ## 2026-10-23 — Dev — Minimal UI pass on tenant screens
 
@@ -702,3 +702,11 @@ Decision: `/admin/citas` opens on today's appointments (clinic calendar day, not
 Decision: white text on `bg-primary` is not allowed. The theme sets `--on-primary` (white or near-black, whichever contrasts more; `readableTextOn` in `src/lib/theme-vars.ts`) and screens use `text-[color:var(--on-primary)]`. For the default green that is dark text. Found by the UI audit: the "Today" chip was about 2:1 on a soft pink tenant color. New shared pieces: `FilterChip`, `RadioOption`, and the `scrollbar-slim` style.
 
 **Open:** about 29 older `bg-primary ... text-white` uses are not swept yet (apps, pacientes, pedidos, productos, reviews, social-campaign, whatsapp, Pagination, ChatAssistant, CalendarView, Navbar, ProductCard).
+
+## 2026-11-06 — Dev — A visit for someone else is a recommendation, saved under that person's number
+
+Decision: when the bot books for another person (`patientPhone`), the visit is saved under that person's own number (history, reminders and the SI reply go to them) and it is an automatic recommendation: the appointment keeps who booked it (`referredByKey`, `referredByName`). The booker still sees, cancels and reschedules those visits from their chat. Replaces the earlier behavior where such a visit was grouped under the booker's phone. A registered patient confirms all their stored data (name, age, email) once before booking.
+
+Migration `prisma/sql/22-referred-by` applied to the real database after a verified `pg_dump`; additive, with `down.sql`. The throwaway-database check was not run (no test database).
+
+**Open:** deploy, re-import the chat workflow (prompt, `patientPhone` parameter and `list_my_appointments` text changed), test with a real number and a second number.

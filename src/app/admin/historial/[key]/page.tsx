@@ -25,7 +25,7 @@ interface Visit {
 }
 
 interface Timeline {
-  patient: { patientKey: string; name: string | null; phone: string | null; emails: string[]; age: number | null; lastSeenAt: string | null };
+  patient: { patientKey: string; name: string | null; phone: string | null; emails: string[]; age: number | null; referredBy: { key: string; name: string | null } | null; lastSeenAt: string | null };
   visits: Visit[];
   pets: { id: string; name: string; species: string | null }[];
   orphanNotes: { id: string; body: string; authorName: string | null; createdAt: string }[];
@@ -150,6 +150,9 @@ export default function PatientHistoryPage() {
             {patient.emails.length > 0 ? patient.emails.join(", ") : t.crm.history.noEmail}
           </span>
           {patient.age !== null && <span>{fill(t.agenda.ageYears, { age: patient.age })}</span>}
+          {patient.referredBy && (
+            <span>{fill(t.agenda.referredBy, { name: patient.referredBy.name || `+${patient.referredBy.key}` })}</span>
+          )}
         </div>
         <p className="text-xs text-gray-500 dark:text-gray-400">
           {fill(t.crm.history.summary, {

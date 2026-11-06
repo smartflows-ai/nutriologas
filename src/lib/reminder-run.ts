@@ -3,7 +3,7 @@
 // is testable without a database or WhatsApp. One bad visit never stops the others, and every failure is reported.
 import type { AppProvider } from "@prisma/client";
 import { planReminder, releaseAt } from "@/lib/reminders";
-import { clinicLongDate, clinicTime, customerTexts, renderTemplate, usableTemplate, withMeetingLink } from "@/lib/reminder-messages";
+import { clinicLongDate, clinicTime, customerTexts, renderTemplate, usableTemplate, withBookedBy, withMeetingLink } from "@/lib/reminder-messages";
 
 export interface ReminderTenant {
   name: string;
@@ -33,6 +33,9 @@ export interface ReminderVisit {
   /** Online visits carry their video call link in the reminder. Optional: older callers have neither. */
   modality?: "IN_PERSON" | "ONLINE" | null;
   meetUrl?: string | null;
+  /** Set when someone else booked the visit for this patient: the message says who. */
+  referredByKey?: string | null;
+  referredByName?: string | null;
   tenant: ReminderTenant;
 }
 
@@ -95,7 +98,7 @@ function reminderText(visit: ReminderVisit, requestConfirmation: boolean, releas
       })
     : texts.plainFooter;
   const body = `${renderTemplate(usableTemplate(t.reminderTemplate, "reminder", texts.reminderTemplate, warn("reminder")), values)}\n\n${tail}`;
-  return withMeetingLink(body, visit, t.messageLanguage);
+  return withBookedBy(withMeetingLink(body, visit, t.messageLanguage), visit, t.messageLanguage);
 }
 
 async function processVisit(visit: ReminderVisit, now: Date, deps: ReminderDeps, dryRun: boolean): Promise<Outcome> {

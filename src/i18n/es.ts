@@ -39,6 +39,8 @@ export const es: Translations = {
     greetingIntro: "Hola, soy el asistente de WhatsApp de *{negocio}*. ¿En qué te puedo ayudar?",
     greetingPrivacy: "Aviso de privacidad: {url}",
     meetingLine: "Videollamada: {url}",
+    bookedByLine: "Esta cita la agendó {nombre} a tu nombre. Si no la solicitaste, responde a este mensaje y la cancelamos.",
+    bookedByAnon: "Esta cita la agendó otra persona a tu nombre. Si no la solicitaste, responde a este mensaje y la cancelamos.",
   },
   nav: {
     features: "Funciones",
@@ -1461,6 +1463,7 @@ export const es: Translations = {
     dateAll: "Todas las fechas",
     filterDate: "Fecha",
     filterStatus: "Estado",
+    referredBy: "Recomendado por {name}",
     tabPending: "Pendientes",
     tabConfirmed: "Confirmadas",
     tabCompleted: "Completadas",

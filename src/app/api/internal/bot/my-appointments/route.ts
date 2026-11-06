@@ -1,8 +1,10 @@
 // src/app/api/internal/bot/my-appointments/route.ts
-// POST: Upcoming active appointments for one WhatsApp customer.
+// POST: Upcoming active appointments for one WhatsApp customer: their own and the ones they booked for others.
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { ACTIVE_APPOINTMENT_STATUSES, isInternalKeyValid, resolveBotTenant } from "@/lib/bot";
+import { visitsOfSender } from "@/lib/patient-intake";
+import { patientKeyOf } from "@/lib/patient-key";
 
 export async function POST(req: NextRequest) {
   if (!isInternalKeyValid(req)) return Response.json({ error: "No autorizado" }, { status: 401 });
@@ -15,7 +17,8 @@ export async function POST(req: NextRequest) {
   const appointments = await prisma.appointment.findMany({
     where: {
       tenantId: bot.tenantId,
-      customerPhone: String(customerPhone),
+      // The person writing: their own visits and the ones they booked for others (recommended by them).
+      ...visitsOfSender(String(customerPhone)),
       status: { in: [...ACTIVE_APPOINTMENT_STATUSES] },
       appointmentDate: { gte: new Date() },
     },
@@ -26,6 +29,8 @@ export async function POST(req: NextRequest) {
       status: true,
       modality: true,
       meetUrl: true,
+      customerName: true,
+      referredByKey: true,
       product: { select: { name: true } },
       pet: { select: { name: true } },
     },
@@ -42,6 +47,9 @@ export async function POST(req: NextRequest) {
       durationMinutes: a.durationMinutes,
       status: a.status,
       modality: a.modality,
+      // A visit the person booked for someone else: the bot names who it is for.
+      forOtherPerson: !!a.referredByKey && a.referredByKey === patientKeyOf(String(customerPhone)),
+      patientName: a.customerName,
       meetLink: a.modality === "ONLINE" ? a.meetUrl : null,
     })),
   });

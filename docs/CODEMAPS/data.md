@@ -29,6 +29,7 @@ BusinessVertical (ECOMMERCE HEALTH VETERINARY TOURISM SERVICES PET_CARE TRAVEL G
 Fields: appointmentDate, durationMinutes, notes, internalNotes, customerName/Phone/Email, patientKey (52+10 digits), petId, externalProvider+externalEventId, reminderSentAt, customerConfirmedAt, autoReleasedAt.
 Failed sends: reminderAttempts (Int, default 0), reminderLastError (safe text, never sent to the browser), reminderLastAttemptAt. Cleared by a good send or a reschedule (reminder-state.ts). Added by prisma/sql/16-reminder-attempts.
 Patient intake (prisma/sql/21-patient-intake, applied 2026-11-06): customerAge (Int?, CHECK 0..120, copied forward from the latest visit), modality (AppointmentModality?, null in older visits), meetUrl (Meet link of an online visit). customerEmail is optional; a patient without email logs in as `<patientKey>@wa.guest.local`.
+Recommended by (prisma/sql/22-referred-by, applied 2026-11-06): referredByKey (patientKey of who booked the visit for someone else), referredByName (their name then); index (tenantId, referredByKey). Null for visits booked for oneself.
 A "known patient" = a number with an earlier appointment (latest visit by patientKey); there is no patients table.
 Legacy: googleEventId, remindersSent.
 Indexes: (tenantId), (tenantId,appointmentDate), (tenantId,patientKey), (tenantId,petId).
