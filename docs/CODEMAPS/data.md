@@ -1,4 +1,4 @@
-<!-- Generated: 2026-11-03 | Files scanned: prisma/schema.prisma (642 lines) + prisma/sql | Token estimate: ~850 -->
+<!-- Generated: 2026-11-06 | Files scanned: prisma/schema.prisma (665 lines) + prisma/sql | Token estimate: ~950 -->
 # Data (Prisma, PostgreSQL)
 
 Every table carries tenantId. No Prisma migration history. Schema changes are manual SQL in `prisma/sql/<change>/{up,down}.sql` (verified on a throwaway DB, backup first, DB before code).
@@ -23,17 +23,19 @@ Tenant ─┬ ThemeConfig (1:1)
 ```
 
 ## Enums
-BusinessVertical (ECOMMERCE HEALTH VETERINARY TOURISM SERVICES PET_CARE TRAVEL GENERAL) · UserRole · AppProvider · ItemType · OrderStatus · PaymentMethod · CampaignFrequency · SocialPlatform · PlanId · SubscriptionStatus · AppointmentStatus
+BusinessVertical (ECOMMERCE HEALTH VETERINARY TOURISM SERVICES PET_CARE TRAVEL GENERAL) · UserRole · AppProvider · ItemType · OrderStatus · PaymentMethod · CampaignFrequency · SocialPlatform · PlanId · SubscriptionStatus · AppointmentStatus · AppointmentModality (IN_PERSON ONLINE) · ServiceModes (IN_PERSON ONLINE BOTH)
 
 ## Appointment (lines 558-603)
 Fields: appointmentDate, durationMinutes, notes, internalNotes, customerName/Phone/Email, patientKey (52+10 digits), petId, externalProvider+externalEventId, reminderSentAt, customerConfirmedAt, autoReleasedAt.
 Failed sends: reminderAttempts (Int, default 0), reminderLastError (safe text, never sent to the browser), reminderLastAttemptAt. Cleared by a good send or a reschedule (reminder-state.ts). Added by prisma/sql/16-reminder-attempts.
+Patient intake (prisma/sql/21-patient-intake, applied 2026-11-06): customerAge (Int?, CHECK 0..120, copied forward from the latest visit), modality (AppointmentModality?, null in older visits), meetUrl (Meet link of an online visit). customerEmail is optional; a patient without email logs in as `<patientKey>@wa.guest.local`.
+A "known patient" = a number with an earlier appointment (latest visit by patientKey); there is no patients table.
 Legacy: googleEventId, remindersSent.
 Indexes: (tenantId), (tenantId,appointmentDate), (tenantId,patientKey), (tenantId,petId).
 
 ## Tenant config groups
 - Identity: slug, customDomain, logoUrl, whatsappNumber, businessInfo, ownerName, address/placeId/lat/lng
-- Flags: vertical, isBookingEnabled, isAssistantEnabled, isTriageEnabled
+- Flags: vertical, isBookingEnabled, isAssistantEnabled, isTriageEnabled, serviceModes (default IN_PERSON; BOTH = bot and web ask each visit)
 - Hours: businessHours (JSON blocks per day)
 - Reminders: remindersEnabled, reminderLeadMinutes, confirmationRequired, confirmationDeadlineMinutes, templates, messageLanguage
 - Credits: aiCreditLimitUsd, botFailureAlertedAt
