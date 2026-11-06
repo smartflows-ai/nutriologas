@@ -114,6 +114,10 @@ model User {
   image        String?
   role         UserRole  @default(CUSTOMER)
   passwordHash String?
+  // Owner's WhatsApp reset code (prisma/sql/20-password-reset-code). Only the HMAC of the code is stored.
+  passwordResetCodeHash   String?
+  passwordResetExpiresAt  DateTime?
+  passwordResetAttempts   Int       @default(0)
   googleId     String?
   conektaCustomerId String?
   orders  Order[]

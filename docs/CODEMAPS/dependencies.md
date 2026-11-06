@@ -22,8 +22,8 @@ Upstash Redis           env declared; no src usage found (rate-limit.ts is in-me
 next 14.2.29 · react 18.3 · next-auth 4.24 · @prisma/client 7.5 · stripe 22 · zod 3 · react-hook-form · zustand 5 · tailwindcss 3.4 · recharts · @fullcalendar/* · lucide-react · sonner · date-fns 4 · cloudinary · next-cloudinary · embla-carousel · react-easy-crop · react-markdown
 
 ## Scripts
-dev, build, start (standalone), lint, db:{push,generate,seed,studio}. No test script in package.json: tests run with `npx tsx --test local-utils/*.test.ts` (tsx 4, node:test). tsx does not load .env: use `--env-file=.env`.
-Tooling dirs: scripts/ (3 files), n8n/scripts/, n8n/docs/, prisma/sql/ (manual migrations), local-utils/ (tests, reminder-sim, diagnostics), .claude/commands/ (n8n).
+dev, build, start (standalone), lint, db:{push,generate,seed,studio}. No test script in package.json: tests run with `npx tsx --test tests/*.test.ts` (tsx 4, node:test). tsx does not load .env: use `--env-file=.env`.
+Tooling dirs: scripts/ (3 files), n8n/scripts/, n8n/docs/, prisma/sql/ (manual migrations), tests/ (tests), local-utils/ (operator scripts, untracked), .claude/commands/ (n8n).
 Build and dev server share `.next`: do not build while dev runs. PostgreSQL 17 on Supabase: pg_dump must be 17 or newer.
 
 ## Docs

@@ -23,6 +23,13 @@ import { useTranslation } from "@/i18n";
 import { buildFullPhone, splitFullPhone, DEFAULT_DIAL_CODE, PHONE_COUNTRIES } from "@/lib/phone";
 import { translateApiError } from "@/i18n/validation";
 import AddressSearch from "@/components/shared/AddressSearch";
+import PasswordFields, {
+  EMPTY_PASSWORD_VALUES,
+  isPasswordFormTouched,
+  type PasswordFormValues,
+} from "@/components/admin/PasswordFields";
+import { changePasswordSchema } from "@/lib/validations";
+import { translateValidation } from "@/i18n/validation";
 import type { BusinessLocation } from "@/lib/location";
 import {
   BusinessHours,
@@ -65,6 +72,23 @@ export default function BusinessProfilePage() {
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Password section: saved with the page's one Save button. null until the server says if a password exists.
+  const [hasPassword, setHasPassword] = useState<boolean | null>(null);
+  const [passwordValues, setPasswordValues] = useState<PasswordFormValues>(EMPTY_PASSWORD_VALUES);
+  const [showPasswords, setShowPasswords] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/tenants/account/password")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { hasPassword: boolean } | null) => {
+        if (!cancelled && data) setHasPassword(data.hasPassword);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Tenant state
   const [slug, setSlug] = useState("");
@@ -231,9 +255,51 @@ export default function BusinessProfilePage() {
       return;
     }
 
+    // The password section is checked before anything is saved, so a bad password saves nothing.
+    const passwordTouched = isPasswordFormTouched(passwordValues);
+    if (passwordTouched) {
+      if (hasPassword === null) {
+        setError(t.crm.business.saveError);
+        return;
+      }
+      const parsed = changePasswordSchema.safeParse({
+        currentPassword: hasPassword ? passwordValues.currentPassword : undefined,
+        newPassword: passwordValues.newPassword,
+        confirmPassword: passwordValues.confirmPassword,
+      });
+      if (!parsed.success) {
+        const issue = parsed.error.issues[0];
+        setError(translateValidation(t, issue.message) ?? issue.message);
+        return;
+      }
+      if (hasPassword && !passwordValues.currentPassword) {
+        setError(translateApiError(t, "current_password_required") ?? t.crm.business.saveError);
+        return;
+      }
+    }
+
     try {
       setSaving(true);
       setError(null);
+
+      if (passwordTouched) {
+        const passwordRes = await fetch("/api/tenants/account/password", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            currentPassword: hasPassword ? passwordValues.currentPassword : undefined,
+            newPassword: passwordValues.newPassword,
+            confirmPassword: passwordValues.confirmPassword,
+          }),
+        });
+        if (!passwordRes.ok) {
+          const data = await passwordRes.json().catch(() => ({}));
+          throw new Error(translateApiError(t, data.error) || t.crm.business.saveError);
+        }
+        // Cleared as soon as the password is stored, so a later failure in the business save cannot re-send it.
+        setPasswordValues(EMPTY_PASSWORD_VALUES);
+        setHasPassword(true);
+      }
 
       const res = await fetch("/api/tenants/business", {
         method: "PATCH",
@@ -503,6 +569,15 @@ export default function BusinessProfilePage() {
             </p>
           </div>
         </div>
+
+        {/* Security: password change, saved with the Save button below */}
+        <PasswordFields
+          hasPassword={hasPassword}
+          values={passwordValues}
+          showPasswords={showPasswords}
+          onChange={(field, value) => setPasswordValues((prev) => ({ ...prev, [field]: value }))}
+          onToggleShow={() => setShowPasswords((v) => !v)}
+        />
 
         {/* AI Knowledge & Description Card */}
         <div className="p-6 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm space-y-4">

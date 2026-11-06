@@ -42,5 +42,5 @@ Billing      Stripe subscription + AI credit top-ups; AiTokenLedger per month
 - Vertical profile: src/lib/vertical-profile.ts is the single source for per-giro behavior.
 - Times: patient times are Mexico (-06:00) via clinic-time.ts; never suffix Z.
 - Cloudinary root folder: newaigent/<tenantId>/<type>.
-- Tests: pure logic in local-utils/*.test.ts (node:test via tsx); I/O is injected (see reminder-run.ts). No coverage tool or CI step yet.
+- Tests: pure logic in tests/*.test.ts (node:test via tsx); I/O is injected (see reminder-run.ts). No coverage tool or CI step yet.
 - OAuth connections: getAppToken deletes a connection only on a permanent refresh error; temporary errors keep it (lib/oauth-refresh.ts).
