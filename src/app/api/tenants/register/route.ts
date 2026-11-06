@@ -4,6 +4,7 @@ import { stripe, getStripePriceId, PlanKey, BillingInterval } from "@/lib/stripe
 import { trialEndsAtDate } from "@/lib/trial";
 import bcrypt from "bcryptjs";
 import { apiError, type ApiErrorCode } from "@/lib/api-errors";
+import { passwordIssues, PASSWORD_API_ERROR } from "@/lib/password-rules";
 import { z } from "zod";
 import { locationSchema } from "@/lib/location";
 import { uploadLogoForTenant } from "@/lib/cloudinary";
@@ -56,8 +57,9 @@ export async function POST(req: Request) {
     const slugError = slugValid(cleanSlug);
     if (slugError) return apiError(slugError, 400);
 
-    if (password.length < 8)
-      return apiError("register_password_short", 400);
+    if (typeof password !== "string") return apiError("register_fields_required", 400);
+    const [passwordIssue] = passwordIssues(password);
+    if (passwordIssue) return apiError(PASSWORD_API_ERROR[passwordIssue], 400);
 
     // Address is required only when the business has a physical location.
     const hasLocation = Boolean(hasPhysicalLocation);

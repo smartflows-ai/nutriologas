@@ -4,6 +4,19 @@ All notable changes to Presto AI are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased] — 2026-11-06
+
+### Added
+- Owner password change on `/admin/negocio` (security section, saved with the page's Save button). Rules shared with register and onboarding: minimum 10 characters, maximum 72, common passwords refused, must differ from the current one (`src/lib/password-rules.ts`).
+- Owner password reset with a one-time code by WhatsApp: `/recuperar`, one page in two steps (email, then the six-digit code and the new password), linked from the login page. Codes are stored as HMAC hashes, expire after 5 minutes, are single use, and are refused after 5 wrong tries. The reply is the same whether or not the email exists. Sent from the NewAigent line (`PLATFORM_WA_INSTANCE`), not from a tenant's bot. Migration `prisma/sql/20-password-reset-code` applied to production 2026-11-05 (local time) after a verified backup.
+- Owner number rule: the business's WhatsApp number cannot be the line the bot sends from (`owner_number_is_bot_line`, `src/lib/whatsapp-number.ts`).
+- Color check for tenant screens: `local-utils/minimal-ui/theme-colors.js` (FAIL for palette colors and hex values, WARN for red status colors). Documented in CLAUDE.md, to run before and after any UI change.
+
+### Not yet done
+- The owner number is not yet checked against the bot line on WhatsApp connection (`/api/apps/whatsapp/status`); the decision on logging the line out is pending.
+- Other devices stay signed in after a password change or reset (`passwordChangedAt` check pending).
+- Reset codes not yet tested end to end; no real message sent.
+
 ## [Unreleased] — 2026-10-26
 
 ### Changed

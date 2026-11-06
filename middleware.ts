@@ -38,6 +38,7 @@ export async function middleware(req: NextRequest) {
     "/admin",
     "/login",
     "/registro",
+    "/recuperar",
     "/checkout",
     "/carrito",
     "/pedido",
