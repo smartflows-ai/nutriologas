@@ -1,9 +1,9 @@
 // src/app/api/tenants/reminders/route.ts
-// GET/PATCH: appointment reminder and confirmation settings of the tenant (ADMIN only).
+// GET/PATCH: appointment reminder and confirmation settings of the tenant (ADMIN and STAFF: "whatsapp.settings").
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getAppSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
+import { requirePermission } from "@/lib/permission-guard";
 import { apiError } from "@/lib/api-errors";
 import { templateProblem, validateConfirmationTemplate, validateReminderNoConfirmation, validateKnownTags, validateNoDeadlineTag, validateTemplateLength } from "@/lib/reminder-messages";
 
@@ -40,10 +40,10 @@ function normalizeTemplate(value: string | null | undefined): string | null | un
 }
 
 export async function GET() {
-  const session = await getAppSession();
-  if (!session?.user || session.user.role !== "ADMIN") return apiError("unauthorized", 401);
+  const access = await requirePermission("whatsapp.settings");
+  if (!access.ok) return access.response;
 
-  const tenant = await prisma.tenant.findUnique({ where: { id: session.user.tenantId }, select: SELECT });
+  const tenant = await prisma.tenant.findUnique({ where: { id: access.tenantId }, select: SELECT });
   if (!tenant) return apiError("tenant_not_found", 404);
   // Texts saved before the save-time checks existed: they are not sent as written (the default goes out instead),
   // so the owner is told which ones to rewrite. Only the kind is returned, never the reason.
@@ -60,8 +60,8 @@ export async function GET() {
 }
 
 export async function PATCH(req: Request) {
-  const session = await getAppSession();
-  if (!session?.user || session.user.role !== "ADMIN") return apiError("unauthorized", 401);
+  const access = await requirePermission("whatsapp.settings");
+  if (!access.ok) return access.response;
 
   const parsed = reminderSettingsSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return apiError("reminder_settings_invalid", 400);
@@ -97,7 +97,7 @@ export async function PATCH(req: Request) {
   // The answer window (lead minus deadline) must be wide enough to answer: check it against the stored values too.
   if (data.reminderLeadMinutes !== undefined || data.confirmationDeadlineMinutes !== undefined) {
     const current = await prisma.tenant.findUnique({
-      where: { id: session.user.tenantId },
+      where: { id: access.tenantId },
       select: { reminderLeadMinutes: true, confirmationDeadlineMinutes: true },
     });
     if (!current) return apiError("tenant_not_found", 404);
@@ -107,7 +107,7 @@ export async function PATCH(req: Request) {
   }
 
   const updated = await prisma.tenant.update({
-    where: { id: session.user.tenantId },
+    where: { id: access.tenantId },
     data,
     select: SELECT,
   });

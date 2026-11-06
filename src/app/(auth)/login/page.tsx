@@ -9,6 +9,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslation } from "@/i18n";
+import { homeAfterSignIn } from "@/lib/home-after-sign-in";
 
 // Google sign-in is hidden for now. Set to true to show the button again (the NextAuth provider stays configured).
 const GOOGLE_LOGIN_ENABLED = false;
@@ -35,7 +36,7 @@ export default function LoginPage() {
       setError(t.auth.invalidCredentials);
       setLoading(false);
     } else {
-      window.location.href = "/admin/dashboard";
+      window.location.href = await homeAfterSignIn();
     }
   };
 

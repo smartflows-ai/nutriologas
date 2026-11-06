@@ -1,6 +1,6 @@
 // src/app/admin/asistente/page.tsx
 import ChatAssistant from "@/components/chat/ChatAssistant";
-import { getAppSession } from "@/lib/session";
+import { requireAdminPage } from "@/lib/permission-guard";
 import { prisma } from "@/lib/db";
 import Link from "next/link";
 import { Bot, Loader2, Zap } from "lucide-react";
@@ -8,9 +8,9 @@ import { getTranslationServer } from "@/i18n/server";
 
 export default async function AsistentePage() {
   const t = getTranslationServer();
-  const session = await getAppSession();
+  const session = await requireAdminPage("/admin/asistente");
   const tenant = await prisma.tenant.findUnique({
-    where: { id: session?.user.tenantId },
+    where: { id: session.user.tenantId },
     select: {
       id: true,
       name: true,
@@ -55,7 +55,7 @@ export default async function AsistentePage() {
   ] = await Promise.all([
     prisma.order.findMany({
       where: {
-        tenantId: session?.user.tenantId,
+        tenantId: session.user.tenantId,
         status: "PAID",
         createdAt: { gte: startOfMonth },
       },
@@ -63,33 +63,33 @@ export default async function AsistentePage() {
     }),
     prisma.order.count({
       where: {
-        tenantId: session?.user.tenantId,
+        tenantId: session.user.tenantId,
         status: "PENDING",
       },
     }),
     prisma.product.count({
       where: {
-        tenantId: session?.user.tenantId,
+        tenantId: session.user.tenantId,
         isActive: true,
         deletedAt: null,
       },
     }),
     prisma.socialCampaign.count({
       where: {
-        tenantId: session?.user.tenantId,
+        tenantId: session.user.tenantId,
         isActive: true,
       },
     }),
     prisma.appointment.count({
       where: {
-        tenantId: session?.user.tenantId,
+        tenantId: session.user.tenantId,
         appointmentDate: { gte: startOfToday, lte: endOfToday },
         status: { notIn: ["CANCELLED"] },
       },
     }),
     prisma.appointment.count({
       where: {
-        tenantId: session?.user.tenantId,
+        tenantId: session.user.tenantId,
         status: "PENDING",
       },
     }),

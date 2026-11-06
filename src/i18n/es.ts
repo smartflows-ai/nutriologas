@@ -1634,6 +1634,13 @@ export const es: Translations = {
     goalsTitle: "Objetivos",
     goalsDesc: "Rendimiento por propósito"
   },
+  staffUi: {
+    noSectionsTitle: "No tienes secciones disponibles",
+    noSectionsBody: "Tu cuenta todavía no tiene acceso a ninguna sección de este negocio. Habla con el responsable del negocio.",
+    contactOwnerBilling: "Habla con el responsable del negocio para renovar el plan.",
+    contactOwnerConnect: "Habla con el responsable del negocio para conectarlo.",
+    titles: { assistant: "Asistente", guide: "Guía", staff: "Personal" },
+  },
   conekta: {
     loadError: "No se pudo cargar la pasarela de pagos segura. Verifica tu conexión e intenta de nuevo.",
     initError: "Error al inicializar el formulario de pago. Intenta de nuevo.",
@@ -1712,6 +1719,7 @@ export const es: Translations = {
     appointment_update_forbidden: "No tienes permiso para modificar esta cita.",
     service_and_date_required: "Selecciona un servicio y una fecha.",
     date_invalid: "La fecha no es válida.",
+    status_invalid: "Ese estado de cita no existe.",
     slot_unavailable: "Ese horario ya no está disponible. Elige otro.",
     calendar_sync_failed: "No pudimos quitar la cita de tu calendario conectado. Inténtalo de nuevo.",
     whatsapp_chat_not_found: "No encontramos esta conversación.",

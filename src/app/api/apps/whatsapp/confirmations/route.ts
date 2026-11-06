@@ -1,18 +1,18 @@
 // src/app/api/apps/whatsapp/confirmations/route.ts
-// GET: visits waiting for the customer's confirmation after a reminder (ADMIN only).
+// GET: visits waiting for the customer's confirmation after a reminder (ADMIN and STAFF: "whatsapp.confirmations").
 import { NextResponse } from "next/server";
-import { getAppSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
+import { requirePermission } from "@/lib/permission-guard";
 import { apiError } from "@/lib/api-errors";
 import { ACTIVE_APPOINTMENT_STATUSES } from "@/lib/bot";
 import { releaseAt } from "@/lib/reminders";
 import { planLockResponse } from "@/lib/capability-guard";
 
 export async function GET() {
-  const session = await getAppSession();
-  if (!session?.user || session.user.role !== "ADMIN") return apiError("unauthorized", 401);
+  const access = await requirePermission("whatsapp.confirmations");
+  if (!access.ok) return access.response;
 
-  const tenantId = session.user.tenantId;
+  const { tenantId } = access;
   const denied = await planLockResponse(tenantId, "confirmations");
   if (denied) return denied;
   const now = new Date();

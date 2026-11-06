@@ -24,6 +24,7 @@ import { useCalendarAccount } from "@/hooks/useCalendarAccount";
 import { translateApiError } from "@/i18n/validation";
 import Pagination from "@/components/admin/Pagination";
 import VisitNoteDialog from "@/components/admin/VisitNoteDialog";
+import { useCan, useCanOpen } from "@/components/admin/TenantMeta";
 import { reminderNotDelivered } from "@/lib/reminder-badge";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -201,6 +202,10 @@ function MiniCalendar({
 
 function CitasContent() {
   const { t, lang } = useTranslation();
+  // Clinical notes are ADMIN only (src/lib/permissions.ts); the API also leaves them out for STAFF.
+  const canNotes = useCan("appointments.notes");
+  // The App Store (connect a calendar, integrations) is ADMIN only.
+  const canOpenApps = useCanOpen("/admin/apps");
   const locale = localeFor(lang);
   // Agenda state. The server filters and paginates; the page only keeps the query and the last response.
   const PAGE_SIZE = 20;
@@ -381,7 +386,7 @@ function CitasContent() {
                 <span className="min-w-0 truncate font-normal text-gray-600 dark:text-gray-300">{calendarAccount.email}</span>
               )}
             </span>
-          ) : (
+          ) : canOpenApps && (
             <Link
               href="/admin/apps"
               className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs font-semibold transition-colors"
@@ -398,13 +403,15 @@ function CitasContent() {
           >
             <RefreshCw size={15} />
           </button>
-          <Link
-            href="/admin/apps"
-            className="px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200 text-xs font-semibold flex items-center gap-1.5 transition-colors"
-          >
-            <Plug size={14} className="text-primary" />
-            {t.agenda.integrations}
-          </Link>
+          {canOpenApps && (
+            <Link
+              href="/admin/apps"
+              className="px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+            >
+              <Plug size={14} className="text-primary" />
+              {t.agenda.integrations}
+            </Link>
+          )}
         </div>
       </div>
 
@@ -625,7 +632,7 @@ function CitasContent() {
                           <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line break-words">{appt.notes}</p>
                         </div>
                       )}
-                      {appt.internalNotes && (
+                      {canNotes && appt.internalNotes && (
                         <div className="rounded-lg border border-gray-200 dark:border-gray-800 dark:border-primary/30 px-3 py-2.5">
                           <p className="text-xs font-medium text-primary mb-1">{t.agenda.clinicalNotes}</p>
                           <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line break-words line-clamp-3">{appt.internalNotes}</p>
@@ -640,7 +647,7 @@ function CitasContent() {
                           <span className={`w-1.5 h-1.5 rounded-full ${style.dot}`} />
                           {statusLabel}
                         </span>
-                        {!isExternal && (
+                        {!isExternal && canNotes && (
                           <button
                             onClick={() => {
                               setEditingNotesId(appt.id);
@@ -736,7 +743,7 @@ function CitasContent() {
       </div>
 
       {/* ── Clinical notes (shared with the patient page) ── */}
-      {editingNotesId && items.find((a) => a.id === editingNotesId) && (
+      {canNotes && editingNotesId && items.find((a) => a.id === editingNotesId) && (
         <VisitNoteDialog
           visitId={editingNotesId}
           initialText={items.find((a) => a.id === editingNotesId)?.internalNotes || ""}

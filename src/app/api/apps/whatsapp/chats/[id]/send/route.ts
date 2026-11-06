@@ -1,9 +1,8 @@
 // src/app/api/apps/whatsapp/chats/[id]/send/route.ts
 // POST: The owner writes to a contact from the CRM. The message goes out through the tenant's
 // WhatsApp connection, is stored in the chat, and pauses the AI bot for that contact.
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { requirePermission } from "@/lib/permission-guard";
 import { apiError } from "@/lib/api-errors";
 import { sendWhatsAppMessage } from "@/lib/whatsapp";
 
@@ -13,12 +12,9 @@ export async function POST(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user || (session.user as any).role !== "ADMIN") {
-    return apiError("unauthorized", 401);
-  }
-
-  const tenantId = (session.user as any).tenantId as string;
+  const access = await requirePermission("whatsapp.chats");
+  if (!access.ok) return access.response;
+  const { tenantId } = access;
   const body = await req.json().catch(() => null);
   const text = typeof body?.text === "string" ? body.text.trim() : "";
   if (!text) return apiError("whatsapp_message_required", 400);

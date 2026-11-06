@@ -1,5 +1,5 @@
 // src/app/admin/pedidos/page.tsx
-import { getAppSession } from "@/lib/session";
+import { requireAdminPage } from "@/lib/permission-guard";
 import { prisma } from "@/lib/db";
 import { formatPrice, formatDate } from "@/lib/utils";
 import Link from "next/link";
@@ -21,8 +21,8 @@ export default async function PedidosPage({
 }: {
   searchParams: Promise<{ status?: string; page?: string }>;
 }) {
-  const session = await getAppSession();
-  const tenantId = session!.user.tenantId;
+  const session = await requireAdminPage("/admin/pedidos");
+  const tenantId = session.user.tenantId;
   const t = getTranslationServer();
   const locale = getLocaleServer();
   const params = await searchParams;

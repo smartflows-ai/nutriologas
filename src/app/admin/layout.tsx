@@ -6,14 +6,20 @@ import TrialExpiredGate from "@/components/admin/TrialExpiredGate";
 import { TenantMetaProvider } from "@/components/admin/TenantMeta";
 import { prisma } from "@/lib/db";
 import { getAppSession } from "@/lib/session";
+import { ADMIN_ROLE, isCrmRole } from "@/lib/permissions";
 import { getTrialDaysLeft, isTenantOnTrial, isSubscriptionBlocked } from "@/lib/trial";
 import { themeColorVars } from "@/lib/theme-vars";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await getAppSession();
-  if (!session || session.user.role !== "ADMIN") redirect("/login");
+  // Only checks the role may enter the CRM: a layout does not receive the path. Sections are gated by
+  // src/middleware.ts, by each server page (requireAdminPage) and, for data, by each API route.
+  if (!session || !isCrmRole(session.user.role)) redirect("/login");
 
   const tenantId = session.user.tenantId;
+  const role = session.user.role;
+  // Billing (credits, subscription) is ADMIN only; STAFF is told to talk to the business owner instead.
+  const canManageBilling = role === ADMIN_ROLE;
   const tenant = await prisma.tenant.findUnique({ 
     where: { id: tenantId }, 
     include: { theme: true, connectedApps: true, subscription: true } 
@@ -44,7 +50,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   `;
 
   return (
-    <TenantMetaProvider value={{ vertical: tenant?.vertical ?? "ECOMMERCE", isBookingEnabled: tenant?.isBookingEnabled ?? true }}>
+    <TenantMetaProvider value={{ vertical: tenant?.vertical ?? "ECOMMERCE", isBookingEnabled: tenant?.isBookingEnabled ?? true, role }}>
     <div
       className="flex flex-col h-screen bg-slate-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 overflow-hidden"
       style={{ fontFamily: "var(--font-family-base), system-ui, sans-serif" }}
@@ -52,14 +58,15 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <style dangerouslySetInnerHTML={{ __html: dynamicStyles }} />
 
       {/* Trial expired gate — full-screen blocking overlay */}
-      {showExpiredGate && <TrialExpiredGate status={sub!.status} />}
+      {showExpiredGate && <TrialExpiredGate status={sub!.status} canManageBilling={canManageBilling} />}
 
       {/* Trial countdown banner */}
-      {showTrialBanner && !showExpiredGate && <TrialBanner daysLeft={trialDaysLeft} />}
+      {showTrialBanner && !showExpiredGate && <TrialBanner daysLeft={trialDaysLeft} canManageBilling={canManageBilling} />}
 
       <div className="flex flex-1 overflow-hidden">
         <AdminSidebar 
           userName={session.user?.name ?? session.user?.email}
+          role={role}
           tenantName={tenant?.name ?? ""}
           isAssistantEnabled={tenant?.isAssistantEnabled ?? false}
           isTriageEnabled={tenant?.isTriageEnabled ?? false}

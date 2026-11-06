@@ -6,6 +6,7 @@ import { useCartStore } from "@/store/cart";
 import { useEffect, useState } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useTranslation } from "@/i18n";
+import { isCrmRole, roleHomePath } from "@/lib/permissions";
 
 interface NavbarProps {
   storeName: string;
@@ -25,7 +26,10 @@ export default function Navbar({ storeName, logoUrl, isEcommerce = true }: Navba
   }, []);
 
   const isLoggedIn = status === "authenticated";
-  const isAdmin = session?.user?.role === "ADMIN";
+  // ADMIN and STAFF get the CRM link; each lands on its own home (ADMIN the dashboard, STAFF its section).
+  const role = session?.user?.role;
+  const showCrmLink = isCrmRole(role);
+  const crmHref = roleHomePath(role);
   const userName = session?.user?.name ?? session?.user?.email;
 
   return (
@@ -101,9 +105,9 @@ export default function Navbar({ storeName, logoUrl, isEcommerce = true }: Navba
           {/* User Auth Controls */}
           {isLoggedIn ? (
             <div className="hidden sm:flex items-center gap-2">
-              {isAdmin && (
+              {showCrmLink && (
                 <Link
-                  href="/admin/dashboard"
+                  href={crmHref}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 text-xs font-semibold transition-all"
                   title={t.storefrontUi.crmPanelTitle}
                 >
@@ -214,9 +218,9 @@ export default function Navbar({ storeName, logoUrl, isEcommerce = true }: Navba
 
           {isLoggedIn ? (
             <div className="space-y-3 pt-2">
-              {isAdmin && (
+              {showCrmLink && (
                 <Link
-                  href="/admin/dashboard"
+                  href={crmHref}
                   onClick={() => setOpen(false)}
                   className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-100 dark:bg-gray-800 text-primary font-semibold text-sm"
                 >

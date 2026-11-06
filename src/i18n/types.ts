@@ -1449,6 +1449,13 @@ export interface Translations {
     goalsTitle: string;
     goalsDesc: string;
   };
+  staffUi: {
+    noSectionsTitle: string;
+    noSectionsBody: string;
+    contactOwnerBilling: string;
+    contactOwnerConnect: string;
+    titles: { assistant: string; guide: string; staff: string };
+  };
   conekta: {
     loadError: string;
     initError: string;
@@ -1528,6 +1535,7 @@ export interface Translations {
     appointment_update_forbidden: string;
     service_and_date_required: string;
     date_invalid: string;
+    status_invalid: string;
     slot_unavailable: string;
     calendar_sync_failed: string;
     whatsapp_chat_not_found: string;

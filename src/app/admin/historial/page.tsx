@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ClipboardList, Loader2, Phone, Search } from "lucide-react";
 import { useTranslation } from "@/i18n";
-import { useTenantMeta } from "@/components/admin/TenantMeta";
+import { useCan, useTenantMeta } from "@/components/admin/TenantMeta";
 import { getVerticalProfile } from "@/lib/vertical-profile";
 import { localeFor } from "@/lib/utils";
 import Pagination from "@/components/admin/Pagination";
@@ -15,15 +15,29 @@ interface PatientRow {
   name: string | null;
   phone: string | null;
   visits: number;
-  notes: number;
+  // Missing for roles that may not read notes (the API leaves the count out).
+  notes?: number;
   lastVisit: string | null;
   nextVisit: string | null;
   pets: string | null;
 }
 
+// Full class names (Tailwind only builds classes written out in full): with and without the notes column.
+const HEADER_COLS = {
+  withNotes: "grid-cols-[minmax(0,2fr)_72px_72px_128px_128px]",
+  withoutNotes: "grid-cols-[minmax(0,2fr)_72px_128px_128px]",
+} as const;
+const ROW_COLS = {
+  withNotes: "sm:grid-cols-[minmax(0,2fr)_72px_72px_128px_128px]",
+  withoutNotes: "sm:grid-cols-[minmax(0,2fr)_72px_128px_128px]",
+} as const;
+
 export default function HistorialPage() {
   const { t, lang } = useTranslation();
   const { vertical, isBookingEnabled } = useTenantMeta();
+  // Clinical notes (and their count) are ADMIN only, see src/lib/permissions.ts.
+  const canNotes = useCan("appointments.notes");
+  const cols = canNotes ? "withNotes" : "withoutNotes";
   const profile = getVerticalProfile(vertical, isBookingEnabled);
   const subjectText = t.crm.history.subjects[profile.subject];
   const locale = localeFor(lang);
@@ -106,10 +120,10 @@ export default function HistorialPage() {
         </p>
       ) : (
         <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 divide-y divide-gray-100 dark:divide-gray-800">
-          <div className="hidden sm:grid grid-cols-[minmax(0,2fr)_72px_72px_128px_128px] gap-4 px-5 py-2.5 text-xs font-medium text-gray-500 dark:text-gray-400">
+          <div className={`hidden sm:grid ${HEADER_COLS[cols]} gap-4 px-5 py-2.5 text-xs font-medium text-gray-500 dark:text-gray-400`}>
             <span>{subjectText.colSubject}</span>
             <span>{t.crm.history.colVisits}</span>
-            <span>{t.crm.history.colNotes}</span>
+            {canNotes && <span>{t.crm.history.colNotes}</span>}
             <span>{t.crm.history.colLastVisit}</span>
             <span>{t.crm.history.colNextVisit}</span>
           </div>
@@ -117,7 +131,7 @@ export default function HistorialPage() {
             <Link
               key={p.patientKey}
               href={`/admin/historial/${p.patientKey}`}
-              className="grid grid-cols-1 sm:grid-cols-[minmax(0,2fr)_72px_72px_128px_128px] gap-x-4 gap-y-2 px-5 py-4 items-center transition-colors duration-150 hover:bg-gray-50 dark:hover:bg-gray-800/60"
+              className={`grid grid-cols-1 ${ROW_COLS[cols]} gap-x-4 gap-y-2 px-5 py-4 items-center transition-colors duration-150 hover:bg-gray-50 dark:hover:bg-gray-800/60`}
             >
               <div className="min-w-0">
                 <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{p.name ?? p.phone}</p>
@@ -135,10 +149,12 @@ export default function HistorialPage() {
                 <span className="sm:hidden text-gray-500">{t.crm.history.colVisits}: </span>
                 {p.visits}
               </p>
-              <p className="text-sm text-gray-700 dark:text-gray-300">
-                <span className="sm:hidden text-gray-500">{t.crm.history.colNotes}: </span>
-                {p.notes}
-              </p>
+              {canNotes && (
+                <p className="text-sm text-gray-700 dark:text-gray-300">
+                  <span className="sm:hidden text-gray-500">{t.crm.history.colNotes}: </span>
+                  {p.notes}
+                </p>
+              )}
               <p className="text-sm text-gray-700 dark:text-gray-300">
                 <span className="sm:hidden text-gray-500">{t.crm.history.colLastVisit}: </span>
                 {formatDate(p.lastVisit)}
