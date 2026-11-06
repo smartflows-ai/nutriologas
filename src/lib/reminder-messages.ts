@@ -7,6 +7,7 @@ import { formatSlotTime } from "@/lib/bot";
 import { es } from "@/i18n/es";
 import { en } from "@/i18n/en";
 import { LABEL_TO_KEY, templateProblem, type TemplateKind } from "@/lib/reminder-template-rules";
+import { fill } from "@/lib/utils";
 
 // The rules live in a module without server code so the settings card can run them too; re-exported here.
 export {
@@ -61,6 +62,20 @@ export function renderTemplate(template: string, values: ReminderValues): string
   });
   // An unknown name leaves its tag empty: close the gap ("Hola , te" -> "Hola, te", "de  la" -> "de la").
   return nameWasEmpty ? filled.replace(/[ \t]+([,.;:!?])/g, "$1").replace(/[ \t]{2,}/g, " ") : filled;
+}
+
+/**
+ * Adds the video call link under a message when the visit is online and has one. Only secure web links are added.
+ * A patient who gave no email gets no calendar invitation, so this is how the link reaches them.
+ */
+export function withMeetingLink(
+  text: string,
+  visit: { modality?: "IN_PERSON" | "ONLINE" | null; meetUrl?: string | null },
+  language: string,
+): string {
+  const url = visit.meetUrl?.trim();
+  if (visit.modality !== "ONLINE" || !url || !url.startsWith("https://")) return text;
+  return `${text}\n\n${fill(customerTexts(language).meetingLine, { url })}`;
 }
 
 /** Long date in the clinic zone, in the business language. */

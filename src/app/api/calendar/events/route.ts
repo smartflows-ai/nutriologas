@@ -27,6 +27,13 @@ export async function GET(req: NextRequest) {
   let nativeEvents: any[] = [];
   let linked = new Set<string>();
   try {
+    // Where in person visits happen: the business address, when it has one.
+    const place = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { hasPhysicalLocation: true, address: true },
+    });
+    const officeAddress = place?.hasPhysicalLocation ? place.address : null;
+
     const nativeAppts = await prisma.appointment.findMany({
       where: {
         tenantId,
@@ -76,8 +83,15 @@ export async function GET(req: NextRequest) {
           status,
           appointmentStatus: a.status,
           source: "native",
-          description: `Servicio: ${serviceName}\nPaciente: ${patientName}${a.customerPhone ? `\nTel: ${a.customerPhone}` : ""}${a.notes ? `\nMotivo: ${a.notes}` : ""}${a.internalNotes ? `\nNotas Clínicas: ${a.internalNotes}` : ""}`,
-          location: "Consultorio / Presencial",
+          description: `Servicio: ${serviceName}\nPaciente: ${patientName}${a.customerPhone ? `\nTel: ${a.customerPhone}` : ""}${a.customerAge != null ? `\nEdad: ${a.customerAge} años` : ""}${a.modality ? `\nModalidad: ${a.modality === "ONLINE" ? "En línea" : "Presencial"}` : ""}${a.notes ? `\nMotivo: ${a.notes}` : ""}${a.internalNotes ? `\nNotas Clínicas: ${a.internalNotes}` : ""}`,
+          // Older visits (no modality) keep the previous generic label.
+          location:
+            a.modality === "ONLINE"
+              ? a.meetUrl ? `En línea - ${a.meetUrl}` : "En línea"
+              : a.modality === "IN_PERSON"
+                ? officeAddress || "Presencial"
+                : "Consultorio / Presencial",
+          modality: a.modality,
           patientName,
           patientPhone: a.customerPhone,
           patientEmail: a.customerEmail || a.user?.email,

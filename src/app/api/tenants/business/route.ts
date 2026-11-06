@@ -26,6 +26,8 @@ const updateBusinessSchema = z.object({
   placeId: z.string().nullable().optional(),
   latitude: z.number().nullable().optional(),
   longitude: z.number().nullable().optional(),
+  // How the business sees patients; with BOTH the bot and the web ask each visit (see patient-intake.ts).
+  serviceModes: z.enum(["IN_PERSON", "ONLINE", "BOTH"]).optional(),
 });
 
 export async function GET() {
@@ -52,6 +54,7 @@ export async function GET() {
         placeId: true,
         latitude: true,
         longitude: true,
+        serviceModes: true,
       },
     });
 
@@ -73,6 +76,7 @@ export async function GET() {
       placeId: tenant.placeId,
       latitude: tenant.latitude,
       longitude: tenant.longitude,
+      serviceModes: tenant.serviceModes,
       tenant,
     });
   } catch (error) {
@@ -150,6 +154,7 @@ export async function PATCH(req: Request) {
         businessInfo: businessInfo ?? "",
         logoUrl: logoUrl || null,
         ...(ownerName !== undefined ? { ownerName: ownerName || null } : {}),
+        ...(parsed.data.serviceModes ? { serviceModes: parsed.data.serviceModes } : {}),
         ...(locationData ?? {}),
         ...(hoursData !== undefined ? { businessHours: hoursData } : {}),
       },
@@ -167,6 +172,7 @@ export async function PATCH(req: Request) {
         placeId: true,
         latitude: true,
         longitude: true,
+        serviceModes: true,
       },
     });
 

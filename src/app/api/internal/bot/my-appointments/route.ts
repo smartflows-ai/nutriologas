@@ -24,6 +24,8 @@ export async function POST(req: NextRequest) {
       appointmentDate: true,
       durationMinutes: true,
       status: true,
+      modality: true,
+      meetUrl: true,
       product: { select: { name: true } },
       pet: { select: { name: true } },
     },
@@ -39,6 +41,8 @@ export async function POST(req: NextRequest) {
       startsAt: a.appointmentDate.toISOString(),
       durationMinutes: a.durationMinutes,
       status: a.status,
+      modality: a.modality,
+      meetLink: a.modality === "ONLINE" ? a.meetUrl : null,
     })),
   });
 }

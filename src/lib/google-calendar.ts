@@ -72,7 +72,8 @@ export async function checkCalendarConflicts(
 }
 
 /**
- * Create a Google Calendar event with a Google Meet link.
+ * Create a Google Calendar event. It gets a Google Meet link unless withMeet is false (in person visits).
+ * Without an attendee email no invitation is sent: the event only lands on the doctor's calendar.
  */
 export async function createCalendarEvent(
   accessToken: string,
@@ -82,8 +83,11 @@ export async function createCalendarEvent(
     startDateTime: string;
     endDateTime: string;
     attendeeEmail: string;
+    withMeet?: boolean;
+    location?: string;
   }
 ): Promise<any> {
+  const withMeet = event.withMeet !== false;
   const res = await fetch(
     "https://www.googleapis.com/calendar/v3/calendars/primary/events?" +
       new URLSearchParams({
@@ -99,15 +103,18 @@ export async function createCalendarEvent(
       body: JSON.stringify({
         summary: event.summary,
         description: event.description,
+        location: event.location || undefined,
         start: { dateTime: event.startDateTime, timeZone: "America/Mexico_City" },
         end: { dateTime: event.endDateTime, timeZone: "America/Mexico_City" },
         attendees: event.attendeeEmail ? [{ email: event.attendeeEmail }] : undefined,
-        conferenceData: {
-          createRequest: {
-            requestId: `meet-${Date.now()}`,
-            conferenceSolutionKey: { type: "hangoutsMeet" },
-          },
-        },
+        conferenceData: withMeet
+          ? {
+              createRequest: {
+                requestId: `meet-${Date.now()}`,
+                conferenceSolutionKey: { type: "hangoutsMeet" },
+              },
+            }
+          : undefined,
         reminders: { useDefault: true },
       }),
     }

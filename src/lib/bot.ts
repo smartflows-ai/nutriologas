@@ -6,6 +6,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { locationTextForBot } from "@/lib/location";
 import { tenantPublicUrl } from "@/lib/tenant-url";
+import type { ServiceModes } from "@/lib/patient-intake";
 import { getVerticalProfile } from "@/lib/vertical-profile";
 import { BusinessHours, formatBusinessHours, parseBusinessHours, slotWithinHours, upcomingCalendarText } from "@/lib/business-hours";
 
@@ -24,6 +25,10 @@ export interface BotTenant {
   businessInfo: string | null;
   ownerName: string | null;
   locationText: string;
+  /** Plain address for the calendar event of an in person visit; null without a physical location. */
+  addressText: string | null;
+  /** How the business sees patients: in person, online or both (see patient-intake.ts). */
+  serviceModes: ServiceModes;
   usesPets: boolean;
   waContext: string | null;
   waTemperature: number;
@@ -65,6 +70,7 @@ export async function resolveBotTenant(instance: unknown): Promise<BotTenant | n
           longitude: true,
           isBookingEnabled: true,
           businessHours: true,
+          serviceModes: true,
         },
       },
     },
@@ -81,6 +87,8 @@ export async function resolveBotTenant(instance: unknown): Promise<BotTenant | n
     businessInfo: app.tenant.businessInfo,
     ownerName: app.tenant.ownerName,
     locationText: locationTextForBot(app.tenant),
+    addressText: app.tenant.hasPhysicalLocation ? app.tenant.address : null,
+    serviceModes: app.tenant.serviceModes,
     usesPets: getVerticalProfile(app.tenant.vertical, app.tenant.isBookingEnabled).usesPets,
     waContext: app.waContext,
     waTemperature: app.waTemperature ?? 0.7,

@@ -3,7 +3,7 @@
 // is testable without a database or WhatsApp. One bad visit never stops the others, and every failure is reported.
 import type { AppProvider } from "@prisma/client";
 import { planReminder, releaseAt } from "@/lib/reminders";
-import { clinicLongDate, clinicTime, customerTexts, renderTemplate, usableTemplate } from "@/lib/reminder-messages";
+import { clinicLongDate, clinicTime, customerTexts, renderTemplate, usableTemplate, withMeetingLink } from "@/lib/reminder-messages";
 
 export interface ReminderTenant {
   name: string;
@@ -30,6 +30,9 @@ export interface ReminderVisit {
   externalProvider: AppProvider | null;
   externalEventId: string | null;
   productName: string;
+  /** Online visits carry their video call link in the reminder. Optional: older callers have neither. */
+  modality?: "IN_PERSON" | "ONLINE" | null;
+  meetUrl?: string | null;
   tenant: ReminderTenant;
 }
 
@@ -91,7 +94,8 @@ function reminderText(visit: ReminderVisit, requestConfirmation: boolean, releas
         hora_limite: clinicTime(releaseInstant as Date, t.messageLanguage),
       })
     : texts.plainFooter;
-  return `${renderTemplate(usableTemplate(t.reminderTemplate, "reminder", texts.reminderTemplate, warn("reminder")), values)}\n\n${tail}`;
+  const body = `${renderTemplate(usableTemplate(t.reminderTemplate, "reminder", texts.reminderTemplate, warn("reminder")), values)}\n\n${tail}`;
+  return withMeetingLink(body, visit, t.messageLanguage);
 }
 
 async function processVisit(visit: ReminderVisit, now: Date, deps: ReminderDeps, dryRun: boolean): Promise<Outcome> {

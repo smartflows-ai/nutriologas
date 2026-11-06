@@ -6,7 +6,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { isInternalKeyValid, resolveBotTenant, ACTIVE_APPOINTMENT_STATUSES } from "@/lib/bot";
 import { patientKeyOf } from "@/lib/patient-key";
-import { clinicLongDate, clinicTime, customerTexts, renderTemplate } from "@/lib/reminder-messages";
+import { clinicLongDate, clinicTime, customerTexts, renderTemplate, withMeetingLink } from "@/lib/reminder-messages";
 import { isClearConfirmation } from "@/lib/confirmation-words";
 
 export async function POST(req: NextRequest) {
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
       appointmentDate: { gt: now },
     },
     orderBy: { appointmentDate: "asc" },
-    select: { id: true, appointmentDate: true, product: { select: { name: true } } },
+    select: { id: true, appointmentDate: true, modality: true, meetUrl: true, product: { select: { name: true } } },
   });
 
   // Nothing waiting for an answer: the message goes to the bot agent as a normal chat message.
@@ -48,12 +48,16 @@ export async function POST(req: NextRequest) {
 
   const tenant = await prisma.tenant.findUnique({ where: { id: bot.tenantId }, select: { name: true, messageLanguage: true } });
   const language = tenant?.messageLanguage ?? "es";
-  const reply = renderTemplate(customerTexts(language).confirmedReply, {
-    servicio: appointment.product.name,
-    fecha: clinicLongDate(appointment.appointmentDate, language),
-    hora: clinicTime(appointment.appointmentDate, language),
-    negocio: tenant?.name ?? "",
-  });
+  const reply = withMeetingLink(
+    renderTemplate(customerTexts(language).confirmedReply, {
+      servicio: appointment.product.name,
+      fecha: clinicLongDate(appointment.appointmentDate, language),
+      hora: clinicTime(appointment.appointmentDate, language),
+      negocio: tenant?.name ?? "",
+    }),
+    appointment,
+    language,
+  );
 
   return Response.json({ handled: true, confirmed: true, reply, appointmentId: appointment.id });
 }

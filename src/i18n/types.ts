@@ -7,6 +7,12 @@ export interface Translations {
   locationUi: {
     ownerNameLabel: string;
     ownerNamePlaceholder: string;
+    serviceModesLabel: string;
+    serviceModesHint: string;
+    serviceModesInPerson: string;
+    serviceModesOnline: string;
+    serviceModesBoth: string;
+    serviceModesNeedsAddress: string;
     physicalLocationLabel: string;
     physicalLocationHint: string;
     addressLabel: string;
@@ -34,6 +40,7 @@ export interface Translations {
     confirmationLanguageName: string;
     greetingIntro: string;
     greetingPrivacy: string;
+    meetingLine: string;
   };
   nav: {
     features: string;
@@ -1179,6 +1186,14 @@ export interface Translations {
     countryCode: string;
     email: string;
     emailPlaceholder: string;
+    emailOptional: string;
+    age: string;
+    agePlaceholder: string;
+    modality: string;
+    modalityInPerson: string;
+    modalityOnline: string;
+    summaryModality: string;
+    summaryAddress: string;
     notes: string;
     notesPlaceholder: string;
     privacyNote: string;
@@ -1257,6 +1272,10 @@ export interface Translations {
     filteredBy: string;
     clear: string;
     tabAll: string;
+    dateToday: string;
+    dateAll: string;
+    filterDate: string;
+    filterStatus: string;
     tabPending: string;
     tabConfirmed: string;
     tabCompleted: string;
@@ -1269,6 +1288,10 @@ export interface Translations {
     patientFallback: string;
     reminderNotDelivered: string;
     reminderNotDeliveredHint: string;
+    modalityInPerson: string;
+    modalityOnline: string;
+    ageYears: string;
+    openMeeting: string;
     consultFallback: string;
     openCalendar: string;
     reason: string;
@@ -1566,6 +1589,8 @@ export interface Translations {
     whatsapp_invalid_body: string;
     not_bookable: string;
     phone_required: string;
+    age_required: string;
+    modality_required: string;
     patient_not_found: string;
     outside_business_hours: string;
     date_in_past: string;

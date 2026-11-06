@@ -4,6 +4,7 @@
 import { AppointmentStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { patientKeyOf } from "@/lib/patient-key";
+import type { Modality } from "@/lib/patient-intake";
 import { findOrCreatePet } from "@/lib/pets";
 import { rescheduleResetState } from "@/lib/reminder-state";
 import {
@@ -25,7 +26,10 @@ export const appointmentInclude = {
 export interface CalendarDetails {
   summary: string;
   description: string;
+  /** Without an email no invitation goes out; the event still lands on the doctor's calendar. */
   attendeeEmail?: string;
+  /** Business address, used as the event location of an in person visit. */
+  location?: string | null;
 }
 
 export interface CreateAppointmentInput {
@@ -38,6 +42,10 @@ export interface CreateAppointmentInput {
   customerName: string | null;
   customerPhone: string | null;
   customerEmail: string | null;
+  /** Patient age, collected on the first booking and copied forward (see patient-intake.ts). */
+  customerAge?: number | null;
+  /** In person or online; null for callers that do not ask (older flows). */
+  modality?: Modality | null;
   notes: string | null;
   // Only for veterinary and pet-care tenants (see vertical-profile.ts); validated by the route.
   petName?: string | null;
@@ -68,10 +76,10 @@ async function lockDay<T>(
   });
 }
 
-async function linkCreated(id: string, link: CalendarLink) {
+async function linkCreated(id: string, link: CalendarLink, meetUrl: string | null) {
   return prisma.appointment.update({
     where: { id },
-    data: { externalProvider: link.externalProvider, externalEventId: link.externalEventId },
+    data: { externalProvider: link.externalProvider, externalEventId: link.externalEventId, meetUrl },
     include: appointmentInclude,
   });
 }
@@ -108,6 +116,8 @@ export async function createAppointment(input: CreateAppointmentInput): Promise<
         patientKey,
         petId,
         customerEmail: input.customerEmail,
+        customerAge: input.customerAge ?? null,
+        modality: input.modality ?? null,
       },
       include: appointmentInclude,
     });
@@ -120,11 +130,15 @@ export async function createAppointment(input: CreateAppointmentInput): Promise<
     start: input.appointmentDate,
     end,
     attendeeEmail: input.calendar.attendeeEmail,
+    modality: input.modality ?? null,
+    location: input.calendar.location ?? null,
   });
   if (!synced) return { ok: true, appointment: created, meetLink: null };
 
-  const appointment = await linkCreated(created.id, synced);
-  return { ok: true, appointment, meetLink: synced.meetLink };
+  // Only an online visit keeps a video link; an in person event has none.
+  const meetLink = input.modality === "IN_PERSON" ? null : synced.meetLink;
+  const appointment = await linkCreated(created.id, synced, meetLink);
+  return { ok: true, appointment, meetLink };
 }
 
 export interface RescheduleInput {

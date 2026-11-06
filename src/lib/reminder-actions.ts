@@ -5,7 +5,7 @@ import type { AppProvider } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { sendWhatsAppMessage } from "@/lib/whatsapp";
 import { cancelAppointment } from "@/lib/appointments-service";
-import { cancellationText, clinicLongDate, clinicTime, customerTexts, renderTemplate } from "@/lib/reminder-messages";
+import { cancellationText, clinicLongDate, clinicTime, customerTexts, renderTemplate, withMeetingLink } from "@/lib/reminder-messages";
 
 export interface VisitForAction {
   id: string;
@@ -19,6 +19,9 @@ export interface VisitForAction {
   tenantName: string;
   messageLanguage: string;
   cancellationTemplate: string | null;
+  /** Online visits carry their video call link in the confirmation. Optional: older callers have neither. */
+  modality?: "IN_PERSON" | "ONLINE" | null;
+  meetUrl?: string | null;
 }
 
 function visitValues(visit: VisitForAction) {
@@ -67,7 +70,11 @@ export async function confirmVisit(visit: VisitForAction, now: Date = new Date()
     await sendWhatsAppMessage({
       tenantId: visit.tenantId,
       to: visit.customerPhone,
-      text: renderTemplate(customerTexts(visit.messageLanguage).ownerConfirmedText, visitValues(visit)),
+      text: withMeetingLink(
+        renderTemplate(customerTexts(visit.messageLanguage).ownerConfirmedText, visitValues(visit)),
+        visit,
+        visit.messageLanguage,
+      ),
     });
   }
 }

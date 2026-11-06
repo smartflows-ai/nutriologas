@@ -28,6 +28,10 @@ export interface CalendarEventInput {
   start: Date;
   end: Date;
   attendeeEmail?: string;
+  /** In person events get no video link; null (older callers) keeps the previous behavior. */
+  modality?: "IN_PERSON" | "ONLINE" | null;
+  /** Where an in person visit happens (the business address). */
+  location?: string | null;
 }
 
 export interface BusyPeriod {
@@ -176,6 +180,8 @@ export async function syncCalendarCreate(
         startDateTime: input.start.toISOString(),
         endDateTime: input.end.toISOString(),
         attendeeEmail: input.attendeeEmail ?? "",
+        withMeet: input.modality !== "IN_PERSON",
+        location: input.modality === "IN_PERSON" ? input.location ?? undefined : undefined,
       });
       return { externalProvider: "GOOGLE", externalEventId: event.id, meetLink: event.hangoutLink ?? null };
     }
@@ -186,6 +192,7 @@ export async function syncCalendarCreate(
       start: input.start,
       end: input.end,
       attendeeEmail: input.attendeeEmail,
+      location: input.modality === "IN_PERSON" ? input.location ?? undefined : undefined,
     });
     return { externalProvider: "MICROSOFT", externalEventId: event.id, meetLink: null };
   } catch (err) {
