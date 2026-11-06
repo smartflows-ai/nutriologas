@@ -49,19 +49,17 @@ export function introRequired(lastOutgoingAt: Date | null, now: Date = new Date(
 
 /**
  * Reply for a plain greeting, or null when the message is not a greeting.
- * The first contact (or one after the window) names the business; a greeting inside an active chat is short.
+ * Every greeting gets the introduction (business name and, when given, the privacy notice), in any chat.
  */
 export function buildGreetingReply(input: {
   text: string;
   businessName: string;
   language: string;
-  introRequired: boolean;
   /** Public address of the business's privacy notice; added to the introduction when given. */
   privacyUrl?: string;
 }): string | null {
   if (!isPureGreeting(input.text)) return null;
   const texts = customerTexts(input.language);
-  if (!input.introRequired) return fill(texts.greetingShort, { negocio: input.businessName });
   const intro = fill(texts.greetingIntro, { negocio: input.businessName });
   if (!input.privacyUrl) return intro;
   return intro + "\n\n" + fill(texts.greetingPrivacy, { url: input.privacyUrl });

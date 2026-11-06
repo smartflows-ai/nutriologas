@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
   const needsIntro = introRequired(lastOutgoing?.timestamp ?? null);
   const greetingReply =
     typeof text === "string" && text
-      ? buildGreetingReply({ text, businessName: bot.tenantName, language: bot.messageLanguage, introRequired: needsIntro, privacyUrl: bot.privacyUrl })
+      ? buildGreetingReply({ text, businessName: bot.tenantName, language: bot.messageLanguage, privacyUrl: bot.privacyUrl })
       : null;
 
   const [products, faqs, creditStatus] = await Promise.all([
