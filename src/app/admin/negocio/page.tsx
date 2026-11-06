@@ -31,6 +31,7 @@ import PasswordFields, {
 import { changePasswordSchema } from "@/lib/validations";
 import { translateValidation } from "@/i18n/validation";
 import type { BusinessLocation } from "@/lib/location";
+import RadioOption from "@/components/ui/RadioOption";
 import {
   BusinessHours,
   DEFAULT_BUSINESS_HOURS,
@@ -103,6 +104,8 @@ export default function BusinessProfilePage() {
   useEffect(() => { setLogoFailed(false); }, [logoUrl]);
   const [ownerName, setOwnerName] = useState("");
   const [hasPhysicalLocation, setHasPhysicalLocation] = useState(false);
+  // How the business sees patients; with "BOTH" the bot and the booking page ask each visit.
+  const [serviceModes, setServiceModes] = useState<"IN_PERSON" | "ONLINE" | "BOTH">("IN_PERSON");
   const [location, setLocation] = useState<BusinessLocation | null>(null);
   const [hours, setHours] = useState<BusinessHours>(DEFAULT_BUSINESS_HOURS);
 
@@ -141,6 +144,7 @@ export default function BusinessProfilePage() {
         setHours(parseBusinessHours(data.businessHours));
         setOwnerName(tenantData.ownerName || "");
         setHasPhysicalLocation(Boolean(tenantData.hasPhysicalLocation));
+        if (tenantData.serviceModes) setServiceModes(tenantData.serviceModes);
         setLocation(
           tenantData.address
             ? {
@@ -312,6 +316,7 @@ export default function BusinessProfilePage() {
           businessHours: hours,
           ownerName: ownerName.trim() || null,
           hasPhysicalLocation,
+          serviceModes,
           address: hasPhysicalLocation ? location?.address : null,
           placeId: hasPhysicalLocation ? location?.placeId ?? null : null,
           latitude: hasPhysicalLocation ? location?.latitude ?? null : null,
@@ -671,6 +676,34 @@ export default function BusinessProfilePage() {
               <AddressSearch value={location} onChange={setLocation} />
             </div>
           )}
+
+          <fieldset className="space-y-2">
+            <legend className="text-sm font-medium text-gray-900 dark:text-white">
+              {t.locationUi.serviceModesLabel}
+            </legend>
+            <p className="text-xs text-gray-500 dark:text-gray-400">{t.locationUi.serviceModesHint}</p>
+            <div className="pt-1">
+              {(
+                [
+                  ["IN_PERSON", t.locationUi.serviceModesInPerson],
+                  ["ONLINE", t.locationUi.serviceModesOnline],
+                  ["BOTH", t.locationUi.serviceModesBoth],
+                ] as const
+              ).map(([value, label]) => (
+                <RadioOption
+                  key={value}
+                  name="service-modes"
+                  value={value}
+                  checked={serviceModes === value}
+                  onChange={() => setServiceModes(value)}
+                  label={label}
+                />
+              ))}
+            </div>
+            {serviceModes !== "ONLINE" && !hasPhysicalLocation && (
+              <p className="text-xs text-gray-500 dark:text-gray-400">{t.locationUi.serviceModesNeedsAddress}</p>
+            )}
+          </fieldset>
         </div>
 
         {/* Business hours: one weekly schedule for the storefront and the WhatsApp bot */}
@@ -784,7 +817,7 @@ export default function BusinessProfilePage() {
           <button
             type="submit"
             disabled={saving || uploadingLogo}
-            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white bg-primary hover:bg-primary/90 focus:outline-hidden focus:ring-2 focus:ring-primary/30 transition-all disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-[color:var(--on-primary)] bg-primary hover:bg-primary/90 focus:outline-hidden focus:ring-2 focus:ring-primary/30 transition-all disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
           >
             {saving ? (
               <>
