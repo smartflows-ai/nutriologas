@@ -1276,6 +1276,7 @@ export interface Translations {
     dateAll: string;
     filterDate: string;
     filterStatus: string;
+    referredBy: string;
     tabPending: string;
     tabConfirmed: string;
     tabCompleted: string;

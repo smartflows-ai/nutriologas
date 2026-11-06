@@ -57,6 +57,8 @@ interface AppointmentItem {
   };
   customerEmail?: string | null;
   customerAge?: number | null;
+  referredByKey?: string | null;
+  referredByName?: string | null;
   modality?: "IN_PERSON" | "ONLINE" | null;
   meetUrl?: string | null;
   user?: {
@@ -72,11 +74,11 @@ interface AppointmentItem {
 
 // Status colors are semantic (pending, confirmed, cancelled), so they stay fixed and do not follow the tenant theme.
 const STATUS_STYLE: Record<string, { bg: string; text: string; border: string; dot: string }> = {
-  PENDING:   { bg: "bg-amber-500/10",   text: "text-amber-500",   border: "border-amber-500/20",   dot: "bg-amber-400" },
-  CONFIRMED: { bg: "bg-blue-500/10",    text: "text-blue-500",    border: "border-blue-500/20",    dot: "bg-blue-500" },
-  COMPLETED: { bg: "bg-emerald-500/10", text: "text-emerald-500", border: "border-emerald-500/20", dot: "bg-emerald-500" },
-  CANCELLED: { bg: "bg-rose-500/10",    text: "text-rose-500",    border: "border-rose-500/20",    dot: "bg-rose-400" },
-  NO_SHOW:   { bg: "bg-gray-500/10",    text: "text-gray-400",    border: "border-gray-500/20",    dot: "bg-gray-400" },
+  PENDING:   { bg: "bg-gray-500/10",    text: "text-gray-600 dark:text-gray-300", border: "border-gray-500/30", dot: "bg-gray-400" },
+  CONFIRMED: { bg: "bg-primary/10",     text: "text-primary",     border: "border-primary/30",     dot: "bg-primary" },
+  COMPLETED: { bg: "bg-gray-900/10 dark:bg-white/10", text: "text-gray-900 dark:text-white", border: "border-gray-900/20 dark:border-white/20", dot: "bg-gray-900 dark:bg-white" },
+  CANCELLED: { bg: "bg-red-500/10",     text: "text-red-600 dark:text-red-400", border: "border-red-500/20", dot: "bg-red-500" },
+  NO_SHOW:   { bg: "bg-gray-500/10",    text: "text-gray-400",    border: "border-gray-500/20",    dot: "bg-gray-300 dark:bg-gray-600" },
 };
 
 /** Mini-calendar for interactive date navigation */
@@ -582,7 +584,7 @@ function CitasContent() {
 
                         {/* Integration source badge */}
                         {appt.source === "google" && (
-                          <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-50 text-gray-700 dark:bg-gray-800 dark:text-gray-300 border border-gray-200 dark:border-gray-700">
                             <svg className="w-2.5 h-2.5" viewBox="0 0 24 24">
                               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                               <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -593,7 +595,7 @@ function CitasContent() {
                           </span>
                         )}
                         {appt.source === "microsoft" && (
-                          <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-50 text-gray-700 dark:bg-gray-800 dark:text-gray-300 border border-gray-200 dark:border-gray-700">
                             Outlook
                           </span>
                         )}
@@ -639,6 +641,11 @@ function CitasContent() {
                                 {fill(t.agenda.ageYears, { age: appt.customerAge })}
                               </span>
                             )}
+                          </span>
+                        )}
+                        {appt.referredByKey && (
+                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                            {fill(t.agenda.referredBy, { name: appt.referredByName || `+${appt.referredByKey}` })}
                           </span>
                         )}
                         {appt.pet?.name && (
@@ -738,7 +745,7 @@ function CitasContent() {
                             <button
                               disabled={updatingId === appt.id}
                               onClick={() => updateStatus(appt.id, "CANCELLED")}
-                              className="px-2.5 py-1.5 rounded-xl text-rose-500 text-xs hover:underline transition-all disabled:opacity-50"
+                              className="px-2.5 py-1.5 rounded-xl text-red-600 dark:text-red-400 text-xs hover:underline transition-all disabled:opacity-50"
                             >
                               {t.agenda.cancel}
                             </button>
@@ -764,7 +771,7 @@ function CitasContent() {
                             <button
                               disabled={updatingId === appt.id}
                               onClick={() => updateStatus(appt.id, "CANCELLED")}
-                              className="px-2 py-1.5 rounded-xl text-rose-500 text-xs hover:underline transition-all disabled:opacity-50"
+                              className="px-2 py-1.5 rounded-xl text-red-600 dark:text-red-400 text-xs hover:underline transition-all disabled:opacity-50"
                             >
                               {t.agenda.cancel}
                             </button>

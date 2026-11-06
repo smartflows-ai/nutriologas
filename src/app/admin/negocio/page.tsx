@@ -379,7 +379,7 @@ export default function BusinessProfilePage() {
                 <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
                   {t.crm.business.domainCardTitle}
                 </h2>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
                   <Lock size={11} />
                   {t.crm.business.domainLockedBadge}
                 </span>
@@ -807,7 +807,7 @@ export default function BusinessProfilePage() {
         <div className="flex items-center justify-between pt-4">
           <div className="flex items-center gap-2">
             {saved && (
-              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-3 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-900">
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary bg-primary/10 px-3 py-1.5 rounded-lg border border-primary/30">
                 <Check size={14} />
                 {t.crm.business.savedSuccess}
               </span>

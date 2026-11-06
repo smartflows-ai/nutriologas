@@ -1461,6 +1461,7 @@ export const es: Translations = {
     dateAll: "Todas las fechas",
     filterDate: "Fecha",
     filterStatus: "Estado",
+    referredBy: "Recomendado por {name}",
     tabPending: "Pendientes",
     tabConfirmed: "Confirmadas",
     tabCompleted: "Completadas",
