@@ -1,7 +1,7 @@
 // src/lib/patient-intake.ts
 // Rules for the first booking of a patient (name, age, optional email) and for the visit modality
 // (in person or online). Pure functions, no I/O: the routes load the data and call these.
-//
+
 import { patientKeyOf } from "@/lib/patient-key";
 
 // A "known patient" is a WhatsApp number that already has an appointment in the business. Its name, email and
@@ -118,12 +118,23 @@ export function referralOf(forOther: boolean, senderPhone: string, senderName: s
   return { referredByKey: patientKeyOf(senderPhone), referredByName: senderName };
 }
 
-/** Where-clause for "the visits of the person writing": their own, and the ones they booked for others. */
+/** The booker's name from the WhatsApp profile: trimmed, single spaces, at most 80 characters, null when empty. */
+export function cleanSenderName(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const name = raw.replace(/\s+/g, " ").trim().slice(0, 80);
+  return name || null;
+}
+
+/**
+ * Where-clause for "the visits of the person writing": their own (by the typed phone or by patientKey, because a
+ * visit booked for them is saved under the 52 + 10 digits key while WhatsApp writes 521 + 10 digits), and the ones
+ * they booked for others.
+ */
 export function visitsOfSender(senderPhone: string): {
-  OR: Array<{ customerPhone: string } | { referredByKey: string }>;
+  OR: Array<{ customerPhone: string } | { patientKey: string } | { referredByKey: string }>;
 } {
   const key = patientKeyOf(senderPhone);
-  return { OR: [{ customerPhone: senderPhone }, ...(key ? [{ referredByKey: key }] : [])] };
+  return { OR: [{ customerPhone: senderPhone }, ...(key ? [{ patientKey: key }, { referredByKey: key }] : [])] };
 }
 
 const GUEST_EMAIL_DOMAIN = "wa.guest.local";

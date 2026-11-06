@@ -17,7 +17,7 @@ import { isBookable } from "@/lib/bookable";
 import { cleanPetName } from "@/lib/pets";
 import { patientKeyOf } from "@/lib/patient-key";
 import { getKnownPatient } from "@/lib/patients";
-import { guestEmailFor, mergePatient, missingIntake, referralOf, resolveBookingPhone, resolveModality, type Modality } from "@/lib/patient-intake";
+import { cleanSenderName, guestEmailFor, mergePatient, missingIntake, referralOf, resolveBookingPhone, resolveModality, type Modality } from "@/lib/patient-intake";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
   if (!isInternalKeyValid(req)) return Response.json({ error: "No autorizado" }, { status: 401 });
 
   const body = await req.json().catch(() => ({}));
-  const { instance, productId, date, time, customerName, customerPhone, customerEmail, customerAge, modality, notes, petName, petSpecies, intake, patientPhone } = body;
+  const { instance, productId, date, time, customerName, customerPhone, customerEmail, customerAge, modality, notes, petName, petSpecies, intake, patientPhone, senderName } = body;
   const isV2 = intake === "v2";
 
   const bot = await resolveBotTenant(instance);
@@ -59,9 +59,10 @@ export async function POST(req: NextRequest) {
     visitPhone = booking.phone;
   }
   const forOther = visitPhone !== String(customerPhone);
-  // Who recommended: the person writing, with the name we already have for their number.
+  // Who recommended: the person writing, with the name we already have for their number or, failing that, the
+  // name of their WhatsApp profile (senderName, sent by the workflow).
   const sender = forOther ? await getKnownPatient(bot.tenantId, patientKeyOf(String(customerPhone))) : null;
-  const referral = referralOf(forOther, String(customerPhone), sender?.name ?? null);
+  const referral = referralOf(forOther, String(customerPhone), sender?.name ?? cleanSenderName(senderName));
 
   // Who is booking: a registered patient comes from their latest visit, a new one from what the agent collected.
   const patientKey = patientKeyOf(visitPhone);

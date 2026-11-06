@@ -78,6 +78,23 @@ export function withMeetingLink(
   return `${text}\n\n${fill(customerTexts(language).meetingLine, { url })}`;
 }
 
+/**
+ * A visit booked for someone else lands on that person's own WhatsApp, often as the first message they ever get from
+ * the business. Adds who booked it (first name only) and how to say it was not requested.
+ */
+export function withBookedBy(
+  text: string,
+  visit: { referredByKey?: string | null; referredByName?: string | null },
+  language: string,
+): string {
+  if (!visit.referredByKey) return text;
+  const texts = customerTexts(language);
+  const name = firstName(visit.referredByName);
+  return `${text}
+
+${name ? fill(texts.bookedByLine, { nombre: name }) : texts.bookedByAnon}`;
+}
+
 /** Long date in the clinic zone, in the business language. */
 export function clinicLongDate(instant: Date, language: string): string {
   return instant.toLocaleDateString(customerTexts(language).locale, {

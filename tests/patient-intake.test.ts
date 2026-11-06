@@ -126,9 +126,9 @@ test("a visit for the person writing has no recommendation", () => {
   assert.deepEqual(referralOf(false, "5218446683688", "Ana Lopez"), { referredByKey: null, referredByName: null });
 });
 
-test("the sender sees their own visits and the ones they booked for others", () => {
+test("the sender sees their own visits (also those saved under the normalized key) and the ones they booked for others", () => {
   assert.deepEqual(visitsOfSender("5218446683688"), {
-    OR: [{ customerPhone: "5218446683688" }, { referredByKey: "528446683688" }],
+    OR: [{ customerPhone: "5218446683688" }, { patientKey: "528446683688" }, { referredByKey: "528446683688" }],
   });
 });
 

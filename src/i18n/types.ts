@@ -41,6 +41,8 @@ export interface Translations {
     greetingIntro: string;
     greetingPrivacy: string;
     meetingLine: string;
+    bookedByLine: string;
+    bookedByAnon: string;
   };
   nav: {
     features: string;

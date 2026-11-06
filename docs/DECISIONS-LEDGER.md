@@ -518,7 +518,7 @@ Decisions made:
 
 **Lesson:** Writing Spanish text with `node -e` in the shell is unsafe: backticks inside the text run as commands and quotes break the file. Use the edit tool or a quoted heredoc for any text that contains code formatting.
 
-**Open:** Re-import `local-utils/n8n-chat-workflow-v2.json` and `local-utils/n8n-reminders-workflow.json` in n8n, deploy, then test: a reminder reaches a real phone, a "sí" confirms, silence releases the visit (calendar event removed, slot free, cancellation sent), "Liberar ahora" works from the Confirmaciones tab, and an English business gets English messages. Verify the Meta rate on Meta's rate card before raising the price.
+**Open:** Re-import `n8n/workflows/n8n-chat-workflow-v2.json` in n8n (the reminders workflow is already re-imported), deploy, then test: a reminder reaches a real phone, a "sí" confirms, silence releases the visit (calendar event removed, slot free, cancellation sent), "Liberar ahora" works from the Confirmaciones tab, and an English business gets English messages. Verify the Meta rate on Meta's rate card before raising the price.
 
 ## 2026-10-23 — Dev — Minimal UI pass on tenant screens
 
