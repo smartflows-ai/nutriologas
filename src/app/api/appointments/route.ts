@@ -16,6 +16,7 @@ import { parseBusinessHours, slotWithinHours } from "@/lib/business-hours";
 import { isBookable } from "@/lib/bookable";
 import { dropLinkedExternal, fetchExternalAppointments } from "@/lib/external-calendar";
 import { omitReminderError } from "@/lib/reminder-state";
+import { can, omitClinicalNotes } from "@/lib/permissions";
 import { buildCalendarText } from "@/lib/appointment-calendar-text";
 import { guestEmailFor, parseAge, resolveModality } from "@/lib/patient-intake";
 
@@ -29,7 +30,7 @@ const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
  * they ignore the status and search filters.
  * Query: month=YYYY-MM, day=YYYY-MM-DD, status=ALL|PENDING|CONFIRMED|COMPLETED|CANCELLED, q, page, pageSize.
  */
-async function getAdminAgenda(req: NextRequest, tenantId: string) {
+async function getAdminAgenda(req: NextRequest, tenantId: string, role: string) {
   const sp = new URL(req.url).searchParams;
   const now = new Date();
   const defaultMonth = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
@@ -58,8 +59,9 @@ async function getAdminAgenda(req: NextRequest, tenantId: string) {
     orderBy: { appointmentDate: "asc" },
   });
 
+  // Clinical notes only reach roles with "appointments.notes" (STAFF sees the agenda without them).
   const formattedNative = nativeAppointments.map((a) => ({
-    ...omitReminderError(a),
+    ...omitClinicalNotes(role, omitReminderError(a)),
     source: "native" as const,
     customerName: a.customerName || a.user?.name || "Paciente",
     customerPhone: a.customerPhone || null,
@@ -72,7 +74,10 @@ async function getAdminAgenda(req: NextRequest, tenantId: string) {
   let externalAppointments: any[] = [];
   try {
     const fetched = await fetchExternalAppointments(tenantId, start.toISOString(), end.toISOString());
-    externalAppointments = dropLinkedExternal(fetched, linkedEventKeys(nativeAppointments));
+    // External events reuse internalNotes for the event location; same rule as native rows.
+    externalAppointments = dropLinkedExternal(fetched, linkedEventKeys(nativeAppointments)).map((e) =>
+      omitClinicalNotes(role, e),
+    );
   } catch (extErr) {
     console.warn("[GET /api/appointments] Error fetching external calendar:", extErr);
   }
@@ -120,7 +125,9 @@ export async function GET(req: NextRequest) {
     const session = await getServerSession(authOptions);
     let tenantId: string | null = (session?.user as any)?.tenantId ?? null;
     let userId: string | null = session?.user?.id ?? null;
-    const isAdmin = (session?.user as any)?.role === "ADMIN";
+    const role: string = session?.user?.role ?? "";
+    // ADMIN and STAFF get the business agenda; anyone else only their own appointments.
+    const isAdmin = can(role, "appointments.view");
 
     if (!tenantId) {
       const host = req.headers.get("host") || "";
@@ -134,7 +141,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Admin agenda is paginated by month (see getAdminAgenda).
-    if (isAdmin) return getAdminAgenda(req, tenantId);
+    if (isAdmin) return getAdminAgenda(req, tenantId, role);
 
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status");
@@ -190,8 +197,9 @@ export async function GET(req: NextRequest) {
       take: limit,
     });
 
+    // A customer never receives the clinical notes written about their own visit.
     const formattedNative = nativeAppointments.map((a) => ({
-      ...omitReminderError(a),
+      ...omitClinicalNotes(role, omitReminderError(a)),
       source: "native" as const,
       customerName: a.customerName || a.user?.name || "Paciente",
       customerPhone: a.customerPhone || null,
@@ -210,9 +218,9 @@ export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     let tenantId: string | null = (session?.user as any)?.tenantId ?? null;
-    // A logged-in customer owns the booking. An admin session books for the customer typed in the form,
-    // so the booking goes to a guest account from that email and never lands under the admin account.
-    const isAdminSession = (session?.user as any)?.role === "ADMIN";
+    // A logged-in customer owns the booking. An ADMIN or STAFF session books for the customer typed in the form,
+    // so the booking goes to a guest account from that email and never lands under the staff account.
+    const isAdminSession = can(session?.user?.role, "appointments.book");
     let userId: string | null = isAdminSession ? null : session?.user?.id ?? null;
 
     const host = req.headers.get("host") || "";

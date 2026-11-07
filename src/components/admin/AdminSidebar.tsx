@@ -29,11 +29,13 @@ import {
 } from "lucide-react";
 import { getVerticalProfile } from "@/lib/vertical-profile";
 import { visibleCapabilities, toCapabilityPlan, type CapabilityContext } from "@/lib/capabilities";
+import { ADMIN_ROLE, STAFF_ROLE, canAccessAdminPath } from "@/lib/permissions";
 import SignOutButton from "@/components/admin/SignOutButton";
 import CreditsBadge from "@/components/admin/CreditsBadge";
 
 interface Props {
   userName?: string | null;
+  role: string;
   tenantName?: string | null;
   isAssistantEnabled: boolean;
   isTriageEnabled?: boolean;
@@ -64,6 +66,7 @@ interface NavCategory {
 
 export default function AdminSidebar({ 
   userName,
+  role,
   tenantName,
   isAssistantEnabled, 
   isTriageEnabled = false, 
@@ -140,12 +143,18 @@ export default function AdminSidebar({
   };
   // Tools above the plan are not listed here; they appear in the App Store with a legend.
   const visibleRoutes = new Set(visibleCapabilities(capabilityCtx).map((c) => c.route));
-  const navCategories = baseCategories.map(category => {
-    return {
+  // On top of the plan: the role must be allowed to open the section (src/lib/permissions.ts).
+  // A section left with no items is dropped (ADMIN always keeps at least one item in each).
+  const navCategories = baseCategories
+    .map(category => ({
       ...category,
-      items: category.items.filter(item => visibleRoutes.has(item.href))
-    };
-  });
+      items: category.items.filter(item => visibleRoutes.has(item.href) && canAccessAdminPath(role, item.href)),
+    }))
+    .filter(category => category.items.length > 0);
+  // Credits are billing, ADMIN only (the badge calls /api/credits, which answers 403 to anyone else).
+  const showCredits = role === ADMIN_ROLE;
+  // STAFF sees its role name under its own name, by business vertical ("Asistente" in health). ADMIN sees nothing new.
+  const staffTitleLabel = role === STAFF_ROLE ? t.staffUi.titles[profile.staffTitle] : null;
 
   // ── Mobile sidebar content (always full) ──
   const mobileSidebarContent = (
@@ -154,6 +163,7 @@ export default function AdminSidebar({
         <div>
           <h1 className="font-semibold text-xl text-primary tracking-tight truncate">{tenantName || t.storefrontUi.storeFallback}</h1>
           <p className="text-xs text-gray-400 font-medium truncate max-w-[160px] mt-0.5">{userName}</p>
+          {staffTitleLabel && <p className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[160px]">{staffTitleLabel}</p>}
         </div>
         <button
           className="p-1 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
@@ -190,7 +200,7 @@ export default function AdminSidebar({
         ))}
       </nav>
       <div className="px-3 pb-4 space-y-2">
-        <CreditsBadge />
+        {showCredits && <CreditsBadge />}
         <SignOutButton><LogOut size={18} /> {t.admin.signOut}</SignOutButton>
       </div>
     </div>
@@ -205,6 +215,7 @@ export default function AdminSidebar({
           <div className="min-w-0">
             <h1 className="font-semibold text-xl text-primary tracking-tight truncate">{tenantName || t.storefrontUi.storeFallback}</h1>
             <p className="text-xs text-gray-400 font-medium truncate max-w-[160px] mt-0.5">{userName}</p>
+            {staffTitleLabel && <p className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[160px]">{staffTitleLabel}</p>}
           </div>
         )}
         <button
@@ -250,7 +261,7 @@ export default function AdminSidebar({
 
       {/* Credits + Sign out */}
       <div className={`pb-4 ${collapsed ? "px-2" : "px-3"}`}>
-        {!collapsed && <div className="mb-2"><CreditsBadge /></div>}
+        {!collapsed && showCredits && <div className="mb-2"><CreditsBadge /></div>}
         {collapsed ? (
           <SignOutButton iconOnly><LogOut size={18} /></SignOutButton>
         ) : (

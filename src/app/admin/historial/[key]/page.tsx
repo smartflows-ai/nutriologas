@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ChevronLeft, Loader2, Mail, Pencil, Phone } from "lucide-react";
 import { useTranslation } from "@/i18n";
-import { useTenantMeta } from "@/components/admin/TenantMeta";
+import { useCan, useTenantMeta } from "@/components/admin/TenantMeta";
 import { getVerticalProfile } from "@/lib/vertical-profile";
 import { localeFor, fill } from "@/lib/utils";
 import VisitNoteDialog from "@/components/admin/VisitNoteDialog";
@@ -52,6 +52,8 @@ function ClampedText({ text, showMore, showLess }: { text: string; showMore: str
 export default function PatientHistoryPage() {
   const { t, lang } = useTranslation();
   const { vertical, isBookingEnabled } = useTenantMeta();
+  // Clinical notes are ADMIN only (src/lib/permissions.ts); the API also leaves them out for STAFF.
+  const canNotes = useCan("appointments.notes");
   const subjectText = t.crm.history.subjects[getVerticalProfile(vertical, isBookingEnabled).subject];
   const locale = localeFor(lang);
   const params = useParams<{ key: string }>();
@@ -210,29 +212,33 @@ export default function PatientHistoryPage() {
                 </div>
               )}
 
-              <div>
-                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t.crm.history.clinicalNote}</p>
-                {v.note ? (
-                  <ClampedText text={v.note.body} showMore={t.crm.history.showMore} showLess={t.crm.history.showLess} />
-                ) : (
-                  <p className="text-sm text-gray-400">{t.crm.history.noNote}</p>
-                )}
-              </div>
+              {canNotes && (
+                <>
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t.crm.history.clinicalNote}</p>
+                    {v.note ? (
+                      <ClampedText text={v.note.body} showMore={t.crm.history.showMore} showLess={t.crm.history.showLess} />
+                    ) : (
+                      <p className="text-sm text-gray-400">{t.crm.history.noNote}</p>
+                    )}
+                  </div>
 
-              <button
-                type="button"
-                onClick={() => setEditingVisitId(v.id)}
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline cursor-pointer"
-              >
-                <Pencil size={13} aria-hidden="true" />
-                {t.crm.history.editNote}
-              </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingVisitId(v.id)}
+                    className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline cursor-pointer"
+                  >
+                    <Pencil size={13} aria-hidden="true" />
+                    {t.crm.history.editNote}
+                  </button>
+                </>
+              )}
             </li>
           ))}
         </ol>
       </section>
 
-      {orphanNotes.length > 0 && (
+      {canNotes && orphanNotes.length > 0 && (
         <section className="space-y-3">
           <h2 className="text-base font-semibold text-gray-900 dark:text-white">{t.crm.history.orphanNotes}</h2>
           <ul className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 divide-y divide-gray-100 dark:divide-gray-800">
@@ -246,7 +252,7 @@ export default function PatientHistoryPage() {
         </section>
       )}
 
-      {editingVisit && (
+      {canNotes && editingVisit && (
         <VisitNoteDialog
           visitId={editingVisit.id}
           initialText={editingVisit.note?.body ?? ""}

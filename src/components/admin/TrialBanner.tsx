@@ -11,9 +11,11 @@ const AmazonCheckout = dynamic(() => import("@/components/admin/AmazonCheckout")
 
 interface Props {
   daysLeft: number;
+  // Only ADMIN can pay; STAFF sees who to talk to instead of the checkout.
+  canManageBilling: boolean;
 }
 
-export default function TrialBanner({ daysLeft }: Props) {
+export default function TrialBanner({ daysLeft, canManageBilling }: Props) {
   const [dismissed, setDismissed] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const { t } = useTranslation();
@@ -38,12 +40,16 @@ export default function TrialBanner({ daysLeft }: Props) {
               ? `${t.admin.trialEndsIn} ${daysLeft} ${daysLeft !== 1 ? t.admin.trialDays : t.admin.trialDay}.`
               : t.admin.trialEnded}{" "}
           </span>
-          <button
-            onClick={() => setCheckoutOpen(true)}
-            className="underline underline-offset-2 font-semibold text-primary hover:no-underline transition-all cursor-pointer"
-          >
-            {t.admin.upgradeNow}
-          </button>
+          {canManageBilling ? (
+            <button
+              onClick={() => setCheckoutOpen(true)}
+              className="underline underline-offset-2 font-semibold text-primary hover:no-underline transition-all cursor-pointer"
+            >
+              {t.admin.upgradeNow}
+            </button>
+          ) : (
+            <span>{t.staffUi.contactOwnerBilling}</span>
+          )}
         </div>
         <button
           onClick={() => setDismissed(true)}
@@ -55,7 +61,7 @@ export default function TrialBanner({ daysLeft }: Props) {
       </div>
 
       {/* In-app Amazon Checkout Modal */}
-      {checkoutOpen && (
+      {canManageBilling && checkoutOpen && (
         <div className="fixed inset-0 z-[600] bg-black/60 flex items-center justify-center p-4 overflow-y-auto">
           <div className="w-full max-w-5xl my-8">
             <AmazonCheckout

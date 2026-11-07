@@ -9,6 +9,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { useTranslation } from "@/i18n";
+import { homeAfterSignIn } from "@/lib/home-after-sign-in";
 
 export default function RegistroPage() {
   const { t } = useTranslation();
@@ -40,17 +41,7 @@ export default function RegistroPage() {
       // Auto-login
       const result = await signIn("credentials", { email: data.email, password: data.password, redirect: false });
       if (result?.ok) {
-        try {
-          const sessionRes = await fetch("/api/auth/session");
-          const sessionData = await sessionRes.json();
-          if (sessionData?.user?.role === "ADMIN") {
-            window.location.href = "/admin/dashboard";
-          } else {
-            window.location.href = "/";
-          }
-        } catch (err) {
-          window.location.href = "/";
-        }
+        window.location.href = await homeAfterSignIn();
       }
     } catch {
       setError(t.authUi.errorCreate);

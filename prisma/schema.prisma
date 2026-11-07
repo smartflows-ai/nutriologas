@@ -105,6 +105,7 @@ model ThemeConfig {
 enum UserRole {
   CUSTOMER
   ADMIN
+  STAFF // Business staff (shown as "Asistente" in health). Permissions in src/lib/permissions.ts
 }
 
 model User {

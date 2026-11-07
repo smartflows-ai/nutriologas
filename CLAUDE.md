@@ -35,6 +35,8 @@ doctor.localhost:3000  → tenant slug = "doctor" (local development)
 
 The tenant slug is passed to server components through the `x-tenant-slug` header.
 
+> **Status (2026-11-06):** the hostname rules above live in `resolveTenantSlug` (`src/lib/tenant.ts`) and are applied by the pages and APIs themselves. The old root `middleware.ts` never ran: with `src/app`, Next.js only reads `src/middleware.ts`. So no `x-tenant-slug` or `x-session-user` header is set, and nothing reads them. The current `src/middleware.ts` only gates `/admin` by role.
+
 ### Root domain security rules
 
 The root domain (`newaigent.com`, `www.newaigent.com`, `localhost:3000`) is **ONLY** for the marketing page. No tenant route is available there.
@@ -46,6 +48,8 @@ The following routes are **blocked on the root domain** and return 404:
 ```
 
 Valid subdomains (`doctor.newaigent.com`) have full access to every route.
+
+> **Not active today:** this block list was in the root `middleware.ts`, which never ran (see above), so these routes answer normally on the root domain. Turning it on (the list now also needs `/recuperar`) is a separate ticket: it changes behavior for every tenant and the Google sign-in callback lands on the root domain.
 
 ### Data isolation
 
@@ -183,7 +187,7 @@ prisma/
   sql/                  ← Manual schema changes, one folder per change with up.sql and down.sql (see "Schema changes")
 tests/                ← Tests (`*.test.ts`, node:test, tracked). local-utils/ ← operator scripts, simulators and diagnostics: in .gitignore, never committed
 
-middleware.ts           ← Multi-tenant gatekeeper + route protection
+src/middleware.ts       ← /admin gate by role (src/lib/permissions.ts). The root-domain rules are not active (see "Root domain security rules")
 ```
 
 > ⚠️ **Critical note for agents**: The Prisma client singleton is imported from `@/lib/db` (file `src/lib/db.ts`), **NOT** from `@/lib/prisma`. Using the wrong path causes module errors.
@@ -213,7 +217,8 @@ The heart of the system. Each business is a Tenant with:
 
 ### User
 - Belongs to a single tenant
-- `role`: `CUSTOMER` | `ADMIN`
+- `role`: `CUSTOMER` | `ADMIN` | `STAFF`
+- `STAFF` (ticket #21) is a team member, shown as "Asistente" in health, "Guía" in tourism and travel, "Personal" elsewhere (`staffTitle` in `src/lib/vertical-profile.ts`). It opens only Citas, WhatsApp and Historial (Historial still needs its plan and owner activation), never receives clinical notes (`internalNotes`, visit notes, notes counts), cannot delete appointments or chats, and sees no billing or credits. One permission map, `src/lib/permissions.ts`, is read by the middleware, pages, sidebar, client hooks and APIs; API guard `requirePermission` in `src/lib/permission-guard.ts`. Tests: `tests/permissions.test.ts`, `tests/staff-title.test.ts`. Until the users screen exists (#22), a STAFF user is created by script: see `docs/staff-user-production.md`. A STAFF member recovers the password at `/recuperar`: the code goes to the business WhatsApp and the owner shares it.
 - Auth: email+password or Google OAuth
 - `conektaCustomerId` for recurring payments
 - `appointments` → 1:N relation with booked appointments
@@ -301,7 +306,7 @@ The heart of the system. Each business is a Tenant with:
 ### Subscription (Stripe)
 - Mexico prices (Spanish landing, `PricingSection.tsx`, `pricing.mx` in i18n): Start $499, Plus $899, Pro $1,499 MXN per month; one-time net setup fee $2,500, $5,500 and $9,500; monthly only. Checkout still has two plans (Start uses STARTER; Plus and Pro use PRO) and prices come from Stripe (`/api/billing/prices`; Plus uses the new variable `STRIPE_PRICE_PLUS_MONTHLY`, with $499, $899 and $1,499 as fallback if any is missing). United States prices: estimated in Stripe, see `docs/analisis-costos-y-precios-eeuu.md`.
 - Plans (`PlanId`): STARTER (Start), PLUS (Plus), PRO (Pro), ENTERPRISE. CLINICA, VETERINARY and TOURISM still exist in the enum but nothing uses them (retirement pending).
-- **PLUS status:** the value is in the production database (`prisma/sql/17-plan-plus`). The code that understands PLUS (locks, capabilities, subscribe route) is NOT deployed yet. Never set a tenant to PLUS until that code is live: the old code cannot read the value and the tenant's CRM breaks (this happened once on doctorg and was reverted).
+- **PLUS status:** the value is in the production database (`prisma/sql/17-plan-plus`) and the code that understands it shipped with PR #49; the tenant `elfar` runs on PLUS. (Before that code was live, setting a tenant to PLUS broke its CRM once on doctorg.)
 - **Plan copy (2026-11-05):** Facebook/Instagram campaigns belong to **Pro** (registry, landing and `due` route agree); Google Calendar appointments are open to Start. The checkout cards (`billing.startFeatures`, `plusFeatures`, `proFeatures` in i18n) list only what is built, taken from the landing lists (`pricing.mx`); the landing lists stay as published. Prices always come from Stripe. The landing shows Start, Plus and Pro in every language (USD for English, no setup fee or US quotas defined yet; Plus US fallback $49, env `STRIPE_PRICE_PLUS_MONTHLY_DLLS`). The old `pricing.starterFeatures` and `proFeatures` copy is unused.
 - **Which tools each plan includes:** `src/lib/capabilities.ts` (registry, `enforcedPlan`). Locked tools are hidden from the sidebar, shown in the App Store with a legend, and blocked on the server (pages redirect to `/admin/suscripcion`, APIs answer 403 `plan_required`). Guards: `src/lib/capability-guard.ts`. Tests: `tests/capabilities.test.ts`, `tests/plan-guard.test.ts`.
 - Statuses: TRIALING, ACTIVE, PAST_DUE, CANCELED, UNPAID
@@ -394,13 +399,14 @@ The system respects the colors and typography configured by each business in `/a
 - The middleware validates the token in the Edge Runtime with `getToken()`
 
 ### Middleware redirect flows:
+`src/middleware.ts` runs only on `/admin` and `/admin/:path*`:
+
 | Condition | Action |
 |---|---|
-| Root domain + tenant route | Rewrite to `/_not-found` (404) |
-| `/admin/*` + not logged in | Redirect to `/login` |
-| `/admin/*` + logged in but not ADMIN | Redirect to `/` |
-| `/checkout` or `/pedido/*` + not logged in | Redirect to `/login?callbackUrl=...` |
-| `/login` or `/registro` + already logged in | Redirect to `/admin/dashboard` or `/` |
+| `/admin/*` + no session, or a role outside the CRM | Redirect to `/login` |
+| `/admin/*` + STAFF on a section it cannot open | Redirect to `/admin`, which sends it to its first section (or an empty screen if it has none) |
+
+Not active (they were in the root `middleware.ts`, which never ran; separate ticket): root domain + tenant route to 404, `/checkout` or `/pedido/*` without login to `/login`, and `/login` or `/registro` with a session to the home page. After a credentials sign-in, the login page sends each role to its home (`src/lib/home-after-sign-in.ts`).
 
 ---
 
@@ -518,7 +524,8 @@ Flow: `n8n/workflows/n8n-chat-workflow-v2.json` ("NewAigent - WhatsApp Bot (Chat
 - **Sending** (`reminders/run`): sends once per appointment (`Appointment.reminderSentAt`). If sending fails, it neither marks nor charges; it is retried on the next run. Each successful send charges `REMINDER_COST_USD` (default `0.0085`) with `recordMessageCharge()`: it adds to `totalCostUsd`, increments `AiTokenLedger.reminderCount` and records `REMINDER_PROVIDER_COST_USD` (default `0`) as the real cost. Reminders go out even without credits and may exceed the limit; the owner is notified only once per period.
 - **Release**: if confirmation was requested, `reminderSentAt` exists, there is no `customerConfirmedAt` and the deadline has passed, `releaseVisit()` (`src/lib/reminder-actions.ts`) calls `cancelAppointment` (status `CANCELLED`, deletes the Google/Outlook event, frees the slot) and sends the cancellation text. `autoReleasedAt` is set.
 - **Customer confirmation**: `POST /api/internal/bot/confirm` (`x-internal-key`). Replies `sí`/`confirmo`/`de acuerdo`… (yes/I confirm/agreed) count only if the reply is short and contains no negations, changes or questions (`isClearConfirmation`). If it confirms: `customerConfirmedAt`, status `CONFIRMED` and a confirmation reply. If it is not a confirmation: `handled: false` and the message continues to the agent. The chat flow calls this endpoint before the agent ("Check Confirmation" node); the agent has the `confirm_appointment` tool as a backup.
-- **Owner list** ("Confirmaciones" tab in `/admin/whatsapp`): `GET /api/apps/whatsapp/confirmations`, and `POST /api/apps/whatsapp/confirmations/[id]` with `action: "confirm" | "release"`. "Liberar ahora" (release now) uses the same `releaseVisit`.
+- **Owner list** ("Confirmaciones" tab in `/admin/whatsapp`): `GET /api/apps/whatsapp/confirmations`, and `POST /api/apps/whatsapp/confirmations/[id]` with `action: "confirm" | "release"`. "Liberar ahora" (release now) uses the same `releaseVisit`. Both use one filter, `AWAITING_CONFIRMATION` (`src/lib/reminders.ts`): active visit, reminder sent, no `customerConfirmedAt`, not released.
+- **Confirmed means `customerConfirmedAt`**: the SI reply, the Confirmations tab and the "Confirmar" button in `/admin/citas` all set it (the button only changed the status before 2026-11-06, so the job still released the visit and the customer got "CONFIRMADA" and then the cancellation). The job never decides on the status, because the bot creates its bookings `CONFIRMED` before the customer answers. A visit confirmed before its reminder gets the plain reminder, without the request to reply SI.
 - **Channel**: `sendWhatsAppMessage` (Evolution). With Meta's official API, a reminder outside the 24 h window will need an approved template.
 - **Testing the flow in minutes**: `local-utils/reminder-sim.ts` runs the real job (same code as production) on one test visit named `PRUEBA #16` with a simulated clock, because the settings cannot go below 60 min before the visit and a 30 min answer window. Modes: `fail` (send forced to fail, no WhatsApp), `send` (real WhatsApp, charges the tenant), `release` (cancels, deletes the calendar event, real cancellation text). Without `--yes` it only prints. Usage: `npx tsx --env-file=.env local-utils/reminder-sim.ts --id <appointmentId> --mode fail|send|release [--yes]`. It writes to the real database and sends real messages, so use it with your own number and ask first.
 - **Status (ticket #16)**: tested end to end with real WhatsApp and Google Calendar (reminder, confirmation with SI, release, event created and deleted). **Pending**: deploy the code, verify in production (eligible visits get their message, the 502 shows in n8n, the event is deleted with the real clock), re-import `n8n/workflows/n8n-chat-workflow-v2.json` (the reminders workflow `n8n-reminders-workflow.json` is already re-imported and needs no change: it only calls `reminders/run`), and test a custom cancellation text and the English language in a real send.
@@ -621,6 +628,7 @@ INTERNAL_API_KEY=                # openssl rand -hex 32
 # ─── WhatsApp Evolution API ─────────────────────────────────────────────────────
 EVOLUTION_API_URL=
 EVOLUTION_API_KEY=
+PLATFORM_WA_INSTANCE=            # NewAigent's own instance: account messages such as the password reset code (src/lib/platform-whatsapp.ts). Without it no code is sent and /recuperar still answers ok
 
 # ─── Redis / Upstash (session cache) ────────────────────────────────────────────
 UPSTASH_REDIS_REST_URL=
@@ -663,7 +671,7 @@ How to make one safely:
 4. Get explicit human approval, then apply `up.sql` in one transaction (`psql -v ON_ERROR_STOP=1 -1 -f up.sql`) and verify types, defaults and that existing rows did not change.
 5. **Order: database first, code after.** New code reads the new columns; if it ships first, every appointment query fails (reminders, agenda, bot, CRM). Old code ignores extra columns, so the reverse is safe. Merging to `main` deploys through CI/CD, so a merge counts as a deploy.
 
-Done so far: `prisma/sql/22-referred-by/` (`referredByKey`, `referredByName` and an index on appointments), applied to the real database on 2026-11-06 after a verified `pg_dump` backup; additive. `prisma/sql/21-patient-intake/` (age, modality and meeting link on appointments, `Tenant.serviceModes`), applied to the real database on 2026-11-06 after a verified `pg_dump` backup (kept outside the repo); verified types, defaults and that the 32 existing appointments did not change. The throwaway-database `migrate diff` check was not run (no test database). The code that reads it is not deployed yet. `prisma/sql/16-reminder-attempts/` (ticket #16). `prisma/sql/17-plan-plus/` (PLUS value in `PlanId`), applied to production on 2026-11-05 after a verified backup; the code that uses PLUS is not deployed yet. There is no separate test database yet: local development uses the real one, so treat every local write as a production write.
+Done so far: `prisma/sql/19-staff-role/` (`STAFF` value in `UserRole`, ticket #21): tested on the local mirror only, **NOT applied to production**. Apply it (backup, approval) **before** merging the code that uses it: the password reset lookup sends `'STAFF'` to the database and fails for every owner without the value. Its `down.sql` refuses to run while a STAFF user exists. `prisma/sql/22-referred-by/` (`referredByKey`, `referredByName` and an index on appointments), applied to the real database on 2026-11-06 after a verified `pg_dump` backup; additive. `prisma/sql/21-patient-intake/` (age, modality and meeting link on appointments, `Tenant.serviceModes`), applied to the real database on 2026-11-06 after a verified `pg_dump` backup (kept outside the repo); verified types, defaults and that the 32 existing appointments did not change. The throwaway-database `migrate diff` check was not run (no test database). The code that reads it is not deployed yet. `prisma/sql/16-reminder-attempts/` (ticket #16). `prisma/sql/17-plan-plus/` (PLUS value in `PlanId`), applied to production on 2026-11-05 after a verified backup; the code that uses it shipped with PR #49. There is no separate test database yet: local development uses the real one, so treat every local write as a production write.
 
 ---
 
@@ -710,6 +718,9 @@ Then open `http://doctor.localhost:3000` to see the "doctor" tenant.
 - **/agendar with an admin session**: the booking form replaces the patient's phone and email with the signed-in account's. Booking a test visit for another person needs a session-less browser.
 - **Calendar sync fails silently**: if the connected calendar errors when booking, the appointment is saved only in the database, with no event and no notice.
 - **Reminder job race**: if saving `reminderSentAt` fails after a successful send, the next run sends again; there is no lock between overlapping runs. If `releaseVisit` fails after cancelling, the customer never gets the cancellation text.
+- **Password reset hardening** (security review 2026-11-06; pre-existing since PR #55, and since ticket #21 it also covers STAFF accounts): the 5-attempt cap can be bypassed with parallel `/confirm` requests (the counter is read, then incremented, and the rate limit is per server instance), so make the attempt count and the code consumption atomic; `/confirm` answers "expired" or "attempts used" only for existing accounts, which reveals them; `/request` takes longer when the account exists (it waits for the WhatsApp send). Minor: a session survives a password change (role and session live 30 days in the JWT), anyone who knows an email can spam the business WhatsApp with codes, and a pending code survives a password change made another way.
+- **JWT role is never re-read**: the role lives 30 days in the token, so a deleted or changed user keeps its access until the token expires (seen on the local mirror on 2026-11-06). Blocks #22 (deactivating users).
+- **Confirm message from Citas**: the WhatsApp text sent by the "Confirmar" button in `/admin/citas` is hardcoded in Spanish, with health wording ("por el especialista") and emojis, for every vertical, and ignores `messageLanguage`. Use the same `ownerConfirmedText` as the Confirmations tab.
 - Row Level Security in Supabase (currently only app-level filtering)
 - Rate limiting on `/api/chat`
 - Trial expiry gate: `TrialBanner` and `TrialExpiredGate` exist, but the trial expiry gate in the admin layout still does not fully block all routes

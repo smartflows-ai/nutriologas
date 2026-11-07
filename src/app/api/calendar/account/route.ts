@@ -1,21 +1,17 @@
 // src/app/api/calendar/account/route.ts
 // GET: the external calendar linked to the business (Google or Outlook) and the account email, so the admin
-// can check it is the right one. Admin only; the business comes from the session.
+// can check it is the right one. ADMIN and STAFF ("appointments.view"); the business comes from the session.
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requirePermission } from "@/lib/permission-guard";
 import { getConnectedProvider } from "@/lib/connected-apps";
 import { getCalendarAccount } from "@/lib/calendar-account";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user || (session.user as any).role !== "ADMIN") {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
-
-  const tenantId = (session.user as any).tenantId as string;
+  const access = await requirePermission("appointments.view");
+  if (!access.ok) return access.response;
+  const { tenantId } = access;
   const connected = await getConnectedProvider(tenantId, ["GOOGLE", "MICROSOFT"]);
   const account = await getCalendarAccount(tenantId, connected);
 

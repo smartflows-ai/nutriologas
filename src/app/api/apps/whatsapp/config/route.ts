@@ -1,15 +1,13 @@
 // src/app/api/apps/whatsapp/config/route.ts
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { requirePermission } from "@/lib/permission-guard";
 import { NextRequest } from "next/server";
 
+// GET returns the bot's identity text (waContext), so it shares the settings permission with PATCH.
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user || (session.user as any).role !== "ADMIN")
-    return Response.json({ error: "No autorizado" }, { status: 401 });
-
-  const tenantId = (session.user as any).tenantId as string;
+  const access = await requirePermission("whatsapp.settings");
+  if (!access.ok) return access.response;
+  const { tenantId } = access;
 
   const app = await prisma.connectedApp.findUnique({
     where: { tenantId_provider: { tenantId, provider: "WHATSAPP" } },
@@ -22,11 +20,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user || (session.user as any).role !== "ADMIN")
-    return Response.json({ error: "No autorizado" }, { status: 401 });
-
-  const tenantId = (session.user as any).tenantId as string;
+  const access = await requirePermission("whatsapp.settings");
+  if (!access.ok) return access.response;
+  const { tenantId } = access;
   const { waTemperature, waContext } = await req.json();
 
   const updated = await prisma.connectedApp.update({

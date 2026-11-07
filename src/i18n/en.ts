@@ -311,8 +311,8 @@ export const en: Translations = {
   passwordRecovery: {
     forgotLink: "Forgot your password?",
     title: "Recover your password",
-    requestSubtitle: "Enter the email of your administrator account. We will send a code by WhatsApp to the business number.",
-    requestSent: "If the account exists, you will get a code on WhatsApp within a few minutes. If it does not arrive, write to info@newaigent.com.",
+    requestSubtitle: "Enter the email of your account. We will send a code by WhatsApp to the business number. If you are part of the team, ask the business owner for the code.",
+    requestSent: "If the account exists, the code will reach the business WhatsApp number within a few minutes. If it does not arrive, write to info@newaigent.com.",
     sendCode: "Send code",
     codeLabel: "Code",
     newPassword: "New password",
@@ -1686,6 +1686,13 @@ export const en: Translations = {
     goalsTitle: "Goals",
     goalsDesc: "Performance by purpose"
   },
+  staffUi: {
+    noSectionsTitle: "No sections available",
+    noSectionsBody: "Your account does not have access to any section of this business yet. Please talk to the business owner.",
+    contactOwnerBilling: "Please talk to the business owner to renew the plan.",
+    contactOwnerConnect: "Please talk to the business owner to connect it.",
+    titles: { assistant: "Assistant", guide: "Guide", staff: "Staff" },
+  },
   conekta: {
     loadError: "The secure payment gateway could not be loaded. Check your connection and try again.",
     initError: "Error starting the payment form. Please try again.",
@@ -1768,6 +1775,7 @@ export const en: Translations = {
     appointment_update_forbidden: "You do not have permission to change this appointment.",
     service_and_date_required: "Select a service and a date.",
     date_invalid: "The date is not valid.",
+    status_invalid: "That appointment status does not exist.",
     slot_unavailable: "That time is no longer available. Please choose another.",
     calendar_sync_failed: "We could not remove the appointment from your connected calendar. Please try again.",
     whatsapp_chat_not_found: "We could not find this conversation.",

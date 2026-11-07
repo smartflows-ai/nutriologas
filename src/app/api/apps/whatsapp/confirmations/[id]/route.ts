@@ -1,34 +1,32 @@
 // src/app/api/apps/whatsapp/confirmations/[id]/route.ts
-// POST: the owner confirms a visit or releases it now, instead of waiting for the deadline (ADMIN only).
+// POST: the owner confirms a visit or releases it now, instead of waiting for the deadline (ADMIN and STAFF:
+// "whatsapp.confirmations").
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getAppSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
+import { requirePermission } from "@/lib/permission-guard";
 import { apiError } from "@/lib/api-errors";
-import { ACTIVE_APPOINTMENT_STATUSES } from "@/lib/bot";
 import { confirmVisit, releaseVisit } from "@/lib/reminder-actions";
 import { planLockResponse } from "@/lib/capability-guard";
+import { AWAITING_CONFIRMATION } from "@/lib/reminders";
 
 const bodySchema = z.object({ action: z.enum(["confirm", "release"]) });
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
-  const session = await getAppSession();
-  if (!session?.user || session.user.role !== "ADMIN") return apiError("unauthorized", 401);
+  const access = await requirePermission("whatsapp.confirmations");
+  if (!access.ok) return access.response;
 
   const parsed = bodySchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return apiError("reminder_settings_invalid", 400);
 
-  const tenantId = session.user.tenantId;
+  const { tenantId } = access;
   const denied = await planLockResponse(tenantId, "confirmations");
   if (denied) return denied;
   const visit = await prisma.appointment.findFirst({
     where: {
       id: params.id,
       tenantId,
-      status: { in: [...ACTIVE_APPOINTMENT_STATUSES] },
-      reminderSentAt: { not: null },
-      customerConfirmedAt: null,
-      autoReleasedAt: null,
+      ...AWAITING_CONFIRMATION,
     },
     select: {
       id: true,

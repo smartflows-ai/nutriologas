@@ -10,7 +10,13 @@ const AmazonCheckout = dynamic(() => import("@/components/admin/AmazonCheckout")
   ssr: false,
 });
 
-export default function TrialExpiredGate({ status }: { status: string }) {
+interface Props {
+  status: string;
+  // Only ADMIN can pay; STAFF sees who to talk to instead of the checkout.
+  canManageBilling: boolean;
+}
+
+export default function TrialExpiredGate({ status, canManageBilling }: Props) {
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const { t } = useTranslation();
 
@@ -49,12 +55,16 @@ export default function TrialExpiredGate({ status }: { status: string }) {
             {isCanceled ? t.admin.canceledDesc : t.admin.trialExpiredDesc}
           </p>
 
-          <button
-            onClick={() => setCheckoutOpen(true)}
-            className="mk-btn-primary w-full py-4 rounded-2xl font-black text-base mb-4 hover:shadow-[0_0_30px_rgba(124,58,237,0.5)] cursor-pointer"
-          >
-            {t.admin.upgradeButton}
-          </button>
+          {canManageBilling ? (
+            <button
+              onClick={() => setCheckoutOpen(true)}
+              className="mk-btn-primary w-full py-4 rounded-2xl font-black text-base mb-4 hover:shadow-[0_0_30px_rgba(124,58,237,0.5)] cursor-pointer"
+            >
+              {t.admin.upgradeButton}
+            </button>
+          ) : (
+            <p className="text-white text-base font-semibold mb-4">{t.staffUi.contactOwnerBilling}</p>
+          )}
 
           <p className="text-white/40 text-sm">
             {t.admin.needHelp}{" "}
@@ -66,7 +76,7 @@ export default function TrialExpiredGate({ status }: { status: string }) {
       </div>
 
       {/* In-app Amazon Checkout Modal over the Gate */}
-      {checkoutOpen && (
+      {canManageBilling && checkoutOpen && (
         <div className="fixed inset-0 z-[600] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
           <div className="w-full max-w-5xl my-8">
             <AmazonCheckout

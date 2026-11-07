@@ -8,7 +8,13 @@ import { apiError } from "@/lib/api-errors";
 import { cancelAppointment, rescheduleAppointment } from "@/lib/appointments-service";
 import { syncCalendarDelete } from "@/lib/calendar-sync";
 import { saveVisitNote } from "@/lib/appointment-notes";
+import { can, omitClinicalNotes } from "@/lib/permissions";
+import { requirePermission } from "@/lib/permission-guard";
+import { omitReminderError } from "@/lib/reminder-state";
+import { AppointmentStatus } from "@prisma/client";
 import { withBookedBy, withMeetingLink } from "@/lib/reminder-messages";
+
+const APPOINTMENT_STATUSES: readonly string[] = Object.values(AppointmentStatus);
 
 export async function PATCH(
   req: NextRequest,
@@ -22,7 +28,10 @@ export async function PATCH(
 
     const tenantId = (session.user as any).tenantId;
     const userId = session.user.id!;
-    const isAdmin = (session.user as any).role === "ADMIN";
+    const role = session.user.role;
+    // ADMIN and STAFF manage any appointment of the business; a customer only their own.
+    const managesAgenda = can(role, "appointments.status");
+    const canNotes = can(role, "appointments.notes");
 
     const appointment = await prisma.appointment.findFirst({
       where: { id: params.id, tenantId },
@@ -32,25 +41,43 @@ export async function PATCH(
       return apiError("appointment_not_found", 404);
     }
 
-    // Si no es admin y no es el dueño de la cita
-    if (!isAdmin && appointment.userId !== userId) {
+    // Si no gestiona la agenda, solo un CUSTOMER dueño de la cita puede tocarla (un rol desconocido no puede nada).
+    const isOwnerCustomer = role === "CUSTOMER" && appointment.userId === userId;
+    if (!managesAgenda && !isOwnerCustomer) {
       return apiError("appointment_update_forbidden", 403);
     }
 
     const body = await req.json();
     const { status, internalNotes, notes, appointmentDate } = body;
 
+    // Invalid input and fields a role may not change are refused before anything is written
+    // (a reschedule moves the calendar event, so it must never run ahead of a request that will fail).
+    if (status !== undefined && !APPOINTMENT_STATUSES.includes(status)) {
+      return apiError("status_invalid", 400);
+    }
+    if (internalNotes !== undefined && !canNotes) {
+      return apiError("appointment_update_forbidden", 403);
+    }
+    if (appointmentDate && !can(role, "appointments.reschedule")) {
+      return apiError("appointment_update_forbidden", 403);
+    }
+
     const dataToUpdate: any = {};
 
     if (status) {
       // Clientes solo pueden CANCELAR su propia cita
-      if (!isAdmin && status !== "CANCELLED") {
+      if (!managesAgenda && status !== "CANCELLED") {
         return apiError("appointment_cancel_forbidden", 403);
       }
       dataToUpdate.status = status;
+      // Confirming by hand counts as a real confirmation for the reminder job: no request to reply SI and no
+      // release. Bot bookings are created CONFIRMED without this field, so the status alone cannot mean "confirmed".
+      if (status === "CONFIRMED" && !appointment.customerConfirmedAt) {
+        dataToUpdate.customerConfirmedAt = new Date();
+      }
     }
 
-    if (isAdmin && internalNotes !== undefined) {
+    if (canNotes && internalNotes !== undefined) {
       dataToUpdate.internalNotes = internalNotes;
     }
 
@@ -59,7 +86,7 @@ export async function PATCH(
     }
 
     // A new time moves the mirror event and restarts reminders; cancellation removes the mirror event.
-    if (isAdmin && appointmentDate) {
+    if (appointmentDate) {
       await rescheduleAppointment({
         tenantId,
         appointment,
@@ -81,7 +108,7 @@ export async function PATCH(
     });
 
     // The visit's note also goes into the patient's history (one row per visit).
-    if (isAdmin && internalNotes !== undefined) {
+    if (canNotes && internalNotes !== undefined) {
       await saveVisitNote(updated, String(internalNotes ?? ""), session.user.name ?? null);
     }
 
@@ -135,7 +162,7 @@ export async function PATCH(
       }
     }
 
-    return NextResponse.json({ ...updated, whatsappSent, whatsappReason });
+    return NextResponse.json({ ...omitClinicalNotes(role, omitReminderError(updated)), whatsappSent, whatsappReason });
   } catch (error: any) {
     console.error("[PATCH /api/appointments/[id]] Error:", error);
     return apiError("internal_error", 500);
@@ -147,12 +174,9 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user || (session.user as any).role !== "ADMIN") {
-      return apiError("unauthorized", 401);
-    }
-
-    const tenantId = (session.user as any).tenantId;
+    const access = await requirePermission("appointments.delete");
+    if (!access.ok) return access.response;
+    const { tenantId } = access;
 
     const appointment = await prisma.appointment.findFirst({
       where: { id: params.id, tenantId },

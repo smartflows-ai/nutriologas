@@ -1,21 +1,20 @@
 // src/app/api/calendar/events/route.ts
 // Unified events endpoint returning both native CRM appointments and external Google/Microsoft events
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { requirePermission } from "@/lib/permission-guard";
+import { can, omitClinicalNotes } from "@/lib/permissions";
 import { getAppToken, getConnectedProvider } from "@/lib/connected-apps";
 import { linkedEventKeys, linkKey } from "@/lib/calendar-sync";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user || (session.user as any).role !== "ADMIN") {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
-
-  const tenantId = (session.user as any).tenantId as string;
+  const access = await requirePermission("appointments.view");
+  if (!access.ok) return access.response;
+  const { tenantId, role } = access;
+  // Clinical notes only reach roles with "appointments.notes" (field and description text).
+  const canNotes = can(role, "appointments.notes");
 
   const { searchParams } = new URL(req.url);
   const rawStart = new Date(searchParams.get("start") ?? Date.now() - 7 * 86400000);
@@ -79,11 +78,11 @@ export async function GET(req: NextRequest) {
         allDay: false,
         backgroundColor: color,
         borderColor: color,
-        extendedProps: {
+        extendedProps: omitClinicalNotes(role, {
           status,
           appointmentStatus: a.status,
           source: "native",
-          description: `Servicio: ${serviceName}\nPaciente: ${patientName}${a.customerPhone ? `\nTel: ${a.customerPhone}` : ""}${a.customerAge != null ? `\nEdad: ${a.customerAge} años` : ""}${a.modality ? `\nModalidad: ${a.modality === "ONLINE" ? "En línea" : "Presencial"}` : ""}${a.notes ? `\nMotivo: ${a.notes}` : ""}${a.internalNotes ? `\nNotas Clínicas: ${a.internalNotes}` : ""}`,
+          description: `Servicio: ${serviceName}\nPaciente: ${patientName}${a.customerPhone ? `\nTel: ${a.customerPhone}` : ""}${a.customerAge != null ? `\nEdad: ${a.customerAge} años` : ""}${a.modality ? `\nModalidad: ${a.modality === "ONLINE" ? "En línea" : "Presencial"}` : ""}${a.notes ? `\nMotivo: ${a.notes}` : ""}${canNotes && a.internalNotes ? `\nNotas Clínicas: ${a.internalNotes}` : ""}`,
           // Older visits (no modality) keep the previous generic label.
           location:
             a.modality === "ONLINE"
@@ -99,7 +98,7 @@ export async function GET(req: NextRequest) {
           notes: a.notes,
           internalNotes: a.internalNotes,
           appointmentId: a.id,
-        },
+        }),
       };
     });
   } catch (err) {

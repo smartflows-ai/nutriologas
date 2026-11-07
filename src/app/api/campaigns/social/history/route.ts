@@ -10,6 +10,8 @@ export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // Campaigns are ADMIN only. This route used to check only the session, so any customer of the business read it.
+    if (session.user.role !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const tenantId = session.user.tenantId;
     const denied = await planLockResponse(tenantId, "social-campaign");
     if (denied) return denied;

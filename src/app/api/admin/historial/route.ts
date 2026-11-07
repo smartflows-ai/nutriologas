@@ -1,24 +1,24 @@
 // src/app/api/admin/historial/route.ts
-// GET: patients of the tenant with visit and note counts. Admin only.
+// GET: patients of the tenant with visit and note counts. ADMIN and STAFF ("history.view"); the notes count
+// only goes to roles that may read notes.
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { apiError } from "@/lib/api-errors";
 import { listPatients } from "@/lib/patients";
 import { prisma } from "@/lib/db";
 import { getVerticalProfile } from "@/lib/vertical-profile";
 import { planLockResponse } from "@/lib/capability-guard";
+import { requirePermission } from "@/lib/permission-guard";
+import { omitNoteCounts } from "@/lib/permissions";
+
+export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 20;
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user || (session.user as any).role !== "ADMIN") {
-      return apiError("unauthorized", 401);
-    }
-
-    const tenantId = (session.user as any).tenantId;
+    const access = await requirePermission("history.view");
+    if (!access.ok) return access.response;
+    const { tenantId, role } = access;
     const denied = await planLockResponse(tenantId, "history");
     if (denied) return denied;
     const { searchParams } = new URL(req.url);
@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
     const withPets = getVerticalProfile(tenant?.vertical, tenant?.isBookingEnabled ?? false).usesPets;
 
     const { patients, total } = await listPatients(tenantId, q, page, PAGE_SIZE, withPets);
-    return NextResponse.json({ patients, total, pageSize: PAGE_SIZE, withPets });
+    return NextResponse.json({ patients: omitNoteCounts(role, patients), total, pageSize: PAGE_SIZE, withPets });
   } catch (error) {
     console.error("[GET /api/admin/historial] Error:", error);
     return apiError("internal_error", 500);

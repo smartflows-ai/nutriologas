@@ -1,5 +1,5 @@
 // src/app/admin/dashboard/page.tsx
-import { getAppSession } from "@/lib/session";
+import { requireAdminPage } from "@/lib/permission-guard";
 import { prisma } from "@/lib/db";
 import { formatPrice } from "@/lib/utils";
 import { ShoppingBag, Users, Star, TrendingUp, BarChart3 } from "lucide-react";
@@ -128,8 +128,8 @@ import { getTranslationServer, getLocaleServer } from "@/i18n/server";
 import { CalendarCheck } from "lucide-react";
 
 export default async function DashboardPage({ searchParams }: { searchParams: { range?: string; subscribed?: string } }) {
-  const session = await getAppSession();
-  const tenantId = session!.user.tenantId;
+  const session = await requireAdminPage("/admin/dashboard");
+  const tenantId = session.user.tenantId;
   const range = searchParams.range || "7d";
   const data = await getDashboardData(tenantId, range);
   const t = getTranslationServer();

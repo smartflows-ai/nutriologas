@@ -3,6 +3,8 @@
 // The reminder goes out `leadMinutes` before the visit, and the visit is released `deadlineMinutes` before it
 // when the customer has not answered SI. The time between the two is the customer's window to confirm.
 
+import type { AppointmentStatus } from "@prisma/client";
+
 const MINUTE_MS = 60 * 1000;
 
 /** Shortest window (minutes) in which a customer can realistically answer. Shorter windows count as confirmed. */
@@ -61,3 +63,16 @@ export function planReminder(input: {
   const sendPlain = timeLeftMs >= MIN_ANSWER_MINUTES * MINUTE_MS;
   return { requestConfirmation: false, sendPlain, sendAt, releaseAt: null };
 }
+
+/**
+ * Prisma filter for "waiting for the customer's confirmation": active visit, reminder sent, nobody confirmed yet.
+ * customerConfirmedAt is the only mark of a real confirmation (SI reply, Confirmations tab, Confirmar in Citas).
+ * CONFIRMED stays in the list on purpose: the bot creates its bookings CONFIRMED before the customer confirms.
+ * The statuses are the active ones (ACTIVE_APPOINTMENT_STATUSES in src/lib/bot.ts, which this pure file cannot import).
+ */
+export const AWAITING_CONFIRMATION = {
+  status: { in: ["PENDING", "CONFIRMED"] as AppointmentStatus[] },
+  reminderSentAt: { not: null },
+  customerConfirmedAt: null,
+  autoReleasedAt: null,
+} as const;

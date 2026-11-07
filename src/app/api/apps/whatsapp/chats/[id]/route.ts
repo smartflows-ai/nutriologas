@@ -1,7 +1,6 @@
 // src/app/api/apps/whatsapp/chats/[id]/route.ts
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { requirePermission } from "@/lib/permission-guard";
 import { apiError } from "@/lib/api-errors";
 
 /**
@@ -12,12 +11,9 @@ export async function PATCH(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user || (session.user as any).role !== "ADMIN") {
-    return apiError("unauthorized", 401);
-  }
-
-  const tenantId = (session.user as any).tenantId as string;
+  const access = await requirePermission("whatsapp.bot");
+  if (!access.ok) return access.response;
+  const { tenantId } = access;
   const body = await req.json().catch(() => null);
   if (typeof body?.botEnabled !== "boolean") {
     return apiError("whatsapp_invalid_body", 400);
@@ -47,12 +43,9 @@ export async function DELETE(
   _req: Request,
   { params }: { params: { id: string } }
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user || (session.user as any).role !== "ADMIN") {
-    return Response.json({ error: "No autorizado" }, { status: 401 });
-  }
-
-  const tenantId = (session.user as any).tenantId as string;
+  const access = await requirePermission("whatsapp.chats.delete");
+  if (!access.ok) return access.response;
+  const { tenantId } = access;
   const chatId = params.id;
 
   if (!chatId) {
