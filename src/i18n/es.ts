@@ -311,8 +311,8 @@ export const es: Translations = {
   passwordRecovery: {
     forgotLink: "¿Olvidaste tu contraseña?",
     title: "Recupera tu contraseña",
-    requestSubtitle: "Escribe el correo de tu cuenta de administrador. Te enviaremos un código por WhatsApp al número del negocio.",
-    requestSent: "Si la cuenta existe, recibirás un código por WhatsApp en unos minutos. Si no llega, escribe a info@newaigent.com.",
+    requestSubtitle: "Escribe el correo de tu cuenta. Enviaremos un código por WhatsApp al número del negocio. Si eres parte del equipo, pídele el código al responsable del negocio.",
+    requestSent: "Si la cuenta existe, el código llegará por WhatsApp al número del negocio en unos minutos. Si no llega, escribe a info@newaigent.com.",
     sendCode: "Enviar código",
     codeLabel: "Código",
     newPassword: "Nueva contraseña",

@@ -6,24 +6,28 @@ import { sendPlatformWhatsAppMessage } from "@/lib/platform-whatsapp";
 import { generateResetCode } from "@/lib/password-reset-code";
 import type { ResetDeps, ResetTenant, ResetUser } from "@/lib/password-reset";
 import { resolveTenantSlug } from "@/lib/tenant";
+import { ADMIN_ROLE, STAFF_ROLE } from "@/lib/permissions";
 
 const BCRYPT_ROUNDS = 12; // same as the change-password route
 
 export function resetDeps(secret: string): ResetDeps {
   return {
-    async findAdminByEmail(tenantId: string, email: string): Promise<ResetUser | null> {
+    async findCrmUserByEmail(tenantId: string, email: string): Promise<ResetUser | null> {
       const user = await prisma.user.findFirst({
-        where: { tenantId, email, role: "ADMIN" },
+        where: { tenantId, email, role: { in: [ADMIN_ROLE, STAFF_ROLE] } },
         select: {
           id: true,
           email: true,
+          role: true,
           passwordHash: true,
           passwordResetCodeHash: true,
           passwordResetExpiresAt: true,
           passwordResetAttempts: true,
         },
       });
-      return user;
+      // The query already limits the role; this narrows the type for the pure logic.
+      if (!user || (user.role !== ADMIN_ROLE && user.role !== STAFF_ROLE)) return null;
+      return { ...user, role: user.role };
     },
     async findTenant(tenantId: string): Promise<ResetTenant | null> {
       const tenant = await prisma.tenant.findUnique({

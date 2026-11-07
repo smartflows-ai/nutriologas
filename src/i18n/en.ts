@@ -311,8 +311,8 @@ export const en: Translations = {
   passwordRecovery: {
     forgotLink: "Forgot your password?",
     title: "Recover your password",
-    requestSubtitle: "Enter the email of your administrator account. We will send a code by WhatsApp to the business number.",
-    requestSent: "If the account exists, you will get a code on WhatsApp within a few minutes. If it does not arrive, write to info@newaigent.com.",
+    requestSubtitle: "Enter the email of your account. We will send a code by WhatsApp to the business number. If you are part of the team, ask the business owner for the code.",
+    requestSent: "If the account exists, the code will reach the business WhatsApp number within a few minutes. If it does not arrive, write to info@newaigent.com.",
     sendCode: "Send code",
     codeLabel: "Code",
     newPassword: "New password",

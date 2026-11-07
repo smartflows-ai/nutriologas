@@ -2,6 +2,8 @@
 // Run: npx tsx --test local-utils/password-reset.test.ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import {
   requestResetCode,
   confirmResetCode,
@@ -21,6 +23,7 @@ function makeUser(overrides: Partial<ResetUser> = {}): ResetUser {
   return {
     id: "u1",
     email: "owner@example.com",
+    role: "ADMIN",
     passwordHash: "$2b$12$existinghash",
     passwordResetCodeHash: null,
     passwordResetExpiresAt: null,
@@ -35,7 +38,7 @@ function makeDeps(user: ResetUser | null, tenant: ResetTenant | null = TENANT) {
   const attemptsBumped: string[] = [];
   const passwords: { userId: string; hash: string }[] = [];
   const deps: ResetDeps = {
-    findAdminByEmail: async () => user,
+    findCrmUserByEmail: async () => user,
     findTenant: async () => tenant,
     saveResetCode: async (userId, hash, expiresAt) => {
       saved.push({ userId, hash, expiresAt });
@@ -199,4 +202,64 @@ test("message does not mention technical providers", () => {
   for (const word of ["evolution", "n8n", "openrouter", "whatsapp api"]) {
     assert.equal(text.includes(word), false, word);
   }
+});
+
+// ── Team members (STAFF) recover through the business owner ─────────────────────────────────────────
+// The code still goes to the business WhatsApp; the message names who asked, so the owner decides.
+
+const STAFF = { role: "STAFF" as const, email: "ana@ejemplo.com" };
+
+test("a STAFF request sends the code to the business number, naming who asked", async () => {
+  const { deps, sent, saved } = makeDeps(makeUser({ id: "s1", ...STAFF }));
+  assert.equal(await requestResetCode(deps, "t1", STAFF.email), "sent");
+  assert.equal(saved[0].userId, "s1");
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].to, TENANT.whatsappNumber);
+  assert.match(sent[0].text, /Una persona de tu equipo \(\*ana@ejemplo\.com\*\)/);
+  assert.match(sent[0].text, /\*482915\*/);
+});
+
+test("an owner request keeps the owner message, without the team line", async () => {
+  const { deps, sent } = makeDeps(makeUser());
+  await requestResetCode(deps, "t1", "owner@example.com");
+  assert.doesNotMatch(sent[0].text, /equipo/);
+  assert.match(sent[0].text, /Aquí tienes tu código/);
+});
+
+test("team message: Spanish names the business, the code, the expiry and that ignoring keeps the password", () => {
+  const text = resetMessage({ name: "ElFars", messageLanguage: "es" }, "482915", STAFF.email);
+  assert.match(text, /pidió restablecer su contraseña de \*ElFars\*/);
+  assert.match(text, /Si la reconoces, compártele este código:/);
+  assert.match(text, /Vence en \*5 minutos\*/);
+  assert.match(text, /su contraseña no cambia/);
+});
+
+test("team message in English when the business uses English", () => {
+  const text = resetMessage({ name: "Clinic", messageLanguage: "en" }, "482915", STAFF.email);
+  assert.match(text, /Someone on your team \(\*ana@ejemplo\.com\*\) asked to reset their password for \*Clinic\*/);
+  assert.match(text, /\*482915\*/);
+});
+
+test("WhatsApp formatting characters in the team email cannot break the bold", () => {
+  const text = resetMessage({ name: "ElFars", messageLanguage: "es" }, "482915", "a*n_a~@x`y.com");
+  assert.match(text, /\(\*ana@xy\.com\*\)/);
+});
+
+test("a STAFF member sets the new password with the right code", async () => {
+  const user = makeUser({
+    id: "s1",
+    ...STAFF,
+    passwordResetCodeHash: hashResetCode(CODE, SECRET),
+    passwordResetExpiresAt: new Date(NOW.getTime() + RESET_CODE_TTL_MS),
+  });
+  const { deps, passwords } = makeDeps(user);
+  const result = await confirmResetCode(deps, "t1", STAFF.email, CODE, "Nueva-clave-2026", "Nueva-clave-2026");
+  assert.deepEqual(result, { ok: true });
+  assert.equal(passwords[0].userId, "s1");
+});
+
+test("the database lookup accepts ADMIN and STAFF accounts only, never customers", () => {
+  const src = readFileSync(path.join(__dirname, "..", "src", "lib", "password-reset-data.ts"), "utf8");
+  assert.match(src, /role:\s*\{\s*in:\s*\[ADMIN_ROLE,\s*STAFF_ROLE\]\s*\}/);
+  assert.doesNotMatch(src, /CUSTOMER/);
 });
