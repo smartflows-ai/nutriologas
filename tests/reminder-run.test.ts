@@ -2,6 +2,8 @@
 // Run: npx tsx --test local-utils/reminder-run.test.ts
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { reminderRunStatus, runReminderBatch, type ReminderBatchResult, type ReminderDeps, type ReminderVisit } from "../src/lib/reminder-run";
 
 const HOUR = 60 * 60 * 1000;
@@ -182,4 +184,57 @@ test("a visit the customer confirmed is never released, even after the deadline"
   assert.equal(result.released, 0);
   assert.deepEqual(calls.released, []);
   assert.equal(result.failures.length, 0);
+});
+
+// Confirmed means customerConfirmedAt is set (SI reply, Confirmations tab, or Confirmar in Citas).
+// The status alone never counts: the bot creates its bookings CONFIRMED before the customer confirms.
+
+/** Sends the visit through the job and returns the one text it sent. */
+async function sentText(v: ReminderVisit): Promise<string> {
+  const texts: string[] = [];
+  const { deps } = fakeDeps({ send: async (_visit, text) => (texts.push(text), { success: true }) });
+  await runReminderBatch([v], NOW, deps, { dryRun: false });
+  assert.equal(texts.length, 1, "exactly one reminder is sent");
+  return texts[0];
+}
+
+test("a visit confirmed before its reminder gets the plain reminder, without asking to reply", async () => {
+  const plain = await sentText(visit({ tenant: { ...visit().tenant, confirmationRequired: false } }));
+  const asking = await sentText(visit());
+  assert.notEqual(asking, plain, "sanity: the confirmation request changes the text");
+  assert.equal(await sentText(visit({ customerConfirmedAt: new Date(NOW.getTime() - HOUR) })), plain);
+});
+
+test("dry run lists a confirmed visit's reminder without the confirmation request", async () => {
+  const { deps } = fakeDeps();
+  const result = await runReminderBatch([visit({ customerConfirmedAt: new Date(NOW.getTime() - HOUR) })], NOW, deps, { dryRun: true });
+  assert.equal(result.actions.length, 1);
+  const action = result.actions[0] as { action: string; confirmation?: boolean };
+  assert.equal(action.action, "remind");
+  assert.equal(action.confirmation, false);
+});
+
+// Regression (review of the first fix): a bot booking has no customerConfirmedAt; the job must still ask and release.
+// The fixture carries no status on purpose: the job must not depend on it.
+test("an unconfirmed visit still asks to reply SI and is released after the deadline", async () => {
+  const { deps } = fakeDeps();
+  const planned = await runReminderBatch([visit()], NOW, deps, { dryRun: true });
+  assert.equal((planned.actions[0] as { confirmation?: boolean }).confirmation, true);
+
+  const { deps: releaseDeps, calls } = fakeDeps();
+  const result = await runReminderBatch([overdue("bot1")], NOW, releaseDeps, { dryRun: false });
+  assert.equal(result.released, 1);
+  assert.deepEqual(calls.released, ["bot1"]);
+});
+
+test("the job decides on customerConfirmedAt, never on the appointment status", () => {
+  const src = readFileSync(path.join(__dirname, "..", "src", "lib", "reminder-run.ts"), "utf8");
+  assert.match(src, /const isConfirmed = visit\.customerConfirmedAt !== null;/);
+  assert.doesNotMatch(src, /visit\.status/);
+});
+
+test("the Confirmar button in Citas records customerConfirmedAt", () => {
+  const src = readFileSync(path.join(__dirname, "..", "src", "app", "api", "appointments", "[id]", "route.ts"), "utf8");
+  assert.match(src, /status === "CONFIRMED" && !appointment\.customerConfirmedAt/);
+  assert.match(src, /dataToUpdate\.customerConfirmedAt = new Date\(\)/);
 });

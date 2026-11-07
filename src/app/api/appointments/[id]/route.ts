@@ -70,6 +70,11 @@ export async function PATCH(
         return apiError("appointment_cancel_forbidden", 403);
       }
       dataToUpdate.status = status;
+      // Confirming by hand counts as a real confirmation for the reminder job: no request to reply SI and no
+      // release. Bot bookings are created CONFIRMED without this field, so the status alone cannot mean "confirmed".
+      if (status === "CONFIRMED" && !appointment.customerConfirmedAt) {
+        dataToUpdate.customerConfirmedAt = new Date();
+      }
     }
 
     if (canNotes && internalNotes !== undefined) {

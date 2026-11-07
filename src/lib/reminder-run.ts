@@ -111,10 +111,14 @@ async function processVisit(visit: ReminderVisit, now: Date, deps: ReminderDeps,
     confirmationRequired: t.confirmationRequired,
   });
   const deadline = releaseAt(visit.appointmentDate, t.confirmationDeadlineMinutes);
+  // Confirmed by the customer (SI), the Confirmations tab or the Confirmar button in Citas: all three set
+  // customerConfirmedAt. The status is not used: the bot creates its bookings CONFIRMED before anyone confirms.
+  const isConfirmed = visit.customerConfirmedAt !== null;
+  // A confirmed visit still gets its reminder, but never the request to reply.
+  const asksToConfirm = plan.requestConfirmation && !isConfirmed;
 
-  // Release: a confirmation was requested, the deadline passed, and the customer did not answer.
-  const mustRelease =
-    visit.reminderSentAt && !visit.customerConfirmedAt && !visit.autoReleasedAt && plan.requestConfirmation && now >= deadline;
+  // Release: a confirmation was requested, the deadline passed, and nobody confirmed.
+  const mustRelease = visit.reminderSentAt && !visit.autoReleasedAt && asksToConfirm && now >= deadline;
   if (mustRelease) {
     if (dryRun) return { type: "planned", action: { action: "release", appointmentId: visit.id, deadline: deadline.toISOString() } };
     const { customerNotified } = await deps.release(visit, now);
@@ -129,10 +133,10 @@ async function processVisit(visit: ReminderVisit, now: Date, deps: ReminderDeps,
   if (!visit.customerPhone) return { type: "skipped" };
 
   if (dryRun) {
-    return { type: "planned", action: { action: "remind", appointmentId: visit.id, confirmation: plan.requestConfirmation, sendAt: plan.sendAt.toISOString() } };
+    return { type: "planned", action: { action: "remind", appointmentId: visit.id, confirmation: asksToConfirm, sendAt: plan.sendAt.toISOString() } };
   }
 
-  const sent = await deps.send(visit, reminderText(visit, plan.requestConfirmation, plan.releaseAt));
+  const sent = await deps.send(visit, reminderText(visit, asksToConfirm, asksToConfirm ? plan.releaseAt : null));
   if (!sent.success) {
     // Nothing is marked or charged, so the next run retries.
     const reason = sent.reason ?? "Envio rechazado";

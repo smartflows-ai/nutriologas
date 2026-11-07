@@ -4,8 +4,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/permission-guard";
 import { apiError } from "@/lib/api-errors";
-import { ACTIVE_APPOINTMENT_STATUSES } from "@/lib/bot";
-import { releaseAt } from "@/lib/reminders";
+import { AWAITING_CONFIRMATION, releaseAt } from "@/lib/reminders";
 import { planLockResponse } from "@/lib/capability-guard";
 
 export async function GET() {
@@ -25,10 +24,7 @@ export async function GET() {
   const visits = await prisma.appointment.findMany({
     where: {
       tenantId,
-      status: { in: [...ACTIVE_APPOINTMENT_STATUSES] },
-      reminderSentAt: { not: null },
-      customerConfirmedAt: null,
-      autoReleasedAt: null,
+      ...AWAITING_CONFIRMATION,
       appointmentDate: { gt: now },
     },
     select: {

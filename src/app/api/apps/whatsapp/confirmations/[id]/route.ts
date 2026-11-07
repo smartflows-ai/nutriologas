@@ -6,9 +6,9 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/permission-guard";
 import { apiError } from "@/lib/api-errors";
-import { ACTIVE_APPOINTMENT_STATUSES } from "@/lib/bot";
 import { confirmVisit, releaseVisit } from "@/lib/reminder-actions";
 import { planLockResponse } from "@/lib/capability-guard";
+import { AWAITING_CONFIRMATION } from "@/lib/reminders";
 
 const bodySchema = z.object({ action: z.enum(["confirm", "release"]) });
 
@@ -26,10 +26,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     where: {
       id: params.id,
       tenantId,
-      status: { in: [...ACTIVE_APPOINTMENT_STATUSES] },
-      reminderSentAt: { not: null },
-      customerConfirmedAt: null,
-      autoReleasedAt: null,
+      ...AWAITING_CONFIRMATION,
     },
     select: {
       id: true,
