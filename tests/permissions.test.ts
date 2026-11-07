@@ -321,8 +321,9 @@ test("clinical-note and delete controls are gated by permission in the CRM pages
 
 // ── Batch A review fixes ─────────────────────────────────────────────────────
 
-test("a booking for someone else reuses only CUSTOMER accounts (never ADMIN or STAFF by typed email)", () => {
-  assert.match(read("appointments/route.ts"), /existing\?\.role === "CUSTOMER" \? existing : null/);
+// Known risk (owner decision at the main merge, 2026-11-06): the booking keeps main's account lookup by email,
+// so a typed email that belongs to an ADMIN or STAFF account owns the visit. Only the booking permission is checked.
+test("booking for someone else requires the appointments.book permission", () => {
   assert.match(read("appointments/route.ts"), /can\(session\?\.user\?\.role, "appointments\.book"\)/);
 });
 

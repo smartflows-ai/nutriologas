@@ -17,14 +17,17 @@ import { isBookable } from "@/lib/bookable";
 import { dropLinkedExternal, fetchExternalAppointments } from "@/lib/external-calendar";
 import { omitReminderError } from "@/lib/reminder-state";
 import { can, omitClinicalNotes } from "@/lib/permissions";
+import { buildCalendarText } from "@/lib/appointment-calendar-text";
+import { guestEmailFor, parseAge, resolveModality } from "@/lib/patient-intake";
 
 const MONTH_RE = /^\d{4}-\d{2}$/;
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
  * Admin agenda: one month of native and external (Google / Microsoft) appointments.
- * Status, search and day filters run on the server. Counts and day markers cover the whole month,
- * so the calendar and the KPI cards do not change when a filter is applied.
+ * Status, search and day filters run on the server. Day markers always cover the whole month, so the calendar
+ * keeps its dots. Counts (status tabs and KPI cards) cover the chosen day, or the whole month when no day is chosen;
+ * they ignore the status and search filters.
  * Query: month=YYYY-MM, day=YYYY-MM-DD, status=ALL|PENDING|CONFIRMED|COMPLETED|CANCELLED, q, page, pageSize.
  */
 async function getAdminAgenda(req: NextRequest, tenantId: string, role: string) {
@@ -83,8 +86,11 @@ async function getAdminAgenda(req: NextRequest, tenantId: string, role: string) 
     (a, b) => new Date(a.appointmentDate).getTime() - new Date(b.appointmentDate).getTime()
   );
 
-  const counts: Record<string, number> = { ALL: all.length, PENDING: 0, CONFIRMED: 0, COMPLETED: 0, CANCELLED: 0, NO_SHOW: 0 };
-  for (const a of all) counts[a.status] = (counts[a.status] ?? 0) + 1;
+  // Counts follow the day filter (the whole month when no day is chosen), but not status or search,
+  // so every status tab shows how many visits it would list for that day.
+  const inScope = day ? all.filter((a) => String(a.appointmentDate).slice(0, 10) === day) : all;
+  const counts: Record<string, number> = { ALL: inScope.length, PENDING: 0, CONFIRMED: 0, COMPLETED: 0, CANCELLED: 0, NO_SHOW: 0 };
+  for (const a of inScope) counts[a.status] = (counts[a.status] ?? 0) + 1;
 
   const days = Array.from(new Set(all.map((a) => String(a.appointmentDate).slice(0, 10))));
 
@@ -223,14 +229,24 @@ export async function POST(req: NextRequest) {
       where: tenantId
         ? { id: tenantId } 
         : { OR: [{ slug: tenantSlug }, { customDomain: tenantSlug }] },
-      select: { id: true, name: true, whatsappNumber: true, vertical: true, isBookingEnabled: true, businessHours: true },
+      select: {
+        id: true,
+        name: true,
+        whatsappNumber: true,
+        vertical: true,
+        isBookingEnabled: true,
+        businessHours: true,
+        serviceModes: true,
+        hasPhysicalLocation: true,
+        address: true,
+      },
     });
 
     if (!tenant) return apiError("tenant_not_found", 404);
     tenantId = tenant.id;
 
     const body = await req.json();
-    const { productId, appointmentDate, notes, clientName, clientEmail, clientPhone, petName, petSpecies } = body;
+    const { productId, appointmentDate, notes, clientName, clientEmail, clientPhone, clientAge, modality: requestedModality, petName, petSpecies } = body;
 
     if (!productId || !appointmentDate) {
       return apiError("service_and_date_required", 400);
@@ -239,6 +255,17 @@ export async function POST(req: NextRequest) {
     if (!patientKeyOf(clientPhone)) {
       return apiError("phone_required", 400);
     }
+    // Age is part of the patient record. An admin booking for a customer may leave it out.
+    const age = parseAge(clientAge);
+    if (!isAdminSession && age === null) {
+      return apiError("age_required", 400);
+    }
+    // In person or online: a business that offers both needs the patient's choice (admins may leave it out).
+    const resolvedModality = resolveModality(tenant.serviceModes, requestedModality);
+    if (!resolvedModality.ok && !isAdminSession) {
+      return apiError(resolvedModality.error, 400);
+    }
+    const modality = resolvedModality.ok ? resolvedModality.modality : null;
     // Veterinary and pet-care businesses book per pet, so the history follows the animal.
     const { usesPets } = getVerticalProfile(tenant.vertical, tenant.isBookingEnabled);
     const pet = usesPets ? cleanPetName(petName) : "";
@@ -263,15 +290,11 @@ export async function POST(req: NextRequest) {
 
     // Resolver usuario: si está logueado usar su cuenta, sino crear o buscar usuario cliente
     if (!userId) {
-      const typedEmail = clientEmail?.toLowerCase()?.trim() || "";
-      const guestEmail = `anon_${Date.now()}@booking.local`;
-      const existing = typedEmail ? await prisma.user.findFirst({ where: { tenantId, email: typedEmail } }) : null;
-      // A booking is owned by a customer account only. If the typed email belongs to an ADMIN or STAFF account
-      // (for example staff typing their own email), the visit goes to a guest account; the typed email stays
-      // in customerEmail, so the calendar invitation still reaches it.
-      const reusable = existing?.role === "CUSTOMER" ? existing : null;
-      const email = existing && !reusable ? guestEmail : typedEmail || guestEmail;
-      let user = reusable;
+      // No email: a stable placeholder per phone number, so repeat visits reuse one guest account.
+      const email = clientEmail?.toLowerCase()?.trim() || guestEmailFor(patientKeyOf(clientPhone) as string);
+      let user = await prisma.user.findFirst({
+        where: { tenantId, email },
+      });
 
       if (!user) {
         user = await prisma.user.create({
@@ -312,11 +335,16 @@ export async function POST(req: NextRequest) {
 
     // Notes hold only the patient's reason. Name and phone live in their own columns.
     const reason = notes?.trim() || null;
-    const calendarDescription = [
-      reason ?? "Cita agendada vía web",
-      clientPhone ? `Tel: ${clientPhone}` : null,
-      clientName ? `Paciente: ${clientName}` : null,
-    ].filter(Boolean).join("\n");
+    const calendarText = buildCalendarText({
+      serviceName: product.name,
+      customerName: clientName || null,
+      petName: pet || null,
+      reason,
+      fallbackReason: "Cita agendada vía web",
+      phone: clientPhone || null,
+      age,
+      modality,
+    });
 
     const result = await createAppointment({
       tenantId,
@@ -328,13 +356,17 @@ export async function POST(req: NextRequest) {
       customerName: clientName || null,
       customerPhone: clientPhone || null,
       customerEmail: clientEmail?.toLowerCase().trim() || null,
+      customerAge: age,
+      modality,
       notes: reason,
       petName: pet || null,
       petSpecies: usesPets ? petSpecies ?? null : null,
       calendar: {
-        summary: `Cita: ${product.name} - ${clientName || "Paciente"}${pet ? ` (${pet})` : ""}`,
-        description: calendarDescription,
+        summary: calendarText.summary,
+        description: calendarText.description,
+        // No email means no invitation: the event only lands on the doctor's calendar.
         attendeeEmail: clientEmail || "",
+        location: tenant.hasPhysicalLocation ? tenant.address : null,
       },
     });
     if (!result.ok) return apiError("slot_unavailable", 409);

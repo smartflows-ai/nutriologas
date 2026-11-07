@@ -446,7 +446,9 @@ Set `GOOGLE_MAPS_API_KEY` (server only). In Google Cloud: link a billing account
 ### 17.2 Service Booking Invariants
 - Services are represented in the `Product` table with `requiresBooking: true` and `durationMinutes: Int`. An item is bookable only when `Tenant.isBookingEnabled` and `requiresBooking` are both true (`isBookable`, `src/lib/bookable.ts`). Other items are information only: price and description, no date, no booking.
 - Opening hours are one weekly schedule per tenant (`Tenant.businessHours`, edited in `/admin/negocio`). Each day has a list of blocks; an empty list means closed; several blocks give a lunch break. The web and the bot read the same schedule (`src/lib/business-hours.ts`). A slot must fit entirely inside one block.
-- Bot bookings require a valid customer email (`email_required` otherwise). The email becomes the calendar attendee, so Google or Outlook sends the invite. There is no separate confirmation email; the calendar invite is the confirmation.
+- Bot bookings with `intake: "v2"` ask a new patient for name, age and an optional email; a known number (already has an appointment) is never asked again. A valid email becomes the calendar attendee, so Google or Outlook sends the invite; without an email only the doctor's calendar and the database get the visit. Bookings without `intake: "v2"` (older workflow) still require a valid email (`email_required`). There is no separate confirmation email; the calendar invite is the confirmation.
+- A registered patient confirms their stored name, age and email once before booking. A visit for someone else is saved under that person's own WhatsApp number (`patientPhone`), so the history, reminders and confirmation reply go to them. The visit is an automatic **recommendation**: it saves who booked it (`referredByKey`, `referredByName`), shown in `/admin/citas` and the patient history, and the booker can list, cancel and reschedule it from their chat.
+- Every booking has a modality (in person or online) from the business setting `serviceModes`, or from the patient's choice when the business offers both. Online visits get a Meet link stored in `meetUrl`.
 - Rescheduling and cancelling by the bot do not ask for the customer's name or email; the appointment is identified by the WhatsApp number.
 - Past times are never booked. `POST /api/appointments` returns `date_in_past` for every creator, admins included. The web availability hides slots that already started, and the bot's availability and booking routes apply the same rule.
 - Deleting a product is a hard delete only when no `OrderItem`, `Review` or `Appointment` references it. Otherwise it is a soft delete (`deletedAt`, hidden from the catalog and the bot), so appointment and order history keep their links.
@@ -467,7 +469,9 @@ Set `GOOGLE_MAPS_API_KEY` (server only). In Google Cloud: link a billing account
 ### 18.2 Mini-Calendar Navigation & Real-Time Filtering
 - An interactive mini-calendar displays dot indicators on days with appointments across all sources.
 - Clicking any date filters the unified list in place without full page reloads.
-- Consolidated KPI cards (`TOTAL`, `POR CONFIRMAR`, `CONFIRMADAS`, `COMPLETADAS`) reflect true total appointments across native and synchronized calendars.
+- The page opens on **today's** appointments (clinic calendar day, Mexico City). Two labeled filter rows: **Fecha** (Hoy, a picked day, Todas las fechas) and **Estado** (Todas, Pendientes, Confirmadas, Completadas, Canceladas), plus search.
+- Consolidated KPI cards (`TOTAL`, `POR CONFIRMAR`, `CONFIRMADAS`, `COMPLETADAS`) and the status chip counts cover the chosen day across native and synchronized calendars (the whole month when no day is chosen); they ignore the status and search filters. The calendar dots always cover the month.
+- Each visit card shows a modality badge (Presencial / En línea), the patient's age, and a video call link for online visits.
 
 ### 18.3 Automated WhatsApp Confirmation Trigger
 - Updating an appointment status to `CONFIRMED` via `PATCH /api/appointments/[id]` executes `sendWhatsAppMessage` (Evolution API).

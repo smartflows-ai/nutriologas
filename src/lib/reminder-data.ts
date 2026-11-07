@@ -72,6 +72,10 @@ export async function loadReminderVisits(now: Date, appointmentId?: string): Pro
       autoReleasedAt: true,
       externalProvider: true,
       externalEventId: true,
+      modality: true,
+      meetUrl: true,
+      referredByKey: true,
+      referredByName: true,
       product: { select: { name: true } },
       tenant: {
         select: {

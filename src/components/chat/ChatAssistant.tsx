@@ -590,7 +590,7 @@ export default function ChatAssistant({
         {/* Input area */}
         <div className="border-t border-gray-100 dark:border-gray-800 p-4 flex-shrink-0 bg-gray-50/50 dark:bg-gray-950/30">
           {messages.length > 0 && !creditStatus?.isExhausted && (
-            <div className="flex gap-2 mb-3 overflow-x-auto pb-1 scrollbar-hide">
+            <div className="flex gap-2 mb-3 overflow-x-auto pb-1 scrollbar-slim">
               {t.crm.assistant.chat.suggestions.slice(0, 4).map((s) => (
                 <button
                   key={s}

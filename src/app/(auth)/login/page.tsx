@@ -73,7 +73,13 @@ export default function LoginPage() {
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{t.auth.passwordLabel}</label>
             <input {...register("password")} type="password" className="input" placeholder={t.auth.phPassword} />
             {errors.password && <p className="text-red-500 text-xs mt-1">{translateValidation(t, errors.password.message)}</p>}
+            <div className="mt-2 text-right">
+              <Link href="/recuperar" className="text-xs text-primary hover:underline">{t.passwordRecovery.forgotLink}</Link>
+            </div>
           </div>
+          {searchParams.get("reset") === "1" && (
+            <p className="text-primary text-sm">{t.passwordRecovery.loginNotice}</p>
+          )}
           {error && <p className="text-red-500 text-sm">{error}</p>}
           <button type="submit" disabled={loading} className="btn-primary w-full py-3">
             {loading ? t.auth.loggingIn : t.auth.loginButton}

@@ -4,6 +4,30 @@ All notable changes to Presto AI are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased] — 2026-11-06
+
+### Added
+- A visit booked for someone else tells its patient who booked it: the reminder and the owner confirmation add a line with the booker's first name (or "another person") and ask the patient to reply to the message if they did not request it (`withBookedBy`, `bookedByLine` and `bookedByAnon` in the customer texts). `bot/book` also accepts `senderName` (the WhatsApp profile name, sent by the workflow) as the booker's name when the number has no earlier visit (`cleanSenderName`).
+- Recommended by: a visit booked for someone else is an automatic recommendation. The appointment saves who booked it (`referredByKey`, `referredByName`, migration `prisma/sql/22-referred-by`, applied 2026-11-06 after a verified backup). `/admin/citas` and the patient history show "Recomendado por …". The booker also sees these visits in the bot's `my-appointments` and can cancel or reschedule them (`visitsOfSender`).
+- WhatsApp bot: a registered patient sees their stored name, age and email and confirms them once before booking; a visit for another person asks that person's name, age, WhatsApp number and optional email and is saved under their own number (`patientPhone`, `resolveBookingPhone`), so the history and reminders go to them. `bot/context` now returns `patient.email`. Needs the chat workflow re-imported after this code is deployed.
+- `/admin/citas` opens on today's appointments (clinic calendar day, not the browser's) with two labeled filter rows, Date (Today, a picked day, All dates) and Status. The KPI cards and the status counts follow the chosen day instead of always counting the whole month.
+- Tenant-aware text color on primary fills: `--on-primary` in the theme variables (`readableTextOn`, tests in `tests/theme-vars.test.ts`); the date chips, status tabs, calendar day, Save and visit buttons use it instead of `text-white`. `BookingFlow` now uses it too. New shared `FilterChip` and `RadioOption` components (44px tap targets on phones) and the `scrollbar-slim` style (tenant-colored, used by chip rows in citas, the day picker and the chat suggestions).
+- Patient intake on the first booking: full name, age and an optional email, for the WhatsApp bot (`bot/context` returns `patient`, `intake`, `modalityMode`; `bot/book` with `intake: "v2"` enforces it) and for `/agendar`. A number that already has an appointment is never asked again. New pure rules in `src/lib/patient-intake.ts` with tests.
+- Visit modality (in person or online): `Tenant.serviceModes` setting in `/admin/negocio`, `Appointment.modality`, `customerAge` and `meetUrl`. Shown in `/admin/citas` (badge, age, video link), the calendar events and the patient history. Google events get a Meet link only for online visits and the business address as location for in person ones. Migration `prisma/sql/21-patient-intake` applied to the real database 2026-11-06 after a verified backup (code not deployed yet).
+- The Google Meet link of an online visit is added to the WhatsApp reminder, the confirmation reply after SI, and the owner's confirmation messages (Confirmaciones tab and the Confirmar button), so a patient without email still receives it (`withMeetingLink`, tests in `tests/meeting-link-text.test.ts`).
+- Email is optional: no email means no calendar invitation; the visit is still saved and mirrored on the doctor's calendar. Patients without email use a placeholder login `<patientKey>@wa.guest.local`.
+- The bot offers at most 3 free hours per reply (`after` returns the next ones) and every greeting introduces the bot.
+- Owner password change on `/admin/negocio` (security section, saved with the page's Save button). Rules shared with register and onboarding: minimum 10 characters, maximum 72, common passwords refused, must differ from the current one (`src/lib/password-rules.ts`).
+- Owner password reset with a one-time code by WhatsApp: `/recuperar`, one page in two steps (email, then the six-digit code and the new password), linked from the login page. Codes are stored as HMAC hashes, expire after 5 minutes, are single use, and are refused after 5 wrong tries. The reply is the same whether or not the email exists. Sent from the NewAigent line (`PLATFORM_WA_INSTANCE`), not from a tenant's bot. Migration `prisma/sql/20-password-reset-code` applied to production 2026-11-05 (local time) after a verified backup.
+- Owner number rule: the business's WhatsApp number cannot be the line the bot sends from (`owner_number_is_bot_line`, `src/lib/whatsapp-number.ts`).
+- Color check for tenant screens: `local-utils/minimal-ui/theme-colors.js` (FAIL for palette colors and hex values, WARN for red status colors). Documented in CLAUDE.md, to run before and after any UI change.
+
+### Not yet done
+- Patient intake, modality and Meet links: deploy the code, re-import `n8n-chat-workflow-v2.json`, then test with a real number (new patient, known patient, no email, online and in person). Not tested end to end yet. Postponed: a business-entered meeting link, Teams links for Outlook, modality tag in the reminder templates, `cancel` and `reschedule` still match by raw phone (ticket #17).
+- The owner number is not yet checked against the bot line on WhatsApp connection (`/api/apps/whatsapp/status`); the decision on logging the line out is pending.
+- Other devices stay signed in after a password change or reset (`passwordChangedAt` check pending).
+- Reset codes not yet tested end to end; no real message sent.
+
 ## [Unreleased] — 2026-10-26
 
 ### Changed

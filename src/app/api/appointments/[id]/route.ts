@@ -12,6 +12,7 @@ import { can, omitClinicalNotes } from "@/lib/permissions";
 import { requirePermission } from "@/lib/permission-guard";
 import { omitReminderError } from "@/lib/reminder-state";
 import { AppointmentStatus } from "@prisma/client";
+import { withBookedBy, withMeetingLink } from "@/lib/reminder-messages";
 
 const APPOINTMENT_STATUSES: readonly string[] = Object.values(AppointmentStatus);
 
@@ -140,7 +141,10 @@ export async function PATCH(
           hour12: true,
         });
 
-        const message = `¡Hola, ${patientName}! 👋\n\nTu cita en *${tenantName}* ha sido *CONFIRMADA* con éxito por el especialista. 🩺✨\n\n📅 *Fecha:* ${formattedDate}\n⏰ *Horario:* ${formattedTime}\n🩺 *Servicio:* ${serviceName}\n⏱️ *Duración estimada:* ${updated.durationMinutes} min\n\nSi tienes alguna duda o necesitas reagendar, puedes responder a este mensaje. ¡Te esperamos!`;
+        const baseMessage = `¡Hola, ${patientName}! 👋\n\nTu cita en *${tenantName}* ha sido *CONFIRMADA* con éxito por el especialista. 🩺✨\n\n📅 *Fecha:* ${formattedDate}\n⏰ *Horario:* ${formattedTime}\n🩺 *Servicio:* ${serviceName}\n⏱️ *Duración estimada:* ${updated.durationMinutes} min\n\nSi tienes alguna duda o necesitas reagendar, puedes responder a este mensaje. ¡Te esperamos!`;
+
+        // This message is written in Spanish; an online visit also gets its video call link.
+        const message = withBookedBy(withMeetingLink(baseMessage, updated, "es"), updated, "es");
 
         const waRes = await sendWhatsAppMessage({
           tenantId,

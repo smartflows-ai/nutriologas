@@ -23,6 +23,9 @@ export default async function AgendarPage({
       vertical: true,
       isBookingEnabled: true,
       businessHours: true,
+      serviceModes: true,
+      hasPhysicalLocation: true,
+      address: true,
     },
   });
 
@@ -53,6 +56,8 @@ export default async function AgendarPage({
           logoUrl: tenant.logoUrl,
           usesPets: getVerticalProfile(tenant.vertical, tenant.isBookingEnabled).usesPets,
           handlesHealthData: tenant.vertical === "HEALTH",
+          serviceModes: tenant.serviceModes,
+          address: tenant.hasPhysicalLocation ? tenant.address : null,
         }}
         businessHours={parseBusinessHours(tenant.businessHours)}
       />

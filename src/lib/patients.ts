@@ -1,6 +1,7 @@
 // src/lib/patients.ts
 // Patient history: visits grouped by patientKey (normalized phone digits, see src/lib/patient-key.ts).
 import { prisma } from "@/lib/db";
+import { isSyntheticEmail, type KnownPatient } from "@/lib/patient-intake";
 
 export interface PatientRow {
   patientKey: string;
@@ -90,6 +91,10 @@ export async function getPatientTimeline(
         customerName: true,
         customerPhone: true,
         customerEmail: true,
+        customerAge: true,
+        modality: true,
+        referredByKey: true,
+        referredByName: true,
         product: { select: { name: true } },
         petId: true,
         pet: { select: { name: true } },
@@ -119,6 +124,7 @@ export async function getPatientTimeline(
     petId: a.petId,
     petName: a.pet?.name ?? null,
     reason: a.notes,
+    modality: a.modality,
     note: noteByVisit.get(a.id) ?? null,
   }));
   const orphanNotes = notes.filter((n) => !n.appointmentId);
@@ -128,9 +134,39 @@ export async function getPatientTimeline(
     patientKey,
     name: appointments.find((a) => a.customerName)?.customerName ?? null,
     phone: appointments.find((a) => a.customerPhone)?.customerPhone ?? null,
-    emails: Array.from(new Set(appointments.map((a) => a.customerEmail).filter((e): e is string => !!e))),
+    // Placeholder addresses (patients who gave no email) are not shown as emails.
+    emails: Array.from(
+      new Set(appointments.map((a) => a.customerEmail).filter((e): e is string => !!e && !isSyntheticEmail(e)))
+    ),
+    // Who recommended this patient: whoever booked their oldest visit that was made for them (visits are newest first).
+    referredBy: (() => {
+      const first = [...appointments].reverse().find((a) => a.referredByKey);
+      return first ? { key: first.referredByKey as string, name: first.referredByName } : null;
+    })(),
+    // Latest age on record (visits are newest first).
+    age: appointments.find((a) => a.customerAge !== null)?.customerAge ?? null,
     lastSeenAt: latest?.appointmentDate ?? null,
   };
 
   return { patient, visits, orphanNotes, pets };
+}
+
+/**
+ * The patient behind a WhatsApp number, from their latest visit (any status), or null when the number has never
+ * booked in this business. Name, email and age are copied forward on every booking, so the latest visit is the
+ * current record. A placeholder email (patients who gave none) is reported as no email.
+ */
+export async function getKnownPatient(tenantId: string, patientKey: string | null): Promise<KnownPatient | null> {
+  if (!patientKey) return null;
+  const visit = await prisma.appointment.findFirst({
+    where: { tenantId, patientKey },
+    orderBy: { appointmentDate: "desc" },
+    select: { customerName: true, customerEmail: true, customerAge: true },
+  });
+  if (!visit) return null;
+  return {
+    name: visit.customerName,
+    email: visit.customerEmail && !isSyntheticEmail(visit.customerEmail) ? visit.customerEmail : null,
+    age: visit.customerAge,
+  };
 }

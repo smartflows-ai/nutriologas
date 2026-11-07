@@ -23,7 +23,15 @@ import { useTranslation } from "@/i18n";
 import { buildFullPhone, splitFullPhone, DEFAULT_DIAL_CODE, PHONE_COUNTRIES } from "@/lib/phone";
 import { translateApiError } from "@/i18n/validation";
 import AddressSearch from "@/components/shared/AddressSearch";
+import PasswordFields, {
+  EMPTY_PASSWORD_VALUES,
+  isPasswordFormTouched,
+  type PasswordFormValues,
+} from "@/components/admin/PasswordFields";
+import { changePasswordSchema } from "@/lib/validations";
+import { translateValidation } from "@/i18n/validation";
 import type { BusinessLocation } from "@/lib/location";
+import RadioOption from "@/components/ui/RadioOption";
 import {
   BusinessHours,
   DEFAULT_BUSINESS_HOURS,
@@ -66,6 +74,23 @@ export default function BusinessProfilePage() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Password section: saved with the page's one Save button. null until the server says if a password exists.
+  const [hasPassword, setHasPassword] = useState<boolean | null>(null);
+  const [passwordValues, setPasswordValues] = useState<PasswordFormValues>(EMPTY_PASSWORD_VALUES);
+  const [showPasswords, setShowPasswords] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/tenants/account/password")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { hasPassword: boolean } | null) => {
+        if (!cancelled && data) setHasPassword(data.hasPassword);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Tenant state
   const [slug, setSlug] = useState("");
   const [customDomain, setCustomDomain] = useState<string | null>(null);
@@ -79,6 +104,8 @@ export default function BusinessProfilePage() {
   useEffect(() => { setLogoFailed(false); }, [logoUrl]);
   const [ownerName, setOwnerName] = useState("");
   const [hasPhysicalLocation, setHasPhysicalLocation] = useState(false);
+  // How the business sees patients; with "BOTH" the bot and the booking page ask each visit.
+  const [serviceModes, setServiceModes] = useState<"IN_PERSON" | "ONLINE" | "BOTH">("IN_PERSON");
   const [location, setLocation] = useState<BusinessLocation | null>(null);
   const [hours, setHours] = useState<BusinessHours>(DEFAULT_BUSINESS_HOURS);
 
@@ -117,6 +144,7 @@ export default function BusinessProfilePage() {
         setHours(parseBusinessHours(data.businessHours));
         setOwnerName(tenantData.ownerName || "");
         setHasPhysicalLocation(Boolean(tenantData.hasPhysicalLocation));
+        if (tenantData.serviceModes) setServiceModes(tenantData.serviceModes);
         setLocation(
           tenantData.address
             ? {
@@ -231,9 +259,51 @@ export default function BusinessProfilePage() {
       return;
     }
 
+    // The password section is checked before anything is saved, so a bad password saves nothing.
+    const passwordTouched = isPasswordFormTouched(passwordValues);
+    if (passwordTouched) {
+      if (hasPassword === null) {
+        setError(t.crm.business.saveError);
+        return;
+      }
+      const parsed = changePasswordSchema.safeParse({
+        currentPassword: hasPassword ? passwordValues.currentPassword : undefined,
+        newPassword: passwordValues.newPassword,
+        confirmPassword: passwordValues.confirmPassword,
+      });
+      if (!parsed.success) {
+        const issue = parsed.error.issues[0];
+        setError(translateValidation(t, issue.message) ?? issue.message);
+        return;
+      }
+      if (hasPassword && !passwordValues.currentPassword) {
+        setError(translateApiError(t, "current_password_required") ?? t.crm.business.saveError);
+        return;
+      }
+    }
+
     try {
       setSaving(true);
       setError(null);
+
+      if (passwordTouched) {
+        const passwordRes = await fetch("/api/tenants/account/password", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            currentPassword: hasPassword ? passwordValues.currentPassword : undefined,
+            newPassword: passwordValues.newPassword,
+            confirmPassword: passwordValues.confirmPassword,
+          }),
+        });
+        if (!passwordRes.ok) {
+          const data = await passwordRes.json().catch(() => ({}));
+          throw new Error(translateApiError(t, data.error) || t.crm.business.saveError);
+        }
+        // Cleared as soon as the password is stored, so a later failure in the business save cannot re-send it.
+        setPasswordValues(EMPTY_PASSWORD_VALUES);
+        setHasPassword(true);
+      }
 
       const res = await fetch("/api/tenants/business", {
         method: "PATCH",
@@ -246,6 +316,7 @@ export default function BusinessProfilePage() {
           businessHours: hours,
           ownerName: ownerName.trim() || null,
           hasPhysicalLocation,
+          serviceModes,
           address: hasPhysicalLocation ? location?.address : null,
           placeId: hasPhysicalLocation ? location?.placeId ?? null : null,
           latitude: hasPhysicalLocation ? location?.latitude ?? null : null,
@@ -308,7 +379,7 @@ export default function BusinessProfilePage() {
                 <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
                   {t.crm.business.domainCardTitle}
                 </h2>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
                   <Lock size={11} />
                   {t.crm.business.domainLockedBadge}
                 </span>
@@ -504,6 +575,15 @@ export default function BusinessProfilePage() {
           </div>
         </div>
 
+        {/* Security: password change, saved with the Save button below */}
+        <PasswordFields
+          hasPassword={hasPassword}
+          values={passwordValues}
+          showPasswords={showPasswords}
+          onChange={(field, value) => setPasswordValues((prev) => ({ ...prev, [field]: value }))}
+          onToggleShow={() => setShowPasswords((v) => !v)}
+        />
+
         {/* AI Knowledge & Description Card */}
         <div className="p-6 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm space-y-4">
           <div className="flex items-center gap-2.5 pb-4 border-b border-gray-100 dark:border-gray-800">
@@ -596,6 +676,34 @@ export default function BusinessProfilePage() {
               <AddressSearch value={location} onChange={setLocation} />
             </div>
           )}
+
+          <fieldset className="space-y-2">
+            <legend className="text-sm font-medium text-gray-900 dark:text-white">
+              {t.locationUi.serviceModesLabel}
+            </legend>
+            <p className="text-xs text-gray-500 dark:text-gray-400">{t.locationUi.serviceModesHint}</p>
+            <div className="pt-1">
+              {(
+                [
+                  ["IN_PERSON", t.locationUi.serviceModesInPerson],
+                  ["ONLINE", t.locationUi.serviceModesOnline],
+                  ["BOTH", t.locationUi.serviceModesBoth],
+                ] as const
+              ).map(([value, label]) => (
+                <RadioOption
+                  key={value}
+                  name="service-modes"
+                  value={value}
+                  checked={serviceModes === value}
+                  onChange={() => setServiceModes(value)}
+                  label={label}
+                />
+              ))}
+            </div>
+            {serviceModes !== "ONLINE" && !hasPhysicalLocation && (
+              <p className="text-xs text-gray-500 dark:text-gray-400">{t.locationUi.serviceModesNeedsAddress}</p>
+            )}
+          </fieldset>
         </div>
 
         {/* Business hours: one weekly schedule for the storefront and the WhatsApp bot */}
@@ -699,7 +807,7 @@ export default function BusinessProfilePage() {
         <div className="flex items-center justify-between pt-4">
           <div className="flex items-center gap-2">
             {saved && (
-              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-3 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-900">
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary bg-primary/10 px-3 py-1.5 rounded-lg border border-primary/30">
                 <Check size={14} />
                 {t.crm.business.savedSuccess}
               </span>
@@ -709,7 +817,7 @@ export default function BusinessProfilePage() {
           <button
             type="submit"
             disabled={saving || uploadingLogo}
-            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white bg-primary hover:bg-primary/90 focus:outline-hidden focus:ring-2 focus:ring-primary/30 transition-all disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-[color:var(--on-primary)] bg-primary hover:bg-primary/90 focus:outline-hidden focus:ring-2 focus:ring-primary/30 transition-all disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
           >
             {saving ? (
               <>

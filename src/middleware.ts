@@ -1,7 +1,9 @@
 // src/middleware.ts
 // Next.js only reads the middleware from src/ when the app lives in src/app;
-// the old root middleware.ts never ran. The matcher is limited to /admin on purpose: root-domain blocking,
-// the checkout login and the /login redirect are a separate ticket, so nothing else changes behavior here.
+// the old root middleware.ts never ran. The matcher is limited to /admin on purpose: root-domain blocking
+// (its list included /admin, /login, /registro, /recuperar, /checkout, /carrito, /pedido, /mis-pedidos,
+// /productos and /producto), the checkout login and the /login redirect are a separate ticket, so nothing
+// else changes behavior here.
 // APIs are not covered: each API route checks its own permission (src/lib/permission-guard.ts).
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";

@@ -1,9 +1,10 @@
 // src/app/api/internal/bot/cancel/route.ts
-// POST: Cancel an upcoming appointment. Only the phone number that booked it can cancel it.
+// POST: Cancel an upcoming appointment. Only the phone number that booked it (or the visit's own number) can cancel it.
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { cancelAppointment } from "@/lib/appointments-service";
 import { ACTIVE_APPOINTMENT_STATUSES, isInternalKeyValid, resolveBotTenant } from "@/lib/bot";
+import { visitsOfSender } from "@/lib/patient-intake";
 
 export async function POST(req: NextRequest) {
   if (!isInternalKeyValid(req)) return Response.json({ error: "No autorizado" }, { status: 401 });
@@ -19,7 +20,8 @@ export async function POST(req: NextRequest) {
     where: {
       id: String(appointmentId),
       tenantId: bot.tenantId,
-      customerPhone: String(customerPhone),
+      // The person writing: their own visits and the ones they booked for others (recommended by them).
+      ...visitsOfSender(String(customerPhone)),
       status: { in: [...ACTIVE_APPOINTMENT_STATUSES] },
       appointmentDate: { gte: new Date() },
     },

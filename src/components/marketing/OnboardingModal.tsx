@@ -10,6 +10,7 @@ import { useTranslation } from "@/i18n";
 import { translateApiError } from "@/i18n/validation";
 import AddressSearch from "@/components/shared/AddressSearch";
 import type { BusinessLocation } from "@/lib/location";
+import { passwordIssues, PASSWORD_FORM_MESSAGE } from "@/lib/password-rules";
 
 interface Props {
   onClose: () => void;
@@ -191,7 +192,8 @@ export default function OnboardingModal({
     }
     if (step === 2) {
       if (!email || !password) { setError(t.onboardingUi.credentialsRequired); return; }
-      if (password.length < 8) { setError(t.onboardingUi.passwordShort); return; }
+      const [passwordIssue] = passwordIssues(password);
+      if (passwordIssue) { setError(t.validation[PASSWORD_FORM_MESSAGE[passwordIssue]]); return; }
       if (password !== confirmPwd) { setError(t.validation.passwordMismatch); return; }
     }
     if (step === 3 && slugStatus !== "available") {

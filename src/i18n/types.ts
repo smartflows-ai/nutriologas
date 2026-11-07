@@ -7,6 +7,12 @@ export interface Translations {
   locationUi: {
     ownerNameLabel: string;
     ownerNamePlaceholder: string;
+    serviceModesLabel: string;
+    serviceModesHint: string;
+    serviceModesInPerson: string;
+    serviceModesOnline: string;
+    serviceModesBoth: string;
+    serviceModesNeedsAddress: string;
     physicalLocationLabel: string;
     physicalLocationHint: string;
     addressLabel: string;
@@ -33,8 +39,10 @@ export interface Translations {
     ownerConfirmedText: string;
     confirmationLanguageName: string;
     greetingIntro: string;
-    greetingShort: string;
     greetingPrivacy: string;
+    meetingLine: string;
+    bookedByLine: string;
+    bookedByAnon: string;
   };
   nav: {
     features: string;
@@ -181,6 +189,21 @@ export interface Translations {
     privacy: string;
     terms: string;
     cookies: string;
+  };
+  passwordRecovery: {
+    forgotLink: string;
+    title: string;
+    requestSubtitle: string;
+    requestSent: string;
+    sendCode: string;
+    codeLabel: string;
+    newPassword: string;
+    confirmPassword: string;
+    hint: string;
+    submit: string;
+    backToLogin: string;
+    requestAgain: string;
+    loginNotice: string;
   };
   auth: {
     loginTitle: string;
@@ -509,6 +532,18 @@ export interface Translations {
       editSave: string;
     };
     business: {
+      security: {
+        title: string;
+        description: string;
+        hint: string;
+        createTitle: string;
+        createDescription: string;
+        currentPassword: string;
+        newPassword: string;
+        confirmPassword: string;
+        showPassword: string;
+        hidePassword: string;
+      };
       title: string;
       subtitle: string;
       domainCardTitle: string;
@@ -1153,6 +1188,14 @@ export interface Translations {
     countryCode: string;
     email: string;
     emailPlaceholder: string;
+    emailOptional: string;
+    age: string;
+    agePlaceholder: string;
+    modality: string;
+    modalityInPerson: string;
+    modalityOnline: string;
+    summaryModality: string;
+    summaryAddress: string;
     notes: string;
     notesPlaceholder: string;
     privacyNote: string;
@@ -1231,6 +1274,11 @@ export interface Translations {
     filteredBy: string;
     clear: string;
     tabAll: string;
+    dateToday: string;
+    dateAll: string;
+    filterDate: string;
+    filterStatus: string;
+    referredBy: string;
     tabPending: string;
     tabConfirmed: string;
     tabCompleted: string;
@@ -1243,6 +1291,10 @@ export interface Translations {
     patientFallback: string;
     reminderNotDelivered: string;
     reminderNotDeliveredHint: string;
+    modalityInPerson: string;
+    modalityOnline: string;
+    ageYears: string;
+    openMeeting: string;
     consultFallback: string;
     openCalendar: string;
     reason: string;
@@ -1513,6 +1565,10 @@ export interface Translations {
   validation: {
     emailInvalid: string;
     passwordMin: string;
+    passwordTooShort: string;
+    passwordTooLong: string;
+    passwordCommon: string;
+    passwordSameAsCurrent: string;
     nameShort: string;
     passwordMismatch: string;
     nameRequired: string;
@@ -1544,6 +1600,8 @@ export interface Translations {
     whatsapp_invalid_body: string;
     not_bookable: string;
     phone_required: string;
+    age_required: string;
+    modality_required: string;
     patient_not_found: string;
     outside_business_hours: string;
     date_in_past: string;
@@ -1569,7 +1627,18 @@ export interface Translations {
     review_login_required: string;
     review_already_exists: string;
     register_fields_required: string;
-    register_password_short: string;
+    password_too_short: string;
+    password_too_long: string;
+    password_common: string;
+    password_same_as_current: string;
+    too_many_attempts: string;
+    current_password_required: string;
+    current_password_invalid: string;
+    owner_number_is_bot_line: string;
+    reset_code_invalid: string;
+    reset_code_expired: string;
+    reset_code_attempts_used: string;
+    password_mismatch: string;
     register_email_taken: string;
     register_subdomain_taken: string;
     register_subdomain_reserved: string;
@@ -1588,7 +1657,6 @@ export interface Translations {
   onboardingUi: {
     bizRequired: string;
     credentialsRequired: string;
-    passwordShort: string;
     subdomainUnavailable: string;
     termsRequired: string;
     genericError: string;

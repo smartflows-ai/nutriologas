@@ -50,6 +50,7 @@ export async function createMicrosoftEvent(
     start: Date;
     end: Date;
     attendeeEmail?: string;
+    location?: string;
   }
 ): Promise<{ id: string; webLink: string | null }> {
   const res = await fetch(`${GRAPH_URL}/me/events`, {
@@ -61,6 +62,7 @@ export async function createMicrosoftEvent(
     body: JSON.stringify({
       subject: event.subject,
       body: { contentType: "Text", content: event.body },
+      location: event.location ? { displayName: event.location } : undefined,
       start: toGraphDateTime(event.start),
       end: toGraphDateTime(event.end),
       attendees: event.attendeeEmail

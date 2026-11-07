@@ -1,6 +1,6 @@
 "use client";
 // src/components/shop/BookingFlow.tsx
-import { useState, useEffect, useLayoutEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Clock,
   Check,
@@ -17,6 +17,8 @@ import {
 import { formatPrice, localeFor, fill } from "@/lib/utils";
 import { buildFullPhone, DEFAULT_DIAL_CODE, PHONE_COUNTRIES } from "@/lib/phone";
 import { clinicDateTime } from "@/lib/clinic-time";
+import { parseAge } from "@/lib/patient-intake";
+import RadioOption from "@/components/ui/RadioOption";
 import { BusinessHours, blocksForDate, markSlots } from "@/lib/business-hours";
 import { useTranslation } from "@/i18n";
 import { translateApiError } from "@/i18n/validation";
@@ -41,42 +43,21 @@ interface Props {
     usesPets: boolean;
     // Health businesses ask for explicit consent to process the health details the patient writes.
     handlesHealthData: boolean;
+    // How the business sees patients: with "BOTH" the patient chooses in person or online.
+    serviceModes: "IN_PERSON" | "ONLINE" | "BOTH";
+    // Office address shown for in person visits; null without a physical location.
+    address: string | null;
   };
   businessHours: BusinessHours;
 }
-
-// Text color that stays readable on the tenant's primary color: near-black or white, whichever contrasts more (WCAG relative luminance).
-const LIGHT_TEXT = "#ffffff";
-const DARK_TEXT = "#111827";
-const LUMINANCE_THRESHOLD = 0.179;
-
-function readableTextOn(rgbChannels: string): string {
-  const parts = rgbChannels.trim().split(/\s+/).map(Number);
-  if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return LIGHT_TEXT;
-  const [r, g, b] = parts.map((v) => {
-    const c = v / 255;
-    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-  });
-  const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-  return luminance > LUMINANCE_THRESHOLD ? DARK_TEXT : LIGHT_TEXT;
-}
-
-// useLayoutEffect warns during server rendering, so fall back to useEffect there.
-const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 export default function BookingFlow({ product, tenant, businessHours }: Props) {
   const { t, lang } = useTranslation();
   const locale = localeFor(lang);
 
-  // Reads the tenant theme from the DOM so text on primary fills works for any tenant color, light or dark.
+  // Text on primary fills uses the tenant's --on-primary (set with the theme, see src/lib/theme-vars.ts).
   const rootRef = useRef<HTMLDivElement>(null);
   const slotsRef = useRef<HTMLDivElement>(null);
-  const [onPrimary, setOnPrimary] = useState(LIGHT_TEXT);
-  useIsomorphicLayoutEffect(() => {
-    if (!rootRef.current) return;
-    setOnPrimary(readableTextOn(getComputedStyle(rootRef.current).getPropertyValue("--color-primary-rgb")));
-  }, []);
-  const rootStyle = { "--on-primary": onPrimary } as React.CSSProperties;
 
   // Next 21 days, only the days the business is open (its weekly hours).
   const availableDays = (() => {
@@ -111,6 +92,8 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
   const [dialCode, setDialCode] = useState(DEFAULT_DIAL_CODE);
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  const [age, setAge] = useState("");
+  const [modality, setModality] = useState<"IN_PERSON" | "ONLINE" | "">("");
   const [petName, setPetName] = useState("");
   const [petSpecies, setPetSpecies] = useState<string>("dog");
   const [notes, setNotes] = useState("");
@@ -153,8 +136,17 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
       setError(t.booking.errorSelectDateTime);
       return;
     }
-    if (!name || !phone || !email) {
+    // The email is optional: without it no calendar invitation is sent.
+    if (!name || !phone) {
       setError(t.booking.errorRequiredFields);
+      return;
+    }
+    if (parseAge(age) === null) {
+      setError(t.apiErrors.age_required);
+      return;
+    }
+    if (tenant.serviceModes === "BOTH" && !modality) {
+      setError(t.apiErrors.modality_required);
       return;
     }
     if (tenant.usesPets && !petName.trim()) {
@@ -179,7 +171,9 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
           appointmentDate: appointmentDateTime,
           clientName: name,
           clientPhone: buildFullPhone(dialCode, phone),
-          clientEmail: email,
+          clientEmail: email.trim() || undefined,
+          clientAge: age.trim(),
+          modality: tenant.serviceModes === "BOTH" ? modality : undefined,
           petName: tenant.usesPets ? petName : undefined,
           petSpecies: tenant.usesPets ? petSpecies : undefined,
           notes: notes || undefined,
@@ -225,7 +219,7 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
     // The service name is bolded inside the sentence, so split the translated text around {service}
     const [successBefore, successAfter = ""] = t.booking.successDesc.split("{service}");
     return (
-      <div ref={rootRef} style={rootStyle} className="max-w-xl mx-auto py-12 px-4 text-center">
+      <div ref={rootRef} className="max-w-xl mx-auto py-12 px-4 text-center">
         <div className="w-20 h-20 bg-primary text-[color:var(--on-primary)] ring-1 ring-inset ring-gray-900/15 dark:ring-white/25 rounded-xl flex items-center justify-center mx-auto mb-6">
           <CheckCircle2 size={44} />
         </div>
@@ -261,6 +255,20 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
               {fill(t.booking.durationValue, { minutes: product.durationMinutes || 30 })}
             </span>
           </div>
+          {confirmedAppointment.modality && (
+            <div className="flex justify-between items-center pb-3 border-b border-gray-100 dark:border-gray-800">
+              <span className="text-xs text-gray-500 font-semibold">{t.booking.summaryModality}</span>
+              <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                {confirmedAppointment.modality === "ONLINE" ? t.booking.modalityOnline : t.booking.modalityInPerson}
+              </span>
+            </div>
+          )}
+          {confirmedAppointment.modality === "IN_PERSON" && tenant.address && (
+            <div className="flex justify-between items-center gap-4 pb-3 border-b border-gray-100 dark:border-gray-800">
+              <span className="text-xs text-gray-500 font-semibold shrink-0">{t.booking.summaryAddress}</span>
+              <span className="text-sm font-semibold text-gray-800 dark:text-gray-200 text-right break-words">{tenant.address}</span>
+            </div>
+          )}
           <div className="flex justify-between items-center">
             <span className="text-xs text-gray-500 font-semibold">{t.booking.summaryPrice}</span>
             <span className="text-base font-semibold text-gray-900 dark:text-white">{formatPrice(product.price, locale)}</span>
@@ -295,7 +303,7 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
 
   // ── Booking form ─────────────────────────────────────────────
   return (
-    <div ref={rootRef} style={rootStyle} className="max-w-4xl mx-auto py-8 px-4">
+    <div ref={rootRef} className="max-w-4xl mx-auto py-8 px-4">
       {/* Header info */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 pb-8 border-b border-gray-100 dark:border-gray-800 mb-8">
         <div>
@@ -331,7 +339,7 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
             {t.booking.step1}
           </h3>
 
-          <div className="flex gap-2 overflow-x-auto pb-3 pt-1 scrollbar-none">
+          <div className="flex gap-2 overflow-x-auto pb-3 pt-1 scrollbar-slim">
             {availableDays.map((d) => {
               const isSelected = selectedDate === d.dateStr;
               return (
@@ -412,10 +420,11 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="text-xs font-semibold text-gray-700 dark:text-gray-200 mb-1 flex items-center gap-1.5">
+              <label htmlFor="patient-name" className="text-xs font-semibold text-gray-700 dark:text-gray-200 mb-1 flex items-center gap-1.5">
                 <User size={13} className="text-gray-500 dark:text-gray-400" /> {t.booking.fullName}
               </label>
               <input
+                id="patient-name"
                 type="text"
                 required
                 value={name}
@@ -463,7 +472,7 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
             )}
 
             <div>
-              <label className="text-xs font-semibold text-gray-700 dark:text-gray-200 mb-1 flex items-center gap-1.5">
+              <label htmlFor="patient-phone" className="text-xs font-semibold text-gray-700 dark:text-gray-200 mb-1 flex items-center gap-1.5">
                 <Phone size={13} className="text-gray-500 dark:text-gray-400" /> {t.booking.phone}
               </label>
               <div className="flex gap-2">
@@ -480,6 +489,7 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
                   ))}
                 </select>
                 <input
+                  id="patient-phone"
                   type="tel"
                   required
                   value={phone}
@@ -490,13 +500,55 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
               </div>
             </div>
 
-            <div className="md:col-span-2">
-              <label className="text-xs font-semibold text-gray-700 dark:text-gray-200 mb-1 flex items-center gap-1.5">
-                <Mail size={13} className="text-gray-500 dark:text-gray-400" /> {t.booking.email}
+            <div>
+              <label htmlFor="patient-age" className="block text-xs font-semibold text-gray-700 dark:text-gray-200 mb-1">
+                {t.booking.age}
               </label>
               <input
-                type="email"
+                id="patient-age"
+                type="number"
+                inputMode="numeric"
                 required
+                min={0}
+                max={120}
+                value={age}
+                onChange={(e) => setAge(e.target.value)}
+                placeholder={t.booking.agePlaceholder}
+                className="input bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 text-sm"
+              />
+            </div>
+
+            {tenant.serviceModes === "BOTH" && (
+              <fieldset className="md:col-span-2">
+                <legend className="text-xs font-semibold text-gray-700 dark:text-gray-200 mb-1">{t.booking.modality}</legend>
+                <div className="flex flex-wrap gap-x-6">
+                  {(
+                    [
+                      ["IN_PERSON", t.booking.modalityInPerson],
+                      ["ONLINE", t.booking.modalityOnline],
+                    ] as const
+                  ).map(([value, label]) => (
+                    <RadioOption
+                      key={value}
+                      name="modality"
+                      value={value}
+                      checked={modality === value}
+                      onChange={() => setModality(value)}
+                      label={label}
+                    />
+                  ))}
+                </div>
+              </fieldset>
+            )}
+
+            <div className="md:col-span-2">
+              <label htmlFor="patient-email" className="text-xs font-semibold text-gray-700 dark:text-gray-200 mb-1 flex items-center gap-1.5">
+                <Mail size={13} className="text-gray-500 dark:text-gray-400" /> {t.booking.email}{" "}
+                <span className="font-normal text-gray-500 dark:text-gray-400">{t.booking.emailOptional}</span>
+              </label>
+              <input
+                id="patient-email"
+                type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder={t.booking.emailPlaceholder}
@@ -505,10 +557,11 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
             </div>
 
             <div className="md:col-span-2">
-              <label className="text-xs font-semibold text-gray-700 dark:text-gray-200 mb-1 flex items-center gap-1.5">
+              <label htmlFor="patient-notes" className="text-xs font-semibold text-gray-700 dark:text-gray-200 mb-1 flex items-center gap-1.5">
                 <FileText size={13} className="text-gray-500 dark:text-gray-400" /> {t.booking.notes}
               </label>
               <textarea
+                id="patient-notes"
                 rows={3}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}

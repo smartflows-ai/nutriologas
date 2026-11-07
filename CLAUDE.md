@@ -181,7 +181,8 @@ src/
 prisma/
   schema.prisma         ← Full data models
   sql/                  ← Manual schema changes, one folder per change with up.sql and down.sql (see "Schema changes")
-local-utils/            ← Tests (`*.test.ts`, node:test), simulators, diagnostics and local utilities that are NOT part of the production app
+tests/                ← Tests (`*.test.ts`, node:test, tracked). local-utils/ ← operator scripts, simulators and diagnostics: in .gitignore, never committed
+
 middleware.ts           ← Multi-tenant gatekeeper + route protection
 ```
 
@@ -201,6 +202,7 @@ The heart of the system. Each business is a Tenant with:
 - `isBookingEnabled` → enables the scheduling and appointment engine for the tenant
 - `isAssistantEnabled` → per-tenant AI chatbot toggle
 - `isTriageEnabled` → toggle to enable the triage/patients module (default: false)
+- `serviceModes` (`ServiceModes`: `IN_PERSON`, `ONLINE`, `BOTH`; default `IN_PERSON`) → how the business sees patients. Set by the owner in `/admin/negocio`. With `BOTH` the bot and `/agendar` ask each visit; with one mode the modality is set by itself (`resolveModality`).
 - `aiCreditLimitUsd` → optional override of the monthly AI credit cap (null = use the plan's)
 - `botFailureAlertedAt` → last time the owner was told the WhatsApp bot failed (60-minute cooldown, see §"Tenant Owner Alerts")
 - `remindersEnabled` → enables WhatsApp appointment reminders (default: true)
@@ -239,7 +241,10 @@ The heart of the system. Each business is a Tenant with:
 - `internalNotes` → clinical or care notes visible only to the professional (ADMIN)
 - `customerPhone` → customer's WhatsApp number; identifies the patient in the bot
 - `patientKey` → phone digits normalized to `52` + 10 digits (`src/lib/patient-key.ts`). Groups a patient's visits in `/admin/historial`. Set by `createAppointment` on every booking.
-- `customerEmail` → email the customer typed when booking (may differ from the linked account's email)
+- `customerEmail` → email the customer typed when booking (may differ from the linked account's email). Optional: without it no calendar invitation is sent.
+- `customerAge` → patient age (0 to 120) asked on the first booking and copied forward from the latest visit. `null` in older visits.
+- `modality` (`AppointmentModality`: `IN_PERSON`, `ONLINE`) → how the visit happens; `null` in older visits. `meetUrl` → video link of an online visit when the calendar created one.
+- `referredByKey`, `referredByName` → recommended by: when a visit is booked for someone else (`patientPhone`), the booker's patientKey and name at that moment are saved (`referralOf` in `src/lib/patient-intake.ts`). Null for visits booked for oneself. Shown in `/admin/citas` ("Recomendado por …") and in the patient history (from the patient's oldest visit that has it).
 - `externalProvider` (`AppProvider`) and `externalEventId` → calendar (`GOOGLE` or `MICROSOFT`) and id of the event that mirrors the appointment; `null` if no calendar is connected
 - `googleEventId` → legacy, replaced by `externalEventId`; removed after running `local-utils/backfill-appointment-calendar-links.mjs`
 - `reminderSentAt`, `customerConfirmedAt`, `autoReleasedAt` → reminder sent, confirmed by the customer, and released without confirmation. Rescheduling the appointment resets them. `remindersSent` is legacy.
@@ -298,7 +303,7 @@ The heart of the system. Each business is a Tenant with:
 - Plans (`PlanId`): STARTER (Start), PLUS (Plus), PRO (Pro), ENTERPRISE. CLINICA, VETERINARY and TOURISM still exist in the enum but nothing uses them (retirement pending).
 - **PLUS status:** the value is in the production database (`prisma/sql/17-plan-plus`). The code that understands PLUS (locks, capabilities, subscribe route) is NOT deployed yet. Never set a tenant to PLUS until that code is live: the old code cannot read the value and the tenant's CRM breaks (this happened once on doctorg and was reverted).
 - **Plan copy (2026-11-05):** Facebook/Instagram campaigns belong to **Pro** (registry, landing and `due` route agree); Google Calendar appointments are open to Start. The checkout cards (`billing.startFeatures`, `plusFeatures`, `proFeatures` in i18n) list only what is built, taken from the landing lists (`pricing.mx`); the landing lists stay as published. Prices always come from Stripe. The landing shows Start, Plus and Pro in every language (USD for English, no setup fee or US quotas defined yet; Plus US fallback $49, env `STRIPE_PRICE_PLUS_MONTHLY_DLLS`). The old `pricing.starterFeatures` and `proFeatures` copy is unused.
-- **Which tools each plan includes:** `src/lib/capabilities.ts` (registry, `enforcedPlan`). Locked tools are hidden from the sidebar, shown in the App Store with a legend, and blocked on the server (pages redirect to `/admin/suscripcion`, APIs answer 403 `plan_required`). Guards: `src/lib/capability-guard.ts`. Tests: `local-utils/capabilities.test.ts`, `local-utils/plan-guard.test.ts`.
+- **Which tools each plan includes:** `src/lib/capabilities.ts` (registry, `enforcedPlan`). Locked tools are hidden from the sidebar, shown in the App Store with a legend, and blocked on the server (pages redirect to `/admin/suscripcion`, APIs answer 403 `plan_required`). Guards: `src/lib/capability-guard.ts`. Tests: `tests/capabilities.test.ts`, `tests/plan-guard.test.ts`.
 - Statuses: TRIALING, ACTIVE, PAST_DUE, CANCELED, UNPAID
 - Billing managed by Stripe
 - `trialEndsAt` → trial period expiration date (14 days from creation)
@@ -478,12 +483,14 @@ Flow: `n8n/workflows/n8n-chat-workflow-v2.json` ("NewAigent - WhatsApp Bot (Chat
 - **Business rules**: prices may be quoted, never changed or discounted. Appointments within the business's weekly hours (`Tenant.businessHours`, `src/lib/business-hours.ts`, Mexico time), with per-service duration. Only `isBookable` items are scheduled. Conflict checking covers native appointments and the connected calendar (Google or Outlook, `getBusyPeriods` in `src/lib/calendar-sync.ts`); if the calendar fails, only the database is used. The web and the bot create appointments with the same service (`src/lib/appointments-service.ts`).
 - **Patient times**: they are Mexico time. They are built with `clinicDateTime()` (`src/lib/clinic-time.ts`, offset `-06:00`) and read with `clinicTimeOf()`. Never use a `Z` suffix for a time chosen by the patient.
 - **Privacy**: the system prompt forbids mentioning technical formats, IDs, tools, errors, infrastructure and other customers' data. It is a guide for the model, not a guarantee. The `Clean Reply` node removes repeated greetings and is the only output filter.
-- **Greeting and introduction**: a pure greeting ("hola", "buenas tardes") is answered by the server with a template, without calling the agent or spending credits (`src/lib/greeting.ts`, `greetingReply` of `POST /api/internal/bot/context`). The bot introduces itself ("Hola, soy el asistente de WhatsApp de [negocio]") if nobody wrote to the contact in the last 12 hours (`introRequired`); the agent receives it as PRESENTACION in the prompt. The greeting is stored as a bot message. The introduction includes the business privacy notice (`privacyUrl`, built with `tenantPublicUrl` in `src/lib/tenant-url.ts`).
+- **Greeting and introduction**: a pure greeting ("hola", "buenas tardes") is answered by the server with a template, without calling the agent or spending credits (`src/lib/greeting.ts`, `greetingReply` of `POST /api/internal/bot/context`). Every pure greeting gets the introduction ("Hola, soy el asistente de WhatsApp de [negocio]"), also inside an active chat. For any other first message the agent introduces itself if nobody wrote to the contact in the last 12 hours (`introRequired`), received as PRESENTACION in the prompt. The greeting is stored as a bot message. The introduction includes the business privacy notice (`privacyUrl`, built with `tenantPublicUrl` in `src/lib/tenant-url.ts`).
 - **Token reporting**: `Collect Token Usage` adds up the usage of all agent calls and `Report Token Usage` sends it to `POST /api/internal/tokens/report`, which charges the tenant at the retail rate. If the provider does not report usage, it is estimated (2,000 prompt tokens per call plus response length / 4).
 - **Credits exhausted**: the "Guard: Credits OK" node checks `creditExhausted` (from `POST /api/internal/bot/context`) before reaching the agent. If the tenant already exhausted its monthly limit, the model call is skipped and a fixed degradation reply is sent.
 - **Total cascade failure**: the "Bot Agent" node has `onError: continueErrorOutput`; if every model fails, that branch sends the customer a fixed apology reply (instead of silence) and calls `POST /api/internal/bot/alert-failure` to notify the owner (60-min cooldown, see §"Tenant owner alerts" in the credits section).
 - **Calendar for the agent**: `POST /api/internal/bot/context` returns `calendarText` (next 14 days with weekday, date and hours, generated by `upcomingCalendarText()` in `src/lib/business-hours.ts`). The prompt uses it to name days and dates; the model must not compute weekdays on its own.
-- **Email required for new appointments**: `bot/book` answers `email_required` without a valid email. This way every bot appointment has an attendee and the Google or Outlook invitation goes out by itself. Canceling and rescheduling do not ask for a name or email: they are identified by the WhatsApp number and `list_my_appointments`.
+- **Hours offered**: `POST /api/internal/bot/availability` returns at most 3 free hours (`availableSlots`, `hasMore`); `after` (HH:mm) returns the next ones. The agent never lists the whole day or every day.
+- **Patient intake and modality** (`src/lib/patient-intake.ts`, pure rules with tests in `tests/patient-intake.test.ts`): a number is a known patient when it already has an appointment in the business (latest visit by `patientKey`, `getKnownPatient` in `src/lib/patients.ts`). `bot/context` returns `patient`, `intake` and `modalityMode` (`IN_PERSON`, `ONLINE` or `ASK`), so the first booking asks name, age and an optional email and later bookings ask nothing about the patient. `bot/book` with the body field `intake: "v2"` enforces it: a new patient without name or age gets `patient_info_required`, a business set to both modes without the choice gets `modality_required`, a typed email must be valid and no email is fine (no calendar invitation is sent). Without `intake: "v2"` (a workflow not yet re-imported) the route keeps the old rule: name and a valid email required (`email_required`), no age or modality. A patient without email gets a stable placeholder login `<patientKey>@wa.guest.local` (`guestEmailFor`), never shown or mailed (`isSyntheticEmail`). A registered patient is shown the stored name, age and email (`bot/context` returns `patient.email`, null when none) and asked once to confirm them before booking. When the customer books for someone else, the bot collects that person's name, age, WhatsApp number and optional email and sends `patientPhone` to `bot/book`; `resolveBookingPhone` saves the visit under that number (`invalid_patient_phone` when it is not a phone; the sender's own number in another format counts as the sender), so the history, the reminders and the SI confirmation go to that person. `bot/book` answers `patientName` and `forOtherPerson`. The visit remembers who booked it (`referredByKey`/`referredByName`, an automatic recommendation), and the booker sees it in `my-appointments` (`forOtherPerson`, `patientName`) and can cancel or reschedule it from their chat (`visitsOfSender` matches the visit's own phone or the booker's key). A visit booked for another person adds a line to its reminder and to the owner confirmation saying who booked it (first name) and to reply if it was not requested (`withBookedBy` in `src/lib/reminder-messages.ts`); the booker name comes from the registry or from `senderName` (WhatsApp profile name) in the `bot/book` body. Canceling and rescheduling do not ask for a name or email: they are identified by the WhatsApp number and `list_my_appointments`.
+- **Online visits and calendar events**: the event gets a Google Meet link only for `ONLINE` visits (and for older callers with no modality); `IN_PERSON` events get the business address as location and no video link. The link is stored in `Appointment.meetUrl` and returned by `bot/book` and `bot/my-appointments`. It is also added as a last line ("Videollamada: <link>", `withMeetingLink` in `src/lib/reminder-messages.ts`) to the reminder, the reply after the patient confirms with SI, the owner's confirmation from the Confirmaciones tab and the Confirmar button in `/admin/citas`; only `https://` links of online visits are added, so it reaches patients who gave no email too. Decision (2026-11-06): for now the meeting link is always created with Google Meet through the connected Google calendar. A business with Outlook, or with no calendar, gets no automatic link: the bot tells the patient the clinic will send it. Own-link setting and Teams are postponed.
 - **Tools with errors as data**: the agent's five tools have `neverError`; a 409 response (`slot_unavailable`) reaches the model as a message and the customer gets a normal reply.
 - **Past times**: no appointments are created at times that have already passed (`POST /api/appointments` answers `date_in_past`, for all creators; the bot and web availability also filter them).
 - **n8n rules for this flow**:
@@ -514,7 +521,7 @@ Flow: `n8n/workflows/n8n-chat-workflow-v2.json` ("NewAigent - WhatsApp Bot (Chat
 - **Owner list** ("Confirmaciones" tab in `/admin/whatsapp`): `GET /api/apps/whatsapp/confirmations`, and `POST /api/apps/whatsapp/confirmations/[id]` with `action: "confirm" | "release"`. "Liberar ahora" (release now) uses the same `releaseVisit`.
 - **Channel**: `sendWhatsAppMessage` (Evolution). With Meta's official API, a reminder outside the 24 h window will need an approved template.
 - **Testing the flow in minutes**: `local-utils/reminder-sim.ts` runs the real job (same code as production) on one test visit named `PRUEBA #16` with a simulated clock, because the settings cannot go below 60 min before the visit and a 30 min answer window. Modes: `fail` (send forced to fail, no WhatsApp), `send` (real WhatsApp, charges the tenant), `release` (cancels, deletes the calendar event, real cancellation text). Without `--yes` it only prints. Usage: `npx tsx --env-file=.env local-utils/reminder-sim.ts --id <appointmentId> --mode fail|send|release [--yes]`. It writes to the real database and sends real messages, so use it with your own number and ask first.
-- **Status (ticket #16)**: tested end to end with real WhatsApp and Google Calendar (reminder, confirmation with SI, release, event created and deleted). **Pending**: deploy the code, verify in production (eligible visits get their message, the 502 shows in n8n, the event is deleted with the real clock), re-import `n8n/workflows/n8n-chat-workflow-v2.json` and `n8n/workflows/n8n-reminders-workflow.json`, and test a custom cancellation text and the English language in a real send.
+- **Status (ticket #16)**: tested end to end with real WhatsApp and Google Calendar (reminder, confirmation with SI, release, event created and deleted). **Pending**: deploy the code, verify in production (eligible visits get their message, the 502 shows in n8n, the event is deleted with the real clock), re-import `n8n/workflows/n8n-chat-workflow-v2.json` (the reminders workflow `n8n-reminders-workflow.json` is already re-imported and needs no change: it only calls `reminders/run`), and test a custom cancellation text and the English language in a real send.
 
 ---
 
@@ -636,7 +643,7 @@ npm run db:seed          # Create sample data
 npm run db:studio        # Open Prisma Studio (DB UI)
 vercel --prod            # Deploy to production
 
-npx tsx --test local-utils/*.test.ts     # Automated tests (node:test, no database needed)
+npx tsx --test tests/*.test.ts     # Automated tests (node:test, no database needed)
 npx tsc --noEmit                         # Type check
 npx tsx --env-file=.env local-utils/<script>.ts   # Scripts that touch the database: tsx does NOT load .env by itself
 ```
@@ -656,7 +663,7 @@ How to make one safely:
 4. Get explicit human approval, then apply `up.sql` in one transaction (`psql -v ON_ERROR_STOP=1 -1 -f up.sql`) and verify types, defaults and that existing rows did not change.
 5. **Order: database first, code after.** New code reads the new columns; if it ships first, every appointment query fails (reminders, agenda, bot, CRM). Old code ignores extra columns, so the reverse is safe. Merging to `main` deploys through CI/CD, so a merge counts as a deploy.
 
-Done so far: `prisma/sql/16-reminder-attempts/` (ticket #16). `prisma/sql/17-plan-plus/` (PLUS value in `PlanId`), applied to production on 2026-11-05 after a verified backup; the code that uses PLUS is not deployed yet. There is no separate test database yet: local development uses the real one, so treat every local write as a production write.
+Done so far: `prisma/sql/22-referred-by/` (`referredByKey`, `referredByName` and an index on appointments), applied to the real database on 2026-11-06 after a verified `pg_dump` backup; additive. `prisma/sql/21-patient-intake/` (age, modality and meeting link on appointments, `Tenant.serviceModes`), applied to the real database on 2026-11-06 after a verified `pg_dump` backup (kept outside the repo); verified types, defaults and that the 32 existing appointments did not change. The throwaway-database `migrate diff` check was not run (no test database). The code that reads it is not deployed yet. `prisma/sql/16-reminder-attempts/` (ticket #16). `prisma/sql/17-plan-plus/` (PLUS value in `PlanId`), applied to production on 2026-11-05 after a verified backup; the code that uses PLUS is not deployed yet. There is no separate test database yet: local development uses the real one, so treat every local write as a production write.
 
 ---
 
@@ -729,7 +736,7 @@ Do not set a business to PLUS until the code that understands PLUS is live.
 - **TODO signup with Plus.** The landing Plus card still starts a Pro trial because `POST /api/tenants/register` and `getStripePriceId` only know STARTER and PRO.
 - **Plan phase 4 (missing tools).** Conversation counter and limits, users per plan (1, 2 and 3), waitlist, attendance reports, contact import (Pro), team roles, human handoff alert, bot safety protocols, per-product bot guidance, product priority, offers and discounts, Doctoralia integration. Each goes in the capability registry first (scope, plan, verticals, section, AI, built).
 - **Plans and billing docs.** The plan file `~/.claude/plans/read-the-businnes-verticals-fluffy-breeze.md` still shows the open decisions as pending; update it when these are closed.
-- **Automated tests.** The guards and the registry are covered by `local-utils/capabilities.test.ts`, `plan-guard.test.ts` and `billing-currency.test.ts`. There are no browser or end-to-end tests yet.
+- **Automated tests.** The guards and the registry are covered by `tests/capabilities.test.ts`, `plan-guard.test.ts` and `billing-currency.test.ts`. There are no browser or end-to-end tests yet.
 - **Database password.** The production password was pasted in chat on 2026-11-05. Rotate it in Supabase, then update `.env` and Vercel.
 
 ---
@@ -782,6 +789,14 @@ Do not set a business to PLUS until the code that understands PLUS is live.
 - Needs `N8N_API_URL` and `N8N_API_KEY` in `.env` (see `.env.example`). It only does `GET`: whether a workflow is active, its schedule, its last executions and what it calls. The workflows are not in the repo, so the live instance is the source of truth.
 - It never prints raw workflow JSON (the workflows hold hardcoded secrets and the repo is public). Before any approved write to n8n it saves the full JSON **outside the repo** (`~/.n8n-backups/`, owner-only), and it asks with `AskUserQuestion` naming the workflow, the exact change and the backup path. Approval of a plan is not approval of the write.
 
+### n8n MCP server (second way to reach the n8n instance)
+- Besides `/n8n` (REST, `N8N_API_KEY`), the n8n instance exposes an MCP endpoint: `https://n8n.smart-flows.tech/mcp-server/http`. It is added per developer in their own Claude Code config (scope `local`, the default, which lives in `C:\Users\<user>\.claude.json`): `claude mcp add --transport http n8n-mcp https://n8n.smart-flows.tech/mcp-server/http --header "Authorization: Bearer <token>"`.
+- The token is the one from n8n > Settings > MCP Access (instance-level MCP), **not** `N8N_API_KEY`. A 401 means a wrong, expired or regenerated token, or MCP Access turned off.
+- **Never** put the token in the repo: not in `.mcp.json` (project scope), not in `.claude/settings.local.json`, not in `.claude/.claude.json`, not in chat. The repo is public.
+- The server name is `n8n-mcp`. Check with `/mcp` (state and tool count) or `claude mcp list`. A server added or reconnected after a session started is not picked up by that session: restart the session to get its tools. A "version negotiation timed out" on first connect usually means a slow start (for an `npx` server, run it once to fill the cache, or start Claude Code with `MCP_TIMEOUT=30000`).
+- Same rules as `/n8n`: reads are free; any write (import, edit, activate or deactivate a workflow) needs explicit approval in chat, with a backup of the current workflow saved outside the repo first. Never print raw workflow JSON.
+- Status (2026-11-06): connected in the other sessions of the owner; the chat session had to be restarted to load it. The chat workflow `n8n-chat-workflow-v2.json` is still imported by hand until the code is deployed.
+
 ### Human gate and re-route rules
 Rescued from the old `.agents/` scaffold, because ECC has no equivalent. Applies to people and to any AI assistant working on this repo.
 
@@ -817,7 +832,7 @@ Token-lean maps live in `docs/CODEMAPS/`: `architecture.md`, `backend.md`, `fron
 ### Precedence over ECC rules
 When an ECC rule conflicts with this file, this file wins. In particular:
 - Tenant isolation (`tenantId` from the session, never from input), `@/lib/db` for Prisma, white-label vocabulary, i18n, no emojis, minimal UI and tenant theme tokens are mandatory.
-- The ECC rules for 80% coverage and TDD are the target. The repo has no coverage tool or CI test step yet, but pure logic is tested with `node:test` through `tsx` in `local-utils/*.test.ts` (`npx tsx --test local-utils/*.test.ts`): write the failing test first, then the code. Logic that talks to the database or the network is built with its I/O injected so it can be tested without them (see `src/lib/reminder-run.ts`). Adding a real runner and coverage is a separate task.
+- The ECC rules for 80% coverage and TDD are the target. The repo has no coverage tool or CI test step yet, but pure logic is tested with `node:test` through `tsx` in `local-utils/*.test.ts` (`npx tsx --test tests/*.test.ts`): write the failing test first, then the code. Logic that talks to the database or the network is built with its I/O injected so it can be tested without them (see `src/lib/reminder-run.ts`). Adding a real runner and coverage is a separate task.
 - The ECC "never mutate" rule applies to new code. Do not rewrite existing Prisma or Zustand code only to satisfy it.
 
 ### Known gaps (verified 2026-11-03)
@@ -828,10 +843,13 @@ When an ECC rule conflicts with this file, this file wins. In particular:
 
 ## Development Rules and Local Utilities
 
-### Mandatory location for test scripts (`local-utils/`)
-- **STRICT RULE**: If you are going to create a utility to test something, diagnose the database, simulate API calls, or any script that will **NOT be part of the business (production) application**, you **MUST add it inside the `local-utils/` folder**.
-- **FORBIDDEN**: Do not create temporary scripts in the project root (`./`), nor in untracked temporary directories such as `scratch/`, nor inside `src/`.
-- All ad-hoc scripts (for example: scripts to check users, backfills, ledger testing, webhook simulators, etc.) must live in `local-utils/`.
+### Where tests and scripts live (`tests/` and `local-utils/`)
+- **Tests** (`*.test.ts`, node:test) live in `tests/`, which is tracked and committed. Run them with `npx tsx --test tests/*.test.ts`. Pure logic goes there; I/O is injected so the tests need no database or WhatsApp.
+- **Operator scripts** (checks against the database, simulators, one-off backfills, the minimal-ui audit) live in `local-utils/`. That folder is in `.gitignore` and is **never committed or pushed**. The repo is public, and these scripts reach the database or send WhatsApp messages.
+- **STRICT RULE**: a utility that tests something, diagnoses the database, simulates API calls, or is not part of the production app goes in one of these two folders. Never in the project root (`./`), in untracked temporary folders such as `scratch/`, or in `src/`.
+- Before any commit, PR or push, run `git diff --cached --name-only` and `git diff origin/main...HEAD --name-only`. Neither may list an added or modified path under `local-utils/`. A deletion (`D`) is allowed only when it untracks a file that used to be in git (how the legacy scripts leave the index). If an added or modified path appears, unstage it (`git restore --staged <file>`) and say so before committing.
+- Never use `git add -f` on a `local-utils/` file. Never stage with `git add -A` or `git add .`: stage files by name.
+- Status (2026-11-06): the test suites moved to `tests/`; the operator scripts are no longer tracked. Both changes are staged and not yet committed.
 
 ### No emojis in the UI
 - **NEVER** use emoji characters (`📋`, `✅`, `⚠️`, `⭐`, `🚀`, etc.) as UI elements in JSX/TSX.
@@ -841,16 +859,24 @@ When an ECC rule conflicts with this file, this file wins. In particular:
 - Icon-only buttons must include `aria-label` for accessibility.
 
 ### Minimalist style on tenant screens
-- Tenant screens (CRM, storefront, login/signup) follow a flat, neutral style, like Claude or ChatGPT. Specification in `.claude/skills/minimal-ui/references/style-spec.md`.
+- Tenant screens (CRM, storefront, login/signup) follow a flat, neutral style, like Claude or ChatGPT. The rules are in `local-utils/minimal-ui/config.js` (auto token swaps and flagged patterns); check with `node local-utils/minimal-ui/audit.js` (read-only).
 - No gradients, blur, colored shadows, hover scaling or uppercase labels. The tenant's colors and font are kept.
 - To audit or rewrite styles use the `minimal-ui` skill (scripts in `local-utils/minimal-ui/`).
 - The dark NewAigent brand pages (landing, legal, billing, 404) are not covered by this style.
+- **Run both checks before writing any tenant UI, and again before closing it:**
+  - `node local-utils/minimal-ui/audit.js`: decorative style (radius, shadows, uppercase, gradients).
+  - `node local-utils/minimal-ui/theme-colors.js`: hardcoded colors. **FAIL** = a brand-like palette color (`green-600`, `emerald-50`, `blue-600`, ...) or a hex value on a tenant screen; exit code 1. **WARN** = red status colors (errors), reviewed by hand. Neutrals (gray, slate, zinc, white, black) are allowed. SVG brand marks are ignored.
+  - Both are read-only. Report the output for the files you touched: each FAIL is fixed or justified, each WARN is reviewed.
+  - Existing screens have FAILs from before these checks (for example status badges on `(public)/mis-pedidos` and `admin/negocio`). The rule applies to every new or changed line; clean up the old ones when you touch those files.
 
 ### Follow the tenant's style (theme in the database)
+- **Text on a primary fill**: never `text-white` on `bg-primary`. Use `text-[color:var(--on-primary)]`: `--on-primary` is set with the rest of the theme (`themeColorVars` and `readableTextOn` in `src/lib/theme-vars.ts`, tests in `tests/theme-vars.test.ts`) and picks white or near-black, whichever contrasts more, so it stays readable on very light and very dark tenant colors. Shared pieces: `src/components/ui/FilterChip.tsx` (filter pills) and `src/components/ui/RadioOption.tsx` (radio rows, 44px tall on phones). `scrollbar-slim` (globals.css) gives a chip row a thin scrollbar in the tenant's primary color. Not yet swept: about 29 older `bg-primary ... text-white` uses in apps, pacientes, pedidos, productos, reviews, social-campaign, whatsapp, Pagination, ChatAssistant, CalendarView, Navbar and ProductCard.
 - Every new page or component of the **public storefront** (`(public)/`) and the **CRM** (`admin/`) must respect the tenant's visual theme stored in the `ThemeConfig` table (`primaryColor`, `secondaryColor`, `accentColor`, `fontFamily`).
 - The theme is injected as CSS variables from the tenant layout. Always use `var(--color-primary)` / `bg-primary` / `text-primary` and the configured Tailwind utilities — **never** hardcoded color values (`#16a34a`, `green-600`, etc.) in tenant components.
 - In **marketing page** components (`marketing/`), fixed colors are allowed because they do not belong to any tenant.
 - If a new component needs an accent color different from the tenant's, it must expose it as a prop or CSS token — not hardcode it.
+- The color check is `node local-utils/minimal-ui/theme-colors.js` (see "Minimalist style on tenant screens"). A UI change is not done until it has no new FAIL.
+- Before closing any UI change, check and state the result: empty value, long value, dark mode, very light and very dark tenant colors (the white text on `bg-primary` must stay readable), and another vertical when it applies.
 
 ### Multi-tenant rules (think about every business)
 - Every change is designed as a rule for **any** tenant, not for the example shown in a screenshot. A screenshot is a case, not the specification.
@@ -968,7 +994,7 @@ When an ECC rule conflicts with this file, this file wins. In particular:
   - Located on the left for quick navigation by month and day.
   - Shows indicator dots on days that have appointments (from any source).
   - Clicking a day instantly filters the unified list to that date.
-- **No duplicate grids**: The separate FullCalendar view at the bottom of the page was removed to avoid numeric discrepancies and ensure all appointments share the same list and KPI metrics (`TOTAL`, `POR CONFIRMAR` (to confirm), `CONFIRMADAS` (confirmed), `COMPLETADAS` (completed)).
+- **No duplicate grids**: The separate FullCalendar view at the bottom of the page was removed to avoid numeric discrepancies and ensure all appointments share the same list and KPI metrics (`TOTAL`, `POR CONFIRMAR` (to confirm), `CONFIRMADAS` (confirmed), `COMPLETADAS` (completed)). The page opens on today's appointments; the date chips (Hoy, a picked day, Todas las fechas) and the status chips are two labeled rows. The KPI cards and the status chip counts follow the chosen day (the whole month when no day is chosen) and ignore the status and search filters (`GET /api/appointments`); the calendar dots always cover the month.
 - **Badges and actions by source**:
   - Google Calendar appointments: Show the official `Google Calendar` badge, event data and a direct **"Abrir en Calendar ↗"** (Open in Calendar) button.
   - Native appointments: Show the service price, phone with a direct WhatsApp link (`wa.me`), clinical status and action buttons (`Confirmar`, `Atendida`, `No vino`, `Notas clínicas` — Confirm, Attended, No-show, Clinical notes).

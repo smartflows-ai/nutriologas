@@ -5,11 +5,16 @@ import bcrypt from "bcryptjs";
 import { createConektaCustomer } from "@/lib/conekta";
 import { resolveTenantSlug } from "@/lib/tenant";
 import { apiError } from "@/lib/api-errors";
+import { passwordIssues, PASSWORD_API_ERROR } from "@/lib/password-rules";
 
 export async function POST(req: NextRequest) {
   const { name, email, password } = await req.json();
 
   if (!email || !password) return apiError("register_fields_required", 400);
+  if (typeof password !== "string") return apiError("register_fields_required", 400);
+
+  const [passwordIssue] = passwordIssues(password);
+  if (passwordIssue) return apiError(PASSWORD_API_ERROR[passwordIssue], 400);
 
   // Resolve tenant from the host header using the shared helper
   const host = req.headers.get("host") || "";

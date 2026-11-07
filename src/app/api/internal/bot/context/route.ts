@@ -6,6 +6,9 @@ import { isInternalKeyValid, resolveBotTenant } from "@/lib/bot";
 import { isBookable } from "@/lib/bookable";
 import { getCreditStatus } from "@/lib/credits";
 import { INTRO_WINDOW_HOURS, buildGreetingReply, introRequired } from "@/lib/greeting";
+import { intakeNeeds, modalityModeOf } from "@/lib/patient-intake";
+import { patientKeyOf } from "@/lib/patient-key";
+import { getKnownPatient } from "@/lib/patients";
 
 export async function POST(req: NextRequest) {
   if (!isInternalKeyValid(req)) return Response.json({ error: "No autorizado" }, { status: 401 });
@@ -36,8 +39,13 @@ export async function POST(req: NextRequest) {
   const needsIntro = introRequired(lastOutgoing?.timestamp ?? null);
   const greetingReply =
     typeof text === "string" && text
-      ? buildGreetingReply({ text, businessName: bot.tenantName, language: bot.messageLanguage, introRequired: needsIntro, privacyUrl: bot.privacyUrl })
+      ? buildGreetingReply({ text, businessName: bot.tenantName, language: bot.messageLanguage, privacyUrl: bot.privacyUrl })
       : null;
+
+  // Is this number already a patient? A known patient is never asked name, age or email again.
+  const known = bot.isBookingEnabled
+    ? await getKnownPatient(bot.tenantId, patientKeyOf(typeof customerPhone === "string" ? customerPhone : null))
+    : null;
 
   const [products, faqs, creditStatus] = await Promise.all([
     prisma.product.findMany({
@@ -78,6 +86,12 @@ export async function POST(req: NextRequest) {
     greetingReply,
     introRequired: needsIntro,
     privacyUrl: bot.privacyUrl,
+    // Patient registry for this number: what to ask (intake) and how the business sees patients (modalityMode:
+    // IN_PERSON, ONLINE, or ASK when the patient chooses). The stored name, age and email are shown to the patient
+    // (it is their own number) so they confirm them before booking; email is null when they gave none.
+    patient: known ? { known: true, name: known.name, age: known.age, email: known.email } : { known: false },
+    intake: intakeNeeds(known),
+    modalityMode: modalityModeOf(bot.serviceModes),
     // Read-only catalog: the agent may quote these prices but cannot change them.
     // bookable = sold by appointment; false means information only (no date, no booking tools).
     products: products.map((p) => ({

@@ -16,6 +16,7 @@ html {
 :root {
   --color-primary: #16a34a;
   --color-primary-rgb: 22 163 74;
+  --on-primary: #111827; /* readable text on the primary fill (dark on the default green); the tenant theme overrides it (src/lib/theme-vars.ts) */
   --color-secondary: #15803d;
   --color-secondary-rgb: 21 128 61;
   --color-accent: #4ade80;
@@ -133,4 +134,26 @@ html {
     0%, 100% { transform: translateY(0px) rotate(-1deg); }
     50% { transform: translateY(-16px) rotate(1deg); }
   }
+}
+/* Slim horizontal scrollbar for chip rows: thin and rounded, in the tenant's primary color (70% strength, solid on hover).
+   The gray lines are the fallback for browsers without color-mix. */
+.scrollbar-slim {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(156 163 175 / 0.5) transparent;
+  scrollbar-color: color-mix(in srgb, var(--color-primary) 70%, transparent) transparent;
+}
+.scrollbar-slim::-webkit-scrollbar {
+  height: 8px;
+}
+.scrollbar-slim::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-slim::-webkit-scrollbar-thumb {
+  background-color: rgb(156 163 175 / 0.45);
+  background-color: color-mix(in srgb, var(--color-primary) 70%, transparent);
+  border-radius: 9999px;
+}
+.scrollbar-slim::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(156 163 175 / 0.75);
+  background-color: var(--color-primary);
 }

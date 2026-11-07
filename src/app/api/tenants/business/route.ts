@@ -6,6 +6,7 @@ import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { apiError } from "@/lib/api-errors";
 import { locationSchema } from "@/lib/location";
+import { isSameWhatsAppNumber } from "@/lib/whatsapp-number";
 import {
   businessHoursSchema,
   isDefaultBusinessHours,
@@ -14,7 +15,7 @@ import {
 
 const updateBusinessSchema = z.object({
   name: z.string().trim().min(2, "Name must be at least 2 characters").max(80, "Name cannot exceed 80 characters"),
-  // Required: country code plus 8 to 15 digits (E.164), e.g. +528446683688
+  // Required: country code plus 8 to 15 digits (E.164), e.g. +525512345678
   whatsappNumber: z.string().trim().regex(/^\+\d{8,15}$/, "WhatsApp number must include the country code"),
   businessInfo: z.string().trim().max(3000, "Description cannot exceed 3000 characters").nullable().optional(),
   logoUrl: z.string().trim().nullable().optional(),
@@ -25,6 +26,8 @@ const updateBusinessSchema = z.object({
   placeId: z.string().nullable().optional(),
   latitude: z.number().nullable().optional(),
   longitude: z.number().nullable().optional(),
+  // How the business sees patients; with BOTH the bot and the web ask each visit (see patient-intake.ts).
+  serviceModes: z.enum(["IN_PERSON", "ONLINE", "BOTH"]).optional(),
 });
 
 export async function GET() {
@@ -51,6 +54,7 @@ export async function GET() {
         placeId: true,
         latitude: true,
         longitude: true,
+        serviceModes: true,
       },
     });
 
@@ -72,6 +76,7 @@ export async function GET() {
       placeId: tenant.placeId,
       latitude: tenant.latitude,
       longitude: tenant.longitude,
+      serviceModes: tenant.serviceModes,
       tenant,
     });
   } catch (error) {
@@ -99,6 +104,15 @@ export async function PATCH(req: Request) {
     }
 
     const { name, whatsappNumber, businessInfo, logoUrl, businessHours, ownerName } = parsed.data;
+
+    // The owner's number must not be the line the WhatsApp bot sends from (a message would go to itself).
+    const botLine = await prisma.connectedApp.findUnique({
+      where: { tenantId_provider: { tenantId, provider: "WHATSAPP" } },
+      select: { waPhoneNumber: true },
+    });
+    if (isSameWhatsAppNumber(whatsappNumber, botLine?.waPhoneNumber)) {
+      return apiError("owner_number_is_bot_line", 400);
+    }
 
     // Address is required only when the business has a physical location; turning it off clears it.
     let locationData: {
@@ -140,6 +154,7 @@ export async function PATCH(req: Request) {
         businessInfo: businessInfo ?? "",
         logoUrl: logoUrl || null,
         ...(ownerName !== undefined ? { ownerName: ownerName || null } : {}),
+        ...(parsed.data.serviceModes ? { serviceModes: parsed.data.serviceModes } : {}),
         ...(locationData ?? {}),
         ...(hoursData !== undefined ? { businessHours: hoursData } : {}),
       },
@@ -157,6 +172,7 @@ export async function PATCH(req: Request) {
         placeId: true,
         latitude: true,
         longitude: true,
+        serviceModes: true,
       },
     });
 

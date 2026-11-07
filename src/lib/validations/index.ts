@@ -1,17 +1,35 @@
 // src/lib/validations/index.ts
 import { z } from "zod";
+import { passwordIssues, PASSWORD_FORM_MESSAGE } from "@/lib/password-rules";
 
+// Login accepts any existing password (6 or more characters); the strict rules apply when one is set.
 export const loginSchema = z.object({
   email: z.string().email("emailInvalid"),
   password: z.string().min(6, "passwordMin"),
 });
 
+// A password being set or changed: the shared rules in src/lib/password-rules.ts.
+export const newPasswordSchema = z.string().superRefine((value, ctx) => {
+  const [first] = passwordIssues(value);
+  if (first) ctx.addIssue({ code: z.ZodIssueCode.custom, message: PASSWORD_FORM_MESSAGE[first] });
+});
+
 export const registerSchema = z.object({
   name: z.string().min(2, "nameShort"),
   email: z.string().email("emailInvalid"),
-  password: z.string().min(6, "passwordMin"),
+  password: newPasswordSchema,
   confirmPassword: z.string(),
 }).refine((d) => d.password === d.confirmPassword, {
+  message: "passwordMismatch",
+  path: ["confirmPassword"],
+});
+
+// The owner's change-password card. `currentPassword` is required by the route when the account has a password.
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().max(72).optional(),
+  newPassword: newPasswordSchema,
+  confirmPassword: z.string(),
+}).refine((d) => d.newPassword === d.confirmPassword, {
   message: "passwordMismatch",
   path: ["confirmPassword"],
 });

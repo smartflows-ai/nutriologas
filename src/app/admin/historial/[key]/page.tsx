@@ -20,11 +20,12 @@ interface Visit {
   petId: string | null;
   petName: string | null;
   reason: string | null;
+  modality: "IN_PERSON" | "ONLINE" | null;
   note: { id: string; body: string; authorName: string | null; createdAt: string } | null;
 }
 
 interface Timeline {
-  patient: { patientKey: string; name: string | null; phone: string | null; emails: string[]; lastSeenAt: string | null };
+  patient: { patientKey: string; name: string | null; phone: string | null; emails: string[]; age: number | null; referredBy: { key: string; name: string | null } | null; lastSeenAt: string | null };
   visits: Visit[];
   pets: { id: string; name: string; species: string | null }[];
   orphanNotes: { id: string; body: string; authorName: string | null; createdAt: string }[];
@@ -150,6 +151,10 @@ export default function PatientHistoryPage() {
             <Mail size={14} aria-hidden="true" />
             {patient.emails.length > 0 ? patient.emails.join(", ") : t.crm.history.noEmail}
           </span>
+          {patient.age !== null && <span>{fill(t.agenda.ageYears, { age: patient.age })}</span>}
+          {patient.referredBy && (
+            <span>{fill(t.agenda.referredBy, { name: patient.referredBy.name || `+${patient.referredBy.key}` })}</span>
+          )}
         </div>
         <p className="text-xs text-gray-500 dark:text-gray-400">
           {fill(t.crm.history.summary, {
@@ -171,7 +176,7 @@ export default function PatientHistoryPage() {
                 aria-pressed={active}
                 className={`px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors ${
                   active
-                    ? "bg-primary text-white border-primary"
+                    ? "bg-primary text-[color:var(--on-primary)] border-primary"
                     : "border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
                 }`}
               >
@@ -192,6 +197,11 @@ export default function PatientHistoryPage() {
                 <span className="text-xs text-gray-500 dark:text-gray-400">{v.durationMinutes} min</span>
                 <span className="text-xs text-gray-500 dark:text-gray-400">{statusLabel(v.status)}</span>
                 {v.service && <span className="text-xs text-gray-700 dark:text-gray-300">{v.service}</span>}
+                {v.modality && (
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    {v.modality === "ONLINE" ? t.agenda.modalityOnline : t.agenda.modalityInPerson}
+                  </span>
+                )}
                 {usesPets && <span className="text-xs text-gray-700 dark:text-gray-300">{v.petName ?? t.crm.history.petUi.noPet}</span>}
               </div>
 
