@@ -522,6 +522,8 @@ All instances provisioned via `POST /api/apps/connect/whatsapp` enforce the foll
 - Defaults come from the translation files (`customerMessages`). Owners may override each text.
 - Owners write details with labels in square brackets (Servicio, Fecha, Hora, Hora límite, Nombre del negocio, or their English equivalents). The server accepts the labels of every supported language. Unknown labels remain as typed.
 - The confirmation text must include the deadline label and the word SI; otherwise it is refused (`confirmation_missing_deadline`, `confirmation_missing_si`).
+- The reminder tells the patient where to go: the business address with a directions link for an in-person visit (visits without a modality count as in person), the Meet link for an online visit. It is placed after the visit details and before the request to reply SI. Nothing is added when the business has no physical location or the online visit has no link.
+- Owners may place it themselves with the label `[Ubicación]` (`[Location]`) in the reminder or confirmation text; the label shows the address (in person) or the Meet link (online), and the automatic place line is then not added. The cancellation text refuses it (`template_location_not_allowed`).
 
 ### 20.4 Scheduling Rules
 - Pure functions in `src/lib/reminders.ts`: `reminderSendAt` (visit minus lead hours), `releaseAt` (visit minus deadline hours), `planReminder` (decides request, plain reminder, or nothing).
