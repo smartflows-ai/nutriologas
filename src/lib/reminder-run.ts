@@ -3,7 +3,8 @@
 // is testable without a database or WhatsApp. One bad visit never stops the others, and every failure is reported.
 import type { AppProvider } from "@prisma/client";
 import { planReminder, releaseAt } from "@/lib/reminders";
-import { clinicLongDate, clinicTime, customerTexts, renderTemplate, usableTemplate, withBookedBy, withMeetingLink } from "@/lib/reminder-messages";
+import { hasLocationTag } from "@/lib/reminder-template-rules";
+import { clinicLongDate, clinicTime, customerTexts, placeText, renderTemplate, usableTemplate, withBookedBy, withLocation, withMeetingLink } from "@/lib/reminder-messages";
 
 export interface ReminderTenant {
   name: string;
@@ -14,6 +15,8 @@ export interface ReminderTenant {
   reminderTemplate: string | null;
   confirmationTemplate: string | null;
   cancellationTemplate: string | null;
+  /** Address plus directions link (`locationTextForBot`); empty or missing when the business has no physical place. */
+  locationText?: string | null;
 }
 
 export interface ReminderVisit {
@@ -88,17 +91,26 @@ function reminderText(visit: ReminderVisit, requestConfirmation: boolean, releas
     hora: clinicTime(visit.appointmentDate, t.messageLanguage),
     negocio: t.name,
     nombre: visit.customerName,
+    ubicacion: placeText(visit, t.locationText),
   };
   const warn = (kind: string) => (problem: string) =>
     console.warn(`[reminders] stored ${kind} text ignored (${problem}) for tenant ${visit.tenantId}; default used`);
-  const tail = requestConfirmation
-    ? renderTemplate(usableTemplate(t.confirmationTemplate, "confirmation", texts.confirmationTemplate, warn("confirmation")), {
-        ...values,
-        hora_limite: clinicTime(releaseInstant as Date, t.messageLanguage),
-      })
-    : texts.plainFooter;
-  const body = `${renderTemplate(usableTemplate(t.reminderTemplate, "reminder", texts.reminderTemplate, warn("reminder")), values)}\n\n${tail}`;
-  return withBookedBy(withMeetingLink(body, visit, t.messageLanguage), visit, t.messageLanguage);
+  const confirmationSource = requestConfirmation
+    ? usableTemplate(t.confirmationTemplate, "confirmation", texts.confirmationTemplate, warn("confirmation"))
+    : null;
+  const reminderSource = usableTemplate(t.reminderTemplate, "reminder", texts.reminderTemplate, warn("reminder"));
+  const tail =
+    confirmationSource !== null
+      ? renderTemplate(confirmationSource, { ...values, hora_limite: clinicTime(releaseInstant as Date, t.messageLanguage) })
+      : texts.plainFooter;
+  const head = renderTemplate(reminderSource, values);
+  // A text that places the address or video link itself (location tag) is left alone; otherwise it is added right
+  // after the visit details, and the request to reply stays last.
+  const placedByBusiness = hasLocationTag(reminderSource) || (confirmationSource !== null && hasLocationTag(confirmationSource));
+  const headWithPlace = placedByBusiness
+    ? head
+    : withLocation(withMeetingLink(head, visit, t.messageLanguage), visit, t.locationText, t.messageLanguage);
+  return withBookedBy(`${headWithPlace}\n\n${tail}`, visit, t.messageLanguage);
 }
 
 async function processVisit(visit: ReminderVisit, now: Date, deps: ReminderDeps, dryRun: boolean): Promise<Outcome> {

@@ -17,6 +17,7 @@ export {
   validateConfirmationTemplate,
   validateKnownTags,
   validateNoDeadlineTag,
+  validateNoLocationTag,
   validateReminderNoConfirmation,
   validateTemplateLength,
 } from "@/lib/reminder-template-rules";
@@ -36,6 +37,8 @@ export interface ReminderValues {
   negocio: string;
   /** Customer's name as typed when booking. Null or blank when unknown: the tag then disappears. */
   nombre?: string | null;
+  /** Address (in person) or video call link (online) for the location tag; blank when there is nothing to show. */
+  ubicacion?: string;
 }
 
 /** First name only: "Hola [Nombre]" reads naturally, a full name with two surnames does not. */
@@ -45,6 +48,7 @@ export function firstName(name: string | null | undefined): string {
 
 export function renderTemplate(template: string, values: ReminderValues): string {
   let nameWasEmpty = false;
+  let placeWasEmpty = false;
   const filled = template.replace(/\[([^\[\]]+)\]/g, (match, label: string, offset: number, whole: string) => {
     const key = LABEL_TO_KEY.get(label.trim().toLowerCase());
     if (!key) return match;
@@ -55,13 +59,14 @@ export function renderTemplate(template: string, values: ReminderValues): string
     }
     const value = values[key];
     if (value === undefined) return match;
+    if (key === "ubicacion" && !value.trim()) placeWasEmpty = true;
     // "a.m." and "p.m." already end with a period: when the template closes its sentence right after the tag,
     // that period is the same one, so the customer does not read "10:00 a.m..".
     const nextChar = whole[offset + match.length];
     return value.endsWith(".") && nextChar === "." ? value.slice(0, -1) : value;
   });
-  // An unknown name leaves its tag empty: close the gap ("Hola , te" -> "Hola, te", "de  la" -> "de la").
-  return nameWasEmpty ? filled.replace(/[ \t]+([,.;:!?])/g, "$1").replace(/[ \t]{2,}/g, " ") : filled;
+  // An unknown name or place leaves its tag empty: close the gap ("Hola , te" -> "Hola, te", "de  la" -> "de la").
+  return nameWasEmpty || placeWasEmpty ?filled.replace(/[ \t]+([,.;:!?])/g, "$1").replace(/[ \t]{2,}/g, " ") : filled;
 }
 
 /**
@@ -76,6 +81,37 @@ export function withMeetingLink(
   const url = visit.meetUrl?.trim();
   if (visit.modality !== "ONLINE" || !url || !url.startsWith("https://")) return text;
   return `${text}\n\n${fill(customerTexts(language).meetingLine, { url })}`;
+}
+
+/**
+ * What the location tag shows: the address and directions link for an in person visit (older visits count as in
+ * person), the secure video call link for an online one. Blank when there is nothing to show.
+ */
+export function placeText(
+  visit: { modality?: "IN_PERSON" | "ONLINE" | null; meetUrl?: string | null },
+  locationText: string | null | undefined,
+): string {
+  if (visit.modality === "ONLINE") {
+    const url = visit.meetUrl?.trim();
+    return url && url.startsWith("https://") ? url : "";
+  }
+  return locationText?.trim() ?? "";
+}
+
+/**
+ * Adds the business address (with its directions link) under a message when the visit is in person. Visits from
+ * before the modality existed count as in person. Nothing is added for online visits (they get the video call
+ * link) or when the business has no physical location (`locationText` empty).
+ */
+export function withLocation(
+  text: string,
+  visit: { modality?: "IN_PERSON" | "ONLINE" | null },
+  locationText: string | null | undefined,
+  language: string,
+): string {
+  const place = locationText?.trim();
+  if (visit.modality === "ONLINE" || !place) return text;
+  return `${text}\n\n${fill(customerTexts(language).locationLine, { location: place })}`;
 }
 
 /**

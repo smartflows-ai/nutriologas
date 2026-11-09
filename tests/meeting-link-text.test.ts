@@ -69,5 +69,6 @@ test("the reminder job sends the link of an online visit", async () => {
   };
   await runReminderBatch([online], NOW, deps, { dryRun: false });
   assert.equal(texts.length, 1);
-  assert.ok(texts[0].endsWith(`Videollamada: ${URL}`), "the link closes the reminder");
+  assert.ok(texts[0].includes(`Videollamada: ${URL}`), "the reminder carries the link");
+  assert.ok(texts[0].indexOf("Videollamada") < texts[0].indexOf("Responde *SI*"), "the link comes before the request to reply");
 });
