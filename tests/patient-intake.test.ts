@@ -7,8 +7,10 @@ import assert from "node:assert/strict";
 import {
   guestEmailFor,
   intakeNeeds,
+  isOtherPersonsName,
   isSyntheticEmail,
   isValidAge,
+  maskPhone,
   mergePatient,
   missingIntake,
   modalityModeOf,
@@ -134,4 +136,57 @@ test("the sender sees their own visits (also those saved under the normalized ke
 
 test("a sender without a usable phone key still matches the phone as typed", () => {
   assert.deepEqual(visitsOfSender("123"), { OR: [{ customerPhone: "123" }] });
+});
+
+// Ticket #72: the agent can drop patientPhone after a long exchange, and the visit for someone else was then saved
+// under the sender's number. A different first name for a known sender, without another number, is caught here.
+const knownSender = { name: "Ana Lopez Ruiz", email: null, age: 33 };
+
+test("a known sender booking under another person's first name is a visit for someone else", () => {
+  assert.equal(isOtherPersonsName(knownSender, "Carlos Antonio Mendez"), true);
+});
+
+test("a known sender correcting their own surname or a typo is still the same person", () => {
+  assert.equal(isOtherPersonsName(knownSender, "Ana lpz"), false);
+  assert.equal(isOtherPersonsName(knownSender, "Ana Lopez"), false);
+  assert.equal(isOtherPersonsName(knownSender, "  ana   lopez  ruiz "), false);
+});
+
+test("case and accents do not make a different first name", () => {
+  assert.equal(isOtherPersonsName({ name: "Maria Lopez", email: null, age: 40 }, "maría lópez"), false);
+  assert.equal(isOtherPersonsName({ name: "José Ruiz", email: null, age: 40 }, "JOSE"), false);
+});
+
+test("a courtesy title before the name is not the first name", () => {
+  assert.equal(isOtherPersonsName({ name: "Dra. Ana Lopez", email: null, age: 33 }, "Ana Lopez"), false);
+  assert.equal(isOtherPersonsName(knownSender, "Sra. Ana Lopez"), false);
+  assert.equal(isOtherPersonsName(knownSender, "ing ana"), false);
+  assert.equal(isOtherPersonsName(knownSender, "Lic. Carlos Mendez"), true);
+});
+
+test("no name sent means the registered name is used, so it is never another person", () => {
+  for (const none of [undefined, null, "", "   "]) {
+    assert.equal(isOtherPersonsName(knownSender, none), false);
+  }
+});
+
+test("an unknown sender, or one with no registered name, cannot be compared", () => {
+  assert.equal(isOtherPersonsName(null, "Carlos Mendez"), false);
+  assert.equal(isOtherPersonsName({ name: null, email: null, age: null }, "Carlos Mendez"), false);
+  assert.equal(isOtherPersonsName({ name: "   ", email: null, age: null }, "Carlos Mendez"), false);
+});
+
+test("a nickname of the registered first name also asks who the visit is for (decision: option b)", () => {
+  assert.equal(isOtherPersonsName({ name: "Patricia Lopez", email: null, age: 33 }, "Paty Lopez"), true);
+});
+
+test("the number the reminder goes to is shown with only its last four digits", () => {
+  assert.equal(maskPhone("5218110000084"), "…0084");
+  assert.equal(maskPhone("+52 81 1000 0084"), "…0084");
+});
+
+test("no usable number gives no masked number", () => {
+  for (const none of [null, undefined, "", "   ", "12"]) {
+    assert.equal(maskPhone(none), null);
+  }
 });
