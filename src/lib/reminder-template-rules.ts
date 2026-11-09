@@ -12,6 +12,7 @@ export const TOKEN_FIELDS = [
   { key: "hora_limite", labelKey: "tokenDeadline" },
   { key: "negocio", labelKey: "tokenBusiness" },
   { key: "nombre", labelKey: "tokenName" },
+  { key: "ubicacion", labelKey: "tokenLocation" },
 ] as const;
 
 export type TokenKey = (typeof TOKEN_FIELDS)[number]["key"];
@@ -26,6 +27,7 @@ export const LABEL_TO_KEY = new Map<string, TokenKey>(
 );
 
 const DEADLINE_LABELS = DICTIONARIES.map((dict) => dict.crm.business.tokenDeadline.toLowerCase());
+const LOCATION_LABELS = DICTIONARIES.map((dict) => dict.crm.business.tokenLocation.toLowerCase());
 
 export const MAX_TEMPLATE_LENGTH = 600;
 
@@ -48,6 +50,17 @@ function deadlineTags(template: string): string[] {
   return allTags(template)
     .filter((tag) => DEADLINE_LABELS.includes(tag.label))
     .map((tag) => tag.text);
+}
+
+function locationTags(template: string): string[] {
+  return allTags(template)
+    .filter((tag) => LOCATION_LABELS.includes(tag.label))
+    .map((tag) => tag.text);
+}
+
+/** True when the text places the address or video call link itself with the location tag. */
+export function hasLocationTag(template: string): boolean {
+  return locationTags(template).length > 0;
 }
 
 // Words a customer can answer with that the bot reads as a yes (`isClearConfirmation`, src/lib/confirmation-words.ts;
@@ -100,6 +113,10 @@ export function templateIssues(template: string, kind: TemplateKind): TemplateIs
   }
 
   if (deadline.length > 0) issues.push({ code: "template_deadline_not_allowed", fragments: deadline });
+  // The visit is cancelled: there is no place to go to.
+  if (kind === "cancellation" && hasLocationTag(template)) {
+    issues.push({ code: "template_location_not_allowed", fragments: locationTags(template) });
+  }
   if (kind === "reminder") {
     const requests = siRequests(template);
     if (requests.length > 0) issues.push({ code: "template_repeats_confirmation", fragments: requests });
@@ -124,6 +141,11 @@ export function validateKnownTags(template: string): string | null {
 /** The deadline time only exists in the confirmation text. */
 export function validateNoDeadlineTag(template: string): string | null {
   return deadlineTags(template).length > 0 ? "template_deadline_not_allowed" : null;
+}
+
+/** The location tag makes no sense in the cancellation text: the visit no longer happens. */
+export function validateNoLocationTag(template: string): string | null {
+  return hasLocationTag(template) ? "template_location_not_allowed" : null;
 }
 
 /** The reminder is followed by the confirmation text, which already asks to reply SI. */

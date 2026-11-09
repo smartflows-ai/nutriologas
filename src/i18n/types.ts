@@ -41,6 +41,7 @@ export interface Translations {
     greetingIntro: string;
     greetingPrivacy: string;
     meetingLine: string;
+    locationLine: string;
     bookedByLine: string;
     bookedByAnon: string;
   };
@@ -606,6 +607,7 @@ export interface Translations {
       tokenDeadline: string;
       tokenBusiness: string;
       tokenName: string;
+      tokenLocation: string;
       addConfirmationRequest: string;
       confirmationRequestSnippet: string;
       messageLanguageLabel: string;
@@ -1612,6 +1614,7 @@ export interface Translations {
     confirmation_missing_deadline: string;
     confirmation_missing_si: string;
     template_deadline_not_allowed: string;
+    template_location_not_allowed: string;
     template_repeats_confirmation: string;
     template_unknown_tag: string;
     template_too_long: string;
