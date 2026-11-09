@@ -92,9 +92,11 @@ export default function ReminderMessagesCard() {
   // What goes out when a field is left empty: shown in the field so the owner can read it.
   const defaults = (settings?.messageLanguage === "en" ? en : es).customerMessages;
 
-  const detailNames = [tx.tokenService, tx.tokenDate, tx.tokenTime, tx.tokenDeadline, tx.tokenBusiness, tx.tokenName];
-  // The deadline time only exists in the confirmation text; offering it elsewhere would send it with brackets.
-  const detailNamesWithoutDeadline = detailNames.filter((name) => name !== tx.tokenDeadline);
+  // The deadline time only exists in the confirmation text, and the location only in the reminder and the
+  // confirmation (a cancelled visit has no place to go to); offering them elsewhere would send them with brackets.
+  const cancellationDetails = [tx.tokenService, tx.tokenDate, tx.tokenTime, tx.tokenBusiness, tx.tokenName];
+  const reminderDetails = [...cancellationDetails, tx.tokenLocation];
+  const confirmationDetails = [tx.tokenService, tx.tokenDate, tx.tokenTime, tx.tokenDeadline, tx.tokenBusiness, tx.tokenName, tx.tokenLocation];
 
   if (loading) return null;
   if (!settings) {
@@ -141,7 +143,7 @@ export default function ReminderMessagesCard() {
           label={tx.reminderTemplateLabel}
           value={settings.reminderTemplate}
           onChange={(value) => update({ reminderTemplate: value })}
-          detailNames={detailNamesWithoutDeadline}
+          detailNames={reminderDetails}
           insertLabel={tx.templateInsertLabel}
         />
         <TemplateField
@@ -152,7 +154,7 @@ export default function ReminderMessagesCard() {
           label={tx.confirmationTemplateLabel}
           value={settings.confirmationTemplate}
           onChange={(value) => update({ confirmationTemplate: value })}
-          detailNames={detailNames}
+          detailNames={confirmationDetails}
           insertLabel={tx.templateInsertLabel}
           snippet={{ label: tx.addConfirmationRequest, text: (settings.messageLanguage === "en" ? en : es).crm.business.confirmationRequestSnippet }}
         />
@@ -164,7 +166,7 @@ export default function ReminderMessagesCard() {
           label={tx.cancellationTemplateLabel}
           value={settings.cancellationTemplate}
           onChange={(value) => update({ cancellationTemplate: value })}
-          detailNames={detailNamesWithoutDeadline}
+          detailNames={cancellationDetails}
           insertLabel={tx.templateInsertLabel}
         />
         <p className="text-xs text-gray-500 dark:text-gray-400">{tx.templateDefaultHint}</p>

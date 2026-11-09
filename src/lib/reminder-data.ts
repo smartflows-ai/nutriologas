@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { ACTIVE_APPOINTMENT_STATUSES } from "@/lib/bot";
 import { sendWhatsAppMessage } from "@/lib/whatsapp";
 import { releaseVisit } from "@/lib/reminder-actions";
+import { locationTextForBot } from "@/lib/location";
 import { recordMessageCharge, reminderCostUsd } from "@/lib/credits";
 import { failedSendState, sentState } from "@/lib/reminder-state";
 import type { ReminderDeps, ReminderVisit } from "@/lib/reminder-run";
@@ -87,11 +88,20 @@ export async function loadReminderVisits(now: Date, appointmentId?: string): Pro
           reminderTemplate: true,
           confirmationTemplate: true,
           cancellationTemplate: true,
+          hasPhysicalLocation: true,
+          address: true,
+          placeId: true,
+          latitude: true,
+          longitude: true,
         },
       },
     },
     orderBy: { appointmentDate: "asc" },
   });
-  return rows.map(({ product, ...visit }) => ({ ...visit, productName: product.name }));
+  return rows.map(({ product, tenant, ...visit }) => {
+    const { hasPhysicalLocation, address, placeId, latitude, longitude, ...rest } = tenant;
+    const locationText = locationTextForBot({ hasPhysicalLocation, address, placeId, latitude, longitude });
+    return { ...visit, productName: product.name, tenant: { ...rest, locationText } };
+  });
 }
 

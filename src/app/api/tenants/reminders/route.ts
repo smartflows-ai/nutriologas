@@ -5,7 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/permission-guard";
 import { apiError } from "@/lib/api-errors";
-import { templateProblem, validateConfirmationTemplate, validateReminderNoConfirmation, validateKnownTags, validateNoDeadlineTag, validateTemplateLength } from "@/lib/reminder-messages";
+import { templateProblem, validateConfirmationTemplate, validateReminderNoConfirmation, validateKnownTags, validateNoDeadlineTag, validateNoLocationTag, validateTemplateLength } from "@/lib/reminder-messages";
 
 const SELECT = {
   remindersEnabled: true,
@@ -87,6 +87,8 @@ export async function PATCH(req: Request) {
     const problem = text ? validateNoDeadlineTag(text) : null;
     if (problem) return apiError(problem as "template_deadline_not_allowed", 400);
   }
+  const placeInCancellation = data.cancellationTemplate ? validateNoLocationTag(data.cancellationTemplate) : null;
+  if (placeInCancellation) return apiError(placeInCancellation as "template_location_not_allowed", 400);
   const repeats = data.reminderTemplate ? validateReminderNoConfirmation(data.reminderTemplate) : null;
   if (repeats) return apiError(repeats as "template_repeats_confirmation", 400);
   if (data.confirmationTemplate) {
