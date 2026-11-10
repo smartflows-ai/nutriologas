@@ -1,9 +1,9 @@
-// src/app/(public)/privacy/PrivacyClient.tsx
+// src/app/(legal)/terms/TermsClient.tsx
 "use client";
 
 import { useTranslation } from "@/i18n";
 import LegalPageLayout from "@/components/legal/LegalPageLayout";
-import { getPrivacyPolicy, type LegalSubject } from "@/components/legal/legalContent";
+import { getTermsOfService, type LegalSubject } from "@/components/legal/legalContent";
 
 interface Props {
   isRootDomain: boolean;
@@ -12,14 +12,14 @@ interface Props {
   subject?: LegalSubject;
 }
 
-export default function PrivacyClient({ isRootDomain, tenantName, tenantLogoUrl, subject }: Props) {
+export default function TermsClient({ isRootDomain, tenantName, tenantLogoUrl, subject }: Props) {
   const { lang } = useTranslation();
-  const doc = getPrivacyPolicy(lang, subject);
+  const doc = getTermsOfService(lang, subject);
 
   return (
     <LegalPageLayout
       document={doc}
-      activeDoc="privacy"
+      activeDoc="terms"
       isRootDomain={isRootDomain}
       tenantName={tenantName}
       tenantLogoUrl={tenantLogoUrl}

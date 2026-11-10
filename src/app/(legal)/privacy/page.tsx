@@ -1,8 +1,8 @@
-// src/app/(public)/terms/page.tsx
+// src/app/(legal)/privacy/page.tsx
 import { Metadata } from "next";
 import { getTenantSlug } from "@/lib/tenant";
 import { prisma } from "@/lib/db";
-import TermsClient from "./TermsClient";
+import PrivacyClient from "./PrivacyClient";
 import type { LegalSubject } from "@/components/legal/legalContent";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -11,9 +11,9 @@ export async function generateMetadata(): Promise<Metadata> {
 
   if (isRootDomain) {
     return {
-      title: "Terms of Service | NewAigent",
+      title: "Privacy Policy | NewAigent",
       description:
-        "Terms and conditions governing NewAigent SaaS subscriptions, Newy AI copilot services, and platform integrations.",
+        "Learn about NewAigent's enterprise data protection, multi-tenant isolation, and zero-leak AI copilot security standards.",
     };
   }
 
@@ -27,12 +27,12 @@ export async function generateMetadata(): Promise<Metadata> {
   } catch {}
 
   return {
-    title: `Términos de Servicio | ${storeName}`,
-    description: `Términos y condiciones de compra y servicio para clientes de ${storeName}.`,
+    title: `Política de Privacidad | ${storeName}`,
+    description: `Aviso de privacidad y protección de datos para clientes de ${storeName}.`,
   };
 }
 
-export default async function TermsPage() {
+export default async function PrivacyPage() {
   const slug = getTenantSlug();
   const isRootDomain = !slug;
 
@@ -67,12 +67,12 @@ export default async function TermsPage() {
         };
       }
     } catch (e) {
-      console.error("[terms/page.tsx] error fetching tenant:", e);
+      console.error("[privacy/page.tsx] error fetching tenant:", e);
     }
   }
 
   return (
-    <TermsClient
+    <PrivacyClient
       isRootDomain={isRootDomain}
       tenantName={tenantName}
       tenantLogoUrl={tenantLogoUrl}

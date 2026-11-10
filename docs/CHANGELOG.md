@@ -6,6 +6,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased] — 2026-11-06
 
+### Fixed
+- The privacy notice and terms pages (`/privacy`, `/privacidad`, `/terms`, `/terminos`) showed two navbars (and two footers) on a business subdomain: they lived inside the storefront route group, whose layout adds the store navbar, footer and WhatsApp button on top of the legal page's own header. They now live in their own `(legal)` route group (same URLs). The privacy link the WhatsApp bot sends opens the page with a single header.
+
 ### Added
 - The WhatsApp reminder says where to go: an in-person visit gets `Ubicación: <address> (<Google Maps directions link>)` and an online visit gets its Meet link (`Videollamada: <link>`), right after the visit details and before the request to reply SI, which stays last (`withLocation`, `placeText`, `locationText` loaded in `reminder-data.ts` with `locationTextForBot`). Visits from before `modality` count as in person; a business without a physical location, or an online visit without a Meet link, gets no line. Tests: `tests/location-line-text.test.ts`.
 - New `[Ubicación]` / `[Location]` tag for the reminder and confirmation texts: the address with directions link for an in-person visit, the Meet link for an online one. A text that uses it is not given the automatic line a second time. With nothing to show the tag renders empty and the gap is closed. The cancellation text rejects it (`template_location_not_allowed`, in the card, in `PATCH /api/tenants/reminders` and at send time through the default-text fallback). The card offers a "Location" button only in the reminder and confirmation fields. Tests: `tests/location-tag.test.ts`.
