@@ -1378,6 +1378,9 @@ export interface Translations {
     durationPlaceholder: string;
     bookingEnable: string;
     bookingEnableDesc: string;
+    visibleHidden: string;
+    bookingNeedsVisible: string;
+    bookingOffHint: string;
     visitModes: string;
     visitModesHintInPerson: string;
     visitModesHintOnline: string;
