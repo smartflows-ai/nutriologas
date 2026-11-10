@@ -104,6 +104,37 @@ export function resolveBookingPhone(senderPhone: string, patientPhone: unknown):
   return { ok: true, phone: key, forOther: true };
 }
 
+/** Courtesy titles some people type before their name ("Dra. Ana"): they are not the first name. */
+const NAME_TITLES: ReadonlySet<string> = new Set(["dr", "dra", "sr", "sra", "lic", "ing"]);
+
+/** First word of a name (titles skipped), lowercase and without accents, to tell who a visit is for. Empty when there is none. */
+function firstNameKey(name: unknown): string {
+  const words = cleanText(name)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .split(" ");
+  return words.find((word) => word !== "" && !NAME_TITLES.has(word.replace(/\.$/, ""))) ?? "";
+}
+
+/**
+ * True when a known sender books under another first name and no other number came with the request: the agent
+ * most likely dropped the other person's phone (ticket #72), and saving it would put that person's visit, reminder
+ * and data under the sender's number. No name sent (the registered one is used), an unknown sender or a sender
+ * without a registered name cannot be compared. A nickname also counts as another name: the bot then asks.
+ */
+export function isOtherPersonsName(known: KnownPatient | null, typedName: unknown): boolean {
+  const typed = firstNameKey(typedName);
+  const registered = firstNameKey(known?.name);
+  return typed !== "" && registered !== "" && typed !== registered;
+}
+
+/** The number a visit's messages go to, shown back with only its last four digits. Null when there is none. */
+export function maskPhone(phone: string | null | undefined): string | null {
+  const digits = (phone ?? "").replace(/\D/g, "");
+  return digits.length >= 4 ? `…${digits.slice(-4)}` : null;
+}
+
 export interface Referral {
   referredByKey: string | null;
   referredByName: string | null;

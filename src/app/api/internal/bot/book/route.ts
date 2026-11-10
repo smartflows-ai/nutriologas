@@ -17,7 +17,7 @@ import { isBookable } from "@/lib/bookable";
 import { cleanPetName } from "@/lib/pets";
 import { patientKeyOf } from "@/lib/patient-key";
 import { getKnownPatient } from "@/lib/patients";
-import { cleanSenderName, guestEmailFor, mergePatient, missingIntake, referralOf, resolveBookingPhone, resolveModality, type Modality } from "@/lib/patient-intake";
+import { cleanSenderName, guestEmailFor, isOtherPersonsName, maskPhone, mergePatient, missingIntake, referralOf, resolveBookingPhone, resolveModality, type Modality } from "@/lib/patient-intake";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -72,6 +72,19 @@ export async function POST(req: NextRequest) {
       return Response.json({ success: false, error: "Faltan datos: customerPhone" }, { status: 400 });
     }
     const known = await getKnownPatient(bot.tenantId, patientKey);
+    // A known sender under another first name, with no other number: the agent dropped the other person's WhatsApp
+    // (#72). Saving it would send that person's reminder to the sender and mix both patient records.
+    if (!forOther && isOtherPersonsName(known, customerName)) {
+      return Response.json(
+        {
+          success: false,
+          error: "patient_phone_required",
+          message:
+            "Ese nombre no es el del paciente registrado de este número. Si la cita es para otra persona, pide su número de WhatsApp con lada y envíalo en patientPhone. Si es para quien escribe, agenda sin enviar customerName: se usa su nombre registrado.",
+        },
+        { status: 400 }
+      );
+    }
     const missing = missingIntake(known, { name: customerName, age: customerAge });
     const merged = mergePatient(known, { name: customerName, age: customerAge, email: customerEmail });
     if (!merged.name && !missing.includes("name")) missing.push("name");
@@ -211,6 +224,8 @@ export async function POST(req: NextRequest) {
       // Who the visit is for, so the bot can name them and say the reminder goes to their number.
       patientName: patient.name,
       forOtherPerson: forOther,
+      // The number the reminder goes to (last four digits), so a wrong recipient shows in the chat.
+      recipientPhone: maskPhone(visitPhone),
       // The video link for an online visit; null when none could be created (the clinic sends it) or in person.
       meetLink,
       // Office address and map link for an in person visit (or any visit in the legacy version).
