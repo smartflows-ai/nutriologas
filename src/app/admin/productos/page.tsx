@@ -28,6 +28,7 @@ interface Product {
   durationMinutes?: number | null;
   requiresBooking?: boolean;
   capacity?: number | null;
+  visitModes?: "IN_PERSON" | "ONLINE" | "BOTH" | null;
 }
 
 // Empty optional number inputs become null instead of NaN, so they pass validation.
@@ -36,7 +37,7 @@ const toNumberOrNull = (value: unknown) => (value === "" || value == null || Num
 export default function ProductosPage() {
   const { t, lang } = useTranslation();
   const locale = localeFor(lang);
-  const { vertical, isBookingEnabled } = useTenantMeta();
+  const { vertical, isBookingEnabled, serviceModes } = useTenantMeta();
   const profile = getProductFormProfile(vertical, isBookingEnabled);
   const [products, setProducts] = useState<Product[]>([]);
   const [open, setOpen] = useState(false);
@@ -66,6 +67,12 @@ export default function ProductosPage() {
   });
 
   const selectedItemType = (watch("itemType") || "PHYSICAL") as ProductFormType;
+  // What "same as my business" currently means, shown in the delivery selector.
+  const effectiveVisitMode = watch("visitModes") ?? serviceModes;
+  const visitModeHint =
+    effectiveVisitMode === "BOTH" ? t.productsAdmin.visitModesHintBoth : effectiveVisitMode === "ONLINE" ? t.productsAdmin.visitModesHintOnline : t.productsAdmin.visitModesHintInPerson;
+  const businessModeLabel =
+    serviceModes === "BOTH" ? t.productsAdmin.visitModesBoth : serviceModes === "ONLINE" ? t.productsAdmin.visitModesOnline : t.productsAdmin.visitModesInPerson;
   const durationValue = watch("durationMinutes");
   const bookingValue = watch("requiresBooking");
   // Offer the profile's types, plus the saved type if it falls outside them (e.g. an older service in a store with booking off).
@@ -125,6 +132,7 @@ export default function ProductosPage() {
       itemType: profile.defaultType,
       durationMinutes: null,
       capacity: null,
+      visitModes: null,
       requiresBooking: profile.defaultType === "SERVICE" && isBookingEnabled,
     });
     setOpen(true);
@@ -142,6 +150,7 @@ export default function ProductosPage() {
       itemType: p.itemType ?? "PHYSICAL",
       durationMinutes: p.durationMinutes ?? null,
       capacity: p.capacity ?? null,
+      visitModes: p.visitModes ?? null,
       requiresBooking: p.requiresBooking ?? false,
     });
     setImages(p.images ?? []);
@@ -385,6 +394,23 @@ export default function ProductosPage() {
                       <label htmlFor="requiresBooking" className="text-xs font-semibold text-gray-900 dark:text-gray-200 block cursor-pointer">{t.productsAdmin.bookingEnable}</label>
                       <p className="text-xs text-gray-500">{t.productsAdmin.bookingEnableDesc}</p>
                     </div>
+                  </div>
+                )}
+
+                {selectedItemType === "SERVICE" && isBookingEnabled && bookingValue && (
+                  <div>
+                    <label htmlFor="visitModes" className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1.5">{t.productsAdmin.visitModes}</label>
+                    <select
+                      id="visitModes"
+                      {...register("visitModes", { setValueAs: (v) => (v === "" || v == null ? null : v) })}
+                      className="input bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800"
+                    >
+                      <option value="">{fill(t.productsAdmin.visitModesSame, { mode: businessModeLabel })}</option>
+                      <option value="IN_PERSON">{t.productsAdmin.visitModesInPerson}</option>
+                      <option value="ONLINE">{t.productsAdmin.visitModesOnline}</option>
+                      <option value="BOTH">{t.productsAdmin.visitModesBoth}</option>
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">{visitModeHint}</p>
                   </div>
                 )}
 

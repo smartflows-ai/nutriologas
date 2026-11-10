@@ -7,11 +7,13 @@ import { can, canAccessAdminPath, type Permission } from "@/lib/permissions";
 export interface TenantMeta {
   vertical: string;
   isBookingEnabled: boolean;
+  // How the business sees patients (default for each service's delivery mode).
+  serviceModes: "IN_PERSON" | "ONLINE" | "BOTH";
   // Role of the signed-in user. Empty by default, so a page outside the provider gets no permission.
   role: string;
 }
 
-const TenantMetaContext = createContext<TenantMeta>({ vertical: "ECOMMERCE", isBookingEnabled: true, role: "" });
+const TenantMetaContext = createContext<TenantMeta>({ vertical: "ECOMMERCE", isBookingEnabled: true, serviceModes: "IN_PERSON", role: "" });
 
 export function TenantMetaProvider({ value, children }: { value: TenantMeta; children: ReactNode }) {
   return <TenantMetaContext.Provider value={value}>{children}</TenantMetaContext.Provider>;

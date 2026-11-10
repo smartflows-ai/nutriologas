@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { buildSlot, isInternalKeyValid, resolveBotTenant } from "@/lib/bot";
 import { daySlots } from "@/lib/business-hours";
 import { isBookable } from "@/lib/bookable";
+import { modalityModeFor } from "@/lib/patient-intake";
 import { getBusyPeriods, isSlotFree } from "@/lib/calendar-sync";
 
 /** Hours offered per reply: a short list, never the whole day. */
@@ -24,7 +25,7 @@ export async function POST(req: NextRequest) {
 
   const product = await prisma.product.findFirst({
     where: { id: productId, tenantId: bot.tenantId, isActive: true, deletedAt: null },
-    select: { name: true, durationMinutes: true, requiresBooking: true },
+    select: { name: true, durationMinutes: true, requiresBooking: true, visitModes: true },
   });
   if (!product) return Response.json({ error: "Servicio no encontrado" }, { status: 404 });
   if (!isBookable(product, bot)) {
@@ -61,6 +62,8 @@ export async function POST(req: NextRequest) {
     date,
     timezone: "America/Mexico_City (UTC-06:00)",
     durationMinutes: duration,
+    // How this service is delivered (IN_PERSON, ONLINE or ASK), so the agent tells the customer before booking.
+    modalityMode: modalityModeFor(bot.serviceModes, product.visitModes),
     availableSlots: offered,
     hasMore: later.length > offered.length,
     message:

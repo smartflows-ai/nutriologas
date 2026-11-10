@@ -50,7 +50,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   `;
 
   return (
-    <TenantMetaProvider value={{ vertical: tenant?.vertical ?? "ECOMMERCE", isBookingEnabled: tenant?.isBookingEnabled ?? true, role }}>
+    <TenantMetaProvider value={{ vertical: tenant?.vertical ?? "ECOMMERCE", isBookingEnabled: tenant?.isBookingEnabled ?? true, serviceModes: tenant?.serviceModes ?? "IN_PERSON", role }}>
     <div
       className="flex flex-col h-screen bg-slate-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 overflow-hidden"
       style={{ fontFamily: "var(--font-family-base), system-ui, sans-serif" }}
