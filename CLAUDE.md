@@ -75,6 +75,7 @@ src/
       checkout/         ← Payment gateway (Conekta + PayPal)
       mis-pedidos/      ← Customer order history
       pedido/[id]/      ← Order detail
+    (legal)/            ← Own group, no storefront navbar or footer (LegalPageLayout draws its own header)
       terminos/         ← Terms of Service — Spanish
       privacidad/       ← Privacy Policy — Spanish
       terms/            ← Terms of Service — English locale alias
