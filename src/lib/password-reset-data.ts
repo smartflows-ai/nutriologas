@@ -1,20 +1,19 @@
 // src/lib/password-reset-data.ts
 // Real database and sender for the password reset (the routes use these; the rules are in password-reset.ts).
-import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { sendPlatformWhatsAppMessage } from "@/lib/platform-whatsapp";
 import { generateResetCode } from "@/lib/password-reset-code";
 import type { ResetDeps, ResetTenant, ResetUser } from "@/lib/password-reset";
 import { resolveTenantSlug } from "@/lib/tenant";
 import { ADMIN_ROLE, STAFF_ROLE } from "@/lib/permissions";
-
-const BCRYPT_ROUNDS = 12; // same as the change-password route
+import { hashPassword } from "@/lib/password-hash";
 
 export function resetDeps(secret: string): ResetDeps {
   return {
     async findCrmUserByEmail(tenantId: string, email: string): Promise<ResetUser | null> {
       const user = await prisma.user.findFirst({
-        where: { tenantId, email, role: { in: [ADMIN_ROLE, STAFF_ROLE] } },
+        // A deactivated user is treated like an unknown email: no code is sent (ticket #22).
+        where: { tenantId, email, isActive: true, role: { in: [ADMIN_ROLE, STAFF_ROLE] } },
         select: {
           id: true,
           email: true,
@@ -60,6 +59,10 @@ export function resetDeps(secret: string): ResetDeps {
         where: { id: userId },
         data: {
           passwordHash,
+          // The user chose this password and the owner shared the code, so a temporary password is settled.
+          mustChangePassword: false,
+          // A forgotten password may mean someone else has the account: every earlier session ends.
+          sessionVersion: { increment: 1 },
           passwordResetCodeHash: null,
           passwordResetExpiresAt: null,
           passwordResetAttempts: 0,
@@ -67,7 +70,7 @@ export function resetDeps(secret: string): ResetDeps {
       });
     },
     sendCode: (to: string, text: string) => sendPlatformWhatsAppMessage({ to, text }),
-    hashPassword: (password: string) => bcrypt.hash(password, BCRYPT_ROUNDS),
+    hashPassword,
     generateCode: () => generateResetCode(),
     secret,
     now: () => new Date(),

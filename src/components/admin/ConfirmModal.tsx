@@ -11,9 +11,11 @@ interface Props {
   onConfirm: () => void;
   onCancel: () => void;
   variant?: "danger" | "primary";
+  // True while the confirmed action is running: the button is disabled so a second click cannot repeat it.
+  isBusy?: boolean;
 }
 
-export default function ConfirmModal({ title, message, confirmLabel, onConfirm, onCancel, variant = "primary" }: Props) {
+export default function ConfirmModal({ title, message, confirmLabel, onConfirm, onCancel, variant = "primary", isBusy = false }: Props) {
   const { t } = useTranslation();
 
   return (
@@ -43,9 +45,10 @@ export default function ConfirmModal({ title, message, confirmLabel, onConfirm, 
           </button>
           <button
             onClick={onConfirm}
+            disabled={isBusy}
             className={
               variant === "danger"
-                ? "px-5 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl shadow-sm transition-colors"
+                ? "px-5 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 : "btn-primary px-5 py-2.5 text-sm font-semibold"
             }
           >
