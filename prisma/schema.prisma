@@ -682,3 +682,16 @@ model AppointmentNote {
   @@index([appointmentId])
   @@map("appointment_notes")
 }
+
+// ─── MEMORIA DEL BOT DE WHATSAPP (propiedad de n8n) ──────
+// Conversation memory of the WhatsApp agent. n8n creates and writes it (Postgres Chat Memory node, session key
+// "instance:phone"); this app never reads or writes it. It is declared here ONLY so Prisma knows the table exists:
+// without this model, `prisma db push` or `migrate diff` would DROP it and the bot would lose its memory.
+// Keep it exactly as n8n made it: no tenantId, no relations, no new columns.
+model WhatsappBotMemory {
+  id        Int    @id @default(autoincrement())
+  sessionId String @map("session_id") @db.VarChar(255)
+  message   Json
+
+  @@map("whatsapp_bot_memory")
+}

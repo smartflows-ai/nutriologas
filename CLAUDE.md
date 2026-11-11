@@ -699,13 +699,13 @@ npx tsx --env-file=.env local-utils/<script>.ts   # Scripts that touch the datab
 
 ### Schema changes (manual SQL, up and down)
 
-`npm run db:push` compares the **whole** `schema.prisma` with the real database and applies every difference. The real database has a table Prisma does not know: `whatsapp_bot_memory` (the WhatsApp agent's conversation memory in n8n). `db:push` would **drop it** and the bot would lose its memory. The project has no migration history yet (`prisma migrate` adoption is a separate task), so a schema change goes as a folder in `prisma/sql/<change>/` with:
+`npm run db:push` compares the **whole** `schema.prisma` with the real database and applies every difference. The real database has a table that belongs to n8n, `whatsapp_bot_memory` (the WhatsApp agent's conversation memory). It is declared in `schema.prisma` as `WhatsappBotMemory` only so Prisma knows it exists (since 2026-11-10); never remove that model, and never add columns or relations to it: without it `db:push` would **drop the table** and the bot would lose its memory. The project has no migration history yet (`prisma migrate` adoption is a separate task), so a schema change goes as a folder in `prisma/sql/<change>/` with:
 - `up.sql`: additive when possible (new nullable columns or columns with a default), so the old code keeps working until the new code is deployed.
 - `down.sql`: the exact reverse. Written by hand (Prisma does not generate it). It deletes the data held in what it removes, so it runs only to undo the change and after the code that reads it is gone.
 
 How to make one safely:
 1. Add the fields to `schema.prisma` and write both files.
-2. Verify on a throwaway local PostgreSQL (same major version as production): load the schema-only dump, then compare with `DIFF_URL=<url> npx prisma migrate diff --config local-utils/prisma-diff.config.ts --from-config-datasource --to-schema prisma/schema.prisma --script` before `up.sql` (only your change shows), after `up.sql` (nothing about your change) and after `down.sql` (your change shows again). The only expected leftover is the `whatsapp_bot_memory` drop.
+2. Verify on a throwaway local PostgreSQL (same major version as production): load the schema-only dump, then compare with `DIFF_URL=<url> npx prisma migrate diff --config local-utils/prisma-diff.config.ts --from-config-datasource --to-schema prisma/schema.prisma --script` before `up.sql` (only your change shows), after `up.sql` (nothing about your change) and after `down.sql` (your change shows again). Nothing else should show: the diff is expected to be empty.
 3. Take a verified backup first (`pg_dump` of the same major version, custom format, stored **outside the repo** with owner-only permissions; it holds personal data), and a fresh one right before applying. `pg_dump` refuses a server newer than itself.
 4. Get explicit human approval, then apply `up.sql` in one transaction (`psql -v ON_ERROR_STOP=1 -1 -f up.sql`) and verify types, defaults and that existing rows did not change.
 5. **Order: database first, code after.** New code reads the new columns; if it ships first, every appointment query fails (reminders, agenda, bot, CRM). Old code ignores extra columns, so the reverse is safe. Merging to `main` deploys through CI/CD, so a merge counts as a deploy.
@@ -747,7 +747,7 @@ Then open `http://doctor.localhost:3000` to see the "doctor" tenant.
 - OXXO Pay requires polling Conekta webhooks to confirm payment
 
 ### Pending
-- **Schema in sync**: verified on 2026-11-02 with a read-only `prisma migrate diff`: `botEnabled`, `botPausedReason` and `businessHours` are already applied. The only difference between `schema.prisma` and the database is `whatsapp_bot_memory` (declare it in the schema or exclude it before anyone runs `db:push`).
+- **Schema in sync**: verified on 2026-11-02 with a read-only `prisma migrate diff`: `botEnabled`, `botPausedReason` and `businessHours` are already applied. Update 2026-11-10: `whatsapp_bot_memory` is now declared in the schema (`WhatsappBotMemory`) and a read-only `migrate diff` of the real database against the schema is empty (run it with `npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --script`; the repo's `prisma.config.ts` reads `DIRECT_DATABASE_URL`).
 - **No test database**: local development and production share one database. A separate mirror database for tests, periodic backups and `prisma migrate` adoption are pending tasks.
 - **Web appointments from before the time fix**: they were saved with UTC time (6 hours ahead). Fix with `local-utils/shift-web-appointments-utc-fix.mjs` (first without `--write`) and manually move the calendar events that get listed.
 - **Hardcoded secrets in n8n workflows** (internal key, Evolution API key, OpenRouter key in the social campaign). Move to credentials when n8n allows it, and rotate them.
