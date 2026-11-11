@@ -1,4 +1,4 @@
-<!-- Generated: 2026-11-03 | Files scanned: package.json + src/lib integrations + .claude/commands | Token estimate: ~700 -->
+<!-- Generated: 2026-11-10 | Files scanned: package.json + src/lib integrations + .claude/commands | Token estimate: ~750 -->
 # Dependencies
 
 ## External services
@@ -19,7 +19,7 @@ Upstash Redis           env declared; no src usage found (rate-limit.ts is in-me
 ```
 
 ## Key npm packages
-next 14.2.29 · react 18.3 · next-auth 4.24 · @prisma/client 7.5 · stripe 22 · zod 3 · react-hook-form · zustand 5 · tailwindcss 3.4 · recharts · @fullcalendar/* · lucide-react · sonner · date-fns 4 · cloudinary · next-cloudinary · embla-carousel · react-easy-crop · react-markdown
+next 14.2.29 · react 18.3 · next-auth 4.24 · @prisma/client 7.5 · bcryptjs 3 (CRM passwords, lib/password-hash.ts) · stripe 22 · zod 3 · react-hook-form · zustand 5 · tailwindcss 3.4 · recharts · @fullcalendar/* · lucide-react · sonner · date-fns 4 · cloudinary · next-cloudinary · embla-carousel · react-easy-crop · react-markdown
 
 ## Scripts
 dev, build, start (standalone), lint, db:{push,generate,seed,studio}. No test script in package.json: tests run with `npx tsx --test tests/*.test.ts` (tsx 4, node:test). tsx does not load .env: use `--env-file=.env`.

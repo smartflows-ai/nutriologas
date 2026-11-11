@@ -1,2 +1,2 @@
-// src/app/(public)/terminos/page.tsx
+// src/app/(legal)/terminos/page.tsx
 export { default, generateMetadata } from "../terms/page";

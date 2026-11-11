@@ -3,6 +3,9 @@
 // slows down abuse; it is not a hard guarantee.
 const hits = new Map<string, number[]>();
 
+// Window used by the routes that guard a credential (password change, team writes).
+export const AUTH_ATTEMPTS_WINDOW_MS = 15 * 60 * 1000;
+
 export function rateLimited(key: string, max: number, windowMs: number): boolean {
   const now = Date.now();
   const recent = (hits.get(key) ?? []).filter((t) => now - t < windowMs);

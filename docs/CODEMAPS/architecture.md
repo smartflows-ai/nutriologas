@@ -1,4 +1,4 @@
-<!-- Generated: 2026-11-03 | Files scanned: 258 src + middleware + schema | Token estimate: ~720 -->
+<!-- Generated: 2026-11-10 | Files scanned: 258 src + middleware + schema | Token estimate: ~800 -->
 # Architecture
 
 Single Next.js 14 App Router app, multi-tenant by hostname. One Postgres (Supabase) via Prisma. No monorepo.
@@ -23,6 +23,7 @@ db.ts (Prisma singleton) -> Postgres
 ## Boundaries
 - Tenant = subdomain slug or customDomain. Root domain = marketing only.
 - Auth: NextAuth v4 JWT carries id, role, tenantId (src/lib/auth.ts).
+- Account state: the user row is re-read on every authenticated request (account-state-data.ts, rules in account-state.ts). An inactive user, or one on a temporary password, gets a session with no `user`. middleware.ts stays token-only.
 - Internal API (`/api/internal/*`): header `x-internal-key` = INTERNAL_API_KEY; callers are n8n workflows.
 - Public-with-limit: `/api/places/*` (40 req/min/IP, src/lib/rate-limit.ts, in-memory).
 
@@ -30,6 +31,7 @@ db.ts (Prisma singleton) -> Postgres
 ```
 Storefront   products, cart (zustand), checkout (Conekta/PayPal), booking (BookingFlow)
 CRM          dashboard, citas, productos, pedidos, whatsapp, social-campaign, apps, negocio
+Team         owner manages staff users: /admin/equipo, /api/admin/users; seats per plan (Start 1, Plus 2, Pro 3)
 Newy AI      /api/chat -> openrouter cascade -> tools.ts -> execute-tool.ts (Prisma)
 WhatsApp bot Evolution -> n8n agent -> /api/internal/bot/* (book, cancel, reschedule...)
 Reminders    n8n cron 15min -> /api/internal/reminders/run (no LLM; 502 if every send failed; failures kept on the visit, badge in /admin/citas)

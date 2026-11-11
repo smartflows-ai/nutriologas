@@ -1,7 +1,55 @@
-# Rol STAFF en producción (ticket #21)
+# Rol STAFF en producción (tickets #21 y #22)
 
-Guía para activar el rol STAFF ("Asistente") y crear el primer usuario de un negocio en la base real.
-Mientras no exista la pantalla de usuarios (#22), el usuario se crea con un script.
+Guía para activar el rol STAFF ("Asistente") en la base real y dar de alta a las personas del equipo.
+
+Desde el ticket #22 el dueño crea, restablece y desactiva a su personal desde el panel, en **Equipo**
+(`/admin/equipo`). El script de la sección 3 queda solo como respaldo para el equipo técnico.
+
+## Antes de publicar el ticket #22: aplicar `23-user-access`
+
+El código del #22 lee tres columnas nuevas de `users` (`isActive`, `mustChangePassword` y `sessionVersion`) en **cada**
+petición con sesión. Si el código llega antes que las columnas, nadie puede iniciar sesión ni usar el panel.
+Por eso el orden es el mismo de siempre: base primero, código después.
+
+1. Respaldo verificado (sección 1; usa `pre-23` en el nombre del archivo).
+2. Con aprobación explícita, aplica el cambio. Es aditivo: tres columnas con valor por defecto, no cambia
+   ninguna fila existente y no reescribe la tabla.
+
+   ```bash
+   ( set -a; . ./.env; set +a
+     "$PGBIN/psql" "$DIRECT_DATABASE_URL" -v ON_ERROR_STOP=1 -1 -f prisma/sql/23-user-access/up.sql )
+   ```
+
+3. Verificación (solo lectura). Debe mostrar tres columnas no nulas: `isActive` (`boolean`, `true`),
+   `mustChangePassword` (`boolean`, `false`) y `sessionVersion` (`integer`, `0`):
+
+   ```bash
+   ( set -a; . ./.env; set +a
+     "$PGBIN/psql" "$DIRECT_DATABASE_URL" -Atc "select column_name, data_type, is_nullable, column_default
+       from information_schema.columns
+       where table_name = 'users' and column_name in ('isActive', 'mustChangePassword', 'sessionVersion')" )
+   ```
+
+4. Después, el merge del PR. **El merge a `main` es el deploy.**
+
+Para deshacerlo se usa `23-user-access/down.sql`, solo cuando el código del #22 ya no esté en producción.
+Borra qué usuarios estaban desactivados y las versiones de sesión: una persona desactivada podría volver a entrar.
+
+## Cómo da de alta el dueño a su personal (ticket #22)
+
+1. El dueño entra a **Equipo** y elige **Agregar persona**: nombre y correo.
+2. El panel muestra una contraseña temporal **una sola vez**. El dueño la comparte por un medio privado.
+3. La persona entra con su correo y esa contraseña. El panel le pide elegir una propia antes de abrir
+   cualquier otra pantalla.
+4. Si la olvida: el dueño usa **Restablecer contraseña**, o la persona usa `/recuperar` (el código llega al
+   WhatsApp del negocio y el dueño se lo comparte).
+5. **Desactivar** corta el acceso en la siguiente petición, aunque la persona tenga el panel abierto.
+   **Activar** lo devuelve, si el plan tiene lugar; la persona vuelve a iniciar sesión.
+6. Restablecer y desactivar cierran todas las sesiones abiertas de esa persona. Si alguien más tenía su
+   sesión, esa sesión ya no vuelve a servir.
+
+Cuántos usuarios caben, contando al dueño: Start 1, Plus 2, Pro 3. Un negocio en Start no puede agregar
+personal hasta cambiar de plan.
 
 ## Orden obligatorio: base primero, código después
 
@@ -49,7 +97,7 @@ Verificación (solo lectura):
 Para deshacerlo se usa `down.sql`. Se niega a correr si existe algún usuario STAFF, para no borrar ni
 cambiar cuentas en silencio. Solo se usa cuando el código que lee STAFF ya no está en producción.
 
-## 3. Crear un usuario STAFF (después del deploy)
+## 3. Crear un usuario STAFF con el script (respaldo; lo normal es la pantalla Equipo)
 
 El script no se conecta a ninguna base. Genera un `.sql` que una persona revisa y ejecuta.
 La contraseña nunca se imprime ni pasa por la línea de comandos: se genera y se guarda solo en `<salida>.password`,
@@ -86,5 +134,6 @@ Si el `delete` falla por una llave foránea, ese usuario es dueño de alguna cit
 escribiendo el correo de la asistente, un riesgo conocido. Las citas no se borran en cascada. Revisa esas
 citas antes de decidir qué hacer; no las borres.
 
-Advertencia: el rol vive 30 días en el token de sesión. Un usuario borrado conserva su acceso hasta que
-el token caduque o hasta que cierre sesión. Corregirlo es parte del #22.
+Desde el ticket #22 un usuario borrado o desactivado pierde el acceso en su siguiente petición: la cuenta se
+revisa en la base cada vez, no solo el token de sesión. Para quitarle el acceso a alguien, lo normal es
+**Desactivar** desde la pantalla Equipo; borrar la fila solo hace falta para datos de prueba.

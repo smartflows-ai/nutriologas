@@ -121,6 +121,12 @@ model User {
   passwordResetCodeHash   String?
   passwordResetExpiresAt  DateTime?
   passwordResetAttempts   Int       @default(0)
+  // Staff users managed by the owner (prisma/sql/23-user-access, ticket #22). Read on every session check
+  // (src/lib/account-state.ts): an inactive user has no session; mustChangePassword only opens the change screen.
+  isActive           Boolean @default(true)
+  mustChangePassword Boolean @default(false)
+  // Goes up on a password reset or a deactivation; a session only works for the version it was issued for.
+  sessionVersion     Int     @default(0)
   googleId     String?
   conektaCustomerId String?
   orders  Order[]

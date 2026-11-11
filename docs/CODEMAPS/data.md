@@ -1,4 +1,4 @@
-<!-- Generated: 2026-11-06 | Files scanned: prisma/schema.prisma (665 lines) + prisma/sql | Token estimate: ~950 -->
+<!-- Generated: 2026-11-10 | Files scanned: prisma/schema.prisma (665 lines) + prisma/sql | Token estimate: ~1000 -->
 # Data (Prisma, PostgreSQL)
 
 Every table carries tenantId. No Prisma migration history. Schema changes are manual SQL in `prisma/sql/<change>/{up,down}.sql` (verified on a throwaway DB, backup first, DB before code).
@@ -7,7 +7,7 @@ Every table carries tenantId. No Prisma migration history. Schema changes are ma
 ## Models
 ```
 Tenant ─┬ ThemeConfig (1:1)
-        ├ User ──< Account, Session; VerificationToken      @@unique(tenantId,email)
+        ├ User ──< Account, Session; VerificationToken      @@unique(tenantId,email)  isActive, mustChangePassword, sessionVersion
         ├ ConnectedApp (GOOGLE|MICROSOFT|FACEBOOK|WHATSAPP) @@unique(tenantId,provider)
         ├ WhatsAppChat (botEnabled,botPausedReason) ──< WhatsAppMessage   @@unique(tenantId,remoteJid)
         ├ PatientProfile (1:1 User, triage)
@@ -34,6 +34,10 @@ A "known patient" = a number with an earlier appointment (latest visit by patien
 Legacy: googleEventId, remindersSent.
 Indexes: (tenantId), (tenantId,appointmentDate), (tenantId,patientKey), (tenantId,petId).
 
+## User access (prisma/sql/23-user-access, ticket #22, NOT applied to production)
+isActive (default true): false blocks sign-in and ends an open session on its next request. mustChangePassword (default false): true after the owner creates a user or resets a password; only the change screen works. sessionVersion (default 0): goes up on an owner reset, a deactivation and a /recuperar reset; a session only works for the version it was issued for.
+Both are read on every session check (account-state-data.ts). Additive: apply the up.sql before deploying the code that reads them.
+
 ## Tenant config groups
 - Identity: slug, customDomain, logoUrl, whatsappNumber, businessInfo, ownerName, address/placeId/lat/lng
 - Flags: vertical, isBookingEnabled, isAssistantEnabled, isTriageEnabled, serviceModes (default IN_PERSON; BOTH = bot and web ask each visit)
@@ -45,3 +49,4 @@ Indexes: (tenantId), (tenantId,appointmentDate), (tenantId,patientKey), (tenantI
 - Schema and DB in sync (checked 2026-11-02) except `whatsapp_bot_memory` (declare or exclude before any db:push).
 - No test database: local dev and production share one DB. Mirror DB, periodic backups and prisma migrate adoption are separate tasks.
 - Row Level Security not enabled; isolation is app-level only.
+- 23-user-access: backup and owner approval, then up.sql in one transaction, before the team code is merged.

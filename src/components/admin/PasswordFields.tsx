@@ -31,9 +31,12 @@ interface PasswordFieldsProps {
   showPasswords: boolean;
   onChange: (field: keyof PasswordFormValues, value: string) => void;
   onToggleShow: () => void;
+  // Replaces the default text under the title, which speaks to the business owner. The change-password
+  // screen is also used by the team, so it passes its own.
+  description?: string;
 }
 
-export default function PasswordFields({ hasPassword, values, showPasswords, onChange, onToggleShow }: PasswordFieldsProps) {
+export default function PasswordFields({ hasPassword, values, showPasswords, onChange, onToggleShow, description }: PasswordFieldsProps) {
   const { t } = useTranslation();
   const tx = t.crm.business.security;
   const isCreating = hasPassword === false;
@@ -51,7 +54,7 @@ export default function PasswordFields({ hasPassword, values, showPasswords, onC
               {isCreating ? tx.createTitle : tx.title}
             </h2>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              {isCreating ? tx.createDescription : tx.description}
+              {description ?? (isCreating ? tx.createDescription : tx.description)}
             </p>
           </div>
         </div>
