@@ -233,3 +233,72 @@ test("every cancellation sent to a customer passes the saved cancellation text",
   const owner = read("src/app/api/apps/whatsapp/confirmations/[id]/route.ts");
   assert.ok(owner.includes("cancellationTemplate: true") && owner.includes("cancellationTemplate: visit.tenant.cancellationTemplate"));
 });
+
+// --- Default reminder + custom confirmation + default cancellation (the Doctor G Center setup) ------------------
+
+const DOCTOR_G_CONFIRMATION =
+  "Hola *[Customer name]* 💗\n\nQueremos confirmar tu próxima cita en *[Business name]*.\n\n📋 *Servicio:* [Service]\n📅 *Fecha:* [Date]\n🕒 *Hora:* [Time]\n📍 *Ubicación:* [Location]\n\n¿Nos confirmas tu asistencia?\n\nPor favor, responde *SI* para confirmar tu cita antes de las *[Deadline time]*.\n\nEn caso de no recibir confirmación dentro del plazo establecido, el horario será liberado.\n\n¡Gracias por tu preferencia!\n*DoctorG Center*";
+
+const MIXED = { reminderTemplate: null, confirmationTemplate: DOCTOR_G_CONFIRMATION, cancellationTemplate: null };
+
+test("default reminder + custom confirmation: the visit gets only the custom confirmation, in person with the address", async () => {
+  const text = await sent(visit({ ...MIXED, locationText: "Edificio Vantash 702, Monterrey" }));
+  assert.ok(text.startsWith("Hola *Scarllet* 💗"));
+  assert.ok(text.includes("📍 *Ubicación:* Edificio Vantash 702, Monterrey"));
+  assert.equal(text.match(/Ubicación/g)?.length, 1, "the address is not added a second time");
+  for (const fragment of [DEFAULT_REMINDER_ES, DEFAULT_REQUEST_ES, DEFAULT_FOOTER_ES]) assert.ok(!text.includes(fragment));
+  assert.ok(!text.includes("[") && !text.includes(".."));
+});
+
+test("default reminder + custom confirmation: an online visit shows its video call link on the location line", async () => {
+  const text = await sent(visit({ ...MIXED }, { modality: "ONLINE", meetUrl: "https://meet.google.com/abc-defg-hij" }));
+  assert.ok(text.includes("📍 *Ubicación:* https://meet.google.com/abc-defg-hij"));
+  assert.ok(!text.includes("Videollamada:"), "the link is not added a second time");
+});
+
+test("default reminder + custom confirmation: an online visit with no link yet has no empty location line", async () => {
+  const text = await sent(visit({ ...MIXED }, { modality: "ONLINE", meetUrl: null }));
+  assert.ok(!text.includes("Ubicación"));
+  assert.ok(text.includes("¿Nos confirmas tu asistencia?"));
+});
+
+test("default reminder + custom confirmation: a visit that needs no confirmation gets the default reminder and footer", async () => {
+  const text = await sent(visit({ ...MIXED, locationText: "Edificio Vantash 702" }, { customerConfirmedAt: new Date(NOW.getTime() - HOUR) }));
+  assert.ok(text.includes(DEFAULT_REMINDER_ES));
+  assert.ok(text.includes(DEFAULT_FOOTER_ES));
+  assert.ok(!text.includes("Queremos confirmar"), "the custom confirmation is not sent to a visit that is already confirmed");
+  assert.ok(!text.includes("Responde *SI*") && !/\bSI\b/.test(text));
+});
+
+test("default reminder + custom confirmation: when the visit is released the default cancellation text is sent", () => {
+  const text = cancellationText(MIXED.cancellationTemplate, cancelValues, "es");
+  assert.equal(text, customerTexts("es").cancellationTemplate
+    .replace("[Servicio]", cancelValues.servicio)
+    .replace("[Fecha]", cancelValues.fecha)
+    .replace("[Hora]", cancelValues.hora)
+    .replace("[Nombre del negocio]", cancelValues.negocio));
+  assert.ok(!text.includes("DoctorG Center"), "nothing of the custom confirmation leaks into the cancellation");
+});
+
+test("default reminder + custom confirmation: the release runs and nothing else is sent for that visit", async () => {
+  const overdue = visit({ ...MIXED }, { reminderSentAt: new Date(NOW.getTime() - 2 * HOUR), appointmentDate: new Date(NOW.getTime() + 30 * 60 * 1000) });
+  const released: string[] = [];
+  const messages: string[] = [];
+  const deps: ReminderDeps = {
+    send: async (_v, text) => {
+      messages.push(text);
+      return { success: true };
+    },
+    markSent: async () => undefined,
+    recordFailure: async () => undefined,
+    charge: async () => undefined,
+    release: async (v) => {
+      released.push(v.id);
+      return { customerNotified: true };
+    },
+  };
+  const result = await runReminderBatch([overdue], NOW, deps, { dryRun: false });
+  assert.equal(result.released, 1);
+  assert.deepEqual(released, ["a1"]);
+  assert.deepEqual(messages, [], "the release sends the cancellation through its own path, never a second reminder");
+});
