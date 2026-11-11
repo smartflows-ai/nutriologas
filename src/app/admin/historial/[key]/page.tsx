@@ -176,7 +176,7 @@ export default function PatientHistoryPage() {
                 aria-pressed={active}
                 className={`px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors ${
                   active
-                    ? "bg-primary text-[color:var(--on-primary)] border-primary"
+                    ? "bg-primary text-white border-primary"
                     : "border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
                 }`}
               >

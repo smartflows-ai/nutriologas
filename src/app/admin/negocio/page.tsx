@@ -690,7 +690,7 @@ export default function BusinessProfilePage() {
               id="service-modes"
               value={serviceModes}
               onChange={(e) => setServiceModes(e.target.value as "IN_PERSON" | "ONLINE" | "BOTH")}
-              className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
+              className="select-themed w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
             >
               <option value="IN_PERSON">{t.locationUi.serviceModesInPerson}</option>
               <option value="ONLINE">{t.locationUi.serviceModesOnline}</option>
@@ -813,7 +813,7 @@ export default function BusinessProfilePage() {
           <button
             type="submit"
             disabled={saving || uploadingLogo}
-            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-[color:var(--on-primary)] bg-primary hover:bg-primary/90 focus:outline-hidden focus:ring-2 focus:ring-primary/30 transition-all disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white bg-primary hover:bg-primary/90 focus:outline-hidden focus:ring-2 focus:ring-primary/30 transition-all disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
           >
             {saving ? (
               <>

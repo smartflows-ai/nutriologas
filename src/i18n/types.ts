@@ -1208,6 +1208,7 @@ export interface Translations {
     modalityInPerson: string;
     modalityOnline: string;
     modalityEither: string;
+    modalityChoose: string;
     summaryModality: string;
     summaryAddress: string;
     notes: string;

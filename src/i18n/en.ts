@@ -1393,6 +1393,7 @@ export const en: Translations = {
     modalityInPerson: "In person",
     modalityOnline: "Online",
     modalityEither: "In person or online",
+    modalityChoose: "Choose how you will attend",
     summaryModality: "Visit type",
     summaryAddress: "Address",
     notes: "Reason for visit or notes for the specialist (optional)",

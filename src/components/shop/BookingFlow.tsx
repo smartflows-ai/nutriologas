@@ -21,7 +21,6 @@ import { priceViewFor, type PriceMode } from "@/lib/price-display";
 import { buildFullPhone, DEFAULT_DIAL_CODE, PHONE_COUNTRIES } from "@/lib/phone";
 import { clinicDateTime } from "@/lib/clinic-time";
 import { modalityModeFor, parseAge } from "@/lib/patient-intake";
-import RadioOption from "@/components/ui/RadioOption";
 import { BusinessHours, blocksForDate, markSlots } from "@/lib/business-hours";
 import { useTranslation } from "@/i18n";
 import { translateApiError } from "@/i18n/validation";
@@ -538,26 +537,19 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
             </div>
 
             {modalityMode === "ASK" && (
-              <fieldset className="md:col-span-2">
-                <legend className="text-xs font-semibold text-gray-700 dark:text-gray-200 mb-1">{t.booking.modality}</legend>
-                <div className="flex flex-wrap gap-x-6">
-                  {(
-                    [
-                      ["IN_PERSON", t.booking.modalityInPerson],
-                      ["ONLINE", t.booking.modalityOnline],
-                    ] as const
-                  ).map(([value, label]) => (
-                    <RadioOption
-                      key={value}
-                      name="modality"
-                      value={value}
-                      checked={modality === value}
-                      onChange={() => setModality(value)}
-                      label={label}
-                    />
-                  ))}
-                </div>
-              </fieldset>
+              <div className="md:col-span-2">
+                <label htmlFor="visit-modality" className="block text-xs font-semibold text-gray-700 dark:text-gray-200 mb-1">{t.booking.modality}</label>
+                <select
+                  id="visit-modality"
+                  value={modality}
+                  onChange={(e) => setModality(e.target.value as "IN_PERSON" | "ONLINE" | "")}
+                  className={`input bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 text-sm ${modality === "" ? "text-gray-400 dark:text-gray-500" : ""}`}
+                >
+                  <option value="" disabled>{t.booking.modalityChoose}</option>
+                  <option value="IN_PERSON" className="text-gray-900">{t.booking.modalityInPerson}</option>
+                  <option value="ONLINE" className="text-gray-900">{t.booking.modalityOnline}</option>
+                </select>
+              </div>
             )}
 
             <div className="md:col-span-2">
