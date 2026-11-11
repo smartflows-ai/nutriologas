@@ -43,7 +43,7 @@ Rejected for all: parsing the service name or description to guess it varies (br
 
 ## Design (option A)
 
-### Data (additive, `prisma/sql/24-product-price-mode/up.sql` and `down.sql`)
+### Data (additive, `prisma/sql/25-product-price-mode/up.sql` and `down.sql`)
 - New enum `PriceMode` = `FIXED`, `FROM`, `ON_REQUEST`.
 - `products.priceMode PriceMode NOT NULL DEFAULT 'FIXED'`. Every existing product keeps today's behavior, no surprises on deploy.
 - `price` stays a non-null `Float`. For `ON_REQUEST` it is stored as `0` and never shown. Reason: making it nullable would touch every `product.price` reader (38 files). The cost is that a stray `0` could leak, so every reader goes through one helper (below) and the money paths refuse non-fixed items.
@@ -123,7 +123,7 @@ Other places it reaches, checked:
 ## Rollout
 
 1. Own branch off `main` (after the visit-modes PR merges, or stacked on it; the SQL folders are independent: 23 and 24).
-2. Apply `24-product-price-mode/up.sql` to the real database (backup, approval), then deploy the code (merge deploys).
+2. Apply `25-product-price-mode/up.sql` to the real database (backup, approval), then deploy the code (merge deploys).
 3. Owner marks the services (the customer sets "From" or "On request" in the product form).
 4. One n8n prompt write covering visit modes and price (backup outside the repo, approval first).
 5. CHANGELOG, CLAUDE.md (`Product.priceMode`), DECISIONS-LEDGER.
