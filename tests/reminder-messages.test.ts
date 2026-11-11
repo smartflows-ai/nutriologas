@@ -269,3 +269,48 @@ test("the insertable confirmation request satisfies the confirmation rule in bot
   assert.equal(validateConfirmationTemplate(`${es.crm.business.confirmationRequestSnippet} [Hora límite]`), null);
   assert.equal(validateConfirmationTemplate(`${en.crm.business.confirmationRequestSnippet} [Deadline time]`), null);
 });
+
+const placeValues = { servicio: "Colposcopía", fecha: "miércoles, 11 de noviembre", hora: "10:00 a.m.", negocio: "Clínica", nombre: "Ana" };
+
+test("a line that only labels the place is dropped when there is no place to show", () => {
+  const template = "Hola [Nombre].\n\nServicio: [Servicio]\nUbicación: [Ubicación]\n\nTe esperamos.";
+  assert.equal(
+    renderTemplate(template, { ...placeValues, ubicacion: "" }),
+    "Hola Ana.\n\nServicio: Colposcopía\n\nTe esperamos.",
+  );
+});
+
+test("the place line is kept when there is a place", () => {
+  const template = "Ubicación: [Ubicación]\nFin";
+  assert.equal(renderTemplate(template, { ...placeValues, ubicacion: "Calle 1" }), "Ubicación: Calle 1\nFin");
+});
+
+test("a place tag inside a longer sentence is not removed as a line", () => {
+  const out = renderTemplate("Te esperamos en [Ubicación].", { ...placeValues, ubicacion: "" });
+  assert.equal(out, "Te esperamos en.");
+});
+
+test("a caller that gives no place value keeps the text as written", () => {
+  assert.equal(renderTemplate("Ubicación: [Ubicación]", placeValues), "Ubicación: [Ubicación]");
+});
+
+test("a period closing the sentence after bold markers is not doubled after a.m. or p.m.", () => {
+  const out = renderTemplate("responde *SI* antes de las *[Deadline time]*.", {
+    ...placeValues,
+    hora_limite: "08:00 a.m.",
+    ubicacion: "x",
+  });
+  assert.equal(out, "responde *SI* antes de las *08:00 a.m.*");
+});
+
+test("a time not followed by a period keeps its own period", () => {
+  assert.equal(renderTemplate("Hora: *[Time]* aprox", { ...placeValues, ubicacion: "x" }), "Hora: *10:00 a.m.* aprox");
+});
+
+test("the empty place line is dropped even when its label is in bold", () => {
+  const template = "📋 *Servicio:* [Service]\n📍 *Ubicación:* [Location]\n\nFin";
+  assert.equal(
+    renderTemplate(template, { ...placeValues, ubicacion: "" }),
+    "📋 *Servicio:* Colposcopía\n\nFin",
+  );
+});

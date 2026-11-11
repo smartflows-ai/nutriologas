@@ -58,6 +58,23 @@ function locationTags(template: string): string[] {
     .map((tag) => tag.text);
 }
 
+const VISIT_DETAIL_KEYS = new Set(["servicio", "fecha", "hora"]);
+
+/** True when the text names the visit itself (service, date or time), so it can be sent on its own. */
+export function hasVisitDetailTags(template: string): boolean {
+  return allTags(template).some((tag) => {
+    const key = LABEL_TO_KEY.get(tag.label);
+    return key !== undefined && VISIT_DETAIL_KEYS.has(key);
+  });
+}
+
+/** The index of the last line of the text that carries a visit detail tag, or -1. */
+export function lastDetailLine(template: string): number {
+  const lines = template.split("\n");
+  for (let i = lines.length - 1; i >= 0; i--) if (hasVisitDetailTags(lines[i])) return i;
+  return -1;
+}
+
 /** True when the text places the address or video call link itself with the location tag. */
 export function hasLocationTag(template: string): boolean {
   return locationTags(template).length > 0;

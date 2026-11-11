@@ -3,8 +3,8 @@
 // is testable without a database or WhatsApp. One bad visit never stops the others, and every failure is reported.
 import type { AppProvider } from "@prisma/client";
 import { planReminder, releaseAt } from "@/lib/reminders";
-import { hasLocationTag } from "@/lib/reminder-template-rules";
-import { clinicLongDate, clinicTime, customerTexts, placeText, renderTemplate, usableTemplate, withBookedBy, withLocation, withMeetingLink } from "@/lib/reminder-messages";
+import { hasLocationTag, hasVisitDetailTags } from "@/lib/reminder-template-rules";
+import { clinicLongDate, clinicTime, customerTexts, placeLine, placeText, renderTemplate, usableTemplate, withBookedBy, withPlaceAfterDetails, withLocation, withMeetingLink } from "@/lib/reminder-messages";
 
 export interface ReminderTenant {
   name: string;
@@ -98,11 +98,23 @@ function reminderText(visit: ReminderVisit, requestConfirmation: boolean, releas
   const confirmationSource = requestConfirmation
     ? usableTemplate(t.confirmationTemplate, "confirmation", texts.confirmationTemplate, warn("confirmation"))
     : null;
+  // A confirmation text that already names the visit (service, date or time) is the whole message: sending the
+  // reminder text above it repeats the same greeting and details. The default confirmation text is only the
+  // short request, so it is still added under the reminder.
+  if (confirmationSource !== null && hasVisitDetailTags(confirmationSource)) {
+    const body = renderTemplate(confirmationSource, { ...values, hora_limite: clinicTime(releaseInstant as Date, t.messageLanguage) });
+    const line = hasLocationTag(confirmationSource) ? null : placeLine(visit, t.locationText, t.messageLanguage);
+    return withBookedBy(line ? withPlaceAfterDetails(confirmationSource, body, line) : body, visit, t.messageLanguage);
+  }
   const reminderSource = usableTemplate(t.reminderTemplate, "reminder", texts.reminderTemplate, warn("reminder"));
+  // The business's own reminder text is sent as written: the default footer is only added under the default text.
+  const reminderIsCustom = Boolean(t.reminderTemplate?.trim()) && reminderSource !== texts.reminderTemplate;
   const tail =
     confirmationSource !== null
       ? renderTemplate(confirmationSource, { ...values, hora_limite: clinicTime(releaseInstant as Date, t.messageLanguage) })
-      : texts.plainFooter;
+      : reminderIsCustom
+        ? null
+        : texts.plainFooter;
   const head = renderTemplate(reminderSource, values);
   // A text that places the address or video link itself (location tag) is left alone; otherwise it is added right
   // after the visit details, and the request to reply stays last.
@@ -110,7 +122,7 @@ function reminderText(visit: ReminderVisit, requestConfirmation: boolean, releas
   const headWithPlace = placedByBusiness
     ? head
     : withLocation(withMeetingLink(head, visit, t.messageLanguage), visit, t.locationText, t.messageLanguage);
-  return withBookedBy(`${headWithPlace}\n\n${tail}`, visit, t.messageLanguage);
+  return withBookedBy(tail === null ? headWithPlace : `${headWithPlace}\n\n${tail}`, visit, t.messageLanguage);
 }
 
 async function processVisit(visit: ReminderVisit, now: Date, deps: ReminderDeps, dryRun: boolean): Promise<Outcome> {
