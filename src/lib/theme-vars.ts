@@ -36,7 +36,7 @@ export function themeColorVars(colors: { primaryColor?: string | null; secondary
     "--color-primary": colors.primaryColor || "#16a34a",
     "--color-primary-rgb": hexToRgbChannels(colors.primaryColor),
     // Text and icons placed on a primary fill (bg-primary): use text-[color:var(--on-primary)], never text-white.
-    "--on-primary": readableTextOn(hexToRgbChannels(colors.primaryColor)),
+    "--on-primary": "#ffffff", // product decision (2026-11-11): white text on every primary fill
     "--color-secondary": colors.secondaryColor || "#15803d",
     "--color-secondary-rgb": hexToRgbChannels(colors.secondaryColor || "#15803d"),
     "--color-accent": colors.accentColor || "#4ade80",

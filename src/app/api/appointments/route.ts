@@ -51,7 +51,7 @@ async function getAdminAgenda(req: NextRequest, tenantId: string, role: string) 
     where: { tenantId, appointmentDate: { gte: start, lte: end } },
     include: {
       product: {
-        select: { id: true, name: true, price: true, durationMinutes: true, images: true, category: true },
+        select: { id: true, name: true, price: true, priceMode: true, durationMinutes: true, images: true, category: true },
       },
       user: { select: { id: true, name: true, email: true, image: true } },
       pet: { select: { name: true } },
@@ -178,7 +178,7 @@ export async function GET(req: NextRequest) {
           select: {
             id: true,
             name: true,
-            price: true,
+            price: true, priceMode: true,
             durationMinutes: true,
             images: true,
             category: true,

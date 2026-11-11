@@ -16,7 +16,7 @@ html {
 :root {
   --color-primary: #16a34a;
   --color-primary-rgb: 22 163 74;
-  --on-primary: #111827; /* readable text on the primary fill (dark on the default green); the tenant theme overrides it (src/lib/theme-vars.ts) */
+  --on-primary: #ffffff; /* text on the primary fill (white); the tenant theme overrides it (src/lib/theme-vars.ts) */
   --color-secondary: #15803d;
   --color-secondary-rgb: 21 128 61;
   --color-accent: #4ade80;
@@ -78,6 +78,81 @@ html {
 
   .input {
     @apply w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors duration-150;
+  }
+
+  /* Dropdowns (combo boxes): the same field style, with a chevron and hover/focus border in the tenant's primary color. */
+  select.input,
+  .select-themed {
+    @apply cursor-pointer hover:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors duration-150;
+    appearance: none;
+    -webkit-appearance: none;
+    padding-right: 2.25rem;
+    background-image:
+      linear-gradient(45deg, transparent 50%, color-mix(in srgb, var(--color-primary) 65%, #000) 50%),
+      linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 65%, #000) 50%, transparent 50%);
+    background-position: calc(100% - 19px) 50%, calc(100% - 13px) 50%;
+    background-size: 6px 6px, 6px 6px;
+    background-repeat: no-repeat;
+  }
+  /* The open list: browsers that support customizable selects (Chrome and Edge 135+) show it in the tenant's color;
+     the others keep the system list, which is still usable. */
+  @supports (appearance: base-select) {
+    select.input,
+    .select-themed {
+      appearance: base-select;
+      background-image: none;
+      padding-right: 0.75rem;
+    }
+    select.input::picker-icon,
+    .select-themed::picker-icon {
+      color: color-mix(in srgb, var(--color-primary) 65%, #000);
+      transition: rotate 150ms;
+    }
+    select.input:open::picker-icon,
+    .select-themed:open::picker-icon {
+      rotate: 180deg;
+    }
+    select.input::picker(select),
+    .select-themed::picker(select) {
+      appearance: base-select;
+      margin-top: 4px;
+      padding: 4px;
+      border: 1px solid color-mix(in srgb, var(--color-primary) 35%, #9ca3af);
+      border-radius: 0.75rem;
+      background: Canvas;
+      color: CanvasText;
+      box-shadow: 0 4px 12px rgb(0 0 0 / 0.08);
+    }
+    select.input option,
+    .select-themed option {
+      padding: 0.5rem 0.75rem;
+      border-radius: 0.5rem;
+      cursor: pointer;
+    }
+    select.input option:hover,
+    select.input option:focus-visible,
+    .select-themed option:hover,
+    .select-themed option:focus-visible {
+      background: color-mix(in srgb, var(--color-primary) 18%, transparent);
+    }
+    select.input option:checked,
+    .select-themed option:checked {
+      background: color-mix(in srgb, var(--color-primary) 28%, transparent);
+      font-weight: 600;
+    }
+    select.input option::checkmark,
+    .select-themed option::checkmark {
+      color: color-mix(in srgb, var(--color-primary) 65%, #000);
+    }
+    select.input option:disabled,
+    .select-themed option:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+  }
+  select.input:disabled,
+  .select-themed:disabled {
+    @apply cursor-not-allowed opacity-60 hover:border-gray-200 dark:hover:border-gray-800;
   }
 
   .card {

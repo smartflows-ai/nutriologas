@@ -76,16 +76,19 @@ export default function WhatsAppPage() {
     return () => clearInterval(timer);
   }, []);
 
+  // Keyed by the chat id, not the chat object: the chat list refresh (every 5 s) replaces the object with a new
+  // one, and depending on the object reset the scroll state and jumped the reader back to the bottom.
+  const selectedChatId: string | undefined = selectedChat?.id;
   useEffect(() => {
-    if (selectedChat) {
-      // Reset scroll state when switching chats
+    if (selectedChatId) {
+      // Reset scroll state only when switching to another chat
       prevMessagesLengthRef.current = 0;
       isAtBottomRef.current = true;
-      fetchMessages(selectedChat.id);
-      const interval = setInterval(() => fetchMessages(selectedChat.id), 5000);
+      fetchMessages(selectedChatId);
+      const interval = setInterval(() => fetchMessages(selectedChatId), 5000);
       return () => clearInterval(interval);
     }
-  }, [selectedChat]);
+  }, [selectedChatId]);
 
   useEffect(() => {
     const isFirstLoad = prevMessagesLengthRef.current === 0 && messages.length > 0;

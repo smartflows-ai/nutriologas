@@ -19,7 +19,7 @@ import {
 } from "@/lib/calendar-sync";
 
 export const appointmentInclude = {
-  product: { select: { name: true, durationMinutes: true, price: true } },
+  product: { select: { name: true, durationMinutes: true, price: true, priceMode: true } },
   user: { select: { name: true, email: true } },
 } as const;
 

@@ -50,6 +50,7 @@ export default async function AgendarPage({
           durationMinutes: product.durationMinutes,
           category: product.category,
           visitModes: product.visitModes,
+          priceMode: product.priceMode,
         }}
         tenant={{
           name: tenant.name,

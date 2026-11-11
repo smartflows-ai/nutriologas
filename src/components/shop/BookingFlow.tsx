@@ -16,11 +16,11 @@ import {
   MapPin,
   Video
 } from "lucide-react";
-import { formatPrice, localeFor, fill } from "@/lib/utils";
+import { localeFor, fill } from "@/lib/utils";
+import { priceViewFor, type PriceMode } from "@/lib/price-display";
 import { buildFullPhone, DEFAULT_DIAL_CODE, PHONE_COUNTRIES } from "@/lib/phone";
 import { clinicDateTime } from "@/lib/clinic-time";
 import { modalityModeFor, parseAge } from "@/lib/patient-intake";
-import RadioOption from "@/components/ui/RadioOption";
 import { BusinessHours, blocksForDate, markSlots } from "@/lib/business-hours";
 import { useTranslation } from "@/i18n";
 import { translateApiError } from "@/i18n/validation";
@@ -32,6 +32,7 @@ interface Props {
     name: string;
     slug: string;
     price: number;
+    priceMode?: PriceMode | null;
     images: string[];
     description: string | null;
     durationMinutes: number | null;
@@ -58,6 +59,7 @@ interface Props {
 export default function BookingFlow({ product, tenant, businessHours }: Props) {
   const { t, lang } = useTranslation();
   const locale = localeFor(lang);
+  const price = priceViewFor(product, t.price, locale);
   // ASK: the patient chooses. Otherwise the mode is fixed by the service (or the business) and only shown.
   const modalityMode = modalityModeFor(tenant.serviceModes, product.visitModes);
 
@@ -277,7 +279,7 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
           )}
           <div className="flex justify-between items-center">
             <span className="text-xs text-gray-500 font-semibold">{t.booking.summaryPrice}</span>
-            <span className="text-base font-semibold text-gray-900 dark:text-white">{formatPrice(product.price, locale)}</span>
+            <span className="text-base font-semibold text-gray-900 dark:text-white text-right">{price.text}</span>
           </div>
         </div>
 
@@ -342,7 +344,8 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
 
         <div className="text-left md:text-right flex-shrink-0 bg-gray-50 dark:bg-gray-900/60 p-4 rounded-xl border border-gray-200 dark:border-gray-800">
           <span className="text-xs text-gray-400 font-semibold block">{t.booking.costLabel}</span>
-          <span className="text-2xl font-semibold text-gray-900 dark:text-white">{formatPrice(product.price, locale)}</span>
+          <span className={`${price.kind === "onRequest" ? "text-lg" : "text-2xl"} font-semibold text-gray-900 dark:text-white`}>{price.text}</span>
+          {price.footnote && <span className="text-xs text-gray-500 dark:text-gray-400 block mt-1 max-w-[16rem]">{price.footnote}</span>}
         </div>
       </div>
 
@@ -534,26 +537,19 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
             </div>
 
             {modalityMode === "ASK" && (
-              <fieldset className="md:col-span-2">
-                <legend className="text-xs font-semibold text-gray-700 dark:text-gray-200 mb-1">{t.booking.modality}</legend>
-                <div className="flex flex-wrap gap-x-6">
-                  {(
-                    [
-                      ["IN_PERSON", t.booking.modalityInPerson],
-                      ["ONLINE", t.booking.modalityOnline],
-                    ] as const
-                  ).map(([value, label]) => (
-                    <RadioOption
-                      key={value}
-                      name="modality"
-                      value={value}
-                      checked={modality === value}
-                      onChange={() => setModality(value)}
-                      label={label}
-                    />
-                  ))}
-                </div>
-              </fieldset>
+              <div className="md:col-span-2">
+                <label htmlFor="visit-modality" className="block text-xs font-semibold text-gray-700 dark:text-gray-200 mb-1">{t.booking.modality}</label>
+                <select
+                  id="visit-modality"
+                  value={modality}
+                  onChange={(e) => setModality(e.target.value as "IN_PERSON" | "ONLINE" | "")}
+                  className={`input bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 text-sm ${modality === "" ? "text-gray-400 dark:text-gray-500" : ""}`}
+                >
+                  <option value="" disabled>{t.booking.modalityChoose}</option>
+                  <option value="IN_PERSON" className="text-gray-900">{t.booking.modalityInPerson}</option>
+                  <option value="ONLINE" className="text-gray-900">{t.booking.modalityOnline}</option>
+                </select>
+              </div>
             )}
 
             <div className="md:col-span-2">

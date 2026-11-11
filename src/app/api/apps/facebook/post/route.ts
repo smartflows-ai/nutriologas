@@ -1,6 +1,7 @@
 // src/app/api/apps/facebook/post/route.ts
 // POST — Triggers the n8n AI agent to generate and publish a promotional Facebook post.
 // Falls back to direct Graph API if N8N_FACEBOOK_WEBHOOK_URL is not set.
+import { priceFieldsFor, priceTextFor } from "@/lib/price-text";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -47,11 +48,11 @@ export async function POST(req: NextRequest) {
   const targetPageId = overridePage ?? meta.pageId;
 
   // ── 3. Load product data (optional) ─────────────────────────────
-  let product: { name: string; description: string | null; price: number; images: string[] } | null = null;
+  let product: { name: string; description: string | null; price: number; priceMode: "FIXED" | "FROM" | "ON_REQUEST"; images: string[] } | null = null;
   if (productId) {
     product = await prisma.product.findFirst({
       where: { id: productId, tenantId, isActive: true, deletedAt: null },
-      select: { name: true, description: true, price: true, images: true },
+      select: { name: true, description: true, price: true, priceMode: true, images: true },
     });
   }
 
@@ -73,7 +74,8 @@ export async function POST(req: NextRequest) {
       fbPageId: targetPageId,
       productName: product?.name,
       productDescription: product?.description,
-      productPrice: product?.price,
+      productPrice: product ? priceFieldsFor(product, "es").price : undefined,
+      productPriceText: product ? priceTextFor(product, "es") : undefined,
       imageUrl: product?.images?.[0] ?? null,
       waPhone,
       campaignGoal,
@@ -107,8 +109,7 @@ export async function POST(req: NextRequest) {
     lines.push(`🌟 ${product.name}`);
     lines.push("");
     if (product.description) { lines.push(product.description); lines.push(""); }
-    const formattedPrice = new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(product.price);
-    lines.push(`💰 Precio: ${formattedPrice}`);
+    lines.push(`💰 Precio: ${priceTextFor(product, "es")}`);
   }
 
   if (extraContext?.trim()) { lines.push(""); lines.push(extraContext.trim()); }

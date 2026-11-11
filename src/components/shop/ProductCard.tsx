@@ -4,7 +4,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { Star, ShoppingCart, Calendar, Clock } from "lucide-react";
 import { useCartStore } from "@/store/cart";
-import { formatPrice, localeFor, fill } from "@/lib/utils";
+import { localeFor, fill } from "@/lib/utils";
+import { priceViewFor, isPurchasable, type PriceMode } from "@/lib/price-display";
 import { isBookable } from "@/lib/bookable";
 import { toast } from "@/hooks/useToast";
 import { useTranslation } from "@/i18n";
@@ -14,6 +15,7 @@ interface Product {
   name: string;
   slug: string;
   price: number;
+  priceMode?: PriceMode | null;
   images: string[];
   avgRating?: number | null;
   reviewCount?: number;
@@ -27,6 +29,9 @@ export default function ProductCard({ product, bookingEnabled }: { product: Prod
   const { t, lang } = useTranslation();
   const locale = localeFor(lang);
   const addItem = useCartStore((s) => s.addItem);
+  const price = priceViewFor(product, t.price, locale);
+  // A price that is not final is never added to the cart: the card links to the page, which has the right button.
+  const canBuy = isPurchasable(product);
   const isBooking = isBookable({ requiresBooking: product.requiresBooking ?? false }, { isBookingEnabled: bookingEnabled });
 
   const handleAdd = (e: React.MouseEvent) => {
@@ -73,7 +78,7 @@ export default function ProductCard({ product, bookingEnabled }: { product: Prod
               <Calendar size={18} />
               {t.productUi.bookAppointment} {product.durationMinutes ? `(${product.durationMinutes}m)` : ""}
             </button>
-          ) : (
+          ) : canBuy ? (
             <button
               onClick={handleAdd}
               disabled={product.stock === 0}
@@ -82,7 +87,7 @@ export default function ProductCard({ product, bookingEnabled }: { product: Prod
               <ShoppingCart size={18} />
               {product.stock === 0 ? t.productUi.soldOut : t.productUi.addToCart}
             </button>
-          )}
+          ) : null}
         </div>
       </div>
 
@@ -90,7 +95,7 @@ export default function ProductCard({ product, bookingEnabled }: { product: Prod
       <div className="p-4 sm:p-5 flex flex-col flex-1">
         <div className="flex items-start justify-between gap-3 mb-2">
           <h3 className="min-w-0 flex-1 break-words font-semibold text-gray-900 dark:text-white text-base sm:text-lg leading-snug line-clamp-2 group-hover:text-primary transition-colors">{product.name}</h3>
-          <span className="shrink-0 font-semibold text-gray-900 dark:text-white text-base sm:text-lg whitespace-nowrap">{formatPrice(product.price, locale)}</span>
+          <span className={`font-semibold text-gray-900 dark:text-white ${price.kind === "onRequest" ? "text-sm text-right max-w-[45%]" : "shrink-0 text-base sm:text-lg whitespace-nowrap"}`}>{price.text}</span>
         </div>
 
         {/* Rating */}
@@ -114,7 +119,7 @@ export default function ProductCard({ product, bookingEnabled }: { product: Prod
               <Calendar size={16} />
               {t.productUi.bookShort}
             </button>
-          ) : (
+          ) : canBuy ? (
             <button
               onClick={handleAdd}
               disabled={product.stock === 0}
@@ -123,7 +128,7 @@ export default function ProductCard({ product, bookingEnabled }: { product: Prod
               <ShoppingCart size={16} />
               {product.stock === 0 ? t.productUi.soldOut : t.productUi.addShort}
             </button>
-          )}
+          ) : null}
         </div>
       </div>
     </Link>

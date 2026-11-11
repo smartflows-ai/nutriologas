@@ -3,6 +3,8 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { productSchema } from "@/lib/validations";
 import { slugify } from "@/lib/utils";
+import { normalizePriceInput } from "@/lib/price-display";
+import { isValidAssessmentTarget } from "@/lib/assessment-target";
 import { NextRequest } from "next/server";
 import { resolveTenantSlug } from "@/lib/tenant";
 
@@ -64,6 +66,12 @@ export async function POST(req: Request) {
   const parsed = productSchema.safeParse(body);
   if (!parsed.success) return Response.json({ error: "validation_failed" }, { status: 400 });
   const data = parsed.data;
+  const priceRule = normalizePriceInput(data, { partial: false });
+  if (!priceRule.ok) return Response.json({ error: "validation_failed" }, { status: 400 });
+  const targetId = priceRule.value.assessmentProductId ?? null;
+  if (targetId && !(await isValidAssessmentTarget(tenantId, null, targetId))) {
+    return Response.json({ error: "assessment_target_invalid" }, { status: 400 });
+  }
 
   // Deleted products keep their row (soft delete) and their slug, so a slug can be taken by a deleted item.
   const baseSlug = slugify(data.name);
@@ -76,6 +84,7 @@ export async function POST(req: Request) {
   const product = await prisma.product.create({
     data: {
       ...data,
+      ...priceRule.value,
       tenantId,
       slug,
       serviceConfig: data.serviceConfig ?? undefined,

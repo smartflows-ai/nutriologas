@@ -20,7 +20,7 @@ export default async function MisCitasPage() {
         select: {
           id: true,
           name: true,
-          price: true,
+          price: true, priceMode: true,
           images: true,
           slug: true,
         },

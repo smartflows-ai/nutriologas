@@ -1,5 +1,6 @@
 "use client";
 // src/components/shop/CustomerAppointmentsList.tsx
+import { priceViewFor, type PriceMode } from "@/lib/price-display";
 import { useState } from "react";
 import { Calendar as CalendarIcon, Clock } from "lucide-react";
 import { formatPrice, localeFor, fill } from "@/lib/utils";
@@ -16,6 +17,7 @@ interface AppointmentData {
     id: string;
     name: string;
     price: number;
+    priceMode?: PriceMode | null;
     images: string[];
     slug: string;
   };
@@ -131,7 +133,7 @@ export default function CustomerAppointmentsList({
 
                 <p className="text-xs text-gray-500">
                   {t.myAppointments.costLabel}:{" "}
-                  <span className="font-semibold text-gray-800 dark:text-gray-200">{formatPrice(item.product.price, locale)}</span>
+                  <span className="font-semibold text-gray-800 dark:text-gray-200">{priceViewFor(item.product, t.price, locale).text}</span>
                 </p>
 
                 {item.notes && (

@@ -2,6 +2,7 @@
 // src/app/admin/social-campaign/page.tsx
 // Social Campaign Manager — create/manage AI-driven social media campaigns
 
+import { priceViewFor, type PriceMode } from "@/lib/price-display";
 import { useState, useEffect } from "react";
 import {
   Facebook, Instagram, Sparkles, Loader2, X, Check, Plus,
@@ -20,7 +21,7 @@ import FormPanel from "@/components/admin/FormPanel";
 // ── Types ──────────────────────────────────────────────────────────────────
 interface Product {
   id: string; name: string; description: string | null;
-  price: number; images: string[];
+  price: number; priceMode?: PriceMode | null; images: string[];
 }
 
 interface FacebookConfig {
@@ -698,7 +699,7 @@ export default function SocialCampaignPage() {
                     )}
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">{p.name}</p>
-                      <p className="text-xs text-gray-400">{new Intl.NumberFormat(lang === "es" ? "es-MX" : "en-US", { style: "currency", currency: "MXN" }).format(p.price)}</p>
+                      <p className="text-xs text-gray-400">{priceViewFor(p, t.price, lang === "es" ? "es-MX" : "en-US").text}</p>
                     </div>
                     {formProductIds.includes(p.id) && <Check size={14} className="text-primary shrink-0" />}
                   </button>

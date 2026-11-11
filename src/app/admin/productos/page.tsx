@@ -4,8 +4,9 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { productSchema, type ProductInput } from "@/lib/validations";
-import { translateValidation } from "@/i18n/validation";
-import { formatPrice, localeFor, fill } from "@/lib/utils";
+import { translateValidation, translateApiError } from "@/i18n/validation";
+import { localeFor, fill } from "@/lib/utils";
+import { priceViewFor, type PriceMode } from "@/lib/price-display";
 import { getProductFormProfile, type ProductFormType } from "@/lib/product-form-profiles";
 import { Plus, Pencil, Trash2, X, Check, Package, UploadCloud, ImageIcon, Calendar, Clock, AlertTriangle } from "lucide-react";
 import ImageCropperModal from "@/components/admin/ImageCropperModal";
@@ -19,6 +20,8 @@ interface Product {
   id: string;
   name: string;
   price: number;
+  priceMode?: PriceMode | null;
+  assessmentProductId?: string | null;
   stock: number;
   category: string | null;
   isActive: boolean;
@@ -30,6 +33,9 @@ interface Product {
   capacity?: number | null;
   visitModes?: "IN_PERSON" | "ONLINE" | "BOTH" | null;
 }
+
+// An empty price input becomes undefined (not NaN): an on-request item has no price to type.
+const toNumberOrUndefined = (value: unknown) => (value === "" || value == null || Number.isNaN(Number(value)) ? undefined : Number(value));
 
 // Empty optional number inputs become null instead of NaN, so they pass validation.
 const toNumberOrNull = (value: unknown) => (value === "" || value == null || Number.isNaN(Number(value)) ? null : Number(value));
@@ -62,6 +68,8 @@ export default function ProductosPage() {
       stock: 0,
       isActive: true,
       requiresBooking: false,
+      priceMode: "FIXED",
+      assessmentProductId: null,
       images: [],
     }
   });
@@ -76,6 +84,24 @@ export default function ProductosPage() {
   const durationValue = watch("durationMinutes");
   const bookingValue = watch("requiresBooking");
   const isActiveValue = watch("isActive");
+  const priceModeValue = (watch("priceMode") ?? "FIXED") as PriceMode;
+  const targetValue = watch("assessmentProductId");
+  // Services a customer can book to learn the price of an on-request one (visible, bookable, fixed price).
+  const [targetOptions, setTargetOptions] = useState<Array<{ id: string; name: string }>>([]);
+  useEffect(() => {
+    if (!open || !isBookingEnabled) return;
+    fetch(`/api/products?limit=200&t=${Date.now()}`, { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        const list: Product[] = data?.products ?? [];
+        setTargetOptions(
+          list
+            .filter((p) => p.isActive && p.requiresBooking && (p.priceMode ?? "FIXED") === "FIXED" && p.id !== editing?.id)
+            .map((p) => ({ id: p.id, name: p.name }))
+        );
+      })
+      .catch((e) => console.error("Error loading services:", e));
+  }, [open, isBookingEnabled, editing?.id]);
   // Offer the profile's types, plus the saved type if it falls outside them (e.g. an older service in a store with booking off).
   const typeOptions: ProductFormType[] = profile.types.includes(selectedItemType) ? profile.types : [...profile.types, selectedItemType];
 
@@ -125,7 +151,9 @@ export default function ProductosPage() {
     reset({
       name: "",
       description: "",
-      price: 0,
+      price: undefined,
+      priceMode: "FIXED",
+      assessmentProductId: null,
       stock: 0,
       category: "",
       isActive: true,
@@ -144,6 +172,8 @@ export default function ProductosPage() {
       name: p.name,
       description: p.description ?? "",
       price: p.price,
+      priceMode: p.priceMode ?? "FIXED",
+      assessmentProductId: p.assessmentProductId ?? null,
       stock: p.stock,
       category: p.category ?? "",
       isActive: p.isActive,
@@ -197,7 +227,8 @@ export default function ProductosPage() {
     try {
       const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...data, images }) });
       if (!res.ok) {
-        setSaveError(t.productsAdmin.saveError);
+        const body = await res.json().catch(() => null);
+        setSaveError(body?.error === "assessment_target_invalid" ? translateApiError(t, body.error) ?? t.productsAdmin.saveError : t.productsAdmin.saveError);
         return;
       }
       setSaveError("");
@@ -349,15 +380,47 @@ export default function ProductosPage() {
                   <textarea {...register("description")} rows={3} className="input bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800 focus:bg-white transition-all resize-none text-sm" placeholder={selectedItemType === "SERVICE" ? t.productsAdmin.serviceDescPlaceholder : ""} />
                 </div>
 
+                <div>
+                  <label htmlFor="priceMode" className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1.5">{t.productsAdmin.priceMode}</label>
+                  <select
+                    id="priceMode"
+                    {...register("priceMode", { onChange: (e) => { if (e.target.value !== "ON_REQUEST") setValue("assessmentProductId", null); } })}
+                    className="input bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800"
+                  >
+                    <option value="FIXED">{t.productsAdmin.priceModeFixed}</option>
+                    <option value="FROM">{t.productsAdmin.priceModeFrom}</option>
+                    <option value="ON_REQUEST">{t.productsAdmin.priceModeOnRequest}</option>
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">{priceModeValue === "FROM" ? t.productsAdmin.priceModeHintFrom : priceModeValue === "ON_REQUEST" ? t.productsAdmin.priceModeHintOnRequest : t.productsAdmin.priceModeHintFixed}</p>
+                </div>
+
+                {priceModeValue === "ON_REQUEST" && isBookingEnabled && (
+                  <div className="ml-3 pl-4 border-l-2 border-gray-200 dark:border-gray-800">
+                    <label htmlFor="assessmentProductId" className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1.5">{t.productsAdmin.assessmentProduct}</label>
+                    <select
+                      id="assessmentProductId"
+                      {...register("assessmentProductId", { setValueAs: (v) => (v === "" || v == null ? null : v), onChange: (e) => { if (e.target.value) setValue("requiresBooking", false); } })}
+                      className="input bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800"
+                    >
+                      <option value="">{t.productsAdmin.assessmentProductNone}</option>
+                      {targetOptions.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">{t.productsAdmin.assessmentProductHint}</p>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-4">
+                  {priceModeValue !== "ON_REQUEST" && (
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1.5">{t.crm.products.modal.price}</label>
+                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1.5">{priceModeValue === "FROM" ? t.productsAdmin.startingPrice : t.crm.products.modal.price}</label>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
-                      <input {...register("price", { valueAsNumber: true })} type="number" step="0.01" className="input bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800 pl-7" placeholder="0.00" />
+                      <input {...register("price", { setValueAs: toNumberOrUndefined })} type="number" step="0.01" className="input bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800 pl-7" placeholder="0.00" />
                     </div>
                     {errors.price && <p className="text-red-500 text-xs mt-1 font-medium">{translateValidation(t, errors.price.message)}</p>}
+                    {priceModeValue === "FIXED" && selectedItemType !== "PHYSICAL" && <p className="text-xs text-gray-500 mt-1">{t.productsAdmin.freePriceHint}</p>}
                   </div>
+                  )}
                   <div>
                     {selectedItemType === "PHYSICAL" ? (
                       <>
@@ -396,7 +459,7 @@ export default function ProductosPage() {
                   </div>
                 </div>
 
-                {selectedItemType === "SERVICE" && isBookingEnabled && (
+                {selectedItemType === "SERVICE" && isBookingEnabled && !targetValue && (
                   <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800">
                     <input {...register("requiresBooking")} type="checkbox" id="requiresBooking" className="w-4 h-4 accent-primary rounded cursor-pointer" />
                     <div>
@@ -408,7 +471,7 @@ export default function ProductosPage() {
                   </div>
                 )}
 
-                {selectedItemType === "SERVICE" && isBookingEnabled && bookingValue && (
+                {selectedItemType === "SERVICE" && isBookingEnabled && bookingValue && !targetValue && (
                   <div className="ml-3 pl-4 border-l-2 border-gray-200 dark:border-gray-800">
                     <label htmlFor="visitModes" className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1.5">{t.productsAdmin.visitModes}</label>
                     <select
@@ -490,7 +553,7 @@ export default function ProductosPage() {
                       </span>
                     )}
                   </div>
-                  <p className="text-primary font-semibold text-sm">{formatPrice(p.price, locale)}</p>
+                  <p className="text-primary font-semibold text-sm">{priceViewFor(p, t.price, locale).text}</p>
                   <div className="flex gap-2 mt-1">
                     <span className={`badge text-xs ${p.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>{p.isActive ? t.crm.products.active : t.crm.products.inactive}</span>
                     {p.itemType === "SERVICE" ? (
@@ -541,7 +604,7 @@ export default function ProductosPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 font-semibold text-primary">{formatPrice(p.price, locale)}</td>
+                    <td className="px-4 py-3 font-semibold text-primary">{priceViewFor(p, t.price, locale).text}</td>
                     <td className="px-4 py-3">
                       {p.itemType === "SERVICE" ? (
                         <span className="text-xs text-gray-400 italic flex items-center gap-1">

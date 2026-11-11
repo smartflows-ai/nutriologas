@@ -1,5 +1,7 @@
 // src/app/api/internal/bot/context/route.ts
 // POST: Tenant context for the WhatsApp agent, resolved from the Evolution instance name.
+import { priceFieldsFor } from "@/lib/price-text";
+import { loadAssessmentTargets } from "@/lib/assessment-target";
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { isInternalKeyValid, resolveBotTenant } from "@/lib/bot";
@@ -52,8 +54,11 @@ export async function POST(req: NextRequest) {
       where: { tenantId: bot.tenantId, isActive: true, deletedAt: null },
       select: {
         id: true,
+        tenantId: true,
         name: true,
         price: true,
+        priceMode: true,
+        assessmentProductId: true,
         description: true,
         category: true,
         durationMinutes: true,
@@ -69,6 +74,7 @@ export async function POST(req: NextRequest) {
     }),
     getCreditStatus(bot.tenantId),
   ]);
+  const assessmentTargets = await loadAssessmentTargets({ id: bot.tenantId, isBookingEnabled: bot.isBookingEnabled }, products);
 
   return Response.json({
     tenantId: bot.tenantId,
@@ -95,10 +101,14 @@ export async function POST(req: NextRequest) {
     modalityMode: modalityModeOf(bot.serviceModes),
     // Read-only catalog: the agent may quote these prices but cannot change them.
     // bookable = sold by appointment; false means information only (no date, no booking tools).
+    // price is null when the price is defined after the assessment: there is no number to quote. priceText is the
+    // sentence to use about the price (it already says the final price is confirmed after the assessment).
+    // bookInstead: the service to offer and book to learn the price (an on-request service is not booked itself).
     products: products.map((p) => ({
       id: p.id,
       name: p.name,
-      price: p.price,
+      ...priceFieldsFor(p, bot.messageLanguage),
+      bookInstead: assessmentTargets.get(p.id) ?? null,
       currency: "MXN",
       description: p.description,
       category: p.category,

@@ -2,12 +2,14 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { productSchema } from "@/lib/validations";
+import { productBaseSchema } from "@/lib/validations";
+import { normalizePriceInput } from "@/lib/price-display";
+import { isValidAssessmentTarget } from "@/lib/assessment-target";
 import { deleteImageFromCloudinary } from "@/lib/cloudinary";
 import { z } from "zod";
 
 // Override isActive without a default so false is never replaced by a default value
-const updateProductSchema = productSchema.extend({ isActive: z.boolean().optional() }).partial();
+const updateProductSchema = productBaseSchema.extend({ isActive: z.boolean().optional() }).partial();
 
 export async function PUT(req: Request, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
@@ -17,10 +19,21 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   const body = await req.json();
   const data = updateProductSchema.parse(body);
 
+  // The price fields depend on each other and on the item type (a free price is only for non-physical items).
+  const existing = await prisma.product.findFirst({ where: { id: params.id, tenantId }, select: { itemType: true } });
+  if (!existing) return Response.json({ error: "product_not_found" }, { status: 404 });
+  const priceRule = normalizePriceInput({ ...data, itemType: data.itemType ?? existing.itemType }, { partial: true });
+  if (!priceRule.ok) return Response.json({ error: "validation_failed" }, { status: 400 });
+  const targetId = priceRule.value.assessmentProductId ?? null;
+  if (targetId && !(await isValidAssessmentTarget(tenantId, params.id, targetId))) {
+    return Response.json({ error: "assessment_target_invalid" }, { status: 400 });
+  }
+
   const product = await prisma.product.update({
     where: { id: params.id, tenantId },
     data: {
       ...data,
+      ...priceRule.value,
       serviceConfig: data.serviceConfig ?? undefined,
     } as any,
   });

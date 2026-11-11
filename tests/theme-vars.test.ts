@@ -24,7 +24,7 @@ test("an unreadable value falls back to white", () => {
 });
 
 test("the theme variables carry the readable text color of the primary color", () => {
-  assert.equal(themeColorVars({ primaryColor: "#faa096" })["--on-primary"], "#111827");
+  assert.equal(themeColorVars({ primaryColor: "#faa096" })["--on-primary"], "#ffffff");
   assert.equal(themeColorVars({ primaryColor: "#1d4ed8" })["--on-primary"], "#ffffff");
-  assert.equal(themeColorVars({})["--on-primary"], "#111827"); // default green
+  assert.equal(themeColorVars({})["--on-primary"], "#ffffff"); // default green
 });

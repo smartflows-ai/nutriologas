@@ -1,4 +1,5 @@
 // src/lib/ai/execute-tool.ts
+import { priceFieldsFor } from "@/lib/price-text";
 import { prisma } from "@/lib/db";
 import { getPeriodDates } from "@/lib/utils";
 import { getAppToken, getConnectedProvider } from "@/lib/connected-apps";
@@ -218,7 +219,7 @@ export async function executeTool(
         const appointments = await prisma.appointment.findMany({
           where,
           include: {
-            product: { select: { name: true, durationMinutes: true, price: true } },
+            product: { select: { name: true, durationMinutes: true, price: true, priceMode: true } },
             // Only the name is read. Emails, visit notes and clinical notes never reach the model.
             user: { select: { name: true } },
           },
@@ -234,7 +235,7 @@ export async function executeTool(
             patientName: a.customerName || a.user?.name || "Sin nombre",
             service: a.product?.name ?? "Consulta General",
             durationMinutes: a.durationMinutes ?? a.product?.durationMinutes ?? 30,
-            price: a.product?.price ?? null,
+            ...(a.product ? priceFieldsFor(a.product, "es") : { price: null }),
             date: clinicDateKeyOf(a.appointmentDate),
             time: clinicTimeOf(a.appointmentDate),
             status: a.status,
@@ -364,14 +365,14 @@ export async function executeTool(
           orderBy: { name: "asc" },
           take: Math.min(Number(input.limit) || 20, 50),
           // Only public catalog fields. serviceConfig and images stay out.
-          select: { name: true, description: true, price: true, category: true, itemType: true, durationMinutes: true, stock: true, visitModes: true },
+          select: { name: true, description: true, price: true, priceMode: true, category: true, itemType: true, durationMinutes: true, stock: true, visitModes: true },
         });
         return JSON.stringify({
           count: products.length,
           products: products.map((p) => ({
             name: p.name,
             description: p.description,
-            price: p.price,
+            ...priceFieldsFor(p, "es"),
             category: p.category,
             type: p.itemType,
             durationMinutes: p.durationMinutes,

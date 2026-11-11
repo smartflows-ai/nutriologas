@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import ProductCard from "@/components/shop/ProductCard";
 import ProductSort from "@/components/shop/ProductSort";
 import { getTenantSlug } from "@/lib/tenant";
+import { sortByPrice } from "@/lib/price-display";
 import { getVerticalProfile } from "@/lib/vertical-profile";
 import { getTranslationServer } from "@/i18n/server";
 import Link from "next/link";
@@ -16,15 +17,13 @@ async function getProducts(category?: string, sort?: string) {
   });
   if (!tenant) return { products: [], categories: [], tenantName: "Tienda" };
 
-  let orderBy: any = { createdAt: "desc" };
-  if (sort === "price_asc") orderBy = { price: "asc" };
-  if (sort === "price_desc") orderBy = { price: "desc" };
-
-  const products = await prisma.product.findMany({
+  // Price order is applied after the query: an "on request" item has no price, so it goes last either way.
+  const found = await prisma.product.findMany({
     where: { tenantId: tenant.id, isActive: true, deletedAt: null, ...(category && { category }) },
     include: { reviews: { select: { rating: true } } },
-    orderBy,
+    orderBy: { createdAt: "desc" },
   });
+  const products = sort === "price_asc" || sort === "price_desc" ? sortByPrice(found, sort === "price_asc" ? "asc" : "desc") : found;
 
   const categories = await prisma.product.findMany({
     where: { tenantId: tenant.id, isActive: true, deletedAt: null, category: { not: null } },
