@@ -54,6 +54,9 @@ export const CAPABILITIES: Capability[] = [
   { id: "products", section: "general", route: "/admin/productos", ai: false, verticals: "all", enforcedPlan: "START", targetPlan: "START", gates: {} },
   { id: "reviews", section: "general", route: "/admin/reviews", ai: false, verticals: "all", enforcedPlan: "START", targetPlan: "START", gates: {} },
   { id: "business", section: "website", route: "/admin/negocio", ai: false, verticals: "all", enforcedPlan: "START", targetPlan: "START", gates: {} },
+  // The owner's team: staff users (ticket #22). Every plan has the screen; the plan sets how many users fit
+  // (src/lib/user-limits.ts). Only the owner opens it (src/lib/permissions.ts).
+  { id: "team", section: "website", route: "/admin/equipo", ai: false, verticals: "all", enforcedPlan: "START", targetPlan: "START", gates: {} },
   { id: "carousel", section: "website", route: "/admin/carrusel", ai: false, verticals: "all", enforcedPlan: "START", targetPlan: "START", gates: {} },
   { id: "appearance", section: "website", route: "/admin/apariencia", ai: false, verticals: "all", enforcedPlan: "START", targetPlan: "START", gates: {} },
   { id: "faq", section: "website", route: "/admin/faq", ai: false, verticals: "all", enforcedPlan: "START", targetPlan: "START", gates: {} },

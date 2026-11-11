@@ -7,7 +7,8 @@ import type { NextResponse } from "next/server";
 import { authOptions } from "@/lib/auth";
 import { apiError } from "@/lib/api-errors";
 import { canAccessAdminPath, isCrmRole, permissionStatus, type Permission } from "@/lib/permissions";
-import { getAppSession, type AppSession } from "@/lib/session";
+import { getSessionAccess, type AppSession } from "@/lib/session";
+import { CHANGE_PASSWORD_PATH } from "@/lib/account-state";
 
 // Codes the UI translates through t.apiErrors (src/lib/api-errors.ts).
 const ERROR_BY_STATUS = { 401: "unauthorized", 403: "forbidden" } as const;
@@ -29,11 +30,19 @@ export async function requirePermission(permission: Permission): Promise<Permiss
   return { ok: true, session, tenantId: session.user.tenantId, role: session.user.role };
 }
 
-// Second gate for server pages that read the database directly (the middleware is the first).
-// No session or a non-CRM role goes to login (as the admin layout does); STAFF outside its sections goes to /admin.
+// The real gate of the CRM, shared by the admin layout and every server page (the middleware only reads the
+// token, which can be 30 days old). A temporary password goes to the change screen; no session, a deactivated
+// user or a role outside the CRM goes to login.
+export async function requireCrmSession(): Promise<AppSession> {
+  const access = await getSessionAccess();
+  if (access.kind === "password_change") redirect(CHANGE_PASSWORD_PATH);
+  if (access.kind !== "active" || !isCrmRole(access.session.user.role)) redirect(LOGIN_PATH);
+  return access.session;
+}
+
+// Second gate for server pages that read the database directly. STAFF outside its sections goes to /admin.
 export async function requireAdminPage(pathname: string): Promise<AppSession> {
-  const session = await getAppSession();
-  if (!session || !isCrmRole(session.user.role)) redirect(LOGIN_PATH);
+  const session = await requireCrmSession();
   if (!canAccessAdminPath(session.user.role, pathname)) redirect(ADMIN_ENTRY);
   return session;
 }
