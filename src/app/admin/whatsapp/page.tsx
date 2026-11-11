@@ -528,12 +528,12 @@ export default function WhatsAppPage() {
           </div>
         </div>
       ) : activeTab === "confirmations" ? (
-        <div className="flex-1 overflow-y-auto p-8 max-w-5xl mx-auto w-full">
+        <div className="flex-1 overflow-y-auto scrollbar-slim p-8 max-w-5xl mx-auto w-full">
           <PendingConfirmations />
         </div>
       ) : (
         /* Settings Tab */
-        <div className="flex-1 overflow-y-auto p-8 max-w-5xl mx-auto w-full">
+        <div className="flex-1 overflow-y-auto scrollbar-slim p-8 max-w-5xl mx-auto w-full">
           <form onSubmit={handleSaveConfig} className="bg-white dark:bg-gray-950 p-8 md:p-10 rounded-xl border border-gray-100 dark:border-gray-800 space-y-10">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
               {/* Left Side: Parameters */}
