@@ -1,14 +1,14 @@
-<!-- Generated: 2026-11-06 | Files scanned: 36 pages + 59 components | Token estimate: ~960 -->
+<!-- Generated: 2026-11-10 | Files scanned: 36 pages + 59 components | Token estimate: ~1050 -->
 # Frontend
 
 ## Page tree (src/app)
 ```
 (public)  /  productos  producto/[slug]  agendar/[slug]  carrito  checkout  mis-pedidos
           pedido/[id]  mis-citas  terminos|terms  privacidad|privacy
-(auth)    login  registro
+(auth)    login  registro  cambiar-contrasena (forced change, owner-set password)
 admin     dashboard  citas  historial[/key]  productos  pedidos[/id]  carrusel  apariencia
           calendario(->citas)  reviews  asistente  faq  social-campaign[/setup]  whatsapp
-          apps  negocio  pacientes(triage flag)  suscripcion
+          apps  negocio  pacientes(triage flag)  suscripcion  equipo (staff users)
 root      layout.tsx  not-found.tsx  globals.css
 ```
 
@@ -20,6 +20,9 @@ shop/       Navbar ProductCard ProductGallery ProductSort HeroCarousel AddToCart
 admin/      AdminSidebar (serviceFirst label, integration filtering) CreditsBadge CreditsDrawer(portal)
             TrialBanner TrialExpiredGate ReminderSettingsCard ReminderMessagesCard (deadline-time button only in the confirmation field)
             PendingConfirmations VisitNoteDialog ImageCropperModal FormPanel Pagination ConfirmModal
+            SessionWatch (admin layout; on each section change fetches /api/auth/session and redirects when access is locked)
+            team/       TeamManager TeamUserRow NewTeamUserForm TempPasswordDialog useTeam (data hook)
+auth/       ChangePasswordForm (used by cambiar-contrasena)
 crm/        SalesChart AppointmentsChart ProductsChart RatingsChart CampaignMetrics CalendarView DashboardFilters
 chat/       ChatAssistant AssistantThinkingIndicator
 marketing/  landing sections + OnboardingModal (signup) SignInModal DemoModal
@@ -31,6 +34,7 @@ legal/      LegalPageLayout  order/ DownloadTicketButton PrintButton
 ## State and data
 - /admin/citas opens on today (clinic date, `clinicDateKeyOf`); rows Fecha (date chips) and Estado (status chips) + search; KPI cards and status counts follow the chosen day (API `counts`); modality badge, age and Meet link per visit. `scrollbar-slim` (globals.css) for scrolling chip rows.
 - /admin/citas shows the "reminder not delivered" badge via `lib/reminder-badge.ts` (active visit, failed attempts, no reminderSentAt, future date); text in t.agenda.*, neutral style, no technical reason.
+- /admin/equipo: sidebar entry "Equipo" (AdminSidebar); TeamManager with data from useTeam, dialog TempPasswordDialog for temporary passwords.
 - Cart: zustand store `src/store/cart.ts`. Toasts: `hooks/useToast.ts` (sonner).
 - Server components read tenant via header `x-tenant-slug`; session via `lib/session.ts`.
 - Client data: fetch to /api/*; forms use react-hook-form + zod.
