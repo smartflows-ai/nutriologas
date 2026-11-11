@@ -19,6 +19,7 @@ import {
   Plus,
 } from "lucide-react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useTranslation } from "@/i18n";
 import { buildFullPhone, splitFullPhone, DEFAULT_DIAL_CODE, PHONE_COUNTRIES } from "@/lib/phone";
 import { translateApiError } from "@/i18n/validation";
@@ -31,7 +32,6 @@ import PasswordFields, {
 import { changePasswordSchema } from "@/lib/validations";
 import { translateValidation } from "@/i18n/validation";
 import type { BusinessLocation } from "@/lib/location";
-import RadioOption from "@/components/ui/RadioOption";
 import {
   BusinessHours,
   DEFAULT_BUSINESS_HOURS,
@@ -66,6 +66,7 @@ const nextBlock = (blocks: DayHours[]): DayHours => {
 
 export default function BusinessProfilePage() {
   const { t } = useTranslation();
+  const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [loading, setLoading] = useState(true);
@@ -337,6 +338,9 @@ export default function BusinessProfilePage() {
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
+      // The admin layout (sidebar name and logo, and the settings other CRM pages read, such as how the business
+      // sees patients) is loaded on the server: refresh it so they show what was just saved without a page reload.
+      router.refresh();
     } catch (err: any) {
       console.error("Error saving business profile:", err);
       setError(err.message || t.crm.business.saveError);
@@ -677,33 +681,25 @@ export default function BusinessProfilePage() {
             </div>
           )}
 
-          <fieldset className="space-y-2">
-            <legend className="text-sm font-medium text-gray-900 dark:text-white">
+          <div className="space-y-2">
+            <label htmlFor="service-modes" className="text-sm font-medium text-gray-900 dark:text-white block">
               {t.locationUi.serviceModesLabel}
-            </legend>
+            </label>
             <p className="text-xs text-gray-500 dark:text-gray-400">{t.locationUi.serviceModesHint}</p>
-            <div className="pt-1">
-              {(
-                [
-                  ["IN_PERSON", t.locationUi.serviceModesInPerson],
-                  ["ONLINE", t.locationUi.serviceModesOnline],
-                  ["BOTH", t.locationUi.serviceModesBoth],
-                ] as const
-              ).map(([value, label]) => (
-                <RadioOption
-                  key={value}
-                  name="service-modes"
-                  value={value}
-                  checked={serviceModes === value}
-                  onChange={() => setServiceModes(value)}
-                  label={label}
-                />
-              ))}
-            </div>
+            <select
+              id="service-modes"
+              value={serviceModes}
+              onChange={(e) => setServiceModes(e.target.value as "IN_PERSON" | "ONLINE" | "BOTH")}
+              className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
+            >
+              <option value="IN_PERSON">{t.locationUi.serviceModesInPerson}</option>
+              <option value="ONLINE">{t.locationUi.serviceModesOnline}</option>
+              <option value="BOTH">{t.locationUi.serviceModesBoth}</option>
+            </select>
             {serviceModes !== "ONLINE" && !hasPhysicalLocation && (
               <p className="text-xs text-gray-500 dark:text-gray-400">{t.locationUi.serviceModesNeedsAddress}</p>
             )}
-          </fieldset>
+          </div>
         </div>
 
         {/* Business hours: one weekly schedule for the storefront and the WhatsApp bot */}
