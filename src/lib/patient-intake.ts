@@ -33,16 +33,43 @@ export function modalityModeOf(serviceModes: ServiceModes): ModalityMode {
   return serviceModes === "BOTH" ? "ASK" : serviceModes;
 }
 
-export type ModalityResult = { ok: true; modality: Modality } | { ok: false; error: "modality_required" };
+export type ModalityResult =
+  | { ok: true; modality: Modality }
+  | { ok: false; error: "modality_required" | "modality_not_available" };
 
-/** A single-mode business decides by itself; a business that offers both needs the patient's choice. */
-export function resolveModality(serviceModes: ServiceModes, requested: unknown): ModalityResult {
-  const mode = modalityModeOf(serviceModes);
-  if (mode !== "ASK") return { ok: true, modality: mode };
-  if (typeof requested === "string" && MODALITIES.includes(requested)) {
-    return { ok: true, modality: requested as Modality };
+/**
+ * Modes a service can be delivered in. The business setting is the default; a service that sets its own modes
+ * (`visitModes`, null = follows the business) overrides it, so no combination is invalid.
+ */
+export function effectiveModes(business: ServiceModes, service: ServiceModes | null): Modality[] {
+  const modes = service ?? business;
+  return modes === "BOTH" ? ["IN_PERSON", "ONLINE"] : [modes];
+}
+
+/** What the bot and the booking form do for a service: nothing (a single mode, tell the customer) or ask. */
+export function modalityModeFor(business: ServiceModes, service: ServiceModes | null): ModalityMode {
+  return modalityModeOf(service ?? business);
+}
+
+/**
+ * A single-mode business decides by itself; a business that offers both needs the patient's choice. Passing the
+ * service's own modes (null when it follows the business) applies the per-service rule: a single effective mode
+ * decides alone and refuses the other one (`modality_not_available`). Without that argument (old callers) a
+ * single-mode business keeps ignoring what was requested.
+ */
+export function resolveModality(
+  serviceModes: ServiceModes,
+  requested: unknown,
+  serviceVisitModes?: ServiceModes | null
+): ModalityResult {
+  const perService = serviceVisitModes !== undefined;
+  const allowed = effectiveModes(serviceModes, perService ? serviceVisitModes : null);
+  const chosen = typeof requested === "string" && MODALITIES.includes(requested) ? (requested as Modality) : null;
+  if (allowed.length === 1) {
+    if (perService && chosen && chosen !== allowed[0]) return { ok: false, error: "modality_not_available" };
+    return { ok: true, modality: allowed[0] };
   }
-  return { ok: false, error: "modality_required" };
+  return chosen ? { ok: true, modality: chosen } : { ok: false, error: "modality_required" };
 }
 
 export function isValidAge(value: unknown): value is number {

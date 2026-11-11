@@ -2,7 +2,7 @@
 import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { Star, Clock, Calendar } from "lucide-react";
+import { Star, Clock, Calendar, MapPin, Video } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
 import { getLocaleServer, getTranslationServer } from "@/i18n/server";
 import AddToCartButton from "@/components/shop/AddToCartButton";
@@ -10,6 +10,7 @@ import ProductGallery from "@/components/shop/ProductGallery";
 import ReviewSection from "@/components/shop/ReviewSection";
 import { getTenantSlug } from "@/lib/tenant";
 import { isBookable } from "@/lib/bookable";
+import { modalityModeFor } from "@/lib/patient-intake";
 
 async function getProduct(slug: string) {
   const tenantSlug = getTenantSlug();
@@ -29,7 +30,7 @@ async function getProduct(slug: string) {
     },
   });
   if (!product) return null;
-  return { ...product, bookable: isBookable(product, tenant) };
+  return { ...product, bookable: isBookable(product, tenant), serviceModes: tenant.serviceModes, address: tenant.hasPhysicalLocation ? tenant.address : null };
 }
 
 export default async function ProductoPage({
@@ -43,6 +44,8 @@ export default async function ProductoPage({
   if (!product || !product.isActive) notFound();
 
   const isService = product.bookable;
+  // ASK: the customer chooses when booking. Otherwise the mode is fixed and shown here.
+  const visitMode = modalityModeFor(product.serviceModes, product.visitModes);
 
   const avgRating =
     product.reviews.length > 0
@@ -102,6 +105,21 @@ export default async function ProductoPage({
                 <Clock size={18} />
                 <span className="text-sm font-semibold">
                   Duración estimada: {product.durationMinutes ?? 30} minutos
+                </span>
+              </div>
+            )}
+
+            {isService && (
+              <div className="flex items-center gap-3 mb-4 p-3.5 rounded-xl bg-[var(--color-primary)]/10 border border-[var(--color-primary)]/20 text-[var(--color-primary)]">
+                {visitMode === "ONLINE" ? <Video size={18} /> : <MapPin size={18} />}
+                <span className="text-sm font-semibold break-words">
+                  {visitMode === "ASK"
+                    ? t.booking.modalityEither
+                    : visitMode === "ONLINE"
+                      ? t.booking.modalityOnline
+                      : product.address
+                        ? `${t.booking.modalityInPerson}: ${product.address}`
+                        : t.booking.modalityInPerson}
                 </span>
               </div>
             )}

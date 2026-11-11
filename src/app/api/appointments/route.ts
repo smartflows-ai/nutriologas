@@ -260,12 +260,6 @@ export async function POST(req: NextRequest) {
     if (!isAdminSession && age === null) {
       return apiError("age_required", 400);
     }
-    // In person or online: a business that offers both needs the patient's choice (admins may leave it out).
-    const resolvedModality = resolveModality(tenant.serviceModes, requestedModality);
-    if (!resolvedModality.ok && !isAdminSession) {
-      return apiError(resolvedModality.error, 400);
-    }
-    const modality = resolvedModality.ok ? resolvedModality.modality : null;
     // Veterinary and pet-care businesses book per pet, so the history follows the animal.
     const { usesPets } = getVerticalProfile(tenant.vertical, tenant.isBookingEnabled);
     const pet = usesPets ? cleanPetName(petName) : "";
@@ -281,6 +275,14 @@ export async function POST(req: NextRequest) {
     if (!product) {
       return apiError("product_not_found", 404);
     }
+
+    // In person or online: the service decides (its own setting, or the business default). When both are possible
+    // the patient must choose (admins may leave it out). A mode the service does not offer is refused for everyone.
+    const resolvedModality = resolveModality(tenant.serviceModes, requestedModality, product.visitModes);
+    if (!resolvedModality.ok && (!isAdminSession || resolvedModality.error === "modality_not_available")) {
+      return apiError(resolvedModality.error, 400);
+    }
+    const modality = resolvedModality.ok ? resolvedModality.modality : null;
 
     // Public bookings only: the item must be sold by appointment and the time must be inside business hours.
     // Admin-created appointments are not restricted.

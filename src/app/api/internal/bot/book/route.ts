@@ -17,7 +17,7 @@ import { isBookable } from "@/lib/bookable";
 import { cleanPetName } from "@/lib/pets";
 import { patientKeyOf } from "@/lib/patient-key";
 import { getKnownPatient } from "@/lib/patients";
-import { cleanSenderName, guestEmailFor, isOtherPersonsName, maskPhone, mergePatient, missingIntake, referralOf, resolveBookingPhone, resolveModality, type Modality } from "@/lib/patient-intake";
+import { cleanSenderName, guestEmailFor, isOtherPersonsName, maskPhone, mergePatient, missingIntake, referralOf, resolveBookingPhone, resolveModality, effectiveModes, type Modality } from "@/lib/patient-intake";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -64,6 +64,19 @@ export async function POST(req: NextRequest) {
   const sender = forOther ? await getKnownPatient(bot.tenantId, patientKeyOf(String(customerPhone))) : null;
   const referral = referralOf(forOther, String(customerPhone), sender?.name ?? cleanSenderName(senderName));
 
+  // The service is loaded first: how it is delivered (in person, online or both) decides what the patient is asked.
+  const product = await prisma.product.findFirst({
+    where: { id: productId, tenantId: bot.tenantId, isActive: true, deletedAt: null },
+    select: { id: true, name: true, durationMinutes: true, requiresBooking: true, visitModes: true },
+  });
+  if (!product) return Response.json({ success: false, error: "Servicio no encontrado" }, { status: 404 });
+  if (!isBookable(product, bot)) {
+    return Response.json(
+      { success: false, error: "not_bookable", message: "Este artículo no se agenda con cita." },
+      { status: 400 }
+    );
+  }
+
   // Who is booking: a registered patient comes from their latest visit, a new one from what the agent collected.
   const patientKey = patientKeyOf(visitPhone);
   let patient: PatientData;
@@ -107,12 +120,14 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-    const resolved = resolveModality(bot.serviceModes, modality);
+    const resolved = resolveModality(bot.serviceModes, modality, product.visitModes);
     if (!resolved.ok) {
-      return Response.json(
-        { success: false, error: resolved.error, message: "Pregunta al paciente si la cita es presencial o en línea." },
-        { status: 400 }
-      );
+      const allowed = effectiveModes(bot.serviceModes, product.visitModes);
+      const message =
+        resolved.error === "modality_not_available"
+          ? `Este servicio solo se atiende de forma ${allowed[0] === "ONLINE" ? "en línea" : "presencial"}. Díselo al paciente y no ofrezcas la otra opción.`
+          : "Pregunta al paciente si la cita es presencial o en línea.";
+      return Response.json({ success: false, error: resolved.error, message }, { status: 400 });
     }
     patient = { name: merged.name as string, email: merged.email, age: merged.age, modality: resolved.modality };
   } else {
@@ -130,18 +145,6 @@ export async function POST(req: NextRequest) {
   if (bot.usesPets && !pet) {
     return Response.json(
       { success: false, error: "pet_required", message: "Pide el nombre de la mascota antes de agendar." },
-      { status: 400 }
-    );
-  }
-
-  const product = await prisma.product.findFirst({
-    where: { id: productId, tenantId: bot.tenantId, isActive: true, deletedAt: null },
-    select: { id: true, name: true, durationMinutes: true, requiresBooking: true },
-  });
-  if (!product) return Response.json({ success: false, error: "Servicio no encontrado" }, { status: 404 });
-  if (!isBookable(product, bot)) {
-    return Response.json(
-      { success: false, error: "not_bookable", message: "Este artículo no se agenda con cita." },
       { status: 400 }
     );
   }

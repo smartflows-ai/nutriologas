@@ -12,12 +12,14 @@ import {
   CheckCircle2,
   MessageCircle,
   ShieldCheck,
-  AlertCircle
+  AlertCircle,
+  MapPin,
+  Video
 } from "lucide-react";
 import { formatPrice, localeFor, fill } from "@/lib/utils";
 import { buildFullPhone, DEFAULT_DIAL_CODE, PHONE_COUNTRIES } from "@/lib/phone";
 import { clinicDateTime } from "@/lib/clinic-time";
-import { parseAge } from "@/lib/patient-intake";
+import { modalityModeFor, parseAge } from "@/lib/patient-intake";
 import RadioOption from "@/components/ui/RadioOption";
 import { BusinessHours, blocksForDate, markSlots } from "@/lib/business-hours";
 import { useTranslation } from "@/i18n";
@@ -34,6 +36,8 @@ interface Props {
     description: string | null;
     durationMinutes: number | null;
     category: string | null;
+    // How this service is delivered; null = like the business (tenant.serviceModes).
+    visitModes: "IN_PERSON" | "ONLINE" | "BOTH" | null;
   };
   tenant: {
     name: string;
@@ -54,6 +58,8 @@ interface Props {
 export default function BookingFlow({ product, tenant, businessHours }: Props) {
   const { t, lang } = useTranslation();
   const locale = localeFor(lang);
+  // ASK: the patient chooses. Otherwise the mode is fixed by the service (or the business) and only shown.
+  const modalityMode = modalityModeFor(tenant.serviceModes, product.visitModes);
 
   // Text on primary fills uses the tenant's --on-primary (set with the theme, see src/lib/theme-vars.ts).
   const rootRef = useRef<HTMLDivElement>(null);
@@ -145,7 +151,7 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
       setError(t.apiErrors.age_required);
       return;
     }
-    if (tenant.serviceModes === "BOTH" && !modality) {
+    if (modalityMode === "ASK" && !modality) {
       setError(t.apiErrors.modality_required);
       return;
     }
@@ -173,7 +179,7 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
           clientPhone: buildFullPhone(dialCode, phone),
           clientEmail: email.trim() || undefined,
           clientAge: age.trim(),
-          modality: tenant.serviceModes === "BOTH" ? modality : undefined,
+          modality: modalityMode === "ASK" ? modality : undefined,
           petName: tenant.usesPets ? petName : undefined,
           petSpecies: tenant.usesPets ? petSpecies : undefined,
           notes: notes || undefined,
@@ -311,12 +317,21 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
             <span className="px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 flex items-center gap-1.5">
               <Clock size={13} /> {fill(t.booking.sessionDuration, { minutes: product.durationMinutes || 30 })}
             </span>
+            {modalityMode !== "ASK" && (
+              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 flex items-center gap-1.5">
+                {modalityMode === "ONLINE" ? <Video size={13} /> : <MapPin size={13} />}
+                {modalityMode === "ONLINE" ? t.booking.modalityOnline : t.booking.modalityInPerson}
+              </span>
+            )}
             {product.category && (
               <span className="text-xs text-gray-400 font-medium">
                 • {product.category}
               </span>
             )}
           </div>
+          {modalityMode === "IN_PERSON" && tenant.address && (
+            <p className="text-sm text-gray-600 dark:text-gray-300 mb-2 break-words">{tenant.address}</p>
+          )}
           <h1 className="text-2xl md:text-3xl font-semibold text-gray-900 dark:text-white">
             {product.name}
           </h1>
@@ -518,7 +533,7 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
               />
             </div>
 
-            {tenant.serviceModes === "BOTH" && (
+            {modalityMode === "ASK" && (
               <fieldset className="md:col-span-2">
                 <legend className="text-xs font-semibold text-gray-700 dark:text-gray-200 mb-1">{t.booking.modality}</legend>
                 <div className="flex flex-wrap gap-x-6">

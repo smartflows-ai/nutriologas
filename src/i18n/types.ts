@@ -1197,6 +1197,7 @@ export interface Translations {
     modality: string;
     modalityInPerson: string;
     modalityOnline: string;
+    modalityEither: string;
     summaryModality: string;
     summaryAddress: string;
     notes: string;
@@ -1378,6 +1379,17 @@ export interface Translations {
     durationPlaceholder: string;
     bookingEnable: string;
     bookingEnableDesc: string;
+    visibleHidden: string;
+    bookingNeedsVisible: string;
+    bookingOffHint: string;
+    visitModes: string;
+    visitModesHintInPerson: string;
+    visitModesHintOnline: string;
+    visitModesHintBoth: string;
+    visitModesSame: string;
+    visitModesInPerson: string;
+    visitModesOnline: string;
+    visitModesBoth: string;
     durationTooLong: string;
     saveError: string;
     specialty: string;
@@ -1651,6 +1663,7 @@ export interface Translations {
     phone_required: string;
     age_required: string;
     modality_required: string;
+    modality_not_available: string;
     patient_not_found: string;
     outside_business_hours: string;
     date_in_past: string;

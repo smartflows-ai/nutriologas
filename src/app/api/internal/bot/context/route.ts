@@ -6,7 +6,7 @@ import { isInternalKeyValid, resolveBotTenant } from "@/lib/bot";
 import { isBookable } from "@/lib/bookable";
 import { getCreditStatus } from "@/lib/credits";
 import { INTRO_WINDOW_HOURS, buildGreetingReply, introRequired } from "@/lib/greeting";
-import { intakeNeeds, modalityModeOf } from "@/lib/patient-intake";
+import { effectiveModes, intakeNeeds, modalityModeFor, modalityModeOf } from "@/lib/patient-intake";
 import { patientKeyOf } from "@/lib/patient-key";
 import { getKnownPatient } from "@/lib/patients";
 
@@ -58,6 +58,7 @@ export async function POST(req: NextRequest) {
         category: true,
         durationMinutes: true,
         requiresBooking: true,
+        visitModes: true,
       },
       orderBy: { name: "asc" },
     }),
@@ -103,6 +104,9 @@ export async function POST(req: NextRequest) {
       category: p.category,
       durationMinutes: p.durationMinutes ?? 30,
       bookable: isBookable(p, bot),
+      // How this service is delivered. IN_PERSON or ONLINE: do not ask, but tell the customer. ASK: the customer chooses.
+      modalityMode: isBookable(p, bot) ? modalityModeFor(bot.serviceModes, p.visitModes) : null,
+      modalities: isBookable(p, bot) ? effectiveModes(bot.serviceModes, p.visitModes) : [],
     })),
     faqs,
   });

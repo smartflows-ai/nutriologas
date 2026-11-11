@@ -305,6 +305,7 @@ model Product {
   requiresBooking Boolean   @default(false)
   capacity        Int?      // cupo máximo (null = sin límite)
   serviceConfig   Json?     // configuración específica por vertical
+  visitModes      ServiceModes? // cómo se atiende este servicio; null = igual que el negocio (Tenant.serviceModes)
 
   orderItems      OrderItem[]
   appointments    Appointment[]

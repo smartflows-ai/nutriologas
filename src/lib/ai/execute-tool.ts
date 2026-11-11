@@ -364,7 +364,7 @@ export async function executeTool(
           orderBy: { name: "asc" },
           take: Math.min(Number(input.limit) || 20, 50),
           // Only public catalog fields. serviceConfig and images stay out.
-          select: { name: true, description: true, price: true, category: true, itemType: true, durationMinutes: true, stock: true },
+          select: { name: true, description: true, price: true, category: true, itemType: true, durationMinutes: true, stock: true, visitModes: true },
         });
         return JSON.stringify({
           count: products.length,
@@ -375,6 +375,8 @@ export async function executeTool(
             category: p.category,
             type: p.itemType,
             durationMinutes: p.durationMinutes,
+            // IN_PERSON, ONLINE or BOTH; null means it follows the business setting.
+            visitModes: p.visitModes,
             stock: p.itemType === "PHYSICAL" ? p.stock : null,
           })),
         });

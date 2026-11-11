@@ -47,6 +47,7 @@ export const productSchema = z.object({
   requiresBooking: z.boolean().default(false),
   capacity: z.number().int().positive().optional().nullable(),
   serviceConfig: z.record(z.any()).optional().nullable(),
+  visitModes: z.enum(["IN_PERSON", "ONLINE", "BOTH"]).optional().nullable(),
 });
 
 export const reviewSchema = z.object({
