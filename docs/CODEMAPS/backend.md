@@ -1,9 +1,11 @@
-<!-- Generated: 2026-11-06 | Files scanned: 93 route.ts + 65 src/lib | Token estimate: ~1250 -->
+<!-- Generated: 2026-11-10 | Files scanned: 93 route.ts + 65 src/lib | Token estimate: ~1350 -->
 # Backend
 
 ## Route groups (src/app/api)
 ```
 auth/[...nextauth], auth/register          NextAuth + signup
+auth/password-change                       signed-in user changes own password (shared rules: password-change.ts)
+admin/users[/id]                           GET/POST staff users, PATCH reset_password|deactivate|activate (permission users.manage, team-api.ts)
 tenants/{business,check-slug,register,reminders (PATCH validates texts: known tags, no deadline tag outside confirmation, explicit SI)}
 products[/id|/categories]  orders[/id]  pedido/[id]  reviews[/id]  faqs[/id]  carousel[/id]  theme
 appointments[/id|/id/history|/availability] -> lib/appointments-service.ts   (GET drops reminderLastError: omitReminderError)
@@ -45,6 +47,11 @@ remind:  reminders/run -> reminder-data.loadReminderVisits -> reminder-run.runRe
 release: reminder-actions.releaseVisit -> cancelAppointment -> delete calendar event -> cancel text (returns customerNotified)
 texts:   PATCH tenants/reminders -> reminder-messages.{validateKnownTags,validateNoDeadlineTag,validateConfirmationTemplate}; renderTemplate fills tags
 refresh: connected-apps.getAppToken -> oauth-refresh.isPermanentRefreshFailure -> delete connection only if permanent; else keep + 60 s cooldown, 8 s timeout
+access:  every CRM request -> session.getSessionAccess / requireCrmSession -> account-state-data.readAccountAccess (row re-read)
+           -> account-state.resolveAccountAccess (inactive or mustChangePassword = no user; change screen only)
+team:    admin/users -> staff-users.ts rules -> staff-users-data (tx: lock tenants row FOR NO KEY UPDATE, count seats, then write)
+           -> user-limits.ts (Start 1, Plus 2, Pro 3); temp-password.ts for owner-set passwords
+password: password-change.ts (shared by owner card and auth/password-change) -> password-hash.ts (bcrypt 12); sign-in-check.ts for sign-in
 chat:    api/chat -> credits.getCreditStatus -> ai/openrouter cascade -> ai/tools(toolsFor vertical) -> ai/execute-tool
 credits: credits.recordTokenUsage -> AiTokenLedger; pause -> campaigns pausedByCredits; notifyTenantOwner
 ```
@@ -58,6 +65,7 @@ lib/patients.ts 165 (listPatients, getPatientTimeline, getKnownPatient)   lib/pa
 lib/whatsapp.ts 118          lib/tenant.ts 75   lib/reminders.ts 63   lib/reminder-actions.ts 72
 lib/reminder-run.ts 172       lib/reminder-data.ts 91   lib/reminder-state.ts 59   lib/reminder-badge.ts 21
 lib/reminder-messages.ts 122  lib/oauth-refresh.ts 58
+Team and access: staff-users.ts, staff-users-data.ts, team-api.ts, user-limits.ts, temp-password.ts, account-state.ts, account-state-data.ts, password-change(-data).ts, password-hash.ts, sign-in-check.ts, permission-guard.ts (requireCrmSession)
 Also: patient-key, phone, location, pets, clinic-time, greeting, confirmation-words, rate-limit, trial, stripe, conekta, cloudinary
 ```
 
@@ -65,3 +73,4 @@ Also: patient-key, phone, location, pets, clinic-time, greeting, confirmation-wo
 - Import Prisma from `@/lib/db` (not `@/lib/prisma`).
 - tenantId from session JWT or resolveBotTenant; never from request body.
 - Validation: zod in src/lib/validations/index.ts.
+- Team permission `users.manage` (permissions.ts) and capability `team` (capabilities.ts, all plans).

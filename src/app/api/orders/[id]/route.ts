@@ -11,7 +11,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await getServerSession(authOptions);
-  if (!session || (session.user as any).role !== "ADMIN") {
+  if (!session?.user || (session.user as any).role !== "ADMIN") {
     return Response.json({ error: "No autorizado" }, { status: 401 });
   }
 

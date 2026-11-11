@@ -83,6 +83,7 @@ src/
     (auth)/
       login/            ← Login with email/password + Google OAuth
       registro/         ← New customer signup (with legal consent)
+      cambiar-contrasena/ ← A CRM user chooses their own password; the only screen a user with a temporary password can open
     admin/              ← CRM — only accessible with role = ADMIN
       dashboard/        ← Metrics: sales, orders, customers, today's appointments
       citas/            ← Management and schedule of medical/service appointments with clinical notes and statuses
@@ -98,6 +99,7 @@ src/
       whatsapp/         ← WhatsApp conversations CRM
       apps/             ← Integration management (Google, Microsoft, Facebook/Instagram Meta, WhatsApp)
       negocio/          ← Business profile (name, logo, WhatsApp, info) — does NOT include the slug
+      equipo/           ← Team: the owner creates, resets, deactivates and activates staff users (ADMIN only)
       pacientes/        ← Patient/triage profiles (visible only if Tenant.isTriageEnabled = true)
       suscripcion/      ← Tenant Stripe subscription management
     api/
@@ -132,6 +134,8 @@ src/
         places/details  ← POST (public, rate-limited per IP): address and coordinates of a place
         reminders/run   ← POST: Sends reminders, charges for each one and releases unconfirmed appointments (every 15 min from n8n, no LLM). Answers 502 when every attempted send failed; body `{ dryRun: true }` lists the work without acting
       admin/pacientes   ← GET: List of PatientProfiles for the CRM (filtered by tenantId)
+      admin/users       ← GET/POST the business staff users; `[id]` PATCH reset_password | deactivate | activate (permission `users.manage`, ADMIN only)
+      auth/password-change ← POST: a signed-in CRM user changes their own password (the only API open to a temporary password)
       tenants/          ← Tenant management API
       tenants/business/ ← GET/PUT business profile. Slug is read-only.
       upload/           ← Image upload to Cloudinary
@@ -219,7 +223,8 @@ The heart of the system. Each business is a Tenant with:
 ### User
 - Belongs to a single tenant
 - `role`: `CUSTOMER` | `ADMIN` | `STAFF`
-- `STAFF` (ticket #21) is a team member, shown as "Asistente" in health, "Guía" in tourism and travel, "Personal" elsewhere (`staffTitle` in `src/lib/vertical-profile.ts`). It opens only Citas, WhatsApp and Historial (Historial still needs its plan and owner activation), never receives clinical notes (`internalNotes`, visit notes, notes counts), cannot delete appointments or chats, and sees no billing or credits. One permission map, `src/lib/permissions.ts`, is read by the middleware, pages, sidebar, client hooks and APIs; API guard `requirePermission` in `src/lib/permission-guard.ts`. Tests: `tests/permissions.test.ts`, `tests/staff-title.test.ts`. Until the users screen exists (#22), a STAFF user is created by script: see `docs/staff-user-production.md`. A STAFF member recovers the password at `/recuperar`: the code goes to the business WhatsApp and the owner shares it.
+- `STAFF` (ticket #21) is a team member, shown as "Asistente" in health, "Guía" in tourism and travel, "Personal" elsewhere (`staffTitle` in `src/lib/vertical-profile.ts`). It opens only Citas, WhatsApp and Historial (Historial still needs its plan and owner activation), never receives clinical notes (`internalNotes`, visit notes, notes counts), cannot delete appointments or chats, and sees no billing or credits. One permission map, `src/lib/permissions.ts`, is read by the middleware, pages, sidebar, client hooks and APIs; API guard `requirePermission` in `src/lib/permission-guard.ts`. Tests: `tests/permissions.test.ts`, `tests/staff-title.test.ts`. The owner manages staff from `/admin/equipo` (ticket #22, see "Team: staff users"). A STAFF member recovers the password at `/recuperar`: the code goes to the business WhatsApp and the owner shares it.
+- `isActive` (default `true`) → `false` blocks sign-in and cuts an open session on its next request. `mustChangePassword` (default `false`) → `true` after the owner creates the user or resets the password; only `/cambiar-contrasena` opens until the user chooses a password. `sessionVersion` (default `0`) → goes up on an owner reset, a deactivation and a WhatsApp reset; a session only works for the version it was issued for (`prisma/sql/23-user-access`).
 - Auth: email+password or Google OAuth
 - `conektaCustomerId` for recurring payments
 - `appointments` → 1:N relation with booked appointments
@@ -382,6 +387,24 @@ All tenants share **a single OpenRouter account/API key** — there is no per-te
 
 ---
 
+## Team: staff users (`/admin/equipo`, ticket #22)
+
+The owner creates, resets, deactivates and activates the staff of the business without the technical team.
+
+- **Screen**: `/admin/equipo` (ADMIN only; server gate `requireAdminPage`, sidebar entry "Equipo", capability `team` on every plan). Components in `src/components/admin/team/`; data and actions in the `useTeam` hook (one action at a time, so a double click cannot reset a password twice).
+- **APIs**: `GET/POST /api/admin/users` and `PATCH /api/admin/users/[id]` with `action`: `reset_password`, `deactivate` or `activate`. Guard: permission `users.manage` (`src/lib/permissions.ts`), never granted to STAFF. The business and the actor come from the session only.
+- **Rules** (`src/lib/staff-users.ts`, pure, tests in `tests/staff-users.test.ts`; database in `src/lib/staff-users-data.ts`): the screen only acts on STAFF users of the caller's business. The owner's own account, another owner, a customer and a user of another business all answer 404 `user_not_found`. An email already used in the business, with any role, answers 409 `email_already_registered`; the account is never converted. Emails are stored trimmed and in lowercase, as sign-in looks them up.
+- **User limit by plan** (`src/lib/user-limits.ts`): Start 1, Plus 2, Pro 3 active CRM users, the owner included, as the landing publishes. Start has no room for staff. A deactivated user does not use a seat; activating checks the limit again. Over the limit: 409 `user_limit_reached`. The count and the write run in one transaction that first locks the business row (`FOR NO KEY UPDATE`), so two requests at once cannot pass the limit. A business that moves to a smaller plan keeps its users and cannot add more.
+- **Temporary password** (`src/lib/temp-password.ts`): 14 random characters without look-alikes, created by the server, stored only as a bcrypt hash (cost 12, `src/lib/password-hash.ts`), returned once in the response (`Cache-Control: no-store`) and shown once in `TempPasswordDialog`. Never logged, never kept in browser storage. The owner hands it over outside the system. It does not expire by time.
+- **First sign-in**: the user lands on `/cambiar-contrasena` and can open nothing else. `POST /api/auth/password-change` asks for the current (temporary) password and the new one twice, with the shared rules (`passwordIssues`); the new one must differ from the temporary one. The rule lives in `src/lib/password-change.ts` and is shared with the owner's password card (`PATCH /api/tenants/account/password`).
+- **Reset**: every open session of that user ends on its next request (`sessionVersion` goes up), the old password stops working, and the next sign-in with the new temporary password forces a change again. **Deactivate**: the user loses access on the next request, cannot sign in (credentials or Google) and gets no `/recuperar` code; activating does not revive the old sessions.
+- **`/recuperar`** keeps working for active staff: a successful reset turns `mustChangePassword` off, because the user chose the password and the owner shared the code, and ends every earlier session of that account.
+- **Role name** by vertical (`staffTitle`): Asistente, Guía or Personal.
+- **Production**: apply `prisma/sql/23-user-access/up.sql` before the code (see "Schema changes"). Steps in `docs/staff-user-production.md`.
+- Tests: `tests/staff-users.test.ts`, `staff-users-data.test.ts`, `user-limits.test.ts`, `temp-password.test.ts`, `password-change.test.ts`, `account-state.test.ts`, `sign-in-check.test.ts`, `team-api-wiring.test.ts`, `team-ui-wiring.test.ts`.
+
+---
+
 ## Dynamic Theming and Custom Typography
 
 The system respects the colors and typography configured by each business in `/admin/apariencia` (`ThemeConfig`):
@@ -400,6 +423,18 @@ The system respects the colors and typography configured by each business in `/a
 - The middleware validates the token in the Edge Runtime with `getToken()`
 
 ### Middleware redirect flows:
+**Live account check (ticket #22):** the token only proves who the user is. On every authenticated request the account row is read (`readAccountAccess` in `src/lib/account-state-data.ts`, rules in `src/lib/account-state.ts`) from the NextAuth `jwt` callback and from `getSessionAccess` / `getAppSession` (`src/lib/session.ts`):
+- Deleted or `isActive = false`: no access. Pages go to `/login`, APIs answer 401.
+- `sessionVersion` different from the one in the token: no access, for good. The owner reset the password or deactivated the account after that sign-in, so a stolen cookie does not come back when the user chooses a new password or the account is activated again; the user signs in again. A token from before versions existed counts as `0`, so the release signs nobody out.
+- `mustChangePassword = true`: pages go to `/cambiar-contrasena`, APIs answer 401; only `POST /api/auth/password-change` and sign-out work.
+- Otherwise the role comes from the database, not from the token.
+
+For those two locked cases the session object has **no `user`** (`sessionForAccess`), so every route's `!session?.user` guard rejects it. Always guard with `session?.user`, never with `!session` alone: Prisma ignores a filter whose value is `undefined`, so a route that went on with a missing `tenantId` would read every business. A database error fails closed (no access for that request). Cost: one primary-key read per authenticated request, no cache.
+
+`src/middleware.ts` cannot read the database, so it still trusts the token; the real gate for pages is `requireCrmSession` (admin layout and `requireAdminPage`, `src/lib/permission-guard.ts`). Next.js does not run the layout again on client navigation, so `SessionWatch` (`src/components/admin/SessionWatch.tsx`) asks for the session on every section change and sends a locked user out. Known limits: a user who stays on one screen is only stopped at their next click or API call, and a user demoted from ADMIN to STAFF can still load the empty shell of an owner page (its APIs answer 401); no screen changes roles today.
+
+Sign-in: credentials go through `passwordMatches` (`src/lib/sign-in-check.ts`), which always runs one bcrypt comparison, so an unknown email, a deactivated account and a wrong password answer the same in the same time. Google sign-in is refused for STAFF and for deactivated accounts (`googleSignInAllowed`).
+
 `src/middleware.ts` runs only on `/admin` and `/admin/:path*`:
 
 | Condition | Action |
@@ -673,7 +708,7 @@ How to make one safely:
 4. Get explicit human approval, then apply `up.sql` in one transaction (`psql -v ON_ERROR_STOP=1 -1 -f up.sql`) and verify types, defaults and that existing rows did not change.
 5. **Order: database first, code after.** New code reads the new columns; if it ships first, every appointment query fails (reminders, agenda, bot, CRM). Old code ignores extra columns, so the reverse is safe. Merging to `main` deploys through CI/CD, so a merge counts as a deploy.
 
-Done so far: `prisma/sql/19-staff-role/` (`STAFF` value in `UserRole`, ticket #21): tested on the local mirror only, **NOT applied to production**. Apply it (backup, approval) **before** merging the code that uses it: the password reset lookup sends `'STAFF'` to the database and fails for every owner without the value. Its `down.sql` refuses to run while a STAFF user exists. `prisma/sql/22-referred-by/` (`referredByKey`, `referredByName` and an index on appointments), applied to the real database on 2026-11-06 after a verified `pg_dump` backup; additive. `prisma/sql/21-patient-intake/` (age, modality and meeting link on appointments, `Tenant.serviceModes`), applied to the real database on 2026-11-06 after a verified `pg_dump` backup (kept outside the repo); verified types, defaults and that the 32 existing appointments did not change. The throwaway-database `migrate diff` check was not run (no test database). The code that reads it is not deployed yet. `prisma/sql/16-reminder-attempts/` (ticket #16). `prisma/sql/17-plan-plus/` (PLUS value in `PlanId`), applied to production on 2026-11-05 after a verified backup; the code that uses it shipped with PR #49. There is no separate test database yet: local development uses the real one, so treat every local write as a production write.
+Done so far: `prisma/sql/23-user-access/` (`users.isActive`, `users.mustChangePassword` and `users.sessionVersion`, ticket #22): additive, tested on the local mirror (diff before, after `up.sql`, after `down.sql`; existing rows unchanged), **NOT applied to production**. Apply it (verified backup, approval) **before** merging the code: every session read selects these columns, so without them every sign-in and every authenticated request fails. `prisma/sql/19-staff-role/` (`STAFF` value in `UserRole`, ticket #21): tested on the local mirror only, **NOT applied to production**. Apply it (backup, approval) **before** merging the code that uses it: the password reset lookup sends `'STAFF'` to the database and fails for every owner without the value. Its `down.sql` refuses to run while a STAFF user exists. `prisma/sql/22-referred-by/` (`referredByKey`, `referredByName` and an index on appointments), applied to the real database on 2026-11-06 after a verified `pg_dump` backup; additive. `prisma/sql/21-patient-intake/` (age, modality and meeting link on appointments, `Tenant.serviceModes`), applied to the real database on 2026-11-06 after a verified `pg_dump` backup (kept outside the repo); verified types, defaults and that the 32 existing appointments did not change. The throwaway-database `migrate diff` check was not run (no test database). The code that reads it is not deployed yet. `prisma/sql/16-reminder-attempts/` (ticket #16). `prisma/sql/17-plan-plus/` (PLUS value in `PlanId`), applied to production on 2026-11-05 after a verified backup; the code that uses it shipped with PR #49. There is no separate test database yet: local development uses the real one, so treat every local write as a production write.
 
 ---
 
@@ -719,8 +754,10 @@ Then open `http://doctor.localhost:3000` to see the "doctor" tenant.
 - **Reminders**: tested end to end locally; deploy and production verification are pending (see "Appointment Reminders and Confirmation").
 - **Calendar sync fails silently**: if the connected calendar errors when booking, the appointment is saved only in the database, with no event and no notice.
 - **Reminder job race**: if saving `reminderSentAt` fails after a successful send, the next run sends again; there is no lock between overlapping runs. If `releaseVisit` fails after cancelling, the customer never gets the cancellation text.
-- **Password reset hardening** (security review 2026-11-06; pre-existing since PR #55, and since ticket #21 it also covers STAFF accounts): the 5-attempt cap can be bypassed with parallel `/confirm` requests (the counter is read, then incremented, and the rate limit is per server instance), so make the attempt count and the code consumption atomic; `/confirm` answers "expired" or "attempts used" only for existing accounts, which reveals them; `/request` takes longer when the account exists (it waits for the WhatsApp send). Minor: a session survives a password change (role and session live 30 days in the JWT), anyone who knows an email can spam the business WhatsApp with codes, and a pending code survives a password change made another way.
-- **JWT role is never re-read**: the role lives 30 days in the token, so a deleted or changed user keeps its access until the token expires (seen on the local mirror on 2026-11-06). Blocks #22 (deactivating users).
+- **Password reset hardening** (security review 2026-11-06; pre-existing since PR #55, and since ticket #21 it also covers STAFF accounts): the 5-attempt cap can be bypassed with parallel `/confirm` requests (the counter is read, then incremented, and the rate limit is per server instance), so make the attempt count and the code consumption atomic; `/confirm` answers "expired" or "attempts used" only for existing accounts, which reveals them; `/request` takes longer when the account exists (it waits for the WhatsApp send). Minor: a session survives a password change made by the user in the CRM (a `/recuperar` reset now ends earlier sessions), and anyone who knows an email can spam the business WhatsApp with codes. Since ticket #22 a pending code is cleared when the password changes another way (owner card, forced change, owner reset), and a deactivated account gets no code.
+- **Session check, what is left** (ticket #22 closed "JWT role is never re-read": the account row is now read on every request): `src/middleware.ts` still trusts the token, `SessionWatch` only runs on a section change, and the read has no cache. See "Authentication and Authorization".
+- **Team screen, follow-ups** (ticket #22): a temporary password does not expire by time, only by use or reset; the rate limits of the team and password-change routes are in memory per server instance; staff name and email cannot be edited and users cannot be deleted from the screen; Google sign-in resolves an account by email across all businesses (pre-existing); the STAFF and deactivated block judges only the account Google signs in as.
+- **Security review of 2026-11-10, pre-existing and not fixed in #22**: (1) the session cookie is shared by every subdomain of the root domain and the API handlers accept any content type, so a script running on another business's subdomain (for example through an XSS in a storefront) can make a signed-in owner's browser send a blind POST or PATCH to any owner API; it cannot read the answer. Fix for all routes: reject mutating requests whose `Origin` host differs from the request host, and require `application/json`. (2) Credentials sign-in has no attempt limit. (3) Booking by email (`POST /api/appointments`, `bot/book`) links the visit to whichever user has that email, including a STAFF account. (4) A user's own password change does not end their other sessions (only an owner reset, a deactivation and `/recuperar` do).
 - **Confirm message from Citas**: the WhatsApp text sent by the "Confirmar" button in `/admin/citas` is hardcoded in Spanish, with health wording ("por el especialista") and emojis, for every vertical, and ignores `messageLanguage`. Use the same `ownerConfirmedText` as the Confirmations tab.
 - Row Level Security in Supabase (currently only app-level filtering)
 - Rate limiting on `/api/chat`

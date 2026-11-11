@@ -1,20 +1,20 @@
 // src/app/admin/layout.tsx
-import { redirect } from "next/navigation";
 import AdminSidebar from "@/components/admin/AdminSidebar";
+import SessionWatch from "@/components/admin/SessionWatch";
 import TrialBanner from "@/components/admin/TrialBanner";
 import TrialExpiredGate from "@/components/admin/TrialExpiredGate";
 import { TenantMetaProvider } from "@/components/admin/TenantMeta";
 import { prisma } from "@/lib/db";
-import { getAppSession } from "@/lib/session";
-import { ADMIN_ROLE, isCrmRole } from "@/lib/permissions";
+import { requireCrmSession } from "@/lib/permission-guard";
+import { ADMIN_ROLE } from "@/lib/permissions";
 import { getTrialDaysLeft, isTenantOnTrial, isSubscriptionBlocked } from "@/lib/trial";
 import { themeColorVars } from "@/lib/theme-vars";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const session = await getAppSession();
-  // Only checks the role may enter the CRM: a layout does not receive the path. Sections are gated by
-  // src/middleware.ts, by each server page (requireAdminPage) and, for data, by each API route.
-  if (!session || !isCrmRole(session.user.role)) redirect("/login");
+  // Only checks the account may enter the CRM (active, no pending password change, CRM role): a layout does
+  // not receive the path. Sections are gated by src/middleware.ts, by each server page (requireAdminPage)
+  // and, for data, by each API route.
+  const session = await requireCrmSession();
 
   const tenantId = session.user.tenantId;
   const role = session.user.role;
@@ -56,6 +56,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       style={{ fontFamily: "var(--font-family-base), system-ui, sans-serif" }}
     >
       <style dangerouslySetInnerHTML={{ __html: dynamicStyles }} />
+      {/* Re-checks the account on every section change (the layout itself only runs on a full load) */}
+      <SessionWatch />
 
       {/* Trial expired gate — full-screen blocking overlay */}
       {showExpiredGate && <TrialExpiredGate status={sub!.status} canManageBilling={canManageBilling} />}

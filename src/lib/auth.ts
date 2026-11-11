@@ -5,7 +5,10 @@ import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@/lib/db";
-import bcrypt from "bcryptjs";
+import { comparePassword } from "@/lib/password-hash";
+import { passwordMatches } from "@/lib/sign-in-check";
+import { googleSignInAllowed, INITIAL_SESSION_VERSION, sessionForAccess, type AccessKind } from "@/lib/account-state";
+import { readAccountAccess } from "@/lib/account-state-data";
 
 // Cookie domain for subdomain sharing.
 // In dev: ".localhost" so doctor.localhost:3000 shares cookies with localhost:3000
@@ -142,19 +145,12 @@ export const authOptions: NextAuthOptions = {
           where: { email, tenantId: tenant.id },
         });
         // Only accept bcrypt-hashed passwords
-        if (!user || !user.passwordHash) return null;
-        if (
-          !user.passwordHash.startsWith("$2a$") &&
-          !user.passwordHash.startsWith("$2b$") &&
-          !user.passwordHash.startsWith("$2y$")
-        ) {
-          // Password was not stored as a bcrypt hash — reject for security
-          return null;
-        }
-        const isValid = await bcrypt.compare(credentials.password, user.passwordHash);
-        if (!isValid) return null;
+        // An unknown user, a deactivated one (ticket #22) and a wrong password get the same answer in the
+        // same time. Only bcrypt hashes are accepted (rules in src/lib/sign-in-check.ts).
+        const isValid = await passwordMatches(user, credentials.password, comparePassword);
+        if (!user || !isValid) return null;
 
-        return { id: user.id, email: user.email, name: user.name, role: user.role, tenantId: user.tenantId };
+        return { id: user.id, email: user.email, name: user.name, role: user.role, tenantId: user.tenantId, sessionVersion: user.sessionVersion };
       },
     }),
   ],
@@ -169,6 +165,12 @@ export const authOptions: NextAuthOptions = {
         const existing = await prisma.user.findFirst({
           where: { email: user.email! },
         });
+        // Staff sign in with email and password only, and a deactivated account is refused (ticket #22).
+        // `linked` is the account Google is about to sign in as; it is missing for a brand-new customer.
+        // Only that account decides. `existing` above is a lookup by email across every business, so judging it
+        // would let an owner block someone else's Google sign-in by creating a staff user with their email.
+        const linked = user.id ? await prisma.user.findUnique({ where: { id: user.id }, select: { role: true, isActive: true } }) : null;
+        if (!googleSignInAllowed(linked)) return false;
 
         if (existing && (!existing.tenantId || !existing.role)) {
           await prisma.user.update({
@@ -185,6 +187,8 @@ export const authOptions: NextAuthOptions = {
         token.id = user.id;
         token.role = (user as any).role;
         token.tenantId = (user as any).tenantId;
+        // Fresh sign-in: the session is issued for the account's current version.
+        token.sessionVersion = (user as any).sessionVersion ?? INITIAL_SESSION_VERSION;
       }
 
       if (!token.tenantId && token.email) {
@@ -197,6 +201,17 @@ export const authOptions: NextAuthOptions = {
         }
       }
 
+      // Live check (ticket #22): the token lives 30 days, so the account row decides on every request whether
+      // the user still has access and with which role. The decision is recomputed each time, never trusted
+      // from the cookie.
+      token.access = "none";
+      if (token.id && token.tenantId) {
+        const tokenVersion = typeof token.sessionVersion === "number" ? token.sessionVersion : undefined;
+        const access = await readAccountAccess(token.tenantId, token.id, tokenVersion);
+        token.access = access.kind;
+        if (access.kind === "active") token.role = access.role as typeof token.role;
+      }
+
       return token;
     },
     async session({ session, token }) {
@@ -205,7 +220,9 @@ export const authOptions: NextAuthOptions = {
         (session.user as any).role = token.role;
         (session.user as any).tenantId = token.tenantId;
       }
-      return session;
+      // A deactivated user, or one that owes a password change, gets a session without `user`,
+      // so every route guard rejects it. The type keeps `user` because all routes guard with `session?.user`.
+      return sessionForAccess(session, token.access as AccessKind | undefined) as typeof session;
     },
     async redirect({ url, baseUrl }) {
       if (url.startsWith("/")) return `${baseUrl}${url}`;

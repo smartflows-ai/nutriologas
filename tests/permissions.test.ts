@@ -31,7 +31,7 @@ const STAFF_ALLOWED: readonly Permission[] = [
   "whatsapp.settings",
   "history.view",
 ];
-const STAFF_DENIED: readonly Permission[] = ["appointments.notes", "appointments.delete", "whatsapp.chats.delete"];
+const STAFF_DENIED: readonly Permission[] = ["appointments.notes", "appointments.delete", "whatsapp.chats.delete", "users.manage"];
 
 function ctx(plan: CapabilityPlan, overrides: Partial<CapabilityContext> = {}): CapabilityContext {
   return {
@@ -258,9 +258,13 @@ test("the middleware lives in src/ (the only place Next.js reads it) and gates /
 });
 
 test("the admin layout accepts the CRM roles through permissions.ts", () => {
+  // Since ticket #22 the layout delegates to requireCrmSession, which also checks the account is still active.
   const layout = readRoot("src/app/admin/layout.tsx");
-  assert.match(layout, /isCrmRole/);
+  assert.match(layout, /requireCrmSession\(/);
   assert.doesNotMatch(layout, /role\s*!==\s*"ADMIN"/);
+  const guard = readRoot("src/lib/permission-guard.ts");
+  assert.match(guard, /isCrmRole\(access\.session\.user\.role\)/);
+  assert.match(guard, /getSessionAccess\(/);
 });
 
 for (const rel of ["dashboard/page.tsx", "asistente/page.tsx", "pedidos/page.tsx", "pedidos/[id]/page.tsx"]) {
@@ -368,4 +372,12 @@ test("omitNoteCounts: STAFF rows have no notes count; ADMIN rows keep it; input 
 
 test("the history list hides the notes column for roles that cannot read notes", () => {
   assert.match(readRoot("src/app/admin/historial/page.tsx"), /useCan\("appointments\.notes"\)/);
+});
+
+test("only the owner manages the team: STAFF may not create, reset or deactivate users (ticket #22)", () => {
+  assert.equal(can("ADMIN", "users.manage"), true);
+  assert.equal(can("STAFF", "users.manage"), false);
+  assert.equal(can("CUSTOMER", "users.manage"), false);
+  assert.equal(canAccessAdminPath("STAFF", "/admin/equipo"), false);
+  assert.equal(canAccessAdminPath("ADMIN", "/admin/equipo"), true);
 });

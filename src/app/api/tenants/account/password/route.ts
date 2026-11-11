@@ -1,19 +1,16 @@
 // src/app/api/tenants/account/password/route.ts
 // The tenant owner sets or changes their own password. Only ADMIN accounts; the user comes from the session.
 import { NextResponse } from "next/server";
-import bcrypt from "bcryptjs";
 import { getAppSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { apiError } from "@/lib/api-errors";
-import { rateLimited } from "@/lib/rate-limit";
+import { AUTH_ATTEMPTS_WINDOW_MS, rateLimited } from "@/lib/rate-limit";
 import { changePasswordSchema } from "@/lib/validations";
-import { passwordIssues, PASSWORD_API_ERROR } from "@/lib/password-rules";
+import { changeOwnPassword } from "@/lib/password-change";
+import { passwordChangeDeps } from "@/lib/password-change-data";
 
 // Every attempt counts (successful or not), so the current password cannot be guessed from this card.
 const ATTEMPTS_MAX = 5;
-const ATTEMPTS_WINDOW_MS = 15 * 60 * 1000;
-// Higher than the register routes (10): this changes a credential that protects the whole CRM.
-const BCRYPT_ROUNDS = 12;
 
 // Tells the card whether to ask for the current password. Never returns the hash.
 export async function GET() {
@@ -44,7 +41,7 @@ export async function PATCH(req: Request) {
     const userId = session.user.id;
     const tenantId = session.user.tenantId;
 
-    if (rateLimited(`password-change:${userId}`, ATTEMPTS_MAX, ATTEMPTS_WINDOW_MS)) {
+    if (rateLimited(`password-change:${userId}`, ATTEMPTS_MAX, AUTH_ATTEMPTS_WINDOW_MS)) {
       return apiError("too_many_attempts", 429);
     }
 
@@ -55,28 +52,14 @@ export async function PATCH(req: Request) {
     }
     const { currentPassword, newPassword } = parsed.data;
 
-    // Tenant filter as well as user id: the owner can only change a user of their own business.
-    const user = await prisma.user.findFirst({
-      where: { id: userId, tenantId },
-      select: { id: true, passwordHash: true },
+    // Same rule as the forced change after a temporary password (src/lib/password-change.ts).
+    // The user and the business come from the session, so the owner can only change their own account.
+    const result = await changeOwnPassword(passwordChangeDeps(), { tenantId, userId }, {
+      currentPassword: currentPassword ?? null,
+      newPassword,
+      confirmPassword: parsed.data.confirmPassword,
     });
-    if (!user) return apiError("unauthorized", 401);
-
-    // An account that already has a password must prove it first. Accounts without one may create it.
-    if (user.passwordHash) {
-      if (!currentPassword) return apiError("current_password_required", 400);
-      const matches = await bcrypt.compare(currentPassword, user.passwordHash);
-      if (!matches) return apiError("current_password_invalid", 400);
-    }
-
-    const [issue] = passwordIssues(newPassword, currentPassword ?? null);
-    if (issue) return apiError(PASSWORD_API_ERROR[issue], 400);
-
-    const passwordHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { passwordHash },
-    });
+    if (!result.ok) return apiError(result.reason, 400);
 
     return NextResponse.json({ ok: true });
   } catch (error) {

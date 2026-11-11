@@ -20,6 +20,8 @@ export const PERMISSIONS = [
   "whatsapp.confirmations",
   "whatsapp.settings",
   "history.view",
+  // Create, reset and deactivate staff users (ticket #22). Never granted to STAFF.
+  "users.manage",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];

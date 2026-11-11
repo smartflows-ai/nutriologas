@@ -25,6 +25,7 @@ import {
   Building2,
   CalendarCheck,
   ClipboardList,
+  Users,
   UserSearch
 } from "lucide-react";
 import { getVerticalProfile } from "@/lib/vertical-profile";
@@ -100,6 +101,7 @@ export default function AdminSidebar({
       title: t.admin.websiteSection,
       items: [
         { href: "/admin/negocio", label: t.admin.business, icon: Building2 },
+        { href: "/admin/equipo", label: t.admin.team, icon: Users },
         { href: "/admin/carrusel", label: t.admin.carousel, icon: Image },
         { href: "/admin/apariencia", label: t.admin.appearance, icon: Palette },
         { href: "/admin/faq", label: t.admin.faq, icon: HelpCircle },
