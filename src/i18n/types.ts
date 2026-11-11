@@ -1157,6 +1157,16 @@ export interface Translations {
     readPrivacy: string;
     backToTop: string;
   };
+  price: {
+    from: string;
+    onRequest: string;
+    free: string;
+    footnote: string;
+    askAboutPrice: string;
+    bookTarget: string;
+    askMessage: string;
+    defined: string;
+  };
   booking: {
     errorSelectDateTime: string;
     errorRequiredFields: string;
@@ -1381,6 +1391,18 @@ export interface Translations {
     visibleHidden: string;
     bookingNeedsVisible: string;
     bookingOffHint: string;
+    priceMode: string;
+    priceModeFixed: string;
+    priceModeFrom: string;
+    priceModeOnRequest: string;
+    priceModeHintFixed: string;
+    priceModeHintFrom: string;
+    priceModeHintOnRequest: string;
+    startingPrice: string;
+    assessmentProduct: string;
+    assessmentProductNone: string;
+    assessmentProductHint: string;
+    freePriceHint: string;
     visitModes: string;
     visitModesHintInPerson: string;
     visitModesHintOnline: string;
@@ -1586,7 +1608,9 @@ export interface Translations {
     nameShort: string;
     passwordMismatch: string;
     nameRequired: string;
+    priceRequired: string;
     pricePositive: string;
+    startingPriceRequired: string;
     durationPositive: string;
     colorInvalid: string;
     serviceIdRequired: string;
@@ -1616,6 +1640,8 @@ export interface Translations {
     phone_required: string;
     age_required: string;
     modality_required: string;
+    price_not_fixed: string;
+    assessment_target_invalid: string;
     modality_not_available: string;
     patient_not_found: string;
     outside_business_hours: string;

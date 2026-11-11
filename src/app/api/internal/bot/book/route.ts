@@ -8,6 +8,7 @@
 // - intake "v2": a known patient (the number already booked here) is never asked anything again; a new patient
 //   needs name and age; the email is optional (without it no calendar invitation is sent); the modality (in
 //   person or online) is resolved from the business setting or the patient's choice.
+import { loadAssessmentTargets } from "@/lib/assessment-target";
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { createAppointment } from "@/lib/appointments-service";
@@ -67,14 +68,17 @@ export async function POST(req: NextRequest) {
   // The service is loaded first: how it is delivered (in person, online or both) decides what the patient is asked.
   const product = await prisma.product.findFirst({
     where: { id: productId, tenantId: bot.tenantId, isActive: true, deletedAt: null },
-    select: { id: true, name: true, durationMinutes: true, requiresBooking: true, visitModes: true },
+    select: { id: true, tenantId: true, name: true, durationMinutes: true, requiresBooking: true, visitModes: true, priceMode: true, assessmentProductId: true },
   });
   if (!product) return Response.json({ success: false, error: "Servicio no encontrado" }, { status: 404 });
   if (!isBookable(product, bot)) {
-    return Response.json(
-      { success: false, error: "not_bookable", message: "Este artículo no se agenda con cita." },
-      { status: 400 }
-    );
+    // A service whose price is defined at another one (the injury that points to the general consultation) is not
+    // booked itself: tell the agent which service to offer and book instead.
+    const target = (await loadAssessmentTargets({ id: bot.tenantId, isBookingEnabled: bot.isBookingEnabled }, [product])).get(product.id);
+    const message = target
+      ? `El precio de este servicio se define en ${target.name}. Ofrece agendar ${target.name} (id ${target.id}) y no este servicio.`
+      : "Este artículo no se agenda con cita.";
+    return Response.json({ success: false, error: "not_bookable", message, ...(target ? { bookInstead: target } : {}) }, { status: 400 });
   }
 
   // Who is booking: a registered patient comes from their latest visit, a new one from what the agent collected.

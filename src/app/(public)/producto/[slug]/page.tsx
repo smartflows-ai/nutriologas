@@ -2,8 +2,10 @@
 import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { Star, Clock, Calendar, MapPin, Video } from "lucide-react";
-import { formatPrice } from "@/lib/utils";
+import { Star, Clock, Calendar, MapPin, Video, MessageCircle } from "lucide-react";
+import { fill } from "@/lib/utils";
+import { priceViewFor, storeAction, whatsappAskUrl } from "@/lib/price-display";
+import { loadAssessmentTargets } from "@/lib/assessment-target";
 import { getLocaleServer, getTranslationServer } from "@/i18n/server";
 import AddToCartButton from "@/components/shop/AddToCartButton";
 import ProductGallery from "@/components/shop/ProductGallery";
@@ -30,7 +32,15 @@ async function getProduct(slug: string) {
     },
   });
   if (!product) return null;
-  return { ...product, bookable: isBookable(product, tenant), serviceModes: tenant.serviceModes, address: tenant.hasPhysicalLocation ? tenant.address : null };
+  const targets = await loadAssessmentTargets({ id: tenant.id, isBookingEnabled: tenant.isBookingEnabled }, [product]);
+  return {
+    ...product,
+    bookable: isBookable(product, tenant),
+    serviceModes: tenant.serviceModes,
+    address: tenant.hasPhysicalLocation ? tenant.address : null,
+    whatsappNumber: tenant.whatsappNumber,
+    assessmentTarget: targets.get(product.id) ?? null,
+  };
 }
 
 export default async function ProductoPage({
@@ -46,6 +56,11 @@ export default async function ProductoPage({
   const isService = product.bookable;
   // ASK: the customer chooses when booking. Otherwise the mode is fixed and shown here.
   const visitMode = modalityModeFor(product.serviceModes, product.visitModes);
+  // The price (fixed, from or after the assessment) and the one button the page offers for it.
+  const price = priceViewFor(product, t.price, locale);
+  const action = storeAction(product, { bookable: isService, target: product.assessmentTarget });
+  const askUrl = whatsappAskUrl(product.whatsappNumber, fill(t.price.askMessage, { name: product.name }));
+  const ctaClass = "w-full py-4 px-6 rounded-xl bg-[var(--color-primary)] hover:bg-[var(--color-primary)]/90 text-[color:var(--on-primary)] font-semibold text-base flex items-center justify-center gap-2.5 transition-all";
 
   const avgRating =
     product.reviews.length > 0
@@ -124,19 +139,31 @@ export default async function ProductoPage({
               </div>
             )}
 
-            <p className="text-3xl font-semibold text-primary mb-4">
-              {formatPrice(product.price, locale)}
-            </p>
+            <div className="mb-4">
+              <p className={`${price.kind === "onRequest" ? "text-2xl" : "text-3xl"} font-semibold text-primary`}>{price.text}</p>
+              {price.footnote && <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{price.footnote}</p>}
+            </div>
 
-            {isService ? (
-              <Link
-                href={`/agendar/${product.slug}`}
-                className="w-full py-4 px-6 rounded-xl bg-[var(--color-primary)] hover:bg-[var(--color-primary)]/90 text-white font-semibold text-base flex items-center justify-center gap-2.5 transition-all "
-              >
+            {action.kind === "book" && (
+              <Link href={`/agendar/${product.slug}`} className={ctaClass}>
                 <Calendar size={18} />
                 {t.storefrontUi.agendaCta}
               </Link>
-            ) : product.stock > 0 ? (
+            )}
+            {action.kind === "bookTarget" && (
+              <Link href={`/agendar/${action.target.slug}`} className={ctaClass}>
+                <Calendar size={18} />
+                {fill(t.price.bookTarget, { name: action.target.name })}
+              </Link>
+            )}
+            {action.kind === "ask" && askUrl && (
+              <a href={askUrl} target="_blank" rel="noopener noreferrer" className={ctaClass}>
+                <MessageCircle size={18} />
+                {t.price.askAboutPrice}
+              </a>
+            )}
+            {action.kind === "cart" && (
+              product.stock > 0 ? (
               <>
                 <AddToCartButton
                   product={{
@@ -152,8 +179,9 @@ export default async function ProductoPage({
                   {product.stock} unidades disponibles
                 </p>
               </>
-            ) : (
-              <p className="text-red-500 font-medium">{t.storefrontUi.productSoldOut}</p>
+              ) : (
+                <p className="text-red-500 font-medium">{t.storefrontUi.productSoldOut}</p>
+              )
             )}
           </div>
         </div>

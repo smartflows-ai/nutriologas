@@ -1,6 +1,7 @@
 // src/app/api/checkout/route.ts
 // Initiates a Conekta hosted payment checkout.
 // Returns { orderId, checkoutRequestId } so the frontend can mount the iframe.
+import { partitionPurchasable } from "@/lib/price-display";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
@@ -96,6 +97,11 @@ export async function POST(req: Request) {
 
   if (products.length !== items.length) {
     return apiError("product_unavailable", 400);
+  }
+
+  // A starting price, a price defined after the assessment or a free item is never charged as if it were final.
+  if (partitionPurchasable(products).refused.length > 0) {
+    return apiError("price_not_fixed", 400);
   }
 
   // Validate stock availability before proceeding

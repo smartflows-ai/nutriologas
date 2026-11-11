@@ -1,4 +1,5 @@
 // src/lib/ai/system-prompt.ts
+import { priceTextFor } from "@/lib/price-text";
 import { prisma } from "@/lib/db";
 import { getVerticalProfile } from "@/lib/vertical-profile";
 
@@ -8,7 +9,7 @@ export async function buildSystemPrompt(tenantId: string): Promise<string> {
     include: {
       products: {
         where: { isActive: true, deletedAt: null },
-        select: { name: true, price: true, category: true, itemType: true, durationMinutes: true, requiresBooking: true },
+        select: { name: true, price: true, priceMode: true, category: true, itemType: true, durationMinutes: true, requiresBooking: true },
       },
     },
   });
@@ -16,7 +17,7 @@ export async function buildSystemPrompt(tenantId: string): Promise<string> {
   const today = new Date().toLocaleDateString("es-MX", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
   const productList = tenant?.products.map(p => {
     const isService = p.itemType === "SERVICE" || p.requiresBooking;
-    return `- ${p.name} ($${p.price} MXN)${isService ? ` [Servicio/Cita - ${p.durationMinutes ?? 30} min]` : ""}`;
+    return `- ${p.name} (${priceTextFor(p, "es")}${p.priceMode === "FIXED" || !p.priceMode ? " MXN" : ""})${isService ? ` [Servicio/Cita - ${p.durationMinutes ?? 30} min]` : ""}`;
   }).join("\n") ?? "Sin servicios o productos registrados";
 
   const businessContext = tenant?.businessInfo ? `Giro y descripción del negocio: "${tenant.businessInfo}".` : "";

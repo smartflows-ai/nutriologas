@@ -1,5 +1,6 @@
 // src/app/api/apps/facebook/products/route.ts
 // GET — return active products for the tenant (used by Facebook page composer)
+import { priceFieldsFor } from "@/lib/price-text";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -20,11 +21,12 @@ export async function GET() {
       name: true,
       description: true,
       price: true,
+      priceMode: true,
       images: true,
     },
     orderBy: { createdAt: "desc" },
     take: 50,
   });
 
-  return NextResponse.json({ products });
+  return NextResponse.json({ products: products.map((p) => ({ ...p, ...priceFieldsFor(p, "es") })) });
 }

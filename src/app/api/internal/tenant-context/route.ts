@@ -1,4 +1,5 @@
 // src/app/api/internal/tenant-context/route.ts
+import { priceTextFor } from "@/lib/price-text";
 import { prisma } from "@/lib/db";
 import { NextRequest } from "next/server";
 
@@ -23,7 +24,7 @@ export async function POST(req: NextRequest) {
     include: {
       products: {
         where: { isActive: true, deletedAt: null },
-        select: { name: true, price: true, description: true, category: true },
+        select: { name: true, price: true, priceMode: true, description: true, category: true },
       },
       theme: true,
       connectedApps: {
@@ -71,7 +72,7 @@ export async function POST(req: NextRequest) {
     waContext: waApp?.waContext ?? null,
     products: tenant.products.map(p => ({
       name: p.name,
-      price: `$${p.price} MXN`,
+      price: priceTextFor(p, tenant.messageLanguage),
       description: p.description,
       category: p.category,
     })),

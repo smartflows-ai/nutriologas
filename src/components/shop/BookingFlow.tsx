@@ -16,7 +16,8 @@ import {
   MapPin,
   Video
 } from "lucide-react";
-import { formatPrice, localeFor, fill } from "@/lib/utils";
+import { localeFor, fill } from "@/lib/utils";
+import { priceViewFor, type PriceMode } from "@/lib/price-display";
 import { buildFullPhone, DEFAULT_DIAL_CODE, PHONE_COUNTRIES } from "@/lib/phone";
 import { clinicDateTime } from "@/lib/clinic-time";
 import { modalityModeFor, parseAge } from "@/lib/patient-intake";
@@ -32,6 +33,7 @@ interface Props {
     name: string;
     slug: string;
     price: number;
+    priceMode?: PriceMode | null;
     images: string[];
     description: string | null;
     durationMinutes: number | null;
@@ -58,6 +60,7 @@ interface Props {
 export default function BookingFlow({ product, tenant, businessHours }: Props) {
   const { t, lang } = useTranslation();
   const locale = localeFor(lang);
+  const price = priceViewFor(product, t.price, locale);
   // ASK: the patient chooses. Otherwise the mode is fixed by the service (or the business) and only shown.
   const modalityMode = modalityModeFor(tenant.serviceModes, product.visitModes);
 
@@ -277,7 +280,7 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
           )}
           <div className="flex justify-between items-center">
             <span className="text-xs text-gray-500 font-semibold">{t.booking.summaryPrice}</span>
-            <span className="text-base font-semibold text-gray-900 dark:text-white">{formatPrice(product.price, locale)}</span>
+            <span className="text-base font-semibold text-gray-900 dark:text-white text-right">{price.text}</span>
           </div>
         </div>
 
@@ -342,7 +345,8 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
 
         <div className="text-left md:text-right flex-shrink-0 bg-gray-50 dark:bg-gray-900/60 p-4 rounded-xl border border-gray-200 dark:border-gray-800">
           <span className="text-xs text-gray-400 font-semibold block">{t.booking.costLabel}</span>
-          <span className="text-2xl font-semibold text-gray-900 dark:text-white">{formatPrice(product.price, locale)}</span>
+          <span className={`${price.kind === "onRequest" ? "text-lg" : "text-2xl"} font-semibold text-gray-900 dark:text-white`}>{price.text}</span>
+          {price.footnote && <span className="text-xs text-gray-500 dark:text-gray-400 block mt-1 max-w-[16rem]">{price.footnote}</span>}
         </div>
       </div>
 

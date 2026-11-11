@@ -2,6 +2,7 @@
 // src/app/admin/citas/page.tsx
 // Centralized Agenda & Scheduling Hub: one unified view with all appointments
 // (native CRM bookings, WhatsApp reservations, and Google / Outlook Calendar events combined)
+import { priceViewFor, type PriceMode } from "@/lib/price-display";
 import { useState, useEffect, useRef, Suspense, useMemo } from "react";
 import {
   Calendar as CalendarIcon,
@@ -53,6 +54,7 @@ interface AppointmentItem {
     id: string;
     name: string;
     price: number;
+    priceMode?: PriceMode | null;
     durationMinutes: number | null;
     category: string | null;
   };
@@ -631,9 +633,9 @@ function CitasContent() {
                         )}
 
                         {/* Price badge for native consultations */}
-                        {!isExternal && appt.product?.price ? (
+                        {!isExternal && appt.product && (appt.product.price > 0 || appt.product.priceMode === "ON_REQUEST") ? (
                           <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
-                            {formatPrice(appt.product.price, locale)}
+                            {priceViewFor(appt.product, t.price, locale).text}
                           </span>
                         ) : null}
                       </div>

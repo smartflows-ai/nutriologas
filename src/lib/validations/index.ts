@@ -1,6 +1,7 @@
 // src/lib/validations/index.ts
 import { z } from "zod";
 import { passwordIssues, PASSWORD_FORM_MESSAGE } from "@/lib/password-rules";
+import { normalizePriceInput } from "@/lib/price-display";
 
 // Login accepts any existing password (6 or more characters); the strict rules apply when one is set.
 export const loginSchema = z.object({
@@ -34,10 +35,12 @@ export const changePasswordSchema = z.object({
   path: ["confirmPassword"],
 });
 
-export const productSchema = z.object({
+export const productBaseSchema = z.object({
   name: z.string().min(2, "nameRequired"),
   description: z.string().optional().nullable(),
-  price: z.number().positive("pricePositive"),
+  price: z.number().min(0, "pricePositive").optional(),
+  priceMode: z.enum(["FIXED", "FROM", "ON_REQUEST"]).optional(),
+  assessmentProductId: z.string().min(1).optional().nullable(),
   stock: z.number().int().min(0).default(0),
   category: z.string().optional().nullable(),
   isActive: z.boolean().default(true),
@@ -48,6 +51,13 @@ export const productSchema = z.object({
   capacity: z.number().int().positive().optional().nullable(),
   serviceConfig: z.record(z.any()).optional().nullable(),
   visitModes: z.enum(["IN_PERSON", "ONLINE", "BOTH"]).optional().nullable(),
+});
+
+// The price fields depend on each other (a starting price needs an amount, on request has none), so the rule
+// lives in normalizePriceInput and the form and the API both run it. Updates use productBaseSchema.partial().
+export const productSchema = productBaseSchema.superRefine((data, ctx) => {
+  const result = normalizePriceInput(data, { partial: false });
+  if (!result.ok) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["price"], message: result.error });
 });
 
 export const reviewSchema = z.object({

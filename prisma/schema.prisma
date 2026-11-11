@@ -290,6 +290,8 @@ model Product {
   slug            String
   description     String?
   price           Float
+  priceMode       PriceMode @default(FIXED) // FIXED, FROM (starting price) or ON_REQUEST (defined after the assessment; price is stored as 0)
+  assessmentProductId String? // service to book to learn the price of an ON_REQUEST service; checked on save and on read
   stock           Int       @default(0)
   isActive        Boolean   @default(true)
   images          String[]  // URLs de Cloudinary
@@ -561,6 +563,12 @@ model AiTokenLedger {
 enum AppointmentModality {
   IN_PERSON
   ONLINE
+}
+
+enum PriceMode {
+  FIXED
+  FROM
+  ON_REQUEST
 }
 
 enum ServiceModes {

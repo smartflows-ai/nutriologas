@@ -1,6 +1,7 @@
 // src/app/api/campaigns/social/[id]/context/route.ts
 // GET — returns full campaign context for n8n agent to use when generating the post
 // Includes: campaign config, product details, tenant WhatsApp, FB/IG credentials
+import { priceFieldsFor } from "@/lib/price-text";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
@@ -32,7 +33,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   const products = campaign.productIds.length > 0
     ? await prisma.product.findMany({
         where: { id: { in: campaign.productIds }, tenantId, deletedAt: null },
-        select: { id: true, name: true, description: true, price: true, images: true, slug: true },
+        select: { id: true, name: true, description: true, price: true, priceMode: true, images: true, slug: true },
       })
     : [];
 
@@ -58,7 +59,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       selectedImageUrl: campaign.selectedImageUrl,
       tenantId: campaign.tenantId,
     },
-    products,
+    // price is null when it is defined after the assessment; priceText is what a post may say about the price.
+    products: products.map(({ price, priceMode, ...rest }) => ({ ...rest, ...priceFieldsFor({ price, priceMode }, "es") })),
     tenant: {
       name: tenant?.name,
       slug: tenant?.slug,

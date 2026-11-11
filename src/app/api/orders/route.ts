@@ -1,4 +1,5 @@
 // src/app/api/orders/route.ts
+import { partitionPurchasable } from "@/lib/price-display";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
@@ -28,6 +29,9 @@ export async function POST(req: Request) {
   const products = await prisma.product.findMany({
     where: { id: { in: items.map((i: any) => i.productId) }, tenantId },
   });
+  if (partitionPurchasable(products).refused.length > 0) {
+    return Response.json({ error: "price_not_fixed" }, { status: 400 });
+  }
   const total = items.reduce((sum: number, item: any) => {
     const product = products.find((p) => p.id === item.productId);
     return sum + (product?.price ?? 0) * item.quantity;

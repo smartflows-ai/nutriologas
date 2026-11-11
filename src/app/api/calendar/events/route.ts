@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
         },
       },
       include: {
-        product: { select: { name: true, durationMinutes: true, price: true } },
+        product: { select: { name: true, durationMinutes: true, price: true, priceMode: true } },
         user: { select: { name: true, email: true } },
       },
       orderBy: { appointmentDate: "asc" },

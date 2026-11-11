@@ -102,7 +102,7 @@ export async function PATCH(
       where: { id: params.id },
       data: dataToUpdate,
       include: {
-        product: { select: { name: true, durationMinutes: true, price: true } },
+        product: { select: { name: true, durationMinutes: true, price: true, priceMode: true } },
         user: { select: { name: true, email: true } },
       },
     });
