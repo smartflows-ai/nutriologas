@@ -34,7 +34,7 @@ Keep the business setting **and** add a per-service setting. The business settin
 
 ## Design
 
-### Data (additive, `prisma/sql/23-product-modes/up.sql` + `down.sql`)
+### Data (additive, `prisma/sql/24-product-visit-modes/up.sql` + `down.sql`)
 - `products.visitModes ServiceModes NULL` (reuses the existing `ServiceModes` enum: `IN_PERSON`, `ONLINE`, `BOTH`). `NULL` = inherit the business.
 - Additive and nullable: old code ignores it, so database-first deploy is safe. `down.sql` drops the column (data loss for that column only, run after the code is gone).
 - Follow "Schema changes" in CLAUDE.md: backup, local mirror check, explicit approval before applying to the real database. No `db:push`.
@@ -92,7 +92,7 @@ Keep the business setting **and** add a per-service setting. The business settin
 
 1. Approve this plan in the canvas.
 2. Implement on a branch (tests first), code review, security scan (tenant-scoped input, new enum field).
-3. Backup, then apply `23-product-modes/up.sql` to the real database with explicit approval. Database first, code after.
+3. Backup, then apply `24-product-visit-modes/up.sql` to the real database with explicit approval. Database first, code after.
 4. Merge (merge deploys), verify on production with a real business that a default service is unchanged.
 5. Owner marks in-person-only services (tell the current clinic tenant first: its Planificacion Familiar and similar services).
 6. Prepare the n8n prompt change, show it, back up the live workflow outside the repo, apply with approval.
