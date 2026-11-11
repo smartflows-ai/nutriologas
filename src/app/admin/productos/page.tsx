@@ -272,7 +272,7 @@ export default function ProductosPage() {
           title={editing ? t.crm.products.modal.editTitle : t.crm.products.modal.newTitle}
           onClose={() => setOpen(false)}
         >
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             {/* Selector de tipo: solo los tipos que el giro del negocio usa */}
             {typeOptions.length > 1 && (
               <div className="p-4 bg-gray-50 dark:bg-gray-900/60 rounded-xl border border-gray-200 dark:border-gray-800">

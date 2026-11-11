@@ -33,7 +33,7 @@ export default function FormPanel({ icon, title, onClose, children }: Props) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="form-panel-title"
-        className="bg-white dark:bg-gray-950 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 w-full max-w-3xl max-h-[90vh] flex flex-col"
+        className="bg-white dark:bg-gray-950 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 w-full max-w-3xl max-h-[92vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-800">
@@ -49,7 +49,7 @@ export default function FormPanel({ icon, title, onClose, children }: Props) {
             <X size={18} />
           </button>
         </div>
-        <div className="p-6 overflow-y-auto">{children}</div>
+        <div className="p-6 overflow-y-auto scrollbar-slim">{children}</div>
       </div>
     </div>
   );
