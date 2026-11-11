@@ -6,7 +6,7 @@
 import { formatSlotTime } from "@/lib/bot";
 import { es } from "@/i18n/es";
 import { en } from "@/i18n/en";
-import { LABEL_TO_KEY, templateProblem, type TemplateKind } from "@/lib/reminder-template-rules";
+import { LABEL_TO_KEY, lastDetailLine, templateProblem, type TemplateKind } from "@/lib/reminder-template-rules";
 import { fill } from "@/lib/utils";
 
 // The rules live in a module without server code so the settings card can run them too; re-exported here.
@@ -46,7 +46,30 @@ export function firstName(name: string | null | undefined): string {
   return (name ?? "").trim().split(/\s+/)[0] ?? "";
 }
 
+/**
+ * Drops a line that only labels the place ("📍 Ubicación: [Ubicación]") when there is no place to show (an
+ * online visit whose video call is not created yet, or a business with no address), so the customer does not
+ * read an empty "Ubicación:". A tag inside a longer sentence is left alone: the gap-closing rule handles it.
+ */
+function withoutEmptyPlaceLine(template: string): string {
+  const lines = template.split("\n");
+  const kept = lines.filter((line) => {
+    const match = line.match(/^(.*?)\[([^\[\]]+)\]\s*$/);
+    if (!match || LABEL_TO_KEY.get(match[2].trim().toLowerCase()) !== "ubicacion") return true;
+    return !/[:：][*_~\s]*$/.test(match[1]);
+  });
+  return kept.length === lines.length ? template : kept.join("\n").replace(/\n{3,}/g, "\n\n");
+}
+
 export function renderTemplate(template: string, values: ReminderValues): string {
+  if (values.ubicacion !== undefined && !values.ubicacion.trim()) template = withoutEmptyPlaceLine(template);
+  // The same when WhatsApp bold or italic markers sit between the tag and that period ("*[Deadline time]*."):
+  // the value keeps its own period inside the markers and the template's period is dropped.
+  template = template.replace(/(\[[^\[\]]+\])([*_~]+)\./g, (whole, tag: string, marks: string) => {
+    const key = LABEL_TO_KEY.get(tag.slice(1, -1).trim().toLowerCase());
+    const value = key && key !== "nombre" ? values[key] : undefined;
+    return value?.endsWith(".") ? tag + marks : whole;
+  });
   let nameWasEmpty = false;
   let placeWasEmpty = false;
   const filled = template.replace(/\[([^\[\]]+)\]/g, (match, label: string, offset: number, whole: string) => {
@@ -112,6 +135,31 @@ export function withLocation(
   const place = locationText?.trim();
   if (visit.modality === "ONLINE" || !place) return text;
   return `${text}\n\n${fill(customerTexts(language).locationLine, { location: place })}`;
+}
+
+/** The line that tells where to go: the address (in person) or the video call link (online); null when there is none. */
+export function placeLine(
+  visit: { modality?: "IN_PERSON" | "ONLINE" | null; meetUrl?: string | null },
+  locationText: string | null | undefined,
+  language: string,
+): string | null {
+  const place = placeText(visit, locationText);
+  if (!place) return null;
+  const texts = customerTexts(language);
+  return visit.modality === "ONLINE" ? fill(texts.meetingLine, { url: place }) : fill(texts.locationLine, { location: place });
+}
+
+/**
+ * Puts the place line right after the last line of the visit details ("Hora: 10:00 a.m."), where the template
+ * has no location tag of its own. `template` is the text before rendering and `rendered` the same text after:
+ * they have the same lines. With no detail line the place goes at the end.
+ */
+export function withPlaceAfterDetails(template: string, rendered: string, line: string): string {
+  const lines = rendered.split("\n");
+  const at = lastDetailLine(template);
+  if (at < 0 || at >= lines.length) return `${rendered}\n\n${line}`;
+  lines.splice(at + 1, 0, line);
+  return lines.join("\n");
 }
 
 /**
