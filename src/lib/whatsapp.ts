@@ -2,6 +2,7 @@
 // Centralized helper for sending WhatsApp notifications through Evolution API
 import { prisma } from "@/lib/db";
 import https from "https";
+import { WA_INVALID_NUMBER, WA_NOT_AVAILABLE, WA_NOT_CONNECTED } from "@/lib/whatsapp-reasons";
 
 const insecureAgent = new https.Agent({ rejectUnauthorized: false });
 
@@ -48,7 +49,7 @@ export async function sendWhatsAppMessage({
 
     if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY) {
       console.warn("[whatsapp] EVOLUTION_API_URL or EVOLUTION_API_KEY not configured");
-      return { success: false, reason: "Evolution API no está configurado en las variables de entorno" };
+      return { success: false, reason: WA_NOT_AVAILABLE };
     }
 
     const app = await prisma.connectedApp.findFirst({
@@ -57,14 +58,14 @@ export async function sendWhatsAppMessage({
     });
 
     if (!app || !app.waInstanceId) {
-      return { success: false, reason: "WhatsApp no está conectado para este negocio" };
+      return { success: false, reason: WA_NOT_CONNECTED };
     }
 
     // A full JID (contact chats, including @lid contacts) is sent as-is; a phone number is normalized.
     const isJid = to.includes("@");
     const recipient = isJid ? to.trim() : formatWhatsAppNumber(to);
     if (!recipient || (!isJid && recipient.length < 8)) {
-      return { success: false, reason: "Número de teléfono inválido" };
+      return { success: false, reason: WA_INVALID_NUMBER };
     }
 
     const url = `${EVOLUTION_API_URL}/message/sendText/${app.waInstanceId}`;
@@ -83,7 +84,7 @@ export async function sendWhatsAppMessage({
     if (!res.ok) {
       const errText = await res.text();
       console.error("[whatsapp] Evolution API error sending message:", res.status, errText);
-      return { success: false, reason: `Error Evolution API (${res.status}): ${errText}` };
+      return { success: false, reason: WA_NOT_AVAILABLE };
     }
 
     const data = await res.json();

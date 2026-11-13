@@ -1,0 +1,10 @@
+{
+  "extraKnownMarketplaces": {
+    "smartflows-skills": {
+      "source": { "source": "github", "repo": "smartflows-ai/common-skills" }
+    }
+  },
+  "enabledPlugins": {
+    "common-skills@smartflows-skills": true
+  }
+}
