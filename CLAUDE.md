@@ -544,6 +544,15 @@ Flow: `n8n/workflows/n8n-chat-workflow-v2.json` ("NewAigent - WhatsApp Bot (Chat
 
 ---
 
+## Short links on the business subdomain (`/ubicacion`, `/online/<code>`)
+
+The customer messages carry short addresses on the business's own subdomain instead of long URLs (`src/lib/short-links.ts`):
+- `<tenant>.newaigent.com/ubicacion` redirects (302) to the Google Maps directions built from the business address, place id and coordinates (`directionsUrl`). With no physical place it answers a closed page. Used by `locationTextForBot`: the bot, the reminders and the `[Ubicación]` tag.
+- `<tenant>.newaigent.com/online/<code>` redirects (302) to the video call of ONE appointment. The code is 8 random characters, unique per business (`Appointment.meetShortCode`, migration `prisma/sql/26-meet-short-code`, nullable, applied to production 2026-11-13 after a verified backup). It is open from the start of the visit until one hour after it ends, and only while the visit is PENDING or CONFIRMED. Any other case, unknown or malformed codes included, answers the same closed page (410). Rate limited per IP.
+- The customer receives the short link wherever the raw `meetUrl` used to go (`customerMeetUrl`): reminder, bot booking and my-appointments, the reply after SI, the owner's confirmation (Confirmaciones and Citas). The admin UI, the calendar event and `meetUrl` keep the real link. Google's calendar invitation to the patient's email still carries the real Meet link (cannot be changed).
+- Visits booked before this change have no code and keep the real link.
+- Tests: `tests/short-links.test.ts`.
+
 ## Appointment Reminders and Confirmation (separate workflow, no LLM)
 
 - **Workflow**: `n8n/workflows/n8n-reminders-workflow.json`. A Schedule Trigger every 15 minutes calls `POST /api/internal/reminders/run`. The interval sets the precision: a reminder or a release goes out at most 15 minutes late.
