@@ -1517,7 +1517,7 @@ export const en: Translations = {
     save: "Save",
     suspense: "Loading unified schedule...",
     toastConfirmedWa: "Appointment confirmed! WhatsApp message sent to the patient.",
-    toastConfirmedWaReason: "Appointment confirmed. (WhatsApp: {reason})",
+    toastConfirmedWaReason: "Appointment confirmed. {reason}.",
     toastConfirmed: "Appointment confirmed.",
     toastCompleted: "Appointment marked as attended.",
     toastCancelled: "Appointment cancelled.",

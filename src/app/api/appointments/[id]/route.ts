@@ -10,7 +10,7 @@ import { syncCalendarDelete } from "@/lib/calendar-sync";
 import { saveVisitNote } from "@/lib/appointment-notes";
 import { can, omitClinicalNotes } from "@/lib/permissions";
 import { requirePermission } from "@/lib/permission-guard";
-import { omitReminderError } from "@/lib/reminder-state";
+import { omitReminderError, safeFailureReason } from "@/lib/reminder-state";
 import { AppointmentStatus } from "@prisma/client";
 import { withBookedBy, withMeetingLink } from "@/lib/reminder-messages";
 
@@ -158,7 +158,7 @@ export async function PATCH(
         });
 
         whatsappSent = waRes.success;
-        whatsappReason = waRes.reason;
+        whatsappReason = waRes.reason ? safeFailureReason(waRes.reason) : undefined;
       }
     }
 

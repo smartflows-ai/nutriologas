@@ -2,11 +2,12 @@
 // The appointment fields written after a reminder succeeds, fails, or the visit is rescheduled.
 // Pure functions: each call returns a new object, so the I/O code only has to hand it to Prisma.
 
+import { CUSTOMER_SAFE_REASONS } from "@/lib/whatsapp-reasons";
+
 export const MAX_ERROR_LENGTH = 300;
 const DEFAULT_ERROR = "Envio rechazado";
 
 // Reasons that are safe to keep as written: they name no provider and carry no response body.
-const CUSTOMER_SAFE_REASONS = ["WhatsApp no está conectado para este negocio", "Número de teléfono inválido"];
 const PROVIDER_STATUS_RE = /\((\d{3})\)/;
 
 /**
