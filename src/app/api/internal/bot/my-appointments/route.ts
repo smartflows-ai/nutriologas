@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { ACTIVE_APPOINTMENT_STATUSES, isInternalKeyValid, resolveBotTenant } from "@/lib/bot";
 import { visitsOfSender } from "@/lib/patient-intake";
 import { patientKeyOf } from "@/lib/patient-key";
+import { customerMeetUrl } from "@/lib/short-links";
 
 export async function POST(req: NextRequest) {
   if (!isInternalKeyValid(req)) return Response.json({ error: "No autorizado" }, { status: 401 });
@@ -14,6 +15,7 @@ export async function POST(req: NextRequest) {
   if (!bot) return Response.json({ error: "Instancia de WhatsApp no encontrada" }, { status: 404 });
   if (!customerPhone) return Response.json({ error: "customerPhone es requerido" }, { status: 400 });
 
+  const tenant = await prisma.tenant.findUnique({ where: { id: bot.tenantId }, select: { slug: true, customDomain: true } });
   const appointments = await prisma.appointment.findMany({
     where: {
       tenantId: bot.tenantId,
@@ -29,6 +31,7 @@ export async function POST(req: NextRequest) {
       status: true,
       modality: true,
       meetUrl: true,
+      meetShortCode: true,
       customerName: true,
       referredByKey: true,
       product: { select: { name: true } },
@@ -50,7 +53,8 @@ export async function POST(req: NextRequest) {
       // A visit the person booked for someone else: the bot names who it is for.
       forOtherPerson: !!a.referredByKey && a.referredByKey === patientKeyOf(String(customerPhone)),
       patientName: a.customerName,
-      meetLink: a.modality === "ONLINE" ? a.meetUrl : null,
+      // The short link of the video call on the business subdomain (the real link when the visit has no code).
+      meetLink: a.modality === "ONLINE" && tenant ? customerMeetUrl({ meetUrl: a.meetUrl, meetShortCode: a.meetShortCode }, tenant) || null : null,
     })),
   });
 }

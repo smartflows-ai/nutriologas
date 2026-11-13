@@ -9,6 +9,7 @@ import { locationTextForBot } from "@/lib/location";
 import { recordMessageCharge, reminderCostUsd } from "@/lib/credits";
 import { failedSendState, sentState } from "@/lib/reminder-state";
 import type { ReminderDeps, ReminderVisit } from "@/lib/reminder-run";
+import { customerMeetUrl } from "@/lib/short-links";
 
 export const LOOKAHEAD_HOURS = 96; // covers reminders up to 72 h before a visit, plus a day of margin
 
@@ -76,6 +77,7 @@ export async function loadReminderVisits(now: Date, appointmentId?: string): Pro
       externalEventId: true,
       modality: true,
       meetUrl: true,
+      meetShortCode: true,
       referredByKey: true,
       referredByName: true,
       product: { select: { name: true } },
@@ -95,15 +97,20 @@ export async function loadReminderVisits(now: Date, appointmentId?: string): Pro
           placeId: true,
           latitude: true,
           longitude: true,
+          slug: true,
+          customDomain: true,
         },
       },
     },
     orderBy: { appointmentDate: "asc" },
   });
   return rows.map(({ product, tenant, ...visit }) => {
-    const { hasPhysicalLocation, address, placeId, latitude, longitude, ...rest } = tenant;
-    const locationText = locationTextForBot({ hasPhysicalLocation, address, placeId, latitude, longitude });
-    return { ...visit, productName: product.name, tenant: { ...rest, locationText } };
+    const { hasPhysicalLocation, address, placeId, latitude, longitude, slug, customDomain, ...rest } = tenant;
+    const locationText = locationTextForBot({ hasPhysicalLocation, address, placeId, latitude, longitude, slug, customDomain });
+    // The customer gets the short video link of this visit (or the real one when the visit has no code).
+    const { meetShortCode, ...plain } = visit;
+    const meetUrl = customerMeetUrl({ meetUrl: visit.meetUrl, meetShortCode }, { slug, customDomain }) || null;
+    return { ...plain, meetUrl, productName: product.name, tenant: { ...rest, locationText } };
   });
 }
 

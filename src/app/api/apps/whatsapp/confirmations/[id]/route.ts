@@ -9,6 +9,7 @@ import { apiError } from "@/lib/api-errors";
 import { confirmVisit, releaseVisit } from "@/lib/reminder-actions";
 import { planLockResponse } from "@/lib/capability-guard";
 import { AWAITING_CONFIRMATION } from "@/lib/reminders";
+import { customerMeetUrl } from "@/lib/short-links";
 
 const bodySchema = z.object({ action: z.enum(["confirm", "release"]) });
 
@@ -38,8 +39,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       externalEventId: true,
       modality: true,
       meetUrl: true,
+      meetShortCode: true,
       product: { select: { name: true } },
-      tenant: { select: { name: true, messageLanguage: true, cancellationTemplate: true } },
+      tenant: { select: { name: true, slug: true, customDomain: true, messageLanguage: true, cancellationTemplate: true } },
     },
   });
   if (!visit) return apiError("appointment_not_found", 404);
@@ -57,7 +59,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     messageLanguage: visit.tenant.messageLanguage,
     cancellationTemplate: visit.tenant.cancellationTemplate,
     modality: visit.modality,
-    meetUrl: visit.meetUrl,
+    // The customer gets the short video link of this visit (the real one when the visit has no code).
+    meetUrl: customerMeetUrl({ meetUrl: visit.meetUrl, meetShortCode: visit.meetShortCode }, visit.tenant) || null,
   };
 
   if (parsed.data.action === "confirm") await confirmVisit(action);

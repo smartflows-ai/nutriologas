@@ -8,6 +8,7 @@ import { isInternalKeyValid, resolveBotTenant, ACTIVE_APPOINTMENT_STATUSES } fro
 import { patientKeyOf } from "@/lib/patient-key";
 import { clinicLongDate, clinicTime, customerTexts, renderTemplate, withMeetingLink } from "@/lib/reminder-messages";
 import { isClearConfirmation } from "@/lib/confirmation-words";
+import { customerMeetUrl } from "@/lib/short-links";
 
 export async function POST(req: NextRequest) {
   if (!isInternalKeyValid(req)) return Response.json({ error: "No autorizado" }, { status: 401 });
@@ -31,7 +32,7 @@ export async function POST(req: NextRequest) {
       appointmentDate: { gt: now },
     },
     orderBy: { appointmentDate: "asc" },
-    select: { id: true, appointmentDate: true, modality: true, meetUrl: true, product: { select: { name: true } } },
+    select: { id: true, appointmentDate: true, modality: true, meetUrl: true, meetShortCode: true, product: { select: { name: true } } },
   });
 
   // Nothing waiting for an answer: the message goes to the bot agent as a normal chat message.
@@ -46,7 +47,7 @@ export async function POST(req: NextRequest) {
     data: { customerConfirmedAt: now, status: "CONFIRMED" },
   });
 
-  const tenant = await prisma.tenant.findUnique({ where: { id: bot.tenantId }, select: { name: true, ownerName: true, messageLanguage: true } });
+  const tenant = await prisma.tenant.findUnique({ where: { id: bot.tenantId }, select: { name: true, slug: true, customDomain: true, ownerName: true, messageLanguage: true } });
   const language = tenant?.messageLanguage ?? "es";
   const reply = withMeetingLink(
     renderTemplate(customerTexts(language).confirmedReply, {
@@ -56,7 +57,8 @@ export async function POST(req: NextRequest) {
       negocio: tenant?.name ?? "",
       responsable: tenant?.ownerName,
     }),
-    appointment,
+    // The customer gets the short video link of this visit, not the real one.
+    tenant ? { ...appointment, meetUrl: customerMeetUrl({ meetUrl: appointment.meetUrl, meetShortCode: appointment.meetShortCode }, tenant) || null } : appointment,
     language,
   );
 
