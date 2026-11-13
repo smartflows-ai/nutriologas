@@ -23,6 +23,7 @@ import { useRouter } from "next/navigation";
 import { useTranslation } from "@/i18n";
 import { buildFullPhone, splitFullPhone, DEFAULT_DIAL_CODE, PHONE_COUNTRIES } from "@/lib/phone";
 import { translateApiError } from "@/i18n/validation";
+import { ownerNameIsFilled } from "@/lib/owner-name";
 import AddressSearch from "@/components/shared/AddressSearch";
 import PasswordFields, {
   EMPTY_PASSWORD_VALUES,
@@ -315,7 +316,7 @@ export default function BusinessProfilePage() {
           businessInfo: businessInfo.trim(),
           logoUrl: logoUrl.trim() || null,
           businessHours: hours,
-          ownerName: ownerName.trim() || null,
+          ownerName: ownerName.trim(),
           hasPhysicalLocation,
           serviceModes,
           address: hasPhysicalLocation ? location?.address : null,
@@ -642,17 +643,23 @@ export default function BusinessProfilePage() {
 
           <div className="space-y-1.5">
             <label htmlFor="owner-name" className="block text-sm font-medium text-gray-900 dark:text-white">
-              {t.locationUi.ownerNameLabel}
+              {t.locationUi.ownerNameLabel} <span className="text-red-500" aria-hidden="true">*</span>
             </label>
             <input
               id="owner-name"
               type="text"
+              required
+              aria-required="true"
+              aria-invalid={!ownerNameIsFilled(ownerName)}
               value={ownerName}
               maxLength={80}
               onChange={(e) => setOwnerName(e.target.value)}
               placeholder={t.locationUi.ownerNamePlaceholder}
               className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
             />
+            {!ownerNameIsFilled(ownerName) && (
+              <p className="text-xs text-red-600 dark:text-red-400">{t.locationUi.ownerNameRequired}</p>
+            )}
           </div>
 
           <label className="flex items-start gap-3 cursor-pointer">
@@ -812,7 +819,7 @@ export default function BusinessProfilePage() {
 
           <button
             type="submit"
-            disabled={saving || uploadingLogo}
+            disabled={saving || uploadingLogo || !ownerNameIsFilled(ownerName)}
             className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white bg-primary hover:bg-primary/90 focus:outline-hidden focus:ring-2 focus:ring-primary/30 transition-all disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
           >
             {saving ? (

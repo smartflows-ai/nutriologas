@@ -5,6 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/permission-guard";
 import { apiError } from "@/lib/api-errors";
+import { unfilledFields } from "@/lib/reminder-template-rules";
 import { templateProblem, validateConfirmationTemplate, validateReminderNoConfirmation, validateKnownTags, validateNoDeadlineTag, validateNoLocationTag, validateTemplateLength } from "@/lib/reminder-messages";
 
 const SELECT = {
@@ -16,7 +17,13 @@ const SELECT = {
   confirmationTemplate: true,
   cancellationTemplate: true,
   messageLanguage: true,
+  ownerName: true,
+  hasPhysicalLocation: true,
+  address: true,
 } as const;
+
+// Fields a text can use that the business must fill in before the text is saved.
+const UNFILLED_CODE = { responsable: "template_needs_owner_name", ubicacion: "template_needs_location" } as const;
 
 const templateField = z.string().max(600).nullable().optional();
 
@@ -56,7 +63,13 @@ export async function GET() {
   )
     .filter(([kind, text]) => text && templateProblem(text, kind))
     .map(([kind]) => kind);
-  return NextResponse.json({ ...tenant, invalidTemplates });
+  const { ownerName, hasPhysicalLocation, address, ...rest } = tenant;
+  return NextResponse.json({
+    ...rest,
+    invalidTemplates,
+    ownerName,
+    locationReady: Boolean(hasPhysicalLocation && address?.trim()),
+  });
 }
 
 export async function PATCH(req: Request) {
@@ -94,6 +107,17 @@ export async function PATCH(req: Request) {
   if (data.confirmationTemplate) {
     const problem = validateConfirmationTemplate(data.confirmationTemplate);
     if (problem) return apiError(problem as "confirmation_missing_si", 400);
+  }
+  // A text that uses the owner's name or the location cannot be saved until the business fills that field in.
+  const texts = [data.reminderTemplate, data.confirmationTemplate, data.cancellationTemplate].filter((t): t is string => Boolean(t));
+  if (texts.length) {
+    const business = await prisma.tenant.findUnique({ where: { id: access.tenantId }, select: { ownerName: true, hasPhysicalLocation: true, address: true } });
+    if (!business) return apiError("tenant_not_found", 404);
+    const fields = { ownerName: business.ownerName, hasLocation: Boolean(business.hasPhysicalLocation && business.address?.trim()) };
+    for (const text of texts) {
+      const missing = unfilledFields(text, fields)[0];
+      if (missing) return apiError(UNFILLED_CODE[missing] as "template_needs_owner_name", 400);
+    }
   }
 
   // The answer window (lead minus deadline) must be wide enough to answer: check it against the stored values too.
