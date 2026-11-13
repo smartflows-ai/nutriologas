@@ -17,6 +17,7 @@ export interface VisitForAction {
   externalEventId: string | null;
   productName: string;
   tenantName: string;
+  ownerName?: string | null;
   messageLanguage: string;
   cancellationTemplate: string | null;
   /** Online visits carry their video call link in the confirmation. Optional: older callers have neither. */
@@ -30,6 +31,7 @@ function visitValues(visit: VisitForAction) {
     fecha: clinicLongDate(visit.appointmentDate, visit.messageLanguage),
     hora: clinicTime(visit.appointmentDate, visit.messageLanguage),
     negocio: visit.tenantName,
+    responsable: visit.ownerName,
     nombre: visit.customerName,
   };
 }

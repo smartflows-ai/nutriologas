@@ -13,6 +13,7 @@ export const TOKEN_FIELDS = [
   { key: "negocio", labelKey: "tokenBusiness" },
   { key: "nombre", labelKey: "tokenName" },
   { key: "ubicacion", labelKey: "tokenLocation" },
+  { key: "responsable", labelKey: "tokenOwner" },
 ] as const;
 
 export type TokenKey = (typeof TOKEN_FIELDS)[number]["key"];
@@ -215,4 +216,18 @@ export function suggestFix(template: string, issue: TemplateIssue, kind: Templat
     if (text !== null) return { action: "remove_paragraph", text };
   }
   return { action: "remove_fragment", text: removeFragments(template, issue.fragments) };
+}
+
+/**
+ * The business-level fields a text uses but the business has not filled in: the owner's name and the business
+ * location. Saving is refused while any of them is missing, and the error names the field to fill. The customer
+ * name and the visit data are per visit, so they are never reported here.
+ */
+export type UnfilledField = "responsable" | "ubicacion";
+export function unfilledFields(template: string, data: { ownerName: string | null | undefined; hasLocation: boolean }): UnfilledField[] {
+  const used = new Set(allTags(template).map((t) => LABEL_TO_KEY.get(t.label)));
+  const missing: UnfilledField[] = [];
+  if (used.has("responsable") && !(data.ownerName ?? "").trim()) missing.push("responsable");
+  if (used.has("ubicacion") && !data.hasLocation) missing.push("ubicacion");
+  return missing;
 }

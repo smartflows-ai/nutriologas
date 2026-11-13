@@ -4,6 +4,7 @@ import type { Translations } from "./types";
 export const en: Translations = {
   locationUi: {
     ownerNameLabel: "Owner or person in charge",
+    ownerNameRequired: "Enter the owner or person in charge. The customer messages use it.",
     ownerNamePlaceholder: "First and last name",
     serviceModesLabel: "How you see patients",
     serviceModesHint: "Choose whether you see patients in person, online or both. With both, the WhatsApp assistant and the booking page ask which one they prefer for each visit. This is the default: on each service you can set that it is delivered only one way.",
@@ -726,6 +727,7 @@ export const en: Translations = {
       tokenDeadline: "Deadline time",
       tokenBusiness: "Business name",
       tokenName: "Customer name",
+      tokenOwner: "Owner name",
       tokenLocation: "Location",
       addConfirmationRequest: "Add confirmation request",
       confirmationRequestSnippet: "Reply YES to confirm your appointment.",
@@ -1886,6 +1888,9 @@ export const en: Translations = {
     confirmation_missing_si: "The confirmation text must ask the customer to reply with a confirming word, for example SI, YES or OK. Use the \"Add confirmation request\" button.",
     template_deadline_not_allowed: "The deadline time can only be used in the confirmation text.",
     template_location_not_allowed: "The location can only be used in the reminder and confirmation texts.",
+    template_needs_owner_name: "This text uses [Owner name], but the Owner or person in charge field is empty. Fill it in under Business, Location and owner, then save again.",
+    owner_name_required: "Enter the owner or person in charge before saving.",
+    template_needs_location: "This text uses [Location], but the business has no address. Add it under Business, Location and owner, then save again.",
     template_repeats_confirmation: "The reminder text must not ask the customer to reply SI, YES or OK: the confirmation request is added automatically after the reminder.",
     template_unknown_tag: "The text has a word in square brackets that is not a valid tag. Use only the tags from the buttons.",
     template_too_long: "The text cannot exceed 600 characters.",

@@ -7,6 +7,7 @@ export interface Translations {
   locationUi: {
     ownerNameLabel: string;
     ownerNamePlaceholder: string;
+    ownerNameRequired: string;
     serviceModesLabel: string;
     serviceModesHint: string;
     serviceModesInPerson: string;
@@ -608,6 +609,7 @@ export interface Translations {
       tokenDeadline: string;
       tokenBusiness: string;
       tokenName: string;
+      tokenOwner: string;
       tokenLocation: string;
       addConfirmationRequest: string;
       confirmationRequestSnippet: string;
@@ -1702,6 +1704,9 @@ export interface Translations {
     confirmation_missing_si: string;
     template_deadline_not_allowed: string;
     template_location_not_allowed: string;
+    template_needs_owner_name: string;
+    template_needs_location: string;
+    owner_name_required: string;
     template_repeats_confirmation: string;
     template_unknown_tag: string;
     template_too_long: string;
