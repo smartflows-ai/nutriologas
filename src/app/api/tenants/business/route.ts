@@ -6,6 +6,7 @@ import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { apiError } from "@/lib/api-errors";
 import { locationSchema } from "@/lib/location";
+import { ownerNameIsFilled } from "@/lib/owner-name";
 import { isSameWhatsAppNumber } from "@/lib/whatsapp-number";
 import {
   businessHoursSchema,
@@ -104,6 +105,10 @@ export async function PATCH(req: Request) {
     }
 
     const { name, whatsappNumber, businessInfo, logoUrl, businessHours, ownerName } = parsed.data;
+    // The owner or person in charge is required whenever the business is saved with one: it is the name the texts use.
+    if (ownerName !== undefined && !ownerNameIsFilled(ownerName)) {
+      return apiError("owner_name_required", 400);
+    }
 
     // The owner's number must not be the line the WhatsApp bot sends from (a message would go to itself).
     const botLine = await prisma.connectedApp.findUnique({

@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     data: { customerConfirmedAt: now, status: "CONFIRMED" },
   });
 
-  const tenant = await prisma.tenant.findUnique({ where: { id: bot.tenantId }, select: { name: true, messageLanguage: true } });
+  const tenant = await prisma.tenant.findUnique({ where: { id: bot.tenantId }, select: { name: true, ownerName: true, messageLanguage: true } });
   const language = tenant?.messageLanguage ?? "es";
   const reply = withMeetingLink(
     renderTemplate(customerTexts(language).confirmedReply, {
@@ -54,6 +54,7 @@ export async function POST(req: NextRequest) {
       fecha: clinicLongDate(appointment.appointmentDate, language),
       hora: clinicTime(appointment.appointmentDate, language),
       negocio: tenant?.name ?? "",
+      responsable: tenant?.ownerName,
     }),
     appointment,
     language,

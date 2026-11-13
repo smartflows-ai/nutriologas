@@ -37,6 +37,8 @@ export interface ReminderValues {
   negocio: string;
   /** Customer's name as typed when booking. Null or blank when unknown: the tag then disappears. */
   nombre?: string | null;
+  /** Business owner's name (the person who attends). Null or blank when unknown: the tag then disappears. */
+  responsable?: string | null;
   /** Address (in person) or video call link (online) for the location tag; blank when there is nothing to show. */
   ubicacion?: string;
 }
@@ -63,6 +65,18 @@ function withoutEmptyPlaceLine(template: string): string {
 
 export function renderTemplate(template: string, values: ReminderValues): string {
   if (values.ubicacion !== undefined && !values.ubicacion.trim()) template = withoutEmptyPlaceLine(template);
+  // An owner name left empty takes its bold or italic markers with it: "*[Owner name]*" must not leave "**".
+  if (!(values.responsable ?? "").trim()) {
+    // Only the markers go; the tag stays so the normal path empties it and closes the gap around it.
+    template = template.replace(/[*_~]+(\[([^\[\]]+)\])[*_~]+/g, (whole, tag: string, label: string) =>
+      LABEL_TO_KEY.get(label.trim().toLowerCase()) === "responsable" ? tag : whole,
+    );
+    // "con el [Nombre del médico]" with no name would leave "con el." behind: the article and the preposition before
+    // the tag go with it. A tag in subject position ("te atenderá [Nombre del médico]") keeps its sentence.
+    template = template.replace(/[ \t]*(?:\b(?:con|de|del|a|al|para)\s+)?\b(?:el|la|los|las)\s+\[([^\[\]]+)\]/gi, (whole, label: string) =>
+      LABEL_TO_KEY.get(label.trim().toLowerCase()) === "responsable" ? "" : whole,
+    );
+  }
   // The same when WhatsApp bold or italic markers sit between the tag and that period ("*[Deadline time]*."):
   // the value keeps its own period inside the markers and the template's period is dropped.
   template = template.replace(/(\[[^\[\]]+\])([*_~]+)\./g, (whole, tag: string, marks: string) => {
@@ -72,9 +86,15 @@ export function renderTemplate(template: string, values: ReminderValues): string
   });
   let nameWasEmpty = false;
   let placeWasEmpty = false;
+  let ownerWasEmpty = false;
   const filled = template.replace(/\[([^\[\]]+)\]/g, (match, label: string, offset: number, whole: string) => {
     const key = LABEL_TO_KEY.get(label.trim().toLowerCase());
     if (!key) return match;
+    if (key === "responsable") {
+      const owner = (values.responsable ?? "").trim();
+      if (!owner) ownerWasEmpty = true;
+      return owner;
+    }
     if (key === "nombre") {
       const name = firstName(values.nombre);
       if (!name) nameWasEmpty = true;
@@ -89,7 +109,7 @@ export function renderTemplate(template: string, values: ReminderValues): string
     return value.endsWith(".") && nextChar === "." ? value.slice(0, -1) : value;
   });
   // An unknown name or place leaves its tag empty: close the gap ("Hola , te" -> "Hola, te", "de  la" -> "de la").
-  return nameWasEmpty || placeWasEmpty ?filled.replace(/[ \t]+([,.;:!?])/g, "$1").replace(/[ \t]{2,}/g, " ") : filled;
+  return nameWasEmpty || placeWasEmpty || ownerWasEmpty ? filled.replace(/[ \t]+([,.;:!?])/g, "$1").replace(/[ \t]{2,}/g, " ") : filled;
 }
 
 /**

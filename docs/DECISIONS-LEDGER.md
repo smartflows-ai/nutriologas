@@ -716,3 +716,11 @@ Migration `prisma/sql/22-referred-by` applied to the real database after a verif
 Decision: the reminder now says where to go. An in-person visit gets the business address with its directions link, an online visit gets its Meet link, placed after the visit details so the request to reply SI stays last. Owners can place it themselves with the tag `[Ubicación]` / `[Location]` (reminder and confirmation texts only; refused in the cancellation text, where there is no place to go to). One tag serves both modalities so a business does not write two texts, and a text that uses it is not given the automatic line a second time. Visits with no modality count as in person.
 
 **Open:** browser check of the settings card, a real send with test visits, `npm run build`. The reply after SI and the Confirmar button in Citas still carry no address. A tag with nothing to show renders empty (a business without an address, or an online visit without a Meet link).
+
+---
+
+## 2026-11-13 — Dev — The owner's name is a required field and an empty tag cannot be saved
+
+Decision: the messages name the doctor (or the owner) with `[Nombre del médico]`, filled from `Tenant.ownerName`. The owner or person in charge is now required on the business page and in the business API. A text that uses an empty owner name or a business without address cannot be saved: the owner sees the field to fill (card and API). Texts already stored with the tag still go out when the field is empty (the tag and its article are removed, so no sentence ends in "con el."), because a message to a customer must not fail for a missing name.
+
+**Open:** the sign-up form still accepts an empty owner name. A text that uses `[Ubicación]` is refused for online-only businesses too, although their visits carry a Meet link. Browser check of the card and the business page, and `npm run build`, were not run.

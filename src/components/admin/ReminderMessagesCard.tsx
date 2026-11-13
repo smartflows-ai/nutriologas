@@ -8,7 +8,7 @@ import { useTranslation } from "@/i18n";
 import { translateApiError } from "@/i18n/validation";
 import { es } from "@/i18n/es";
 import { en } from "@/i18n/en";
-import { suggestFix, templateIssues, type TemplateIssue, type TemplateKind } from "@/lib/reminder-template-rules";
+import { suggestFix, templateIssues, unfilledFields, type TemplateIssue, type TemplateKind } from "@/lib/reminder-template-rules";
 
 interface MessageSettings {
   messageLanguage: "es" | "en";
@@ -16,6 +16,8 @@ interface MessageSettings {
   confirmationTemplate: string | null;
   cancellationTemplate: string | null;
   invalidTemplates?: ("reminder" | "confirmation" | "cancellation")[];
+  ownerName?: string | null;
+  locationReady?: boolean;
 }
 
 const inputClass =
@@ -29,6 +31,12 @@ export default function ReminderMessagesCard() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // The "saved" notice hides itself after 3 s; the timer is cleared if the card leaves the page first.
+  useEffect(() => () => {
+    if (savedTimer.current) clearTimeout(savedTimer.current);
+  }, []);
 
   useEffect(() => {
     fetch("/api/tenants/reminders")
@@ -63,14 +71,17 @@ export default function ReminderMessagesCard() {
         throw new Error(translateApiError(t, data.error) || tx.reminderLoadError);
       }
       const data = await res.json();
-      setSettings({
+      // Merge: keep the business fields (owner name, location) the card needs to check the texts.
+      setSettings((current) => ({
+        ...current,
         messageLanguage: data.messageLanguage,
         reminderTemplate: data.reminderTemplate,
         confirmationTemplate: data.confirmationTemplate,
         cancellationTemplate: data.cancellationTemplate,
-      });
+      }));
       setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
+      if (savedTimer.current) clearTimeout(savedTimer.current);
+      savedTimer.current = setTimeout(() => setSaved(false), 3000);
     } catch (err: any) {
       setError(err.message || tx.reminderLoadError);
     } finally {
@@ -87,16 +98,28 @@ export default function ReminderMessagesCard() {
     confirmation: settings?.confirmationTemplate?.trim() ? templateIssues(settings.confirmationTemplate.trim(), "confirmation") : [],
     cancellation: settings?.cancellationTemplate?.trim() ? templateIssues(settings.cancellationTemplate.trim(), "cancellation") : [],
   };
-  const hasIssues = Object.values(issuesByKind).some((list) => list.length > 0);
+  // Fields a text uses that the business has not filled in: the save is refused and the error names the field.
+  const fieldsData = { ownerName: settings?.ownerName, hasLocation: Boolean(settings?.locationReady) };
+  const unfilledByKind: Record<TemplateKind, string[]> = {
+    reminder: settings?.reminderTemplate?.trim() ? unfilledFields(settings.reminderTemplate.trim(), fieldsData) : [],
+    confirmation: settings?.confirmationTemplate?.trim() ? unfilledFields(settings.confirmationTemplate.trim(), fieldsData) : [],
+    cancellation: settings?.cancellationTemplate?.trim() ? unfilledFields(settings.cancellationTemplate.trim(), fieldsData) : [],
+  };
+  const unfilledMessages = Array.from(new Set(Object.values(unfilledByKind).flat())).map((field) =>
+    translateApiError(t, field === "responsable" ? "template_needs_owner_name" : "template_needs_location"),
+  );
+  const textIssues = Object.values(issuesByKind).some((list) => list.length > 0);
+  const onlyUnfilled = !textIssues && unfilledMessages.length > 0;
+  const hasIssues = textIssues || unfilledMessages.length > 0;
 
   // What goes out when a field is left empty: shown in the field so the owner can read it.
   const defaults = (settings?.messageLanguage === "en" ? en : es).customerMessages;
 
   // The deadline time only exists in the confirmation text, and the location only in the reminder and the
   // confirmation (a cancelled visit has no place to go to); offering them elsewhere would send them with brackets.
-  const cancellationDetails = [tx.tokenService, tx.tokenDate, tx.tokenTime, tx.tokenBusiness, tx.tokenName];
+  const cancellationDetails = [tx.tokenService, tx.tokenDate, tx.tokenTime, tx.tokenBusiness, tx.tokenOwner, tx.tokenName];
   const reminderDetails = [...cancellationDetails, tx.tokenLocation];
-  const confirmationDetails = [tx.tokenService, tx.tokenDate, tx.tokenTime, tx.tokenDeadline, tx.tokenBusiness, tx.tokenName, tx.tokenLocation];
+  const confirmationDetails = [tx.tokenService, tx.tokenDate, tx.tokenTime, tx.tokenDeadline, tx.tokenBusiness, tx.tokenOwner, tx.tokenName, tx.tokenLocation];
 
   if (loading) return null;
   if (!settings) {
@@ -181,6 +204,17 @@ export default function ReminderMessagesCard() {
         )}
       </div>
 
+      {unfilledMessages.length > 0 && (
+        <div role="alert" className="p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 flex items-start gap-3 text-red-700 dark:text-red-300 text-sm">
+          <AlertCircle size={16} className="shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            {unfilledMessages.map((m, i) => (
+              <p key={i}>{m}</p>
+            ))}
+          </div>
+        </div>
+      )}
+
       {error && (
         <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 flex items-center gap-3 text-red-700 dark:text-red-300 text-sm">
           <AlertCircle size={16} className="shrink-0" />
@@ -193,7 +227,7 @@ export default function ReminderMessagesCard() {
           {hasIssues && (
             <span id="template-issues-hint" className="inline-flex items-center gap-1.5 text-red-600 dark:text-red-400">
               <AlertCircle size={14} />
-              {tx.fixTemplatesToSave}
+              {onlyUnfilled ? tx.fillFieldsToSave : tx.fixTemplatesToSave}
             </span>
           )}
           {!hasIssues && saved && (

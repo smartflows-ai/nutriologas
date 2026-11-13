@@ -43,6 +43,7 @@ export const realReminderDeps: ReminderDeps = {
         externalEventId: visit.externalEventId,
         productName: visit.productName,
         tenantName: visit.tenant.name,
+        ownerName: visit.tenant.ownerName,
         messageLanguage: visit.tenant.messageLanguage,
         cancellationTemplate: visit.tenant.cancellationTemplate,
       },
@@ -81,6 +82,7 @@ export async function loadReminderVisits(now: Date, appointmentId?: string): Pro
       tenant: {
         select: {
           name: true,
+          ownerName: true,
           messageLanguage: true,
           reminderLeadMinutes: true,
           confirmationRequired: true,

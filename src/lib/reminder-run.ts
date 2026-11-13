@@ -8,6 +8,7 @@ import { clinicLongDate, clinicTime, customerTexts, placeLine, placeText, render
 
 export interface ReminderTenant {
   name: string;
+  ownerName?: string | null;
   messageLanguage: string;
   reminderLeadMinutes: number;
   confirmationRequired: boolean;
@@ -90,6 +91,7 @@ function reminderText(visit: ReminderVisit, requestConfirmation: boolean, releas
     fecha: clinicLongDate(visit.appointmentDate, t.messageLanguage),
     hora: clinicTime(visit.appointmentDate, t.messageLanguage),
     negocio: t.name,
+    responsable: t.ownerName,
     nombre: visit.customerName,
     ubicacion: placeText(visit, t.locationText),
   };
