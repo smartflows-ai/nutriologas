@@ -619,6 +619,7 @@ export interface Translations {
       messagesSectionDesc: string;
       saveMessagesBtn: string;
       fixTemplatesToSave: string;
+      fillFieldsToSave: string;
       locateInText: string;
       fixReplaceWithTime: string;
       fixRemoveParagraph: string;

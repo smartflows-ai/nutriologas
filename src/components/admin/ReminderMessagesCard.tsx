@@ -31,6 +31,12 @@ export default function ReminderMessagesCard() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // The "saved" notice hides itself after 3 s; the timer is cleared if the card leaves the page first.
+  useEffect(() => () => {
+    if (savedTimer.current) clearTimeout(savedTimer.current);
+  }, []);
 
   useEffect(() => {
     fetch("/api/tenants/reminders")
@@ -74,7 +80,8 @@ export default function ReminderMessagesCard() {
         cancellationTemplate: data.cancellationTemplate,
       }));
       setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
+      if (savedTimer.current) clearTimeout(savedTimer.current);
+      savedTimer.current = setTimeout(() => setSaved(false), 3000);
     } catch (err: any) {
       setError(err.message || tx.reminderLoadError);
     } finally {
@@ -101,7 +108,9 @@ export default function ReminderMessagesCard() {
   const unfilledMessages = Array.from(new Set(Object.values(unfilledByKind).flat())).map((field) =>
     translateApiError(t, field === "responsable" ? "template_needs_owner_name" : "template_needs_location"),
   );
-  const hasIssues = Object.values(issuesByKind).some((list) => list.length > 0) || unfilledMessages.length > 0;
+  const textIssues = Object.values(issuesByKind).some((list) => list.length > 0);
+  const onlyUnfilled = !textIssues && unfilledMessages.length > 0;
+  const hasIssues = textIssues || unfilledMessages.length > 0;
 
   // What goes out when a field is left empty: shown in the field so the owner can read it.
   const defaults = (settings?.messageLanguage === "en" ? en : es).customerMessages;
@@ -199,8 +208,8 @@ export default function ReminderMessagesCard() {
         <div role="alert" className="p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 flex items-start gap-3 text-red-700 dark:text-red-300 text-sm">
           <AlertCircle size={16} className="shrink-0 mt-0.5" />
           <div className="space-y-1">
-            {unfilledMessages.map((m) => (
-              <p key={m}>{m}</p>
+            {unfilledMessages.map((m, i) => (
+              <p key={i}>{m}</p>
             ))}
           </div>
         </div>
@@ -218,7 +227,7 @@ export default function ReminderMessagesCard() {
           {hasIssues && (
             <span id="template-issues-hint" className="inline-flex items-center gap-1.5 text-red-600 dark:text-red-400">
               <AlertCircle size={14} />
-              {tx.fixTemplatesToSave}
+              {onlyUnfilled ? tx.fillFieldsToSave : tx.fixTemplatesToSave}
             </span>
           )}
           {!hasIssues && saved && (

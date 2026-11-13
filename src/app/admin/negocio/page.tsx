@@ -651,6 +651,7 @@ export default function BusinessProfilePage() {
               required
               aria-required="true"
               aria-invalid={!ownerNameIsFilled(ownerName)}
+              aria-describedby={ownerNameIsFilled(ownerName) ? undefined : "owner-name-required"}
               value={ownerName}
               maxLength={80}
               onChange={(e) => setOwnerName(e.target.value)}
@@ -658,7 +659,7 @@ export default function BusinessProfilePage() {
               className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
             />
             {!ownerNameIsFilled(ownerName) && (
-              <p className="text-xs text-red-600 dark:text-red-400">{t.locationUi.ownerNameRequired}</p>
+              <p id="owner-name-required" className="text-xs text-red-600 dark:text-red-400">{t.locationUi.ownerNameRequired}</p>
             )}
           </div>
 

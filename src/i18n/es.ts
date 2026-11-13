@@ -737,6 +737,7 @@ export const es: Translations = {
       messagesSectionDesc: "Idioma y textos de los recordatorios, las confirmaciones y las cancelaciones.",
       saveMessagesBtn: "Guardar mensajes",
       fixTemplatesToSave: "Corrige los textos marcados en rojo para poder guardar.",
+      fillFieldsToSave: "Llena el campo que indica el aviso para poder guardar.",
       locateInText: "Ver en el texto",
       fixReplaceWithTime: "Reemplazar por «{tag}»",
       fixRemoveParagraph: "Quitar el párrafo con el error",

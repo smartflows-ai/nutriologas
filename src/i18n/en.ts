@@ -737,6 +737,7 @@ export const en: Translations = {
       messagesSectionDesc: "Language and texts of the reminders, confirmations and cancellations.",
       saveMessagesBtn: "Save messages",
       fixTemplatesToSave: "Fix the texts marked in red to be able to save.",
+      fillFieldsToSave: "Fill in the field named in the notice to be able to save.",
       locateInText: "Show in the text",
       fixReplaceWithTime: "Replace with {tag}",
       fixRemoveParagraph: "Remove the paragraph with the error",
