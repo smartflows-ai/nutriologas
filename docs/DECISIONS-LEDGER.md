@@ -724,3 +724,13 @@ Decision: the reminder now says where to go. An in-person visit gets the busines
 Decision: the messages name the doctor (or the owner) with `[Nombre del médico]`, filled from `Tenant.ownerName`. The owner or person in charge is now required on the business page and in the business API. A text that uses an empty owner name or a business without address cannot be saved: the owner sees the field to fill (card and API). Texts already stored with the tag still go out when the field is empty (the tag and its article are removed, so no sentence ends in "con el."), because a message to a customer must not fail for a missing name.
 
 **Open:** the sign-up form still accepts an empty owner name. A text that uses `[Ubicación]` is refused for online-only businesses too, although their visits carry a Meet link. Browser check of the card and the business page, and `npm run build`, were not run.
+
+---
+
+## 2026-11-13 — Dev — Short links on the business subdomain
+
+Decision: customers get `<tenant>.newaigent.com/ubicacion` for the directions and `<tenant>.newaigent.com/online/<code>` for the video call. The location is built from the address the business already has (no new field, no new screen). The video link has one code per appointment and closes one hour after the visit ends. A code is a random 8-character value, unique per business, so one patient cannot open another visit's call by guessing.
+
+**Applied:** migration `26-meet-short-code` on production on 2026-11-13, after a verified backup kept outside the repo (`db-backups/`, owner-only). Verified: nullable text column, unique index, 10 appointments unchanged, `whatsapp_bot_memory` intact. The code that reads it is not yet committed or deployed.
+
+**Open:** visits booked before this change keep the long link. Google's invitation email to the patient still carries the real Meet link. The routes are not checked in a browser yet, and `npm run build` was not run.

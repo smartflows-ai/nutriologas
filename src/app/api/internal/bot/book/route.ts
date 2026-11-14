@@ -19,6 +19,7 @@ import { cleanPetName } from "@/lib/pets";
 import { patientKeyOf } from "@/lib/patient-key";
 import { getKnownPatient } from "@/lib/patients";
 import { cleanSenderName, guestEmailFor, isOtherPersonsName, maskPhone, mergePatient, missingIntake, referralOf, resolveBookingPhone, resolveModality, effectiveModes, type Modality } from "@/lib/patient-intake";
+import { customerMeetUrl } from "@/lib/short-links";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -234,7 +235,7 @@ export async function POST(req: NextRequest) {
       // The number the reminder goes to (last four digits), so a wrong recipient shows in the chat.
       recipientPhone: maskPhone(visitPhone),
       // The video link for an online visit; null when none could be created (the clinic sends it) or in person.
-      meetLink,
+      meetLink: meetLink ? customerMeetUrl({ meetUrl: meetLink, meetShortCode: appointment.meetShortCode }, bot.shortLinkTenant) || null : null,
       // Office address and map link for an in person visit (or any visit in the legacy version).
       location: patient.modality === "ONLINE" ? null : bot.locationText || null,
     },

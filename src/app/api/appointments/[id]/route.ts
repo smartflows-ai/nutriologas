@@ -13,6 +13,7 @@ import { requirePermission } from "@/lib/permission-guard";
 import { omitReminderError, safeFailureReason } from "@/lib/reminder-state";
 import { AppointmentStatus } from "@prisma/client";
 import { withBookedBy, withMeetingLink } from "@/lib/reminder-messages";
+import { customerMeetUrl } from "@/lib/short-links";
 
 const APPOINTMENT_STATUSES: readonly string[] = Object.values(AppointmentStatus);
 
@@ -126,7 +127,7 @@ export async function PATCH(
       if (patientPhone) {
         const tenant = await prisma.tenant.findUnique({
           where: { id: tenantId },
-          select: { name: true },
+          select: { name: true, slug: true, customDomain: true },
         });
 
         const tenantName = tenant?.name || "Clínica";
@@ -149,7 +150,9 @@ export async function PATCH(
         const baseMessage = `¡Hola, ${patientName}! 👋\n\nTu cita en *${tenantName}* ha sido *CONFIRMADA* con éxito por el especialista. 🩺✨\n\n📅 *Fecha:* ${formattedDate}\n⏰ *Horario:* ${formattedTime}\n🩺 *Servicio:* ${serviceName}\n⏱️ *Duración estimada:* ${updated.durationMinutes} min\n\nSi tienes alguna duda o necesitas reagendar, puedes responder a este mensaje. ¡Te esperamos!`;
 
         // This message is written in Spanish; an online visit also gets its video call link.
-        const message = withBookedBy(withMeetingLink(baseMessage, updated, "es"), updated, "es");
+        // The customer gets the short video link of this visit (the real one when the visit has no code).
+        const forCustomer = { ...updated, meetUrl: tenant ? customerMeetUrl({ meetUrl: updated.meetUrl, meetShortCode: updated.meetShortCode }, tenant) || null : updated.meetUrl };
+        const message = withBookedBy(withMeetingLink(baseMessage, forCustomer, "es"), forCustomer, "es");
 
         const waRes = await sendWhatsAppMessage({
           tenantId,

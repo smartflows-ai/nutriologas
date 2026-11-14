@@ -25,6 +25,8 @@ export interface BotTenant {
   businessInfo: string | null;
   ownerName: string | null;
   locationText: string;
+  /** Slug and custom domain, to build the short links the customer receives (/ubicacion, /online/<code>). */
+  shortLinkTenant: { slug: string; customDomain: string | null };
   /** Plain address for the calendar event of an in person visit; null without a physical location. */
   addressText: string | null;
   /** How the business sees patients: in person, online or both (see patient-intake.ts). */
@@ -87,6 +89,7 @@ export async function resolveBotTenant(instance: unknown): Promise<BotTenant | n
     businessInfo: app.tenant.businessInfo,
     ownerName: app.tenant.ownerName,
     locationText: locationTextForBot(app.tenant),
+    shortLinkTenant: { slug: app.tenant.slug, customDomain: app.tenant.customDomain },
     addressText: app.tenant.hasPhysicalLocation ? app.tenant.address : null,
     serviceModes: app.tenant.serviceModes,
     usesPets: getVerticalProfile(app.tenant.vertical, app.tenant.isBookingEnabled).usesPets,

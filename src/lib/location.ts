@@ -1,6 +1,7 @@
 // src/lib/location.ts
 // Business location (address picked with Google Maps) shared by sign-up, Negocio, the storefront and the bot.
 import { z } from "zod";
+import { locationShortUrl } from "@/lib/short-links";
 
 export interface BusinessLocation {
   address: string;
@@ -26,6 +27,9 @@ export function directionsUrl(location: BusinessLocation): string {
 }
 
 interface TenantLocationFields {
+  /** Used to build the short address (<tenant>.newaigent.com/ubicacion) that customers receive. */
+  slug: string;
+  customDomain?: string | null;
   hasPhysicalLocation: boolean;
   address: string | null;
   placeId: string | null;
@@ -33,8 +37,9 @@ interface TenantLocationFields {
   longitude: number | null;
 }
 
-// Address plus link for the WhatsApp bot. Empty string when the business has no physical place.
+// Address plus the short link to the directions (the business's own subdomain, /ubicacion), for the WhatsApp bot and
+// the reminders. The long Google Maps address stays behind the short link. Empty when there is no physical place.
 export function locationTextForBot(tenant: TenantLocationFields): string {
   if (!tenant.hasPhysicalLocation || !tenant.address) return "";
-  return `${tenant.address} (${directionsUrl({ ...tenant, address: tenant.address })})`;
+  return `${tenant.address} (${locationShortUrl({ slug: tenant.slug, customDomain: tenant.customDomain })})`;
 }

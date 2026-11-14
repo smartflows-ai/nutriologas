@@ -17,6 +17,7 @@ import {
   syncCalendarDelete,
   syncCalendarUpdate,
 } from "@/lib/calendar-sync";
+import { newMeetShortCode } from "@/lib/short-links";
 
 export const appointmentInclude = {
   product: { select: { name: true, durationMinutes: true, price: true, priceMode: true } },
@@ -80,11 +81,21 @@ async function lockDay<T>(
 }
 
 async function linkCreated(id: string, link: CalendarLink, meetUrl: string | null) {
-  return prisma.appointment.update({
-    where: { id },
-    data: { externalProvider: link.externalProvider, externalEventId: link.externalEventId, meetUrl },
-    include: appointmentInclude,
-  });
+  const data = { externalProvider: link.externalProvider, externalEventId: link.externalEventId, meetUrl };
+  // An online visit with a video call gets its own short code (the customer's link on the business subdomain).
+  // A code that is already taken is rare (about 2e14 combinations); draw another one a few times, then fail loudly.
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await prisma.appointment.update({
+        where: { id },
+        data: meetUrl ? { ...data, meetShortCode: newMeetShortCode() } : data,
+        include: appointmentInclude,
+      });
+    } catch (error) {
+      const taken = (error as { code?: string })?.code === "P2002";
+      if (!meetUrl || !taken || attempt >= 2) throw error;
+    }
+  }
 }
 
 export async function createAppointment(input: CreateAppointmentInput): Promise<CreateAppointmentResult> {
