@@ -97,10 +97,11 @@ async function getDashboardData(tenantId: string, rangeStr: string) {
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
   const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
   const [pendingAppointments, todayAppointments] = await Promise.all([
-    prisma.appointment.count({ where: { tenantId, status: "PENDING" } }),
+    prisma.appointment.count({ where: { tenantId, deletedAt: null, status: "PENDING" } }),
     prisma.appointment.count({
       where: {
         tenantId,
+        deletedAt: null,
         status: { in: ["PENDING", "CONFIRMED"] },
         appointmentDate: { gte: todayStart, lte: todayEnd },
       },

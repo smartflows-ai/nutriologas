@@ -135,7 +135,9 @@ export async function createCalendarEvent(
 export async function updateCalendarEvent(
   accessToken: string,
   eventId: string,
-  range: { startDateTime: string; endDateTime: string }
+  range: { startDateTime: string; endDateTime: string },
+  // New title and description when the visit's details change (ticket #103); omitted, they are kept.
+  text?: { summary: string; description: string }
 ): Promise<void> {
   const res = await fetch(
     `https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(eventId)}?sendUpdates=all`,
@@ -148,6 +150,7 @@ export async function updateCalendarEvent(
       body: JSON.stringify({
         start: { dateTime: range.startDateTime, timeZone: "America/Mexico_City" },
         end: { dateTime: range.endDateTime, timeZone: "America/Mexico_City" },
+        ...(text ? { summary: text.summary, description: text.description } : {}),
       }),
     }
   );

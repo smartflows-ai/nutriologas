@@ -217,7 +217,8 @@ export async function executeTool(
         }
 
         const appointments = await prisma.appointment.findMany({
-          where,
+          // Newy AI never sees deleted visits (ticket #103, D13).
+          where: { ...where, deletedAt: null },
           include: {
             product: { select: { name: true, durationMinutes: true, price: true, priceMode: true } },
             // Only the name is read. Emails, visit notes and clinical notes never reach the model.
@@ -248,7 +249,7 @@ export async function executeTool(
 
         // Primero consultamos las citas nativas del CRM
         const nativeAppointments = await prisma.appointment.findMany({
-          where: { tenantId, appointmentDate: { gte: startDate, lte: endDate } },
+          where: { tenantId, deletedAt: null, appointmentDate: { gte: startDate, lte: endDate } },
           include: { product: { select: { name: true, price: true } } },
         });
 
@@ -416,6 +417,7 @@ export async function executeTool(
         const appointments = await prisma.appointment.findMany({
           where: {
             tenantId,
+            deletedAt: null,
             appointmentDate: { gte: clinicDayRange(fromKey).gte, lt: clinicDayRange(toKey).lt },
           },
           select: { status: true, appointmentDate: true, reminderSentAt: true, customerConfirmedAt: true, autoReleasedAt: true },

@@ -6,7 +6,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased] — 2026-11-06
 
+### Added (ticket #103)
+- The owner and staff create, edit, delete and restore visits from `/admin/citas`. "Nueva cita" books a free time for a patient on the phone or at the counter (a known number prefills name, age and email), also for another person ("Recomendado por" the requester), and can mark the visit already confirmed so the reminder does not ask SI. "Editar" changes service, time and patient details; the phone never changes. Staff only books free times inside business hours, even through the API; the owner may save on top of a visit or outside hours after a warning (permission `appointments.overbook`). New routes `POST /api/appointments/[id]/restore`, `GET /api/appointments/services`, `GET /api/appointments/known-patient`.
+- Soft delete for visits: deleting hides the visit everywhere and frees its slot, but keeps the row (`deletedAt`, `deletedById`) and a delete / restore history (`appointment_trail`), shown in the new "Eliminadas" tab. A visit can be restored only before its start time and never on top of another visit. Migration `prisma/sql/27-appointment-soft-delete` (additive; tested on the local mirror, **not applied to production yet**: apply before deploying this code). A guard test fails on any new appointment query that forgets the `deletedAt` filter.
+- Every "time already taken" answer (panel, restore and the WhatsApp bot's `book` and `reschedule`) now brings the 3 nearest free times, so the bot offers other times in the same reply instead of a bare "not available".
+- The screen warns when a visit was saved but the connected calendar could not be updated.
+
+### Changed (ticket #103)
+- "Reabrir" a cancelled, no-show or attended visit into the future now checks its slot for every role and brings its calendar event back; a past cancelled visit cannot be reopened. Before, it reopened without any check and could stack two visits on one time.
+- Visits booked from the panel always belong to the phone's guest account; a typed email no longer links the visit to an existing account.
+- On a phone, the mini calendar in Citas scrolls with the page instead of covering the visits.
+
 ### Fixed
+- The "Confirmar" button in Citas sent a fixed Spanish text with emojis and a time 6 hours off (server time); it now sends the same text as the Confirmations tab, in the business language and Mexico time.
 - The confirm-appointment notice no longer names the WhatsApp provider or shows its raw response: the send helper returns neutral reasons (`src/lib/whatsapp-reasons.ts`), the route runs them through `safeFailureReason`, and the detail stays in the server log.
 - The Spanish sidebar shows "Panel" and "Reseñas" instead of "Dashboard" and "Reviews".
 - The privacy notice and terms pages (`/privacy`, `/privacidad`, `/terms`, `/terminos`) showed two navbars (and two footers) on a business subdomain: they lived inside the storefront route group, whose layout adds the store navbar, footer and WhatsApp button on top of the legal page's own header. They now live in their own `(legal)` route group (same URLs). The privacy link the WhatsApp bot sends opens the page with a single header.

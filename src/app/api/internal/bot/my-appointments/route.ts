@@ -19,6 +19,7 @@ export async function POST(req: NextRequest) {
   const appointments = await prisma.appointment.findMany({
     where: {
       tenantId: bot.tenantId,
+      deletedAt: null,
       // The person writing: their own visits and the ones they booked for others (recommended by them).
       ...visitsOfSender(String(customerPhone)),
       status: { in: [...ACTIVE_APPOINTMENT_STATUSES] },

@@ -27,6 +27,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     where: {
       id: params.id,
       tenantId,
+      deletedAt: null,
       ...AWAITING_CONFIRMATION,
     },
     select: {

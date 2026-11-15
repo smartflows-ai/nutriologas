@@ -13,7 +13,10 @@ export const PERMISSIONS = [
   "appointments.reschedule",
   "appointments.book",
   "appointments.notes",
+  // Soft delete (ticket #103): delete a visit, see "Eliminadas" and restore one.
   "appointments.delete",
+  // Book or reschedule outside business hours or on top of another visit (ticket #103). Never granted to STAFF.
+  "appointments.overbook",
   "whatsapp.chats",
   "whatsapp.bot",
   "whatsapp.chats.delete",
@@ -31,6 +34,8 @@ const STAFF_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
   "appointments.status",
   "appointments.reschedule",
   "appointments.book",
+  // The owner delegates: staff deletes and restores visits; every action keeps who and when (ticket #103).
+  "appointments.delete",
   "whatsapp.chats",
   "whatsapp.bot",
   "whatsapp.confirmations",

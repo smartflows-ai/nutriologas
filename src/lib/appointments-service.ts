@@ -1,7 +1,8 @@
 // src/lib/appointments-service.ts
 // One booking pipeline for the web agenda and the WhatsApp bot:
 // conflict check under a per-day lock, then the DB row, then the mirror event on the connected calendar.
-import { AppointmentStatus, Prisma } from "@prisma/client";
+import { AppointmentStatus, Prisma, type UserRole } from "@prisma/client";
+import { restoreCheck } from "@/lib/appointment-admin-rules";
 import { prisma } from "@/lib/db";
 import { patientKeyOf } from "@/lib/patient-key";
 import type { Modality } from "@/lib/patient-intake";
@@ -55,13 +56,18 @@ export interface CreateAppointmentInput {
   petName?: string | null;
   petSpecies?: string | null;
   calendar: CalendarDetails;
+  /** False only for an owner who overbooks on purpose from the panel (ticket #103). Default: checked. */
+  checkConflicts?: boolean;
+  /** Set when the patient already confirmed (on the phone call): the reminder does not ask SI (ticket #103, D1). */
+  customerConfirmedAt?: Date | null;
 }
 
 export type CreateAppointmentResult =
   | { ok: true; appointment: Awaited<ReturnType<typeof linkCreated>>; meetLink: string | null }
   | { ok: false; reason: "slot_unavailable" };
 
-function endOf(start: Date, durationMinutes: number): Date {
+// Shared with appointments-panel-service.ts (ticket #103).
+export function endOf(start: Date, durationMinutes: number): Date {
   return new Date(start.getTime() + durationMinutes * 60000);
 }
 
@@ -69,7 +75,7 @@ function endOf(start: Date, durationMinutes: number): Date {
  * Runs fn in a transaction that holds a lock on one tenant's clinic day. Two bookings for the same
  * day queue behind each other, so the conflict check and the write happen as one step.
  */
-async function lockDay<T>(
+export async function lockDay<T>(
   tenantId: string,
   date: string,
   fn: (tx: Prisma.TransactionClient) => Promise<T>
@@ -80,7 +86,7 @@ async function lockDay<T>(
   });
 }
 
-async function linkCreated(id: string, link: CalendarLink, meetUrl: string | null) {
+export async function linkCreated(id: string, link: CalendarLink, meetUrl: string | null) {
   const data = { externalProvider: link.externalProvider, externalEventId: link.externalEventId, meetUrl };
   // An online visit with a video call gets its own short code (the customer's link on the business subdomain).
   // A code that is already taken is rare (about 2e14 combinations); draw another one a few times, then fail loudly.
@@ -101,12 +107,15 @@ async function linkCreated(id: string, link: CalendarLink, meetUrl: string | nul
 export async function createAppointment(input: CreateAppointmentInput): Promise<CreateAppointmentResult> {
   const end = endOf(input.appointmentDate, input.durationMinutes);
   const date = dateKeyInClinicZone(input.appointmentDate);
+  const checkConflicts = input.checkConflicts ?? true;
   // Calendar lookup is a network call, so it runs before the lock is taken.
-  const external = await getExternalBusyPeriods(input.tenantId, date);
+  const external = checkConflicts ? await getExternalBusyPeriods(input.tenantId, date) : [];
 
   const created = await lockDay(input.tenantId, date, async (tx) => {
-    const native = await getNativeBusyPeriods(tx, input.tenantId, date);
-    if (!isSlotFree([...native, ...external], input.appointmentDate, end)) return null;
+    if (checkConflicts) {
+      const native = await getNativeBusyPeriods(tx, input.tenantId, date);
+      if (!isSlotFree([...native, ...external], input.appointmentDate, end)) return null;
+    }
 
     const patientKey = patientKeyOf(input.customerPhone);
     const petId = await findOrCreatePet(tx, {
@@ -134,6 +143,7 @@ export async function createAppointment(input: CreateAppointmentInput): Promise<
         modality: input.modality ?? null,
         referredByKey: input.referredByKey ?? null,
         referredByName: input.referredByName ?? null,
+        customerConfirmedAt: input.customerConfirmedAt ?? null,
       },
       include: appointmentInclude,
     });
@@ -222,4 +232,169 @@ export async function cancelAppointment(
   }
 
   return updated;
+}
+
+// ── Soft delete and restore (ticket #103) ────────────────────────────────────
+
+/** Who deleted or restored a visit; written to appointment_trail. */
+export interface TrailActor {
+  readonly userId: string;
+  readonly role: UserRole;
+}
+
+export type SoftDeleteResult = { ok: true } | { ok: false; reason: "calendar_sync_failed" | "not_found" };
+
+/**
+ * Hides a visit: the mirror event goes first, so a visit whose event cannot be removed stays visible for a retry.
+ * The row is kept (deletedAt, deletedById) and one DELETED row is written to the trail, in one transaction.
+ */
+export async function softDeleteAppointment(
+  tenantId: string,
+  appointment: { id: string; appointmentDate: Date } & CalendarLink,
+  actor: TrailActor
+): Promise<SoftDeleteResult> {
+  const removed = await syncCalendarDelete(tenantId, appointment);
+  if (!removed) return { ok: false, reason: "calendar_sync_failed" };
+
+  const at = new Date();
+  // Same per-day lock as bookings and edits, so a delete and an edit of one visit never interleave.
+  const hidden = await lockDay(tenantId, dateKeyInClinicZone(appointment.appointmentDate), async (tx) => {
+    // Only a visit that is not deleted yet: two clicks at once write one trail row.
+    const result = await tx.appointment.updateMany({
+      where: { id: appointment.id, tenantId, deletedAt: null },
+      data: { deletedAt: at, deletedById: actor.userId, externalProvider: null, externalEventId: null },
+    });
+    if (result.count === 0) return false;
+    await tx.appointmentTrail.create({
+      data: { tenantId, appointmentId: appointment.id, action: "DELETED", userId: actor.userId, role: actor.role, at },
+    });
+    return true;
+  });
+  return hidden ? { ok: true } : { ok: false, reason: "not_found" };
+}
+
+/** What a restore needs to rebuild the calendar event. */
+export interface RestorableVisit {
+  readonly id: string;
+  readonly status: AppointmentStatus;
+  readonly appointmentDate: Date;
+  readonly durationMinutes: number;
+  readonly customerName: string | null;
+  readonly customerPhone: string | null;
+  readonly customerEmail: string | null;
+  readonly customerAge: number | null;
+  readonly modality: Modality | null;
+  readonly notes: string | null;
+  readonly product: { readonly name: string };
+  readonly pet: { readonly name: string } | null;
+}
+
+export interface RestoreInput {
+  readonly tenantId: string;
+  readonly appointmentId: string;
+  readonly actor: TrailActor;
+  readonly now: Date;
+  /** One of the free times offered when the original slot is taken; null keeps the original time. */
+  readonly newStart: Date | null;
+  /** Business hours check for a new time (the original time is kept as it was booked). */
+  readonly withinHours: (start: Date, durationMinutes: number) => boolean;
+  readonly calendarFor: (visit: RestorableVisit) => CalendarDetails;
+}
+
+export type RestoreResult =
+  | { ok: true; appointment: Awaited<ReturnType<typeof linkCreated>> }
+  | { ok: false; reason: "not_found" | "restore_window_closed" | "slot_unavailable" | "outside_business_hours" | "date_in_past" };
+
+const ACTIVE_STATUSES: readonly AppointmentStatus[] = ["PENDING", "CONFIRMED"];
+
+async function unhide(
+  tx: Prisma.TransactionClient,
+  input: RestoreInput,
+  data: Prisma.AppointmentUpdateManyMutationInput
+): Promise<boolean> {
+  const result = await tx.appointment.updateMany({
+    where: { id: input.appointmentId, tenantId: input.tenantId, deletedAt: { not: null } },
+    data: { ...data, deletedAt: null, deletedById: null },
+  });
+  if (result.count === 0) return false;
+  await tx.appointmentTrail.create({
+    data: {
+      tenantId: input.tenantId,
+      appointmentId: input.appointmentId,
+      action: "RESTORED",
+      userId: input.actor.userId,
+      role: input.actor.role,
+      at: input.now,
+    },
+  });
+  return true;
+}
+
+/**
+ * Brings a deleted visit back (D14 to D16): only before its original start time, and an active visit only into a
+ * free slot, for every role (nobody restores on top of another visit). A new free time may be chosen instead.
+ * An active visit gets a new calendar event and a fresh reminder; a cancelled or past-status one just reappears.
+ */
+export async function restoreAppointment(input: RestoreInput): Promise<RestoreResult> {
+  const visit = await prisma.appointment.findFirst({
+    where: { id: input.appointmentId, tenantId: input.tenantId, deletedAt: { not: null } },
+    select: {
+      id: true,
+      status: true,
+      appointmentDate: true,
+      durationMinutes: true,
+      customerName: true,
+      customerPhone: true,
+      customerEmail: true,
+      customerAge: true,
+      modality: true,
+      notes: true,
+      product: { select: { name: true } },
+      pet: { select: { name: true } },
+    },
+  });
+  if (!visit) return { ok: false, reason: "not_found" };
+  if (!restoreCheck(visit, input.now).ok) return { ok: false, reason: "restore_window_closed" };
+
+  if (!ACTIVE_STATUSES.includes(visit.status)) {
+    const done = await prisma.$transaction((tx) => unhide(tx, input, {}));
+    if (!done) return { ok: false, reason: "not_found" };
+    return { ok: true, appointment: await reloadVisit(input.appointmentId) };
+  }
+
+  const start = input.newStart ?? visit.appointmentDate;
+  if (input.newStart) {
+    if (input.newStart.getTime() <= input.now.getTime()) return { ok: false, reason: "date_in_past" };
+    if (!input.withinHours(input.newStart, visit.durationMinutes)) return { ok: false, reason: "outside_business_hours" };
+  }
+  const end = endOf(start, visit.durationMinutes);
+  const date = dateKeyInClinicZone(start);
+  const external = await getExternalBusyPeriods(input.tenantId, date);
+
+  const restored = await lockDay(input.tenantId, date, async (tx) => {
+    const native = await getNativeBusyPeriods(tx, input.tenantId, date);
+    if (!isSlotFree([...native, ...external], start, end)) return "slot_unavailable" as const;
+    const done = await unhide(tx, input, { appointmentDate: start, ...rescheduleResetState() });
+    return done ? ("restored" as const) : ("not_found" as const);
+  });
+  if (restored !== "restored") return { ok: false, reason: restored };
+
+  const calendar = input.calendarFor({ ...visit, appointmentDate: start });
+  const synced = await syncCalendarCreate(input.tenantId, {
+    summary: calendar.summary,
+    description: calendar.description,
+    start,
+    end,
+    attendeeEmail: calendar.attendeeEmail,
+    modality: visit.modality,
+    location: calendar.location ?? null,
+  });
+  if (!synced) return { ok: true, appointment: await reloadVisit(input.appointmentId) };
+  const meetLink = visit.modality === "IN_PERSON" ? null : synced.meetLink;
+  return { ok: true, appointment: await linkCreated(input.appointmentId, synced, meetLink) };
+}
+
+async function reloadVisit(id: string) {
+  // Reads back the visit just restored (it is no longer deleted).
+  return prisma.appointment.findUniqueOrThrow({ where: { id, deletedAt: null }, include: appointmentInclude });
 }

@@ -24,6 +24,7 @@ export async function GET() {
   const visits = await prisma.appointment.findMany({
     where: {
       tenantId,
+      deletedAt: null,
       ...AWAITING_CONFIRMATION,
       appointmentDate: { gt: now },
     },

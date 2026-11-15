@@ -734,3 +734,15 @@ Decision: customers get `<tenant>.newaigent.com/ubicacion` for the directions an
 **Applied:** migration `26-meet-short-code` on production on 2026-11-13, after a verified backup kept outside the repo (`db-backups/`, owner-only). Verified: nullable text column, unique index, 10 appointments unchanged, `whatsapp_bot_memory` intact. The code that reads it is not yet committed or deployed.
 
 **Open:** visits booked before this change keep the long link. Google's invitation email to the patient still carries the real Meet link. The routes are not checked in a browser yet, and `npm run build` was not run.
+
+## 2026-11-14 — Dev — Visits from the panel, soft delete and the "nearest free times" answer (ticket #103)
+
+- **Who**: the owner and staff create, edit, delete and restore visits. The owner delegates, so staff also sees "Eliminadas" and restores. Staff never overbooks or books outside business hours, also through the API; only the owner can, after a warning (`appointments.overbook`).
+- **Delete is soft** (owner: "we need soft delete on this kind of features"): `deletedAt` + `deletedById` + an append-only `appointment_trail`, so a restore never erases who deleted. Every appointment query filters `deletedAt`, enforced by a guard test instead of a hidden Prisma extension. The app never erases a visit; a privacy purge is a separate ticket. The clinical note of a deleted visit stays visible in the history.
+- **Restore and reopen**: only before the visit's start time, and never on top of another visit, for every role. After the security review, every return to an active status follows the same rule for a future visit (a past no-show or attended visit can still be corrected, it holds no slot).
+- **Edit**: service, time and patient details; never the phone (it is the patient's identity: history, reminders). Changing the modality or the email replaces the calendar event (new video link, address or guest).
+- **Accounts**: a panel visit always belongs to the phone's guest account; a typed email is contact data only (security review: a typo could attach the visit to a stranger's account).
+- **New visits** start "Por confirmar" unless the patient confirmed on the call ("El paciente ya confirmó"). No WhatsApp is sent on create, edit, delete or restore; the reminder is always sent.
+- **Taken time**: every answer brings the 3 nearest free times (panel, restore, bot). A short hold of offered times is the next ticket.
+- **Rejected**: a hard delete with a log line only (loses the visit and its note); linking panel visits to existing accounts by email; a Prisma extension that filters deleted rows automatically (does not cover nested includes or raw SQL, and hides the rule).
+

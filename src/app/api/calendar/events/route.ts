@@ -36,6 +36,7 @@ export async function GET(req: NextRequest) {
     const nativeAppts = await prisma.appointment.findMany({
       where: {
         tenantId,
+        deletedAt: null,
         appointmentDate: {
           gte: new Date(rawStart.getTime() - 86400000),
           lte: new Date(rawEnd.getTime() + 86400000),

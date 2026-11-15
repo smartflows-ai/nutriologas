@@ -1,4 +1,4 @@
-<!-- Generated: 2026-11-10 | Files scanned: 93 route.ts + 65 src/lib | Token estimate: ~1350 -->
+<!-- Generated: 2026-11-14 | Files scanned: 96 route.ts + 73 src/lib | Token estimate: ~1500 -->
 # Backend
 
 ## Route groups (src/app/api)
@@ -8,7 +8,9 @@ auth/password-change                       signed-in user changes own password (
 admin/users[/id]                           GET/POST staff users, PATCH reset_password|deactivate|activate (permission users.manage, team-api.ts)
 tenants/{business,check-slug,register,reminders (PATCH validates texts: known tags, no deadline tag outside confirmation, explicit SI)}
 products[/id|/categories]  orders[/id]  pedido/[id]  reviews[/id]  faqs[/id]  carousel[/id]  theme
-appointments[/id|/id/history|/availability] -> lib/appointments-service.ts   (GET drops reminderLastError: omitReminderError)
+appointments[/id|/id/history|/availability] -> lib/appointments-service.ts   (GET drops reminderLastError: omitReminderError; status=DELETED lists deleted visits + trail)
+appointments POST (panel) | [id] PATCH edit/reopen | [id] DELETE soft | [id]/restore -> panel-appointments.ts (real I/O) -> panel-appointments-core.ts (injected deps)
+appointments/{services (bookable, no price), known-patient (rate limited)}   availability ?exclude=<id> (panel session, same tenant)
 admin/{historial[/key],pacientes}
 checkout{,/confirm,/verify-payment}  webhooks/{conekta,social-campaign}
 billing/{portal,prices,setup-intent,subscribe,webhook}   credits (GET status, POST Stripe recharge)
@@ -27,6 +29,7 @@ internal/bot/context        -> prompt data, greetingReply (every greeting introd
 internal/bot/availability   -> at most 3 free hours (availableSlots, hasMore); `after` HH:mm returns the next ones
 internal/bot/book           -> body intake:"v2": patient_info_required / modality_required / invalid_email / invalid_patient_phone (patientPhone = visit for another person); no intake = legacy (email_required)
 internal/bot/{cancel,reschedule,my-appointments (modality, meetLink),confirm (reply + meet link),contact-status,pending,alert-failure}
+internal/bot/{book,reschedule} slot_unavailable -> free-slots.botSlotTakenBody: message + alternatives (3 nearest free times)
 internal/reminders/run      -> reminder-data (load + real deps) + reminder-run (batch) + reminder-state; 502 if all sends fail; body {dryRun}
 internal/{tokens/report,triage,tenant-context,render-post-banner,whatsapp/sync}
 internal/calendar/{availability,create-event}   internal/campaigns/alert-failure
@@ -45,6 +48,12 @@ remind:  reminders/run -> reminder-data.loadReminderVisits -> reminder-run.runRe
            -> reminders.planReminder (pure) -> whatsapp.sendWhatsAppMessage -> ok: reminder-state.sentState + credits.recordMessageCharge
                                                                           -> fail: reminder-state.failedSendState (attempts, safe reason) -> 502 if none sent
 release: reminder-actions.releaseVisit -> cancelAppointment -> delete calendar event -> cancel text (returns customerNotified)
+panel:   createCore/editCore/reopenCore (appointment-admin-rules: parsePanelCreate/Edit, scheduleChecksFor, reopenPlanFor, calendarEffectOf)
+           -> STAFF always checked (hours + conflicts); ADMIN skips only with override (appointments.overbook)
+           -> refused time -> free-slots.nearestFreeSlots (wanted day first) -> {error, alternatives}; guest account per phone, never by email
+delete:  DELETE [id] -> softDeleteAppointment: calendar delete first, then lockDay: deletedAt/deletedById + appointment_trail DELETED
+restore: [id]/restore -> restoreAppointment: before start time only, free slot for every role, new event, reminder reset, trail RESTORED
+confirm: PATCH status CONFIRMED -> reminder-actions.ownerConfirmationText (same text as the Confirmaciones tab)
 texts:   PATCH tenants/reminders -> reminder-messages.{validateKnownTags,validateNoDeadlineTag,validateConfirmationTemplate}; renderTemplate fills tags
 refresh: connected-apps.getAppToken -> oauth-refresh.isPermanentRefreshFailure -> delete connection only if permanent; else keep + 60 s cooldown, 8 s timeout
 access:  every CRM request -> session.getSessionAccess / requireCrmSession -> account-state-data.readAccountAccess (row re-read)
@@ -59,7 +68,9 @@ credits: credits.recordTokenUsage -> AiTokenLedger; pause -> campaigns pausedByC
 ## Key files (lines)
 ```
 lib/ai/execute-tool.ts 453   lib/credits.ts 370    lib/ai/tools.ts 333    lib/calendar-sync.ts 248
-lib/auth.ts 230              lib/appointments-service.ts 209  lib/business-hours.ts 170   lib/connected-apps.ts 171
+lib/auth.ts 230              lib/appointments-service.ts 399  lib/business-hours.ts 170   lib/connected-apps.ts 171
+lib/panel-appointments-core.ts ~390 (no I/O)  lib/panel-appointments.ts ~130  lib/appointments-panel-service.ts ~160
+lib/appointment-admin-rules.ts ~320 (pure)    lib/free-slots.ts ~95  lib/nearest-slots.ts 33  lib/visit-notes.ts 34
 lib/ai/openrouter.ts 142     lib/bot.ts 148 (resolveBotTenant incl. serviceModes/addressText, normalizeCustomerPhone)
 lib/patients.ts 165 (listPatients, getPatientTimeline, getKnownPatient)   lib/patient-intake.ts 98   lib/appointment-calendar-text.ts 43
 lib/whatsapp.ts 118          lib/tenant.ts 75   lib/reminders.ts 63   lib/reminder-actions.ts 72

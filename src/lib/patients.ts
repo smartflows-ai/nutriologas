@@ -2,6 +2,7 @@
 // Patient history: visits grouped by patientKey (normalized phone digits, see src/lib/patient-key.ts).
 import { prisma } from "@/lib/db";
 import { isSyntheticEmail, type KnownPatient } from "@/lib/patient-intake";
+import { splitVisitNotes } from "@/lib/visit-notes";
 
 export interface PatientRow {
   patientKey: string;
@@ -28,7 +29,7 @@ export async function listPatients(tenantId: string, q: string, page: number, pa
     WITH visits AS (
       SELECT a."patientKey", a."customerName", a."customerPhone", a."appointmentDate", a."status"
       FROM "appointments" a
-      WHERE a."tenantId" = ${tenantId} AND a."patientKey" IS NOT NULL
+      WHERE a."tenantId" = ${tenantId} AND a."patientKey" IS NOT NULL AND a."deletedAt" IS NULL
     ),
     agg AS (
       SELECT
@@ -78,9 +79,9 @@ export async function getPatientTimeline(
   const withPets = options.withPets ?? false;
   // The pet filter applies only to pet verticals; other businesses never see pets.
   const petFilter = withPets && options.petId ? { petId: options.petId } : {};
-  const [appointments, notes, pets] = await Promise.all([
+  const [appointments, notes, pets, deletedVisits] = await Promise.all([
     prisma.appointment.findMany({
-      where: { tenantId, patientKey, ...petFilter },
+      where: { tenantId, patientKey, deletedAt: null, ...petFilter },
       orderBy: { appointmentDate: "desc" },
       select: {
         id: true,
@@ -112,9 +113,15 @@ export async function getPatientTimeline(
           select: { id: true, name: true, species: true },
         })
       : Promise.resolve([]),
+    // Only the ids: a deleted visit stays hidden, but its note is still shown (ticket #103, D3d).
+    prisma.appointment.findMany({
+      where: { tenantId, patientKey, deletedAt: { not: null } },
+      select: { id: true },
+    }),
   ]);
 
-  const noteByVisit = new Map(notes.filter((n) => n.appointmentId).map((n) => [n.appointmentId as string, n]));
+  // A deleted visit is hidden, but its note stays visible on its own ("Notas de visitas eliminadas", ticket #103).
+  const { byVisit: noteByVisit, orphans: orphanNotes } = splitVisitNotes(notes, new Set(deletedVisits.map((v) => v.id)));
   const visits = appointments.map((a) => ({
     id: a.id,
     date: a.appointmentDate,
@@ -127,7 +134,6 @@ export async function getPatientTimeline(
     modality: a.modality,
     note: noteByVisit.get(a.id) ?? null,
   }));
-  const orphanNotes = notes.filter((n) => !n.appointmentId);
 
   const latest = appointments[0];
   const patient = {
@@ -159,7 +165,7 @@ export async function getPatientTimeline(
 export async function getKnownPatient(tenantId: string, patientKey: string | null): Promise<KnownPatient | null> {
   if (!patientKey) return null;
   const visit = await prisma.appointment.findFirst({
-    where: { tenantId, patientKey },
+    where: { tenantId, patientKey, deletedAt: null },
     orderBy: { appointmentDate: "desc" },
     select: { customerName: true, customerEmail: true, customerAge: true },
   });

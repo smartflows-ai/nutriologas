@@ -61,6 +61,18 @@ export async function releaseVisit(
   return { customerNotified: sent.success };
 }
 
+/**
+ * The message a customer gets when the business confirms their visit: Mexico time, the business language, the
+ * video link of an online visit. Shared by the Confirmaciones tab and the Confirmar button in Citas (ticket #103).
+ */
+export function ownerConfirmationText(visit: VisitForAction): string {
+  return withMeetingLink(
+    renderTemplate(customerTexts(visit.messageLanguage).ownerConfirmedText, visitValues(visit)),
+    visit,
+    visit.messageLanguage,
+  );
+}
+
 /** Marks the visit confirmed by the customer (or by the owner on their behalf) and tells the customer. */
 export async function confirmVisit(visit: VisitForAction, now: Date = new Date()): Promise<void> {
   await prisma.appointment.update({
@@ -72,11 +84,7 @@ export async function confirmVisit(visit: VisitForAction, now: Date = new Date()
     await sendWhatsAppMessage({
       tenantId: visit.tenantId,
       to: visit.customerPhone,
-      text: withMeetingLink(
-        renderTemplate(customerTexts(visit.messageLanguage).ownerConfirmedText, visitValues(visit)),
-        visit,
-        visit.messageLanguage,
-      ),
+      text: ownerConfirmationText(visit),
     });
   }
 }

@@ -72,6 +72,8 @@ export async function getNativeBusyPeriods(
   const appointments = await db.appointment.findMany({
     where: {
       tenantId,
+      // A deleted visit frees its slot (ticket #103).
+      deletedAt: null,
       status: { in: [...ACTIVE_APPOINTMENT_STATUSES] },
       appointmentDate: { gte: dayStart, lte: dayEnd },
     },
@@ -159,6 +161,11 @@ export function isSlotFree(
   });
 }
 
+/** Whether the business has a calendar connected (Google or Outlook), to tell "no calendar" from a failed sync. */
+export async function hasConnectedCalendar(tenantId: string): Promise<boolean> {
+  return Boolean(await getConnectedProvider(tenantId, CALENDAR_PROVIDERS));
+}
+
 /**
  * Creates the mirror event on the connected calendar. Returns the link to store, or null when
  * no calendar is connected or the provider call failed.
@@ -208,23 +215,30 @@ export async function syncCalendarCreate(
 export async function syncCalendarUpdate(
   tenantId: string,
   link: CalendarLink,
-  range: { start: Date; end: Date }
-): Promise<void> {
-  if (!link.externalProvider || !link.externalEventId) return;
+  range: { start: Date; end: Date },
+  /** New title and description after an edit from the panel (ticket #103); omitted, the event keeps its text. */
+  text?: { summary: string; description: string }
+): Promise<boolean> {
+  // No mirror event: nothing to update. Returns false only when a connected calendar could not be updated.
+  if (!link.externalProvider || !link.externalEventId) return true;
   try {
     const token = await getAppToken(tenantId, link.externalProvider);
-    if (!token) return;
+    if (!token) return false;
 
     if (link.externalProvider === "GOOGLE") {
-      await updateCalendarEvent(token, link.externalEventId, {
-        startDateTime: range.start.toISOString(),
-        endDateTime: range.end.toISOString(),
-      });
+      await updateCalendarEvent(
+        token,
+        link.externalEventId,
+        { startDateTime: range.start.toISOString(), endDateTime: range.end.toISOString() },
+        text
+      );
     } else {
-      await updateMicrosoftEvent(token, link.externalEventId, range);
+      await updateMicrosoftEvent(token, link.externalEventId, range, text);
     }
+    return true;
   } catch (err) {
     console.error("[calendar-sync] Could not update calendar event:", err);
+    return false;
   }
 }
 
