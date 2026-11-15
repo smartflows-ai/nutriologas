@@ -32,7 +32,7 @@ Failed sends: reminderAttempts (Int, default 0), reminderLastError (safe text, n
 Patient intake (prisma/sql/21-patient-intake, applied 2026-11-06): customerAge (Int?, CHECK 0..120, copied forward from the latest visit), modality (AppointmentModality?, null in older visits), meetUrl (Meet link of an online visit). customerEmail is optional; a patient without email logs in as `<patientKey>@wa.guest.local`.
 Recommended by (prisma/sql/22-referred-by, applied 2026-11-06): referredByKey (patientKey of who booked the visit for someone else), referredByName (their name then); index (tenantId, referredByKey). Null for visits booked for oneself.
 A "known patient" = a number with an earlier appointment (latest visit by patientKey); there is no patients table.
-Soft delete (prisma/sql/27-appointment-soft-delete, ticket #103, NOT applied to production): deletedAt, deletedById (-> User, relation AppointmentDeletedBy; the customer relation is AppointmentCustomer). Every read filters deletedAt: null (tests/appointments-soft-delete-guard.test.ts); never erased by the app. down.sql refuses while deleted visits or trail rows exist.
+Soft delete (prisma/sql/27-appointment-soft-delete, ticket #103, applied to production 2026-11-14): deletedAt, deletedById (-> User, relation AppointmentDeletedBy; the customer relation is AppointmentCustomer). Every read filters deletedAt: null (tests/appointments-soft-delete-guard.test.ts); never erased by the app. down.sql refuses while deleted visits or trail rows exist.
 Legacy: googleEventId, remindersSent.
 Indexes: (tenantId), (tenantId,deletedAt), (tenantId,appointmentDate), (tenantId,patientKey), (tenantId,petId), unique (tenantId,meetShortCode).
 
