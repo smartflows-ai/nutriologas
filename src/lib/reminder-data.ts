@@ -58,6 +58,7 @@ export async function loadReminderVisits(now: Date, appointmentId?: string): Pro
   const rows = await prisma.appointment.findMany({
     where: {
       ...(appointmentId ? { id: appointmentId } : {}),
+      deletedAt: null,
       status: { in: [...ACTIVE_APPOINTMENT_STATUSES] },
       appointmentDate: { gt: now, lte: horizon },
       tenant: { remindersEnabled: true },

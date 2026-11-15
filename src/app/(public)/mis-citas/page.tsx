@@ -14,7 +14,7 @@ export default async function MisCitasPage() {
   const tenantId = session.user.tenantId;
 
   const appointments = await prisma.appointment.findMany({
-    where: { userId: session.user.id, tenantId },
+    where: { userId: session.user.id, tenantId, deletedAt: null },
     include: {
       product: {
         select: {

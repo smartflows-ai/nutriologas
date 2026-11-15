@@ -20,6 +20,7 @@ export async function POST(req: NextRequest) {
     where: {
       id: String(appointmentId),
       tenantId: bot.tenantId,
+      deletedAt: null,
       // The person writing: their own visits and the ones they booked for others (recommended by them).
       ...visitsOfSender(String(customerPhone)),
       status: { in: [...ACTIVE_APPOINTMENT_STATUSES] },

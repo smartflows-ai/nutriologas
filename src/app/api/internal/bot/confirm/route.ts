@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
     where: {
       tenantId: bot.tenantId,
       patientKey: key,
+      deletedAt: null,
       status: { in: [...ACTIVE_APPOINTMENT_STATUSES] },
       reminderSentAt: { not: null },
       customerConfirmedAt: null,

@@ -25,13 +25,16 @@ const STAFF_ALLOWED: readonly Permission[] = [
   "appointments.status",
   "appointments.reschedule",
   "appointments.book",
+  // Ticket #103: staff deletes visits (soft delete), sees "Eliminadas" and restores them.
+  "appointments.delete",
   "whatsapp.chats",
   "whatsapp.bot",
   "whatsapp.confirmations",
   "whatsapp.settings",
   "history.view",
 ];
-const STAFF_DENIED: readonly Permission[] = ["appointments.notes", "appointments.delete", "whatsapp.chats.delete", "users.manage"];
+// Ticket #103: booking outside business hours or on top of another visit stays owner only.
+const STAFF_DENIED: readonly Permission[] = ["appointments.notes", "appointments.overbook", "whatsapp.chats.delete", "users.manage"];
 
 function ctx(plan: CapabilityPlan, overrides: Partial<CapabilityContext> = {}): CapabilityContext {
   return {
@@ -325,17 +328,25 @@ test("clinical-note and delete controls are gated by permission in the CRM pages
 
 // ── Batch A review fixes ─────────────────────────────────────────────────────
 
-// Known risk (owner decision at the main merge, 2026-11-06): the booking keeps main's account lookup by email,
-// so a typed email that belongs to an ADMIN or STAFF account owns the visit. Only the booking permission is checked.
-test("booking for someone else requires the appointments.book permission", () => {
-  assert.match(read("appointments/route.ts"), /can\(session\?\.user\?\.role, "appointments\.book"\)/);
+// Ticket #103 (owner decisions of 2026-11-14, replacing the one of 2026-11-06): a visit booked from the panel is
+// owned by the phone's guest account, never by the account of a typed email. The public web booking is unchanged.
+test("booking for someone else requires the appointments.book permission and goes through the panel rules", () => {
+  const src = read("appointments/route.ts");
+  assert.match(src, /can\(session\?\.user\?\.role, "appointments\.book"\)/);
+  // The panel branch returns createFromPanel (after its rate limit) before any public-booking code runs.
+  assert.match(src, /if \(isPanelSession\) \{[\s\S]{0,400}?return createFromPanel\(/);
+  // Owner decision of 2026-11-14 (security review S3): a panel visit never links to an account by email; it always
+  // goes to the phone's guest account, and the typed email is kept only as contact data.
+  const adapter = readRoot("src/lib/panel-appointments.ts");
+  assert.match(adapter, /guestEmailFor\(patientKeyOf\(phone\) as string\)/);
+  assert.doesNotMatch(adapter, /email: data\.clientEmail|email: d\.clientEmail/);
 });
 
 test("appointment PATCH validates status first, lets only a CUSTOMER owner act without agenda rights, and hides reminder errors", () => {
   const src = read("appointments/[id]/route.ts");
   const statusCheck = src.indexOf('apiError("status_invalid", 400)');
-  const reschedule = src.indexOf("await rescheduleAppointment(");
-  assert.ok(statusCheck > 0 && statusCheck < reschedule, "status must be validated before the reschedule runs");
+  const edit = src.indexOf("return editFromPanel(");
+  assert.ok(statusCheck > 0 && statusCheck < edit, "status must be validated before an edit runs");
   assert.match(src, /isOwnerCustomer = role === "CUSTOMER" && appointment\.userId === userId/);
   assert.match(src, /omitClinicalNotes\(role, omitReminderError\(updated\)\)/);
 });

@@ -17,7 +17,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 
     const tenantId = (session.user as any).tenantId;
     const appointment = await prisma.appointment.findFirst({
-      where: { id: params.id, tenantId },
+      where: { id: params.id, tenantId, deletedAt: null },
       select: { customerPhone: true },
     });
     if (!appointment) return apiError("appointment_not_found", 404);

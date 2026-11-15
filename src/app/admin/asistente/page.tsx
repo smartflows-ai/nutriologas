@@ -83,6 +83,7 @@ export default async function AsistentePage() {
     prisma.appointment.count({
       where: {
         tenantId: session.user.tenantId,
+        deletedAt: null,
         appointmentDate: { gte: startOfToday, lte: endOfToday },
         status: { notIn: ["CANCELLED"] },
       },
@@ -90,6 +91,7 @@ export default async function AsistentePage() {
     prisma.appointment.count({
       where: {
         tenantId: session.user.tenantId,
+        deletedAt: null,
         status: "PENDING",
       },
     }),

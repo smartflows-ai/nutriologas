@@ -1,4 +1,4 @@
-<!-- Generated: 2026-11-10 | Files scanned: 36 pages + 59 components | Token estimate: ~1050 -->
+<!-- Generated: 2026-11-14 | Files scanned: 36 pages + 64 components | Token estimate: ~1150 -->
 # Frontend
 
 ## Page tree (src/app)
@@ -34,6 +34,7 @@ legal/      LegalPageLayout  order/ DownloadTicketButton PrintButton
 ## State and data
 - /admin/citas opens on today (clinic date, `clinicDateKeyOf`); rows Fecha (date chips) and Estado (status chips) + search; KPI cards and status counts follow the chosen day (API `counts`); modality badge, age and Meet link per visit. `scrollbar-slim` (globals.css) for scrolling chip rows.
 - /admin/citas shows the "reminder not delivered" badge via `lib/reminder-badge.ts` (active visit, failed attempts, no reminderSentAt, future date); text in t.agenda.*, neutral style, no technical reason.
+- /admin/citas (ticket #103): `components/admin/appointments/` = AppointmentCard (one visit; Editar/Eliminar, Recuperar in "Eliminadas"), AppointmentFormPanel + useAppointmentForm (Nueva cita / Editar cita in FormPanel), SlotGrid + AlternativesPicker (free times; nearest ones on a refused time). Buttons gated by useCan (appointments.book|reschedule|delete|overbook); "Eliminadas" status chip; ConfirmModal for delete; toast warning when calendarSynced is false. Mini calendar sticky only on lg.
 - /admin/equipo: sidebar entry "Equipo" (AdminSidebar); TeamManager with data from useTeam, dialog TempPasswordDialog for temporary passwords.
 - Cart: zustand store `src/store/cart.ts`. Toasts: `hooks/useToast.ts` (sonner).
 - Server components read tenant via header `x-tenant-slug`; session via `lib/session.ts`.

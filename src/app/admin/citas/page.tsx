@@ -2,87 +2,25 @@
 // src/app/admin/citas/page.tsx
 // Centralized Agenda & Scheduling Hub: one unified view with all appointments
 // (native CRM bookings, WhatsApp reservations, and Google / Outlook Calendar events combined)
-import { priceViewFor, type PriceMode } from "@/lib/price-display";
 import { useState, useEffect, useRef, Suspense, useMemo } from "react";
-import {
-  Calendar as CalendarIcon,
-  Clock,
-  User,
-  Phone,
-  Mail,
-  CheckCircle2,
-  Check,
-  Search,
-  MessageSquare,
-  RefreshCw,
-  Plug,
-  ExternalLink,
-  AlertTriangle,
-  MapPin,
-  Video,
-} from "lucide-react";
-import { formatPrice, localeFor, fill } from "@/lib/utils";
+import { Calendar as CalendarIcon, Clock, Search, RefreshCw, Plug, Plus } from "lucide-react";
+import { localeFor, fill } from "@/lib/utils";
 import { useTranslation } from "@/i18n";
 import { useCalendarAccount } from "@/hooks/useCalendarAccount";
 import { translateApiError } from "@/i18n/validation";
 import Pagination from "@/components/admin/Pagination";
 import VisitNoteDialog from "@/components/admin/VisitNoteDialog";
-import { useCan, useCanOpen } from "@/components/admin/TenantMeta";
-import { reminderNotDelivered } from "@/lib/reminder-badge";
-import { isSyntheticEmail } from "@/lib/patient-intake";
+import ConfirmModal from "@/components/admin/ConfirmModal";
+import { useCan, useCanOpen, useTenantMeta } from "@/components/admin/TenantMeta";
+import AppointmentCard from "@/components/admin/appointments/AppointmentCard";
+import AppointmentFormPanel from "@/components/admin/appointments/AppointmentFormPanel";
+import { AlternativesPicker } from "@/components/admin/appointments/SlotGrid";
+import type { FormTarget } from "@/components/admin/appointments/useAppointmentForm";
+import type { AppointmentItem, FreeSlot, VisitStatus } from "@/components/admin/appointments/types";
 import { clinicDateKeyOf } from "@/lib/clinic-time";
 import FilterChip from "@/components/ui/FilterChip";
 import { toast } from "sonner";
 import Link from "next/link";
-
-interface AppointmentItem {
-  id: string;
-  source?: "native" | "google" | "microsoft";
-  tenantId: string;
-  userId?: string;
-  productId?: string;
-  customerName?: string | null;
-  customerPhone?: string | null;
-  appointmentDate: string;
-  durationMinutes: number;
-  notes: string | null;
-  internalNotes?: string | null;
-  status: "PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELLED" | "NO_SHOW";
-  createdAt: string;
-  htmlLink?: string;
-  product?: {
-    id: string;
-    name: string;
-    price: number;
-    priceMode?: PriceMode | null;
-    durationMinutes: number | null;
-    category: string | null;
-  };
-  customerEmail?: string | null;
-  customerAge?: number | null;
-  referredByKey?: string | null;
-  referredByName?: string | null;
-  modality?: "IN_PERSON" | "ONLINE" | null;
-  meetUrl?: string | null;
-  user?: {
-    id: string;
-    name: string | null;
-    email: string;
-    image: string | null;
-  };
-  pet?: { name: string } | null;
-  reminderSentAt?: string | null;
-  reminderAttempts?: number;
-}
-
-// Status colors are semantic (pending, confirmed, cancelled), so they stay fixed and do not follow the tenant theme.
-const STATUS_STYLE: Record<string, { bg: string; text: string; border: string; dot: string }> = {
-  PENDING:   { bg: "bg-gray-500/10",    text: "text-gray-600 dark:text-gray-300", border: "border-gray-500/30", dot: "bg-gray-400" },
-  CONFIRMED: { bg: "bg-primary/10",     text: "text-primary",     border: "border-primary/30",     dot: "bg-primary" },
-  COMPLETED: { bg: "bg-gray-900/10 dark:bg-white/10", text: "text-gray-900 dark:text-white", border: "border-gray-900/20 dark:border-white/20", dot: "bg-gray-900 dark:bg-white" },
-  CANCELLED: { bg: "bg-red-500/10",     text: "text-red-600 dark:text-red-400", border: "border-red-500/20", dot: "bg-red-500" },
-  NO_SHOW:   { bg: "bg-gray-500/10",    text: "text-gray-400",    border: "border-gray-500/20",    dot: "bg-gray-300 dark:bg-gray-600" },
-};
 
 /** Mini-calendar for interactive date navigation */
 function MiniCalendar({
@@ -242,13 +180,26 @@ function CitasContent() {
   const [hasCalendarIntegration, setHasCalendarIntegration] = useState(false);
   const calendarAccount = useCalendarAccount();
 
-  const STATUS_LABEL: Record<string, string> = {
-    PENDING: t.agenda.statusPending,
-    CONFIRMED: t.agenda.statusConfirmed,
-    COMPLETED: t.agenda.statusCompleted,
-    CANCELLED: t.agenda.statusCancelled,
-    NO_SHOW: t.agenda.statusNoShow,
-  };
+  // Ticket #103: the owner and staff create, edit, delete and restore visits here (src/lib/permissions.ts).
+  const canBook = useCan("appointments.book");
+  const canEdit = useCan("appointments.reschedule");
+  const canDelete = useCan("appointments.delete");
+  const canOverbook = useCan("appointments.overbook");
+  const { isBookingEnabled } = useTenantMeta();
+  const [formTarget, setFormTarget] = useState<FormTarget | null>(null);
+  const [deleting, setDeleting] = useState<AppointmentItem | null>(null);
+  const [restoring, setRestoring] = useState<{ visit: AppointmentItem; alternatives: FreeSlot[] } | null>(null);
+  const refresh = () => setRefreshKey((k) => k + 1);
+
+  // Escape closes the free-times dialog, like the other dialogs of the panel.
+  useEffect(() => {
+    if (!restoring) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setRestoring(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [restoring]);
 
   // Check if an external calendar is connected
   useEffect(() => {
@@ -330,6 +281,7 @@ function CitasContent() {
       if (res.ok) {
         const data = await res.json();
         setRefreshKey((k) => k + 1);
+        if (data.calendarSynced === false) toast.warning(t.agenda.toastCalendarNotUpdated);
         if (newStatus === "CONFIRMED") {
           if (data.whatsappSent) {
             toast.success(t.agenda.toastConfirmedWa);
@@ -354,6 +306,63 @@ function CitasContent() {
     } finally {
       setUpdatingId(null);
     }
+  };
+
+  // Soft delete: the visit leaves the agenda and frees its time; it stays in "Eliminadas" with who and when.
+  const deleteVisit = async () => {
+    const visit = deleting;
+    if (!visit) return;
+    setUpdatingId(visit.id);
+    try {
+      const res = await fetch(`/api/appointments/${visit.id}`, { method: "DELETE" });
+      if (res.ok) {
+        toast.success(t.agenda.toastDeleted);
+        refresh();
+      } else {
+        const d = await res.json().catch(() => ({}));
+        toast.error(translateApiError(t, d.error) || t.agenda.toastUpdateError);
+      }
+    } catch {
+      toast.error(t.agenda.toastUpdateErrorNet);
+    } finally {
+      setUpdatingId(null);
+      setDeleting(null);
+    }
+  };
+
+  // Restore before the visit's time, never on top of another visit; a taken slot offers the nearest free times.
+  const restoreVisit = async (visit: AppointmentItem, slot?: FreeSlot) => {
+    setUpdatingId(visit.id);
+    try {
+      const res = await fetch(`/api/appointments/${visit.id}/restore`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(slot ? { appointmentDate: slot.iso } : {}),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (res.ok) {
+        toast.success(t.agenda.toastRestored);
+        if (d.calendarSynced === false) toast.warning(t.agenda.toastCalendarNotUpdated);
+        setRestoring(null);
+        refresh();
+      } else if (d.error === "slot_unavailable" || d.error === "outside_business_hours") {
+        setRestoring({ visit, alternatives: Array.isArray(d.alternatives) ? d.alternatives : [] });
+      } else {
+        setRestoring(null);
+        toast.error(translateApiError(t, d.error) || t.agenda.toastUpdateError);
+      }
+    } catch {
+      toast.error(t.agenda.toastUpdateErrorNet);
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const onFormSaved = (kind: "created" | "updated", calendarSynced: boolean) => {
+    setFormTarget(null);
+    toast.success(kind === "created" ? t.agenda.toastCreated : t.agenda.toastUpdated);
+    if (!calendarSynced) toast.warning(t.agenda.toastCalendarNotUpdated);
+    refresh();
   };
 
   // KPI counts for the viewed month (from the server, not affected by the filters)
@@ -390,7 +399,16 @@ function CitasContent() {
         </div>
 
         {/* Header actions */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {canBook && isBookingEnabled && (
+            <button
+              onClick={() => setFormTarget({ mode: "create" })}
+              className="min-h-11 sm:min-h-0 px-3.5 py-2 rounded-xl bg-primary hover:opacity-90 text-[color:var(--on-primary)] text-xs font-semibold flex items-center gap-1.5 transition-opacity"
+            >
+              <Plus size={14} aria-hidden="true" />
+              {t.agenda.newAppointment}
+            </button>
+          )}
           {hasCalendarIntegration ? (
             <span
               className="hidden sm:inline-flex items-center gap-1.5 max-w-sm px-3 py-1.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 text-xs font-semibold border border-gray-200 dark:border-gray-800"
@@ -454,7 +472,8 @@ function CitasContent() {
       {/* ── Agenda workspace (mini calendar + unified list) ── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left column: mini calendar picker */}
-        <div className="lg:col-span-4 xl:col-span-3 sticky top-6">
+        {/* Pinned only beside the list (large screens); on a phone it scrolls away instead of covering the visits. */}
+        <div className="lg:col-span-4 xl:col-span-3 lg:sticky lg:top-6">
           <MiniCalendar
             viewYear={viewYear}
             viewMonth={viewMonth}
@@ -508,6 +527,7 @@ function CitasContent() {
                     { id: "CONFIRMED", label: t.agenda.tabConfirmed, count: confirmedCount },
                     { id: "COMPLETED", label: t.agenda.tabCompleted, count: completedCount },
                     { id: "CANCELLED", label: t.agenda.tabCancelled, count: cancelledCount },
+                    ...(canDelete ? [{ id: "DELETED", label: t.agenda.tabDeleted, count: counts.DELETED ?? 0 }] : []),
                   ].map((tab) => (
                     <FilterChip key={tab.id} active={activeTab === tab.id} onClick={() => changeTab(tab.id)}>
                       {tab.label} {tab.count > 0 && `(${tab.count})`}
@@ -545,261 +565,20 @@ function CitasContent() {
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-3">
-              {filteredAppointments.map((appt) => {
-                const dateObj = new Date(appt.appointmentDate);
-                const dateStr = dateObj.toLocaleDateString(locale, {
-                  weekday: "short", year: "numeric", month: "short", day: "numeric",
-                });
-                const timeStr = dateObj.toLocaleTimeString(locale, {
-                  hour: "2-digit", minute: "2-digit", hour12: true,
-                });
-                const style = STATUS_STYLE[appt.status] || STATUS_STYLE.PENDING;
-                const statusLabel = STATUS_LABEL[appt.status] || STATUS_LABEL.PENDING;
-                const patientName = appt.customerName || appt.user?.name || t.agenda.patientFallback;
-                const titleText = appt.product?.name ?? t.agenda.consultFallback;
-                const patientPhone = appt.customerPhone;
-                const contactEmail = appt.customerEmail || appt.user?.email;
-                const isExternal = appt.source === "google" || appt.source === "microsoft";
-
-                return (
-                  <div
-                    key={appt.id}
-                    className="card p-5 flex flex-col sm:flex-row items-start gap-5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900"
-                  >
-                    {/* Date and time */}
-                    <div className="flex sm:flex-col items-center sm:items-start gap-3 sm:w-36 shrink-0">
-                      <div className="w-14 h-14 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex flex-col items-center justify-center text-primary">
-                        <span className="text-xs font-medium leading-tight">
-                          {dateObj.toLocaleDateString(locale, { month: "short" })}
-                        </span>
-                        <span className="text-xl font-semibold leading-none">{dateObj.getDate()}</span>
-                        <span className="text-xs font-medium leading-tight">{dateObj.getFullYear()}</span>
-                      </div>
-                      <div className="space-y-0.5">
-                        <p className="text-sm font-semibold text-gray-900 dark:text-white">{timeStr}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {fill(t.productUi.minutesShort, { minutes: appt.durationMinutes })}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">{dateStr}</p>
-                      </div>
-                    </div>
-
-                    {/* Service, patient and notes */}
-                    <div className="flex-1 min-w-0 space-y-3">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-semibold text-gray-900 dark:text-white">
-                          {titleText}
-                        </h3>
-
-                        {/* Integration source badge */}
-                        {appt.source === "google" && (
-                          <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-50 text-gray-700 dark:bg-gray-800 dark:text-gray-300 border border-gray-200 dark:border-gray-700">
-                            <svg className="w-2.5 h-2.5" viewBox="0 0 24 24">
-                              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-                              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-                            </svg>
-                            Google Calendar
-                          </span>
-                        )}
-                        {appt.source === "microsoft" && (
-                          <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-50 text-gray-700 dark:bg-gray-800 dark:text-gray-300 border border-gray-200 dark:border-gray-700">
-                            Outlook
-                          </span>
-                        )}
-
-                        {/* Reminder that failed to send: neutral style so it follows the tenant theme in light and dark */}
-                        {reminderNotDelivered(appt) && (
-                          <span
-                            title={fill(t.agenda.reminderNotDeliveredHint, { count: appt.reminderAttempts ?? 0 })}
-                            className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-800"
-                          >
-                            <AlertTriangle size={12} strokeWidth={2} aria-hidden="true" />
-                            {t.agenda.reminderNotDelivered}
-                          </span>
-                        )}
-
-                        {/* In person or online: neutral style so it follows the tenant theme in light and dark */}
-                        {appt.modality && (
-                          <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-800">
-                            {appt.modality === "ONLINE" ? (
-                              <Video size={12} strokeWidth={2} aria-hidden="true" />
-                            ) : (
-                              <MapPin size={12} strokeWidth={2} aria-hidden="true" />
-                            )}
-                            {appt.modality === "ONLINE" ? t.agenda.modalityOnline : t.agenda.modalityInPerson}
-                          </span>
-                        )}
-
-                        {/* Price badge for native consultations */}
-                        {!isExternal && appt.product && (appt.product.price > 0 || appt.product.priceMode === "ON_REQUEST") ? (
-                          <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
-                            {priceViewFor(appt.product, t.price, locale).text}
-                          </span>
-                        ) : null}
-                      </div>
-
-                      <div className="flex flex-col gap-1 text-sm">
-                        {patientName !== titleText && (
-                          <span className="flex items-center gap-1.5 font-medium text-gray-800 dark:text-gray-200">
-                            <User size={14} className="text-gray-400" />
-                            {patientName}
-                            {appt.customerAge != null && (
-                              <span className="font-normal text-gray-500 dark:text-gray-400">
-                                {fill(t.agenda.ageYears, { age: appt.customerAge })}
-                              </span>
-                            )}
-                          </span>
-                        )}
-                        {appt.referredByKey && (
-                          <span className="text-xs text-gray-500 dark:text-gray-400">
-                            {fill(t.agenda.referredBy, { name: appt.referredByName || `+${appt.referredByKey}` })}
-                          </span>
-                        )}
-                        {appt.pet?.name && (
-                          <span className="text-xs text-gray-500 dark:text-gray-400">
-                            {t.crm.history.petUi.petsColumn}: {appt.pet.name}
-                          </span>
-                        )}
-                        {patientPhone ? (
-                          <a
-                            href={`https://wa.me/${patientPhone.replace(/\D/g, "")}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-1.5 text-primary hover:underline w-fit"
-                          >
-                            <Phone size={14} />
-                            {patientPhone}
-                          </a>
-                        ) : null}
-                        {contactEmail && !isSyntheticEmail(contactEmail) ? (
-                          <span className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400 break-all">
-                            <Mail size={14} className="text-gray-400 shrink-0" />
-                            {contactEmail}
-                          </span>
-                        ) : null}
-                        {appt.modality === "ONLINE" && appt.meetUrl ? (
-                          <a
-                            href={appt.meetUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-1.5 text-primary hover:underline w-fit"
-                          >
-                            <Video size={14} aria-hidden="true" />
-                            {t.agenda.openMeeting}
-                          </a>
-                        ) : null}
-                      </div>
-
-                      {appt.notes && (
-                        <div className="rounded-lg bg-gray-50 dark:bg-gray-800/40 border border-gray-200 dark:border-gray-800 px-3 py-2.5">
-                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{t.agenda.reason}</p>
-                          <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line break-words">{appt.notes}</p>
-                        </div>
-                      )}
-                      {canNotes && appt.internalNotes && (
-                        <div className="rounded-lg border border-gray-200 dark:border-gray-800 dark:border-primary/30 px-3 py-2.5">
-                          <p className="text-xs font-medium text-primary mb-1">{t.agenda.clinicalNotes}</p>
-                          <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line break-words line-clamp-3">{appt.internalNotes}</p>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Status + actions */}
-                    <div className="flex flex-col items-end gap-2 shrink-0 w-full sm:w-auto">
-                      <div className="flex items-center gap-2">
-                        <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${style.bg} ${style.text} ${style.border}`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${style.dot}`} />
-                          {statusLabel}
-                        </span>
-                        {!isExternal && canNotes && (
-                          <button
-                            onClick={() => {
-                              setEditingNotesId(appt.id);
-                            }}
-                            className="text-xs text-primary hover:underline flex items-center gap-1 font-semibold"
-                          >
-                            <MessageSquare size={12} />
-                            {appt.internalNotes ? t.agenda.edit : t.agenda.notes}
-                          </button>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-1.5 justify-end">
-                        {/* External event direct link */}
-                        {isExternal && appt.htmlLink && (
-                          <a
-                            href={appt.htmlLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="px-3 py-1.5 rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold text-xs flex items-center gap-1.5 transition-colors"
-                          >
-                            <span>{t.agenda.openCalendar}</span>
-                            <ExternalLink size={12} />
-                          </a>
-                        )}
-
-                        {/* Native appointment status buttons */}
-                        {!isExternal && appt.status === "PENDING" && (
-                          <>
-                            <button
-                              disabled={updatingId === appt.id}
-                              onClick={() => updateStatus(appt.id, "CONFIRMED")}
-                              className="px-3 py-1.5 rounded-xl bg-primary hover:bg-secondary text-[color:var(--on-primary)] font-semibold text-xs flex items-center gap-1 shadow-sm transition-all disabled:opacity-50"
-                            >
-                              <Check size={13} />
-                              {t.agenda.confirm}
-                            </button>
-                            <button
-                              disabled={updatingId === appt.id}
-                              onClick={() => updateStatus(appt.id, "CANCELLED")}
-                              className="px-2.5 py-1.5 rounded-xl text-red-600 dark:text-red-400 text-xs hover:underline transition-all disabled:opacity-50"
-                            >
-                              {t.agenda.cancel}
-                            </button>
-                          </>
-                        )}
-                        {!isExternal && appt.status === "CONFIRMED" && (
-                          <>
-                            <button
-                              disabled={updatingId === appt.id}
-                              onClick={() => updateStatus(appt.id, "COMPLETED")}
-                              className="px-3 py-1.5 rounded-xl bg-primary hover:opacity-90 text-[color:var(--on-primary)] font-semibold text-xs flex items-center gap-1 transition-all disabled:opacity-50"
-                            >
-                              <CheckCircle2 size={13} />
-                              {t.agenda.attended}
-                            </button>
-                            <button
-                              disabled={updatingId === appt.id}
-                              onClick={() => updateStatus(appt.id, "NO_SHOW")}
-                              className="px-2 py-1.5 rounded-xl text-gray-500 text-xs hover:underline transition-all disabled:opacity-50"
-                            >
-                              {t.agenda.noShow}
-                            </button>
-                            <button
-                              disabled={updatingId === appt.id}
-                              onClick={() => updateStatus(appt.id, "CANCELLED")}
-                              className="px-2 py-1.5 rounded-xl text-red-600 dark:text-red-400 text-xs hover:underline transition-all disabled:opacity-50"
-                            >
-                              {t.agenda.cancel}
-                            </button>
-                          </>
-                        )}
-                        {!isExternal && (appt.status === "COMPLETED" || appt.status === "CANCELLED" || appt.status === "NO_SHOW") && (
-                          <button
-                            disabled={updatingId === appt.id}
-                            onClick={() => updateStatus(appt.id, "CONFIRMED")}
-                            className="px-2.5 py-1 rounded-lg text-xs text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-colors disabled:opacity-50"
-                          >
-                            {t.agenda.reopen}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+              {filteredAppointments.map((appt) => (
+                <AppointmentCard
+                  key={appt.id}
+                  appt={appt}
+                  locale={locale}
+                  canNotes={canNotes}
+                  busy={updatingId === appt.id}
+                  onStatus={updateStatus}
+                  onNotes={setEditingNotesId}
+                  onEdit={canEdit ? (a) => setFormTarget({ mode: "edit", visit: a }) : undefined}
+                  onDelete={canDelete ? setDeleting : undefined}
+                  onRestore={canDelete ? (a) => void restoreVisit(a) : undefined}
+                />
+              ))}
             </div>
           )}
           {!loading && totalPages > 1 && (
@@ -816,6 +595,58 @@ function CitasContent() {
           onClose={() => setEditingNotesId(null)}
           onSaved={() => setRefreshKey((k) => k + 1)}
         />
+      )}
+
+      {/* ── New / edit visit (ticket #103) ── */}
+      {formTarget && (
+        <AppointmentFormPanel
+          target={formTarget}
+          canOverbook={canOverbook}
+          locale={locale}
+          onClose={() => setFormTarget(null)}
+          onSaved={onFormSaved}
+        />
+      )}
+
+      {/* ── Delete (soft): the visit can be restored from "Eliminadas" ── */}
+      {deleting && (
+        <ConfirmModal
+          title={t.agenda.deleteTitle}
+          message={t.agenda.deleteMessage}
+          confirmLabel={t.agenda.deleteConfirm}
+          variant="danger"
+          isBusy={updatingId === deleting.id}
+          onConfirm={() => void deleteVisit()}
+          onCancel={() => setDeleting(null)}
+        />
+      )}
+
+      {/* ── Restore into a taken slot: pick one of the nearest free times ── */}
+      {restoring && (
+        <div className="fixed inset-0 bg-black/40 z-[60] flex items-center justify-center p-4" onClick={() => setRestoring(null)}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="restore-times-title"
+            className="bg-white dark:bg-gray-950 rounded-xl shadow-lg w-full max-w-md p-6 border border-gray-200 dark:border-gray-800 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="restore-times-title" className="text-lg font-semibold text-gray-900 dark:text-white">
+              {t.agenda.alternativesTitle}
+            </h3>
+            <AlternativesPicker
+              alternatives={restoring.alternatives}
+              locale={locale}
+              disabled={updatingId === restoring.visit.id}
+              onPick={(slot) => void restoreVisit(restoring.visit, slot)}
+            />
+            <div className="flex justify-end">
+              <button onClick={() => setRestoring(null)} className="btn-ghost px-5 py-2.5 text-sm font-semibold">
+                {t.agenda.form.cancel}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

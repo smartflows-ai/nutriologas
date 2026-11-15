@@ -12,6 +12,7 @@ import { loadAssessmentTargets } from "@/lib/assessment-target";
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { createAppointment } from "@/lib/appointments-service";
+import { botSlotTakenBody } from "@/lib/free-slots";
 import { buildCalendarText } from "@/lib/appointment-calendar-text";
 import { buildSlot, formatSlotTime, isInternalKeyValid, resolveBotTenant } from "@/lib/bot";
 import { isBookable } from "@/lib/bookable";
@@ -213,10 +214,14 @@ export async function POST(req: NextRequest) {
     },
   });
   if (!result.ok) {
-    return Response.json(
-      { success: false, error: "slot_unavailable", message: "Ese horario ya no está disponible." },
-      { status: 409 }
-    );
+    const body = await botSlotTakenBody({
+      tenantId: bot.tenantId,
+      hours: bot.businessHours,
+      durationMinutes: duration,
+      target: slot.start,
+      now: new Date(),
+    });
+    return Response.json(body, { status: 409 });
   }
   const { appointment, meetLink } = result;
 

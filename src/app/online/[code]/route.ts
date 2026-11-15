@@ -28,8 +28,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ code: st
   if (!tenant) return shortLinkUnavailable(CLOSED.titulo, CLOSED.mensaje, 410);
 
   // Scoped by the tenant found from the host: a code of another business does not open here.
+  // A deleted visit's link closes like any other unknown code (ticket #103).
   const visit = await prisma.appointment.findFirst({
-    where: { tenantId: tenant.id, meetShortCode: code },
+    where: { tenantId: tenant.id, meetShortCode: code, deletedAt: null },
     select: { status: true, modality: true, meetUrl: true, appointmentDate: true, durationMinutes: true },
   });
   if (!visit || !meetLinkState(visit, new Date()).open || !visit.meetUrl) {

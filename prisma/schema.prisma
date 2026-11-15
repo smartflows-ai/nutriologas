@@ -59,6 +59,7 @@ model Tenant {
   messageLanguage           String  @default("es") // Idioma de los mensajes al cliente: es | en
   businessHours          Json?   // Horario semanal de atención (null = horario por defecto, ver src/lib/business-hours.ts)
   appointmentNotes       AppointmentNote[]
+  appointmentTrail       AppointmentTrail[]
 
   // Configuracion de colores (1:1)
   theme       ThemeConfig?
@@ -130,7 +131,10 @@ model User {
   googleId     String?
   conektaCustomerId String?
   orders  Order[]
-  appointments Appointment[]
+  appointments Appointment[] @relation("AppointmentCustomer")
+  // Visits this user deleted (soft delete, ticket #103) and the delete / restore history they wrote.
+  deletedAppointments Appointment[] @relation("AppointmentDeletedBy")
+  appointmentTrail    AppointmentTrail[]
   reviews Review[]
   accounts Account[]
   sessions Session[]
@@ -596,7 +600,7 @@ model Appointment {
   tenantId        String
   tenant          Tenant            @relation(fields: [tenantId], references: [id])
   userId          String
-  user            User              @relation(fields: [userId], references: [id])
+  user            User              @relation("AppointmentCustomer", fields: [userId], references: [id])
   productId       String
   product         Product           @relation(fields: [productId], references: [id])
 
@@ -637,7 +641,15 @@ model Appointment {
   petId           String?
   pet             Pet?              @relation(fields: [petId], references: [id], onDelete: SetNull)
 
+  // Soft delete (ticket #103): a deleted visit is hidden from every read but never erased by the app.
+  // Every appointment query filters deletedAt: null (guarded by tests/appointments-soft-delete-guard.test.ts).
+  deletedAt       DateTime?
+  deletedById     String?
+  deletedBy       User?             @relation("AppointmentDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
+  trail           AppointmentTrail[]
+
   @@index([tenantId])
+  @@index([tenantId, deletedAt])
   @@index([tenantId, appointmentDate])
   @@index([tenantId, patientKey])
   @@index([tenantId, petId])
@@ -666,6 +678,29 @@ model Pet {
   @@unique([tenantId, patientKey, nameKey], map: "pets_tenantId_patientKey_nameKey_key")
   @@index([tenantId, patientKey])
   @@map("pets")
+}
+
+enum AppointmentTrailAction {
+  DELETED
+  RESTORED
+}
+
+// Who deleted or restored a visit and when (ticket #103). One row per action, never edited.
+// No names or free text: the user and the role at that moment are enough to answer "who did it".
+model AppointmentTrail {
+  id            String                 @id @default(uuid())
+  tenantId      String
+  tenant        Tenant                 @relation(fields: [tenantId], references: [id])
+  appointmentId String
+  appointment   Appointment            @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  action        AppointmentTrailAction
+  userId        String?
+  user          User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  role          UserRole
+  at            DateTime               @default(now())
+
+  @@index([tenantId, appointmentId])
+  @@map("appointment_trail")
 }
 
 model AppointmentNote {

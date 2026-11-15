@@ -61,6 +61,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
   const [orderItems, reviews, appointments] = await Promise.all([
     prisma.orderItem.count({ where: { productId: params.id } }),
     prisma.review.count({ where: { productId: params.id } }),
+    // soft-delete: includes deleted (a deleted visit still points to this service, so the service can only be hidden)
     prisma.appointment.count({ where: { productId: params.id } }),
   ]);
 

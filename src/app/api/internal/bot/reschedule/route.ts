@@ -3,6 +3,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { rescheduleAppointment } from "@/lib/appointments-service";
+import { botSlotTakenBody } from "@/lib/free-slots";
 import {
   ACTIVE_APPOINTMENT_STATUSES,
   buildSlot,
@@ -29,6 +30,7 @@ export async function POST(req: NextRequest) {
     where: {
       id: String(appointmentId),
       tenantId: bot.tenantId,
+      deletedAt: null,
       // The person writing: their own visits and the ones they booked for others (recommended by them).
       ...visitsOfSender(String(customerPhone)),
       status: { in: [...ACTIVE_APPOINTMENT_STATUSES] },
@@ -62,10 +64,16 @@ export async function POST(req: NextRequest) {
     checkConflicts: true,
   });
   if (!result.ok) {
-    return Response.json(
-      { success: false, error: "slot_unavailable", message: "Ese horario no está disponible." },
-      { status: 409 }
-    );
+    const body = await botSlotTakenBody({
+      tenantId: bot.tenantId,
+      hours: bot.businessHours,
+      durationMinutes: duration,
+      target: slot.start,
+      now: new Date(),
+      // The visit being moved does not block its own current slot.
+      exclude: { appointmentId: appointment.id, externalEventId: appointment.externalEventId },
+    });
+    return Response.json(body, { status: 409 });
   }
 
   return Response.json({

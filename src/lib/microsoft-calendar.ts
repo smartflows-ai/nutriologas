@@ -87,7 +87,9 @@ export async function createMicrosoftEvent(
 export async function updateMicrosoftEvent(
   accessToken: string,
   eventId: string,
-  range: { start: Date; end: Date }
+  range: { start: Date; end: Date },
+  // New subject and body when the visit's details change (ticket #103); omitted, they are kept.
+  text?: { summary: string; description: string }
 ): Promise<void> {
   const res = await fetch(`${GRAPH_URL}/me/events/${encodeURIComponent(eventId)}`, {
     method: "PATCH",
@@ -98,6 +100,7 @@ export async function updateMicrosoftEvent(
     body: JSON.stringify({
       start: toGraphDateTime(range.start),
       end: toGraphDateTime(range.end),
+      ...(text ? { subject: text.summary, body: { contentType: "Text", content: text.description } } : {}),
     }),
   });
 

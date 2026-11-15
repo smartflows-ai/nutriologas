@@ -79,7 +79,8 @@ test("the online route answers closed for any code it does not open, and never l
   const s = src("src/app/online/[code]/route.ts");
   assert.match(s, /rateLimited\(`short-online:/);
   assert.match(s, /SHORT_CODE_RE\.test\(code\)/);
-  assert.match(s, /where: \{ tenantId: tenant\.id, meetShortCode: code \}/);
+  // A deleted visit's link closes too (ticket #103, soft delete).
+  assert.match(s, /where: \{ tenantId: tenant\.id, meetShortCode: code, deletedAt: null \}/);
   assert.match(s, /meetLinkState\(visit, new Date\(\)\)\.open/);
   assert.match(s, /NextResponse\.redirect\(visit\.meetUrl/);
   // Every failure uses the same closed page: a code that exists and a code that does not look the same.

@@ -7,9 +7,30 @@ import { daySlots, parseBusinessHours } from "@/lib/business-hours";
 import { isBookable } from "@/lib/bookable";
 
 import { resolveTenantSlug } from "@/lib/tenant";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { can } from "@/lib/permissions";
 import { apiError } from "@/lib/api-errors";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * `exclude=<visit id>`: when the panel moves a visit, the visit does not block its own slot (ticket #103).
+ * Only honored for an owner or staff session of this same business; anyone else gets the plain availability.
+ */
+async function excludedVisit(
+  visitId: string | null,
+  tenantId: string
+): Promise<{ appointmentId: string; externalEventId: string | null } | undefined> {
+  if (!visitId) return undefined;
+  const session = await getServerSession(authOptions);
+  if (!session?.user || session.user.tenantId !== tenantId || !can(session.user.role, "appointments.book")) return undefined;
+  const visit = await prisma.appointment.findFirst({
+    where: { id: visitId, tenantId, deletedAt: null },
+    select: { id: true, externalEventId: true },
+  });
+  return visit ? { appointmentId: visit.id, externalEventId: visit.externalEventId } : undefined;
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -50,12 +71,13 @@ export async function GET(req: NextRequest) {
 
     // Same rule as booking: a slot is free only when no native appointment or calendar event overlaps it.
     const busy = await getBusyPeriods(tenant.id, dateStr);
+    const self = await excludedVisit(searchParams.get("exclude"), tenant.id);
     const now = Date.now();
     const availableSlots = candidates.filter((time) => {
       const start = new Date(clinicDateTime(dateStr, time));
       if (start.getTime() <= now) return false;
       const end = new Date(start.getTime() + duration * 60000);
-      return isSlotFree(busy, start, end);
+      return isSlotFree(busy, start, end, self);
     });
 
     return NextResponse.json({

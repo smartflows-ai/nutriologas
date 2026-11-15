@@ -14,7 +14,7 @@ const STUCK_CALENDAR_BATCH = 20;
 /** Retry: cancelled visits whose calendar event was not removed yet. The link is cleared only once the event is gone. */
 async function removeStuckCalendarEvents(): Promise<{ removed: number; errors: string[] }> {
   const stuck = await prisma.appointment.findMany({
-    where: { status: "CANCELLED", externalEventId: { not: null } },
+    where: { status: "CANCELLED", externalEventId: { not: null }, deletedAt: null },
     select: { id: true, tenantId: true, externalProvider: true, externalEventId: true },
     take: STUCK_CALENDAR_BATCH,
   });
