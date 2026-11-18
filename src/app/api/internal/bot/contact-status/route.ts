@@ -4,6 +4,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { contactJids, isInternalKeyValid, normalizeCustomerPhone, resolveBotTenant } from "@/lib/bot";
+import { isTeamNumber } from "@/lib/team-numbers";
 
 export async function POST(req: NextRequest) {
   if (!isInternalKeyValid(req)) return Response.json({ error: "No autorizado" }, { status: 401 });
@@ -17,6 +18,16 @@ export async function POST(req: NextRequest) {
     (customerPhone ? String(customerPhone).replace(/\D/g, "") : null);
   const jids = contactJids(digits, remoteJid, remoteJidAlt);
   if (jids.length === 0) return Response.json({ botEnabled: true });
+
+  // The people of the business (the owner and the staff) are never answered as customers: an assistant who
+  // replies to a help notice on the business number would otherwise get the bot's reply.
+  const [tenant, staff] = await Promise.all([
+    prisma.tenant.findUnique({ where: { id: bot.tenantId }, select: { whatsappNumber: true } }),
+    prisma.user.findMany({ where: { tenantId: bot.tenantId, role: "STAFF", isActive: true, whatsappNumber: { not: null } }, select: { whatsappNumber: true } }),
+  ]);
+  if (isTeamNumber(digits, [tenant?.whatsappNumber, ...staff.map((user) => user.whatsappNumber)])) {
+    return Response.json({ botEnabled: false, reason: "team_member" });
+  }
 
   // A contact can have more than one chat row. If any of them is paused, the bot stays off for this contact only.
   const chats = await prisma.whatsAppChat.findMany({

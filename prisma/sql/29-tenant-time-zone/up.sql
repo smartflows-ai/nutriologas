@@ -1,4 +1,4 @@
--- 28-tenant-time-zone (ticket #111): each business has its own time zone (IANA name, for example America/Cancun).
+-- 29-tenant-time-zone (ticket #111): each business has its own time zone (IANA name, for example America/Cancun).
 -- Hours, free times, reminders, the bot and the calendar read and write wall-clock times in this zone.
 -- timeZoneSource says who set it: 'default' (never set), 'google' (detected from the address) or 'manual' (the owner).
 -- Additive only: both columns have a default, so every existing business keeps Mexico City time, as today.

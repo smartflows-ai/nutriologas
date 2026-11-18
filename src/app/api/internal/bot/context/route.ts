@@ -6,6 +6,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { isInternalKeyValid, resolveBotTenant } from "@/lib/bot";
 import { isBookable } from "@/lib/bookable";
+import { productKindOf } from "@/lib/product-kind";
 import { getCreditStatus } from "@/lib/credits";
 import { INTRO_WINDOW_HOURS, buildGreetingReply, introRequired } from "@/lib/greeting";
 import { effectiveModes, intakeNeeds, modalityModeFor, modalityModeOf } from "@/lib/patient-intake";
@@ -58,6 +59,7 @@ export async function POST(req: NextRequest) {
         name: true,
         price: true,
         priceMode: true,
+        itemType: true,
         assessmentProductId: true,
         description: true,
         category: true,
@@ -117,6 +119,8 @@ export async function POST(req: NextRequest) {
       category: p.category,
       durationMinutes: p.durationMinutes ?? 30,
       bookable: isBookable(p, bot),
+      // CITA: agendable. INFORMACION: described only. PRODUCTO: physical item, the team sells it through WhatsApp.
+      kind: productKindOf({ itemType: p.itemType, bookable: isBookable(p, bot) }),
       // How this service is delivered. IN_PERSON or ONLINE: do not ask, but tell the customer. ASK: the customer chooses.
       modalityMode: isBookable(p, bot) ? modalityModeFor(bot.serviceModes, p.visitModes) : null,
       modalities: isBookable(p, bot) ? effectiveModes(bot.serviceModes, p.visitModes) : [],

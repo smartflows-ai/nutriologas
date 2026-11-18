@@ -9,14 +9,33 @@ import { isBookable } from "@/lib/bookable";
 import { modalityModeFor } from "@/lib/patient-intake";
 import { getBusyPeriods, isSlotFree } from "@/lib/calendar-sync";
 import { clinicDateTime, clinicOffsetOf } from "@/lib/clinic-time";
+import { SLOTS_OFFERED_PER_REPLY, slotQuery, weekdayNameEs, type SlotQueryResult } from "@/lib/slot-query";
 
-/** Hours offered per reply: a short list, never the whole day. */
-const SLOTS_OFFERED_PER_REPLY = 3;
+const TIME_RE = /^\d{2}:\d{2}$/;
+
+/** The sentence the agent reads: states what was asked and lists only the times the tool returned. */
+function availabilityMessage(date: string, query: SlotQueryResult): string {
+  const list = query.availableSlots.join(", ");
+  if (query.requested) {
+    const { time, status } = query.requested;
+    if (status === "free") return `La hora ${time} está libre el ${date}. Confírmala con el cliente antes de agendar.`;
+    const reason = status === "taken" ? "está ocupada" : "no es hora de atención para este servicio";
+    return list
+      ? `La hora ${time} ${reason} el ${date}. Ofrece solo estas: ${list}.`
+      : `La hora ${time} ${reason} el ${date} y no hay horarios libres cercanos.`;
+  }
+  if (query.edgeTime !== null) return `La hora libre de ese día es ${query.edgeTime} el ${date}.`;
+  if (query.availableSlots.length === 0) return `No hay mas horarios disponibles el ${date} para este servicio.`;
+  return `Hay horarios disponibles el ${date}. Ofrece solo estos ${query.availableSlots.length}.`;
+}
 
 export async function POST(req: NextRequest) {
   if (!isInternalKeyValid(req)) return Response.json({ error: "No autorizado" }, { status: 401 });
 
-  const { instance, productId, date, after } = await req.json().catch(() => ({}));
+  const { instance, productId, date, after, time: timeParam, edge: edgeParam } = await req.json().catch(() => ({}));
+  // The agent sends empty strings for optional fields it leaves out: they count as not sent.
+  const wantedTime = timeParam === "" || timeParam === null ? undefined : timeParam;
+  const wantedEdge = edgeParam === "" || edgeParam === null ? undefined : edgeParam;
   const bot = await resolveBotTenant(instance);
   if (!bot) return Response.json({ error: "Instancia de WhatsApp no encontrada" }, { status: 404 });
 
@@ -39,28 +58,32 @@ export async function POST(req: NextRequest) {
   const duration = product.durationMinutes ?? 30;
   const busy = await getBusyPeriods(bot.tenantId, date, bot.timeZone);
 
-  const candidates = daySlots(bot.businessHours, date, duration);
-  const availableSlots = candidates.filter((time) => {
+  // Past times on today's date are left out of the grid: they are neither free nor offered.
+  const now = Date.now();
+  const grid = daySlots(bot.businessHours, date, duration).filter((time) => {
+    const slot = buildSlot(date, time, duration, bot.businessHours, bot.timeZone);
+    return slot ? slot.start.getTime() > now : false;
+  });
+  const free = grid.filter((time) => {
     const slot = buildSlot(date, time, duration, bot.businessHours, bot.timeZone);
     return slot !== null && isSlotFree(busy, slot.start, slot.end);
   });
 
-  // Past slots on today's date are not offered.
-  const now = Date.now();
-  const upcoming = availableSlots.filter((time) => {
-    const slot = buildSlot(date, time, duration, bot.businessHours, bot.timeZone);
-    return slot ? slot.start.getTime() > now : false;
-  });
-
-  // The bot offers a few hours at a time. `after` (HH:mm) asks for the next ones following the last offered hour.
-  const afterTime = typeof after === "string" && /^\d{2}:\d{2}$/.test(after) ? after : null;
-  const later = afterTime ? upcoming.filter((time) => time > afterTime) : upcoming;
-  const offered = later.slice(0, SLOTS_OFFERED_PER_REPLY);
+  // Exact time ("18:00") or edge ("first" | "last"); `after` (HH:mm, exclusive) pages the next ones.
+  const timeAsked = typeof wantedTime === "string" && TIME_RE.test(wantedTime) ? wantedTime : null;
+  const edgeAsked = wantedEdge === "first" || wantedEdge === "last" ? wantedEdge : null;
+  if ((wantedTime !== undefined && timeAsked === null) || (wantedEdge !== undefined && edgeAsked === null)) {
+    return Response.json({ error: "time_invalid", message: "time debe ser HH:mm y edge first o last." }, { status: 400 });
+  }
+  const afterTime = typeof after === "string" && TIME_RE.test(after) ? after : null;
+  const query = slotQuery({ grid, free, time: timeAsked, edge: edgeAsked, after: afterTime, limit: SLOTS_OFFERED_PER_REPLY });
 
   return Response.json({
     success: true,
     serviceName: product.name,
     date,
+    // The day of the week of the date asked: the agent says it, so a wrong weekday ("sabado 15") shows up.
+    weekday: weekdayNameEs(date),
     // The business zone (ticket #111): same "<IANA> (UTC<offset>)" text as before, plus how the customer reads it.
     timezone: `${bot.timeZone} (UTC${clinicOffsetOf(new Date(clinicDateTime(date, "12:00", bot.timeZone)), bot.timeZone)})`,
     timeZone: bot.timeZone,
@@ -68,11 +91,10 @@ export async function POST(req: NextRequest) {
     durationMinutes: duration,
     // How this service is delivered (IN_PERSON, ONLINE or ASK), so the agent tells the customer before booking.
     modalityMode: modalityModeFor(bot.serviceModes, product.visitModes),
-    availableSlots: offered,
-    hasMore: later.length > offered.length,
-    message:
-      offered.length > 0
-        ? `Hay horarios disponibles el ${date}. Ofrece solo estos ${offered.length}.`
-        : `No hay mas horarios disponibles el ${date} para este servicio.`,
+    requested: query.requested,
+    edgeTime: query.edgeTime,
+    availableSlots: query.availableSlots,
+    hasMore: query.hasMore,
+    message: availabilityMessage(date, query),
   });
 }

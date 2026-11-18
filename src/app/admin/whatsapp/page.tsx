@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { MessageSquare, Settings, Send, User, Bot, BotOff, RefreshCw, ChevronLeft, X, Check, PanelLeftClose, PanelLeftOpen, Trash2, Lightbulb } from "lucide-react";
+import { MessageSquare, Settings, Send, User, Bot, BotOff, RefreshCw, ChevronLeft, X, Check, PanelLeftClose, PanelLeftOpen, Trash2, Lightbulb, UserCheck, MessageCircle } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useTranslation } from "@/i18n";
@@ -10,6 +10,14 @@ import PendingConfirmations from "@/components/admin/PendingConfirmations";
 import ReminderMessagesCard from "@/components/admin/ReminderMessagesCard";
 import ReminderSettingsCard from "@/components/admin/ReminderSettingsCard";
 import { useCan, useCanOpen } from "@/components/admin/TenantMeta";
+import { toast } from "@/hooks/useToast";
+import FilterChip from "@/components/ui/FilterChip";
+import HelpRowBadge from "@/components/admin/whatsapp/HelpRowBadge";
+import HelpBanner, { type HelpAssistant } from "@/components/admin/whatsapp/HelpBanner";
+import HelpSettingsCard from "@/components/admin/whatsapp/HelpSettingsCard";
+import { HELP_BAR_CLASS, HELP_COUNT_CLASS, HELP_TEXT_CLASS } from "@/components/admin/whatsapp/helpTone";
+import { customerWroteAgain, helpTone, needsHelp } from "@/lib/help-view";
+import { pausesBot, isHelpReason } from "@/lib/help-reasons";
 
 // WhatsApp text formatting normalizer to Standard Markdown
 const parseWhatsAppToMarkdown = (text: string) => {
@@ -30,6 +38,8 @@ export default function WhatsAppPage() {
   const canDeleteChat = useCan("whatsapp.chats.delete");
   // The App Store (connect WhatsApp) is ADMIN only.
   const canOpenApps = useCanOpen("/admin/apps");
+  // Assigning a chat to an assistant is owner only (the same permission as managing the team).
+  const canAssignHelpChats = useCan("users.manage");
   const [activeTab, setActiveTab] = useState<"chats" | "confirmations" | "settings">("chats");
   const [selectedChat, setSelectedChat] = useState<any>(null);
   const [chats, setChats] = useState<any[]>([]);
@@ -45,6 +55,29 @@ export default function WhatsAppPage() {
   const [botBusy, setBotBusy] = useState(false);
   const [draft, setDraft] = useState("");
   const botOn = selectedChat?.botEnabled !== false;
+  // Chats that need a person (HITL): filter, the owner's list of assistants, and a clock for the waiting times.
+  const [helpFilter, setHelpFilter] = useState<"all" | "needHelp" | "mine">("all");
+  // The person looking at the list (from the server): the chats in their charge are marked and filterable.
+  const [viewerId, setViewerId] = useState<string>("");
+  const deepLinkDone = useRef(false);
+  // A notice link (?chat=ID) opens that chat once the list has loaded.
+  useEffect(() => {
+    if (deepLinkDone.current || chats.length === 0) return;
+    deepLinkDone.current = true;
+    const id = new URLSearchParams(window.location.search).get("chat");
+    const found = id ? chats.find((c) => c.id === id) : undefined;
+    if (found) {
+      setActiveTab("chats");
+      setSelectedChat(found);
+    }
+  }, [chats]);
+  const [assistants, setAssistants] = useState<HelpAssistant[]>([]);
+  const [helpBusy, setHelpBusy] = useState(false);
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 30_000);
+    return () => clearInterval(timer);
+  }, []);
 
   // A draft belongs to one chat.
   useEffect(() => {
@@ -68,6 +101,8 @@ export default function WhatsAppPage() {
         const data = await res.json();
         const fresh: any[] = data.chats || [];
         setChats(fresh);
+        setAssistants(data.assistants || []);
+        setViewerId(data.viewerId || "");
         setSelectedChat((prev: any) => (prev ? fresh.find((c) => c.id === prev.id) ?? prev : prev));
       } catch (error) {
         console.error("Error refreshing chats:", error);
@@ -133,6 +168,8 @@ export default function WhatsAppPage() {
       if (chatsRes.ok) {
         const data = await chatsRes.json();
         setChats(data.chats || []);
+        setAssistants(data.assistants || []);
+        setViewerId(data.viewerId || "");
         // The open chat follows the list, so a pause from the phone shows in the header too.
         setSelectedChat((prev: any) => (prev ? (data.chats || []).find((c: any) => c.id === prev.id) ?? prev : prev));
       }
@@ -185,6 +222,35 @@ export default function WhatsAppPage() {
       showError(error?.message);
     } finally {
       setBotBusy(false);
+    }
+  };
+
+  // Take, mark handled or assign the open chat. The list is refreshed afterwards so the assistant's name shows.
+  const helpAction = async (action: "take" | "resolve" | "assign", assigneeId?: string | null) => {
+    if (!selectedChat || helpBusy) return;
+    setHelpBusy(true);
+    try {
+      const res = await fetch(`/api/apps/whatsapp/chats/${selectedChat.id}/help`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, ...(action === "assign" ? { assigneeId: assigneeId ?? null } : {}) }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      mergeChatState(data.chat);
+      if (data.warning === "assignee_no_whatsapp") toast(t.crm.whatsapp.help.assignWarning);
+      const fresh = await fetch("/api/apps/whatsapp/chats");
+      if (fresh.ok) {
+        const list = await fresh.json();
+        setChats(list.chats || []);
+        setAssistants(list.assistants || []);
+        setViewerId(list.viewerId || "");
+        setSelectedChat((prev: any) => (prev ? (list.chats || []).find((c: any) => c.id === prev.id) ?? prev : prev));
+      }
+    } catch (error: any) {
+      setNotificationState({ title: t.whatsappUi.errorTitle, message: t.crm.whatsapp.help.actionError, type: "error" });
+    } finally {
+      setHelpBusy(false);
     }
   };
 
@@ -304,7 +370,7 @@ export default function WhatsAppPage() {
           <MessageSquare className="text-primary shrink-0" size={26} />
           <div>
             <h1 className="text-xl font-semibold text-gray-900 dark:text-white leading-none">{t.crm.whatsapp.title}</h1>
-            <p className="text-sm text-green-600 dark:text-green-400 font-medium mt-1">● {t.crm.whatsapp.connected} {config.waPhoneNumber}</p>
+            <p className="text-sm text-primary font-medium mt-1">● {t.crm.whatsapp.connected} {config.waPhoneNumber}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -350,22 +416,56 @@ export default function WhatsAppPage() {
                 <RefreshCw className="w-3 h-3" /> {t.crm.whatsapp.updateList}
               </button>
             </div>
+            <div className="px-4 py-2 border-b border-gray-100 flex flex-wrap gap-2">
+              <FilterChip active={helpFilter === "all"} onClick={() => setHelpFilter("all")}>
+                {t.crm.whatsapp.help.filterAll}
+              </FilterChip>
+              <FilterChip active={helpFilter === "needHelp"} onClick={() => setHelpFilter("needHelp")}>
+                {t.crm.whatsapp.help.filterNeedHelp} ({chats.filter(needsHelp).length})
+              </FilterChip>
+              <FilterChip active={helpFilter === "mine"} onClick={() => setHelpFilter("mine")}>
+                {t.crm.whatsapp.help.filterMine} ({chats.filter((c) => viewerId && c.assignedToId === viewerId).length})
+              </FilterChip>
+            </div>
             <div className="flex-1 overflow-y-auto">
               {chats.length === 0 ? (
                 <div className="p-8 text-center text-gray-400 text-sm">{t.crm.whatsapp.noChats}</div>
               ) : (
-                chats.map(chat => (
+                chats.filter(chat => helpFilter === "all" || (helpFilter === "needHelp" ? needsHelp(chat) : !!viewerId && chat.assignedToId === viewerId)).map(chat => (
                   <div key={chat.id} className="relative group border-b border-gray-50">
+                    {needsHelp(chat) && (
+                      <span aria-hidden="true" className={`absolute inset-y-0 left-0 w-1 ${HELP_BAR_CLASS[helpTone(chat.helpPriority)]}`} />
+                    )}
                     <button
                       onClick={() => setSelectedChat(chat)}
                       className={`w-full p-4 pr-12 flex items-center gap-3 hover:bg-gray-50 dark:bg-gray-950 transition-colors text-left ${selectedChat?.id === chat.id ? 'bg-gray-100 dark:bg-gray-800' : ''}`}
                     >
-                      <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0 text-gray-400">
-                        <User className="w-6 h-6" />
+                      <div className="relative flex-shrink-0">
+                        <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center text-gray-400">
+                          <User className="w-6 h-6" />
+                        </div>
+                        {customerWroteAgain(chat) && (
+                          <span title={t.crm.whatsapp.help.wroteAgain} aria-label={t.crm.whatsapp.help.wroteAgain} className={`absolute -top-1 -right-1 w-5 h-5 rounded-full ring-2 ring-white dark:ring-gray-900 flex items-center justify-center ${HELP_COUNT_CLASS.high}`}>
+                            <MessageCircle size={11} aria-hidden="true" />
+                          </span>
+                        )}
+                        {viewerId && chat.assignedToId === viewerId && (
+                          <span title={t.crm.whatsapp.help.assignedToYou} aria-label={t.crm.whatsapp.help.assignedToYou} className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full ring-2 ring-white dark:ring-gray-900 bg-primary text-[color:var(--on-primary)] flex items-center justify-center">
+                            <UserCheck size={11} aria-hidden="true" />
+                          </span>
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-gray-900 dark:text-white truncate">{chat.pushName || chat.remoteJid.split('@')[0]}</p>
-                        {chat.botEnabled === false && (
+                        {needsHelp(chat) && (
+                          <HelpRowBadge
+                            helpReason={chat.helpReason ?? null}
+                            helpPriority={chat.helpPriority ?? 0}
+                            helpRequestedAt={chat.helpRequestedAt ?? null}
+                            now={now}
+                          />
+                        )}
+                        {chat.botEnabled === false && !needsHelp(chat) && (
                           <span className="inline-flex items-center gap-1 text-xs text-gray-500 mb-0.5">
                             <BotOff size={12} aria-hidden="true" />
                             {t.crm.whatsapp.botBadge}
@@ -391,7 +491,7 @@ export default function WhatsAppPage() {
                       onClick={(e) => { e.stopPropagation(); requestDeleteChat(chat); }}
                       aria-label={t.crm.whatsapp.deleteChat}
                       title={t.crm.whatsapp.deleteChat}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full text-gray-600 dark:text-gray-300 hover:text-red-600 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>}
@@ -432,6 +532,25 @@ export default function WhatsAppPage() {
                     </button>
                   </div>
                 </div>
+
+                {needsHelp(selectedChat) && (
+                  <HelpBanner
+                    helpReason={selectedChat.helpReason ?? null}
+                    helpPriority={selectedChat.helpPriority ?? 0}
+                    helpRequestedAt={selectedChat.helpRequestedAt ?? null}
+                    wroteAgain={customerWroteAgain(selectedChat)}
+                    isTaken={!!selectedChat.helpTakenAt}
+                    assignedToId={selectedChat.assignedToId ?? null}
+                    assignedToName={selectedChat.assignedTo?.name || selectedChat.assignedTo?.email || null}
+                    assistants={assistants}
+                    canAssign={canAssignHelpChats}
+                    busy={helpBusy}
+                    now={now}
+                    onTake={() => void helpAction("take")}
+                    onResolve={() => void helpAction("resolve")}
+                    onAssign={(assigneeId) => void helpAction("assign", assigneeId)}
+                  />
+                )}
 
                 {/* Messages List */}
                 <div
@@ -477,7 +596,13 @@ export default function WhatsAppPage() {
                     <div className="flex items-center justify-between gap-3 text-xs text-gray-500">
                       <span className="flex items-center gap-1.5">
                         <BotOff size={12} aria-hidden="true" />
-                        {selectedChat.botPausedReason === "owner_reply" ? t.crm.whatsapp.botPausedByOwner : t.crm.whatsapp.botPausedManual}
+                        {selectedChat.botPausedReason === "owner_reply"
+                          ? t.crm.whatsapp.botPausedByOwner
+                          : selectedChat.botPausedReason === "taken"
+                            ? t.crm.whatsapp.help.pausedByTake
+                            : isHelpReason(selectedChat.botPausedReason) && pausesBot(selectedChat.botPausedReason)
+                            ? t.crm.whatsapp.help.pausedForPerson
+                            : t.crm.whatsapp.botPausedManual}
                       </span>
                       <button
                         type="button"
@@ -547,7 +672,7 @@ export default function WhatsAppPage() {
                   <div className="bg-gray-50 dark:bg-gray-900 p-6 rounded-xl border border-gray-100 dark:border-gray-800">
                     <div className="flex items-center justify-between mb-6">
                       <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t.crm.whatsapp.tempLabel}</label>
-                      <span className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-3 py-1 rounded-full text-xs font-semibold ring-1 ring-green-200 dark:ring-green-800">
+                      <span className="border border-primary text-primary px-3 py-1 rounded-full text-xs font-semibold">
                         {config.waTemperature}
                       </span>
                     </div>
@@ -596,10 +721,10 @@ export default function WhatsAppPage() {
               </div>
             </div>
 
-            <div className="pt-10 border-t border-gray-100 dark:border-gray-800">
-              <button 
+            <div className="pt-10 border-t border-gray-100 dark:border-gray-800 flex justify-end">
+              <button
                 type="submit" disabled={saving}
-                className="w-full md:w-auto md:px-12 bg-primary text-white py-4 rounded-xl font-semibold hover:bg-secondary transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                className="w-full md:w-auto md:px-12 bg-primary text-[color:var(--on-primary)] py-4 rounded-xl font-semibold hover:bg-secondary transition-all flex items-center justify-center gap-3 disabled:opacity-50"
               >
                 {saving ? (
                   <RefreshCw className="w-5 h-5 animate-spin" />
@@ -614,6 +739,7 @@ export default function WhatsAppPage() {
           </form>
 
           <div className="mt-8 space-y-8">
+            {canAssignHelpChats && <HelpSettingsCard />}
             <ReminderSettingsCard />
             <ReminderMessagesCard />
           </div>
@@ -682,7 +808,7 @@ export default function WhatsAppPage() {
        {notificationState && (
         <div className="fixed inset-0 bg-black/40 z-[60] flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg w-full max-w-sm p-8 text-center border border-gray-100 dark:border-gray-800">
-            <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-6 ${notificationState.type === 'error' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
+            <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-6 ${notificationState.type === 'error' ? 'bg-red-100 text-red-600' : 'bg-primary text-[color:var(--on-primary)]'}`}>
               {notificationState.type === 'error' ? <X size={32} /> : <Check size={32} />}
             </div>
             <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">{notificationState.title}</h3>

@@ -746,3 +746,33 @@ Decision: customers get `<tenant>.newaigent.com/ubicacion` for the directions an
 - **Taken time**: every answer brings the 3 nearest free times (panel, restore, bot). A short hold of offered times is the next ticket.
 - **Rejected**: a hard delete with a log line only (loses the visit and its note); linking panel visits to existing accounts by email; a Prisma extension that filters deleted rows automatically (does not cover nested includes or raw SQL, and hides the rule).
 
+
+---
+
+## 2026-11-18 — Dev — Chats that need a person (HITL): help state lives on the chat
+
+Decisions: (1) the help state (reason, priority, who is in charge, notice times) is columns of `WhatsAppChat`, not a separate table: one query lists the chats and orders them by an index; the cost is no history, a log table can come later. (2) The person in charge is assigned to the chat, not to a patient: a patient is only a grouping of appointments by phone and has no table. (3) Order of notice: assigned assistant, then a queue (fewest open chats, longest without a notice), then the owner, and the owner is also told after a configurable wait. With no assistant able to receive the notice (plan Start has no seats for one) the owner is told at once. (4) The escalation clock rides on the existing 15-minute reminders job: no new n8n schedule, precision 15 minutes, so the setting goes in steps of 15. (5) A reason that hits the whole business (failed send, credits, agent) notifies once per hour like the owner alerts, so an outage does not send one message per chat. (6) The notice to an assistant carries the reason and a link, never the customer's message: it lands on a personal phone. (7) The bot never answers the owner or the staff (`isTeamNumber`): an assistant who replies to a notice on the business number would otherwise get a bot reply. (8) Amber (medium priority) is a status color the minimal-ui checker flags as brand-like; it is kept on purpose because priority needs two distinguishable levels besides red, always with an icon and text.
+
+## 2026-11-18 — Dev — Assignment notices and the assignee who cannot be reached
+
+The owner's assignment of a WhatsApp chat that needs a person now notifies the assistant at once in the panel (a toast on any admin screen, with the customer's name, the reason and what to do). If nobody takes the chat 15 minutes later, a WhatsApp notice follows. Reason: the in-app notice is the first signal a person sees while working; WhatsApp is the fallback for someone who is not in the panel. The 15 minutes match the job run, so there is no separate clock.
+
+An assistant who cannot receive WhatsApp (no number, inactive, or a failed send) is never replaced silently by the queue: the owner is told and the chat stays with that assistant. Reason: the owner's choice must not be overwritten without anyone knowing.
+
+Meta migration: every notice goes through `sendWhatsAppMessage` as plain text. Under the official API a notice outside the 24-hour window needs an approved template, the same as the reminders. The notice texts in `src/lib/help-notice.ts` stay the single source.
+
+---
+
+## 2026-11-18 — Dev — Shared form controls, not local ones
+
+A dropdown and number fields were written with local class constants, which broke the look of the rest of the settings cards, and a cleared number field saved 0 and then showed "01". The project already has the shared `input` and `select.input` classes (`src/app/globals.css`), and now a `NumberField` component. Lesson: before writing a form control, read the shared classes and the nearest card. The rule is in `CLAUDE.md` under "Form controls".
+
+---
+
+## 2026-11-18 — Dev — Design checks before closing a UI change
+
+Ran `node local-utils/minimal-ui/theme-colors.js`, `node local-utils/minimal-ui/audit.js` and the impeccable detector on every touched screen. Fixed the FAILs of the touched files (brand-green status colors, gray text on a tinted background, white text on the primary color). Left for a decision: the default theme colors in `src/app/admin/layout.tsx` (`#16a34a` and related) are the platform fallback for businesses without a theme, and changing them changes their look. The toast's `shadow-lg` stays: a floating notice counts as an overlay under the audit rule.
+
+## 2026-11-18 — Dev — Restart the demo server after a schema change
+
+The demo server on port 3100 keeps the Prisma client it loaded when it started. After `prisma generate` with a new column (`helpAssignedAt`), assigning a chat from the screen answered "The conversation could not be updated", while the same write worked in a script. Fix: restart the demo server (port 3100 only, never 3000). Check: a sign-in and the assign request answer 200. Rule for demo work: after changing `schema.prisma` and regenerating, restart the demo server before testing a screen.

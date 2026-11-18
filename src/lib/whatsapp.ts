@@ -99,9 +99,10 @@ export async function sendWhatsAppMessage({
  * Best-effort alert to the tenant owner, sent to the business's own connected
  * WhatsApp number (Tenant.whatsappNumber). Used for system alerts (credits
  * exhausted, bot failures) — there is no other notification channel today.
- * Never throws; a missing number or a failed send is only logged.
+ * Never throws; a missing number or a failed send is only logged. Returns true only when the message was sent,
+ * so a caller that rate-limits alerts can tell whether the owner was actually told.
  */
-export async function notifyTenantOwner(tenantId: string, message: string): Promise<void> {
+export async function notifyTenantOwner(tenantId: string, message: string): Promise<boolean> {
   const tenant = await prisma.tenant.findUnique({
     where: { id: tenantId },
     select: { whatsappNumber: true },
@@ -109,11 +110,12 @@ export async function notifyTenantOwner(tenantId: string, message: string): Prom
 
   if (!tenant?.whatsappNumber) {
     console.error(`[whatsapp] notifyTenantOwner: tenant ${tenantId} has no whatsappNumber`);
-    return;
+    return false;
   }
 
   const result = await sendWhatsAppMessage({ tenantId, to: tenant.whatsappNumber, text: message });
   if (!result.success) {
     console.error(`[whatsapp] notifyTenantOwner failed for tenant ${tenantId}:`, result.reason);
   }
+  return result.success;
 }

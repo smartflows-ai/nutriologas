@@ -30,7 +30,7 @@ Ticket: https://github.com/smartflows-ai/nutriologas/issues/111 · Va en el **mi
 | Los nombres que trae `Intl` en español confunden: Cancún sale "hora estándar oriental" y CDMX "hora estándar central" | La etiqueta es nuestra: "hora de Cancún", "hora de Ciudad de México" |
 | `GOOGLE_MAPS_API_KEY` está restringida solo a "Places API (New)" (CLAUDE.md) | **Tú** tienes que activar Time Zone API y agregarla a la restricción de la llave |
 | Node 26 trae `Temporal`, pero no todos los navegadores | La conversión se hace con `Intl`, que funciona en el servidor y en el navegador, sin librería nueva |
-| No hay columna de zona en `tenants` | Cambio en la base: `prisma/sql/28-tenant-time-zone` |
+| No hay columna de zona en `tenants` | Cambio en la base: `prisma/sql/29-tenant-time-zone` |
 
 Metáfora: hoy todos los relojes de la app están pegados a la pared de la Ciudad de México. Si un consultorio abre en Cancún, su reloj sigue marcando la hora de la CDMX. El plan le da a cada consultorio su propio reloj, con su nombre escrito abajo.
 
@@ -59,7 +59,7 @@ Ejemplo: `my-appointments` trae `timeZone: "America/Cancun"` y `timeZoneLabel: "
 ## Diseño
 
 ### 1. Base de datos (primero la base, después el código)
-- `prisma/sql/28-tenant-time-zone/up.sql`:
+- `prisma/sql/29-tenant-time-zone/up.sql`:
   - `ALTER TABLE "tenants" ADD COLUMN "timeZone" TEXT NOT NULL DEFAULT 'America/Mexico_City';`
   - `ALTER TABLE "tenants" ADD COLUMN "timeZoneSource" TEXT NOT NULL DEFAULT 'default';` con los valores `default`, `google` o `manual`. Sirve para saber si una dirección nueva debe volver a detectar la zona: `Tenant` no tiene un campo JSON libre donde guardarlo.
   - Es aditivo: el código viejo ignora ambas columnas y todos los negocios quedan como hoy.
@@ -143,7 +143,7 @@ Ejemplo: `my-appointments` trae `timeZone: "America/Cancun"` y `timeZoneLabel: "
 8. Suite completa, `npx tsc --noEmit` y `npm run build`.
 
 ## Validación local (espejo, como hoy)
-- `test-sql` de la migración 28 en el espejo.
+- `test-sql` de la migración 29 en el espejo.
 - Repetir **B1-B11** con doctorgcenter en CDMX: el resultado debe ser idéntico al de hoy, más `timeZone` y `timeZoneLabel`.
 - **B12:** en el espejo, doctorgcenter pasa a `America/Cancun`: la cita de las 19:30 CDMX se lee 20:30 "hora de Cancún", y una cita nueva a las 10:00 Cancún se guarda `15:00Z`.
 - **B13:** `/admin/negocio` en el espejo: guardar la dirección detecta la zona con Google (requiere que hayas activado la API; antes te aviso, porque es una llamada real a Google con tu llave).

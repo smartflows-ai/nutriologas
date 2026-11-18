@@ -4,7 +4,7 @@
 // (YYYY-MM-DD and HH:mm picked by a person) comes in or goes out. Every function receives the zone: this module is
 // the only place that converts (ticket #111), so no other file writes an offset such as "-06:00".
 
-/** The zone every business had before the setting existed; the column default in prisma/sql/28-tenant-time-zone. */
+/** The zone every business had before the setting existed; the column default in prisma/sql/29-tenant-time-zone. */
 export const DEFAULT_TIME_ZONE = "America/Mexico_City";
 
 const IANA_NAME = /^(?:UTC|[A-Za-z]+(?:\/[A-Za-z0-9_+-]+){1,2})$/;

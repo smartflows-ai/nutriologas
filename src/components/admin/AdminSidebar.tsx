@@ -48,6 +48,7 @@ interface Props {
 }
 
 import { useTranslation } from "@/i18n";
+import HelpCountBadge from "@/components/admin/whatsapp/HelpCountBadge";
 
 interface NavItem {
   href: string;
@@ -194,6 +195,7 @@ export default function AdminSidebar({
                     {active && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full" />}
                     <Icon size={18} className={active ? "text-primary" : "text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors"} />
                     {label}
+                    {href === "/admin/whatsapp" && <HelpCountBadge />}
                   </Link>
                 );
               })}
@@ -253,6 +255,7 @@ export default function AdminSidebar({
                     {active && !collapsed && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full" />}
                     <Icon size={18} className={active ? "text-primary" : "text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors"} />
                     {!collapsed && label}
+                    {href === "/admin/whatsapp" && <HelpCountBadge compact={collapsed} />}
                   </Link>
                 );
               })}

@@ -8,6 +8,7 @@ import { BellRing, Check, Loader2, AlertCircle } from "lucide-react";
 import { useTranslation } from "@/i18n";
 import { translateApiError } from "@/i18n/validation";
 import { fill } from "@/lib/utils";
+import NumberField from "@/components/ui/NumberField";
 
 interface TimingSettings {
   remindersEnabled: boolean;
@@ -15,9 +16,6 @@ interface TimingSettings {
   confirmationRequired: boolean;
   confirmationDeadlineMinutes: number;
 }
-
-const inputClass =
-  "w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-primary";
 
 // Minutes shown as hours (1.5 = 1 h 30 min) and back.
 const toHours = (minutes: number) => minutes / 60;
@@ -119,15 +117,14 @@ export default function ReminderSettingsCard() {
         <label htmlFor="reminder-lead" className="block text-sm font-medium text-gray-900 dark:text-white">
           {tx.reminderLeadLabel}
         </label>
-        <input
+        <NumberField
           id="reminder-lead"
-          type="number"
+          value={toHours(settings.reminderLeadMinutes)}
           min={1}
           max={72}
           step={0.5}
-          value={toHours(settings.reminderLeadMinutes)}
-          onChange={(e) => update({ reminderLeadMinutes: toMinutes(Number(e.target.value)) })}
-          className={`${inputClass} sm:w-40`}
+          onCommit={(hours) => update({ reminderLeadMinutes: toMinutes(hours) })}
+          className="sm:w-40"
         />
       </div>
 
@@ -146,15 +143,14 @@ export default function ReminderSettingsCard() {
           <label htmlFor="reminder-deadline" className="block text-sm font-medium text-gray-900 dark:text-white">
             {tx.deadlineHoursLabel}
           </label>
-          <input
+          <NumberField
             id="reminder-deadline"
-            type="number"
+            value={toHours(settings.confirmationDeadlineMinutes)}
             min={0.5}
             max={48}
             step={0.5}
-            value={toHours(settings.confirmationDeadlineMinutes)}
-            onChange={(e) => update({ confirmationDeadlineMinutes: toMinutes(Number(e.target.value)) })}
-            className={`${inputClass} sm:w-40`}
+            onCommit={(hours) => update({ confirmationDeadlineMinutes: toMinutes(hours) })}
+            className="sm:w-40"
           />
           <p className="text-xs text-gray-500 dark:text-gray-400">{windowText}</p>
         </div>
@@ -175,7 +171,7 @@ export default function ReminderSettingsCard() {
       )}
 
       <div className="flex items-center justify-between pt-2">
-        <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+        <span className="text-xs font-semibold text-primary">
           {saved && (
             <span className="inline-flex items-center gap-1.5">
               <Check size={14} />

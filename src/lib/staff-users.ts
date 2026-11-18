@@ -15,6 +15,8 @@ export interface StaffUser {
   readonly role: string;
   readonly isActive: boolean;
   readonly mustChangePassword: boolean;
+  /** Where "a chat needs help" notices go; null when the owner has not set it. */
+  readonly whatsappNumber?: string | null;
 }
 
 // What the team screen receives: the staff of the business and how many of its plan's seats are in use.
