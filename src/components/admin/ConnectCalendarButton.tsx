@@ -3,7 +3,8 @@
 export default function ConnectCalendarButton({ label = "Conectar Google Calendar" }: { label?: string }) {
   const handleConnect = () => {
     // Use the new OAuth start endpoint that properly handles subdomains
-    const startUrl = `/api/apps/oauth/google/start?scope=https://www.googleapis.com/auth/calendar`;
+    // The server sets the scopes (calendar.events only, see the start route); this parameter is informational.
+    const startUrl = `/api/apps/oauth/google/start?scope=https://www.googleapis.com/auth/calendar.events`;
     window.location.href = startUrl;
   };
 
