@@ -72,15 +72,19 @@ export default function AssignmentToaster() {
       {visible.map((item) => (
         <div
           key={assignmentKey(item)}
-          className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-lg p-4 flex gap-3"
+          className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-4 flex gap-3"
         >
           <UserCheck size={18} className="text-primary shrink-0 mt-0.5" aria-hidden="true" />
           <div className="flex-1 min-w-0 space-y-1">
-            <p className="text-sm font-semibold text-gray-900 dark:text-white">{help.assignedTitle}</p>
+            <p className="text-sm font-semibold text-gray-900 dark:text-white">
+              {item.kind === "unattended" ? help.unattendedTitle : help.assignedTitle}
+            </p>
             <p className="text-sm text-gray-700 dark:text-gray-300 truncate">
               {item.contact} · {reasonText(item.reason)}
             </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">{item.priority > 0 ? help.assignedUrgent : help.assignedPlain}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              {item.kind === "unattended" ? help.unattendedBody : item.priority > 0 ? help.assignedUrgent : help.assignedPlain}
+            </p>
             <Link href={`/admin/whatsapp?chat=${item.id}`} className="inline-block text-sm font-medium text-primary hover:underline">
               {help.openChat}
             </Link>

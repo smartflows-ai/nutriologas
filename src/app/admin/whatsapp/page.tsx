@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { MessageSquare, Settings, Send, User, Bot, BotOff, RefreshCw, ChevronLeft, X, Check, PanelLeftClose, PanelLeftOpen, Trash2, Lightbulb, UserCheck, MessageCircle } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -32,7 +33,16 @@ const parseWhatsAppToMarkdown = (text: string) => {
   return md;
 };
 
+// The page reads the ?chat= link with useSearchParams, which needs a Suspense boundary in the App Router.
 export default function WhatsAppPage() {
+  return (
+    <Suspense fallback={null}>
+      <WhatsAppPageContent />
+    </Suspense>
+  );
+}
+
+function WhatsAppPageContent() {
   const { t } = useTranslation();
   // Deleting a chat is ADMIN only (src/lib/permissions.ts); the API answers 403 to anyone else.
   const canDeleteChat = useCan("whatsapp.chats.delete");
@@ -59,18 +69,20 @@ export default function WhatsAppPage() {
   const [helpFilter, setHelpFilter] = useState<"all" | "needHelp" | "mine">("all");
   // The person looking at the list (from the server): the chats in their charge are marked and filterable.
   const [viewerId, setViewerId] = useState<string>("");
-  const deepLinkDone = useRef(false);
-  // A notice link (?chat=ID) opens that chat once the list has loaded.
+  // A notice link (?chat=ID) opens that chat. The page stays mounted when the link is clicked from the same screen, so the
+  // effect follows the link itself (the whole query), not only the first load.
+  const search = useSearchParams();
+  const chatParam = search.get("chat");
+  const linkKey = search.toString();
+  const openedLink = useRef<string | null>(null);
   useEffect(() => {
-    if (deepLinkDone.current || chats.length === 0) return;
-    deepLinkDone.current = true;
-    const id = new URLSearchParams(window.location.search).get("chat");
-    const found = id ? chats.find((c) => c.id === id) : undefined;
-    if (found) {
-      setActiveTab("chats");
-      setSelectedChat(found);
-    }
-  }, [chats]);
+    if (!chatParam || chats.length === 0 || openedLink.current === linkKey) return;
+    const found = chats.find((c) => c.id === chatParam);
+    if (!found) return;
+    openedLink.current = linkKey;
+    setActiveTab("chats");
+    setSelectedChat(found);
+  }, [chats, chatParam, linkKey]);
   const [assistants, setAssistants] = useState<HelpAssistant[]>([]);
   const [helpBusy, setHelpBusy] = useState(false);
   const [now, setNow] = useState(() => new Date());

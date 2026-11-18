@@ -904,6 +904,8 @@ export const es: Translations = {
         assignedTitle: "Te asignaron un chat",
         assignedUrgent: "Necesita ayuda: tómalo para que deje de correr el tiempo de espera.",
         assignedPlain: "Revísalo en el panel.",
+        unattendedTitle: "Un chat necesita tu atención",
+        unattendedBody: "No hay asistente disponible para tomarlo.",
         openChat: "Abrir chat",
         dismissNotice: "Cerrar aviso",
         assignNoWhatsapp: " (sin WhatsApp)",

@@ -46,6 +46,8 @@ export interface AssignmentView {
   reason: string | null;
   priority: number;
   assignedAt: string;
+  /** "assigned": an assistant was put in charge. "unattended": no assistant could take it, so the owner does. */
+  kind?: "assigned" | "unattended";
 }
 
 /** The key of one assignment: the same chat assigned again is a new notice. */

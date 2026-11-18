@@ -97,6 +97,9 @@ export async function raiseHelpOnChat(
       const sent = await deps.sendToAssistant(tenant.id, plan.assistantId, helpNoticeText(reason, url, "assistant"));
       if (sent) {
         data.helpAssigneeNotifiedAt = now;
+        // The in-app toast is keyed by this time, so every notice to an assistant shows it, not only the owner's assignments.
+        // The 15-minute WhatsApp reminder does not repeat: it waits for a notice older than the assignment.
+        data.helpAssignedAt = now;
         if (!chat.assignedToId && responder.kind === "assistant") data.assignedToId = plan.assistantId;
         notified = "assistant";
       } else {
