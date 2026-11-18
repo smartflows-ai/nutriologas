@@ -4,6 +4,7 @@
 import { KeyRound, UserCheck, UserX } from "lucide-react";
 import { useTranslation } from "@/i18n";
 import type { StaffUser } from "@/lib/staff-users";
+import StaffWhatsappField from "./StaffWhatsappField";
 
 const ACTION_CLASS = "btn-secondary inline-flex items-center justify-center gap-2 min-h-11 sm:min-h-0 disabled:opacity-50";
 const BADGE_CLASS = "inline-block text-xs px-2 py-0.5 rounded-md";
@@ -17,9 +18,11 @@ interface Props {
   onReset: () => void;
   onDeactivate: () => void;
   onActivate: () => void;
+  /** The WhatsApp number for help notices was saved: reload the team. */
+  onWhatsappSaved: () => void;
 }
 
-export default function TeamUserRow({ user, roleLabel, isBusy, hasFreeSeat, onReset, onDeactivate, onActivate }: Props) {
+export default function TeamUserRow({ user, roleLabel, isBusy, hasFreeSeat, onReset, onDeactivate, onActivate, onWhatsappSaved }: Props) {
   const { t } = useTranslation();
   const tx = t.team;
   const status = !user.isActive ? tx.statusInactive : user.mustChangePassword ? tx.statusPending : tx.statusActive;
@@ -37,6 +40,15 @@ export default function TeamUserRow({ user, roleLabel, isBusy, hasFreeSeat, onRe
           <span className="text-xs text-gray-500 dark:text-gray-400">{roleLabel}</span>
           <span className={`${BADGE_CLASS} ${badgeTone}`}>{status}</span>
         </p>
+        {user.isActive && (
+          <StaffWhatsappField
+            key={`${user.id}:${user.whatsappNumber ?? ""}`}
+            userId={user.id}
+            value={user.whatsappNumber ?? null}
+            disabled={isBusy}
+            onSaved={onWhatsappSaved}
+          />
+        )}
       </div>
 
       <div className="flex flex-col sm:flex-row gap-2 shrink-0">

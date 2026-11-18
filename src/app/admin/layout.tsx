@@ -1,5 +1,6 @@
 // src/app/admin/layout.tsx
 import AdminSidebar from "@/components/admin/AdminSidebar";
+import AssignmentToaster from "@/components/admin/whatsapp/AssignmentToaster";
 import SessionWatch from "@/components/admin/SessionWatch";
 import TrialBanner from "@/components/admin/TrialBanner";
 import TrialExpiredGate from "@/components/admin/TrialExpiredGate";
@@ -78,6 +79,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           connectedApps={tenant?.connectedApps.map(a => a.provider) ?? []}
           enabledTools={tenant?.enabledTools ?? []}
         />
+
+        {/* Once per screen: the notice of a chat the owner put in charge of this person (any admin page) */}
+        <AssignmentToaster />
 
         {/* Main content — pt-16 on mobile to clear the hamburger button */}
         <main className="flex-1 overflow-y-auto w-full">

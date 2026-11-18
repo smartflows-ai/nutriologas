@@ -11,12 +11,14 @@ import { generateTempPassword } from "@/lib/temp-password";
 import { userSeats } from "@/lib/user-limits";
 
 // What the team screen may read. Never the password hash or the reset code.
-const PUBLIC_FIELDS = { id: true, email: true, name: true, role: true, isActive: true, mustChangePassword: true } as const;
+const PUBLIC_FIELDS = { id: true, email: true, name: true, role: true, isActive: true, mustChangePassword: true, whatsappNumber: true } as const;
 const UNIQUE_VIOLATION = "P2002";
 
 // The owner and the active staff are the users that use a seat.
 const SEAT_USERS = (tenantId: string): Prisma.UserWhereInput => ({ tenantId, isActive: true, role: { in: [ADMIN_ROLE, STAFF_ROLE] } });
 const STAFF_ROW = (tenantId: string, userId: string): Prisma.UserWhereInput => ({ id: userId, tenantId, role: STAFF_ROLE });
+/** The chats a person is in charge of: released when the account is deactivated. */
+const CHATS_IN_CHARGE = (tenantId: string, userId: string) => ({ tenantId, assignedToId: userId });
 
 // The part of a Prisma transaction the seat rules use. Narrow on purpose, so the rules are tested with a fake
 // transaction that records the order of its calls (tests/staff-users-data.test.ts).
@@ -93,10 +95,17 @@ function activateWithinLimit(tenantId: string, userId: string, limit: number): P
 
 async function deactivate(tenantId: string, userId: string): Promise<boolean> {
   // The version goes up so every open session of that user ends for good, also after a later activation.
-  const { count } = await prisma.user.updateMany({
-    where: STAFF_ROW(tenantId, userId),
-    data: { isActive: false, sessionVersion: { increment: 1 } },
-  });
+  // The chats this person had in charge are released: the next request goes to another assistant or the owner.
+  const [{ count }] = await prisma.$transaction([
+    prisma.user.updateMany({
+      where: STAFF_ROW(tenantId, userId),
+      data: { isActive: false, sessionVersion: { increment: 1 } },
+    }),
+    prisma.whatsAppChat.updateMany({
+      where: CHATS_IN_CHARGE(tenantId, userId),
+      data: { assignedToId: null, helpAssignedAt: null },
+    }),
+  ]);
   return count > 0;
 }
 
