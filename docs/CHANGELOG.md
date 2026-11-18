@@ -6,6 +6,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased] — 2026-11-06
 
+### Fixed (availability for the WhatsApp agent, ticket #112)
+- Every requested hour gets one status: free, taken, closed (the business does not open then), past (the hour already passed) or no_fit (open, but the service does not finish before closing). Before, a closed hour, a past hour and an hour that did not fit were all reported as "no es hora de atencion", and an open hour off the service grid (09:15 for a 30 minute service) was reported as closed (`src/lib/slot-query.ts`, `src/lib/availability-message.ts`, `insideBusinessHours` in `src/lib/business-hours.ts`).
+- Invalid input gets a clear error instead of a server error or a silent answer: a date that does not exist or is not a date (`date_invalid`, which used to return 500), an hour that is not a clock time (`time_invalid`; "9:00" is accepted as 09:00), `after` that is not an hour (`after_invalid`, which used to repeat the first hours), `time` and `edge` together (`time_and_edge`), and a service with no valid duration (`service_duration_invalid`).
+- A past date, a closed day and a service longer than any block of the business each get their own sentence.
+- The agent rules (local v3 workflow, not in git) say what to answer for each status and never offer hours when the tool fails.
+
 ### Added (owner notice when no assistant takes a chat that needs a person)
 - When a chat that needs a person is sent to the owner because no assistant could take it (no assistant in the queue, or none reachable), the owner gets the same in-app notice as an assistant (`AssignmentToaster`), titled "Un chat necesita tu atención". It is shown once per notice and only to users with `users.manage`. The WhatsApp message to the owner is unchanged. `GET /api/apps/whatsapp/help-count` returns these notices as `assignments` with `kind: "unattended"`.
 
