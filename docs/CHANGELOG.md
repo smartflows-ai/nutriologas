@@ -6,6 +6,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased] — 2026-11-06
 
+### Added (deterministic guard for requests for a person, WhatsApp agent)
+- A guard in the n8n workflow (`Guard: Person Request`, local file, not in git) checks the customer's message before the agent runs. When the message explicitly asks for a person ("quiero hablar con alguien", "pásame con un asesor", "que me llamen"), it calls `POST /api/internal/bot/help` with `person_requested`, so the chat is marked, the bot steps aside and the team is told even if the model does not call `request_human_help`. It runs as a parallel branch of the credits guard, changes nothing the agent receives, and a failed call is ignored (`src/lib/person-request.ts`).
+- Protected by `tests/person-request.test.ts`: the explicit requests are detected, booking for another person, prices, greetings, complaints and "persona" in other senses are not, the guard's expression is the module's pattern (run on the real node), the agent keeps the same inputs, the new nodes add no output, and the workflow has no cycle.
+
 ### Fixed (availability for the WhatsApp agent, ticket #112)
 - Every requested hour gets one status: free, taken, closed (the business does not open then), past (the hour already passed) or no_fit (open, but the service does not finish before closing). Before, a closed hour, a past hour and an hour that did not fit were all reported as "no es hora de atencion", and an open hour off the service grid (09:15 for a 30 minute service) was reported as closed (`src/lib/slot-query.ts`, `src/lib/availability-message.ts`, `insideBusinessHours` in `src/lib/business-hours.ts`).
 - Invalid input gets a clear error instead of a server error or a silent answer: a date that does not exist or is not a date (`date_invalid`, which used to return 500), an hour that is not a clock time (`time_invalid`; "9:00" is accepted as 09:00), `after` that is not an hour (`after_invalid`, which used to repeat the first hours), `time` and `edge` together (`time_and_edge`), and a service with no valid duration (`service_duration_invalid`).
