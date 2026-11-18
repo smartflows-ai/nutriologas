@@ -27,3 +27,14 @@ test("gmail.send and spreadsheets.readonly are not requested", () => {
   assert.equal(scopes.includes("https://www.googleapis.com/auth/gmail.send"), false);
   assert.equal(scopes.includes("https://www.googleapis.com/auth/spreadsheets.readonly"), false);
 });
+
+// The calendar list needs a permission the connection no longer asks for; the owner email comes from userinfo instead.
+const READERS = ["src/app/api/calendar/events/route.ts", "src/lib/external-calendar.ts"];
+
+test("the calendar readers do not call the calendar list (it needs a permission the connection does not ask for)", () => {
+  for (const rel of READERS) {
+    const code = readFileSync(path.join(ROOT, rel), "utf8").replace(/\r\n/g, "\n");
+    assert.equal(code.includes("calendarList"), false, rel);
+    assert.ok(code.includes("https://www.googleapis.com/oauth2/v2/userinfo"), `${rel} reads the account email`);
+  }
+});
