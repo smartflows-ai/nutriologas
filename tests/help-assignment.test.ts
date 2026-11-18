@@ -182,3 +182,26 @@ test("the 'wrote again' mark shows only while a request is open and nobody has t
 test("marking the chat handled clears the 'wrote again' mark", () => {
   assert.equal(resolvePatch().helpCustomerWroteAt, null);
 });
+
+test("every notice to an assistant also sets the time the toast is keyed by (not only the owner's assignments)", async () => {
+  const assignedRaise = raiseFakes([assistant("y")]);
+  await raiseHelpOnChat(assignedRaise.deps, TENANT, chat({ assignedToId: "y" }), "person_requested", NOW);
+  assert.deepEqual(assignedRaise.saved[0].data.helpAssignedAt, NOW, "assigned assistant: toast");
+
+  const queuePick = raiseFakes([assistant("x", { openCount: 2 }), assistant("y", { openCount: 0 })]);
+  await raiseHelpOnChat(queuePick.deps, TENANT, chat({ assignedToId: null }), "person_requested", NOW);
+  assert.equal(queuePick.saved[0].data.assignedToId, "y");
+  assert.deepEqual(queuePick.saved[0].data.helpAssignedAt, NOW, "queue pick: toast");
+});
+
+test("the WhatsApp reminder does not repeat right after a notice that set the same time", () => {
+  const notified = { assignedToId: "y", helpPriority: 2, helpAssignedAt: NOW, takenAt: null, assigneeNotifiedAt: NOW, ownerNotifiedAt: null };
+  assert.equal(assignmentReminderDue(new Date(NOW.getTime() + 20 * 60 * 1000), notified), false);
+});
+
+test("the owner notice for a chat no assistant could take is its own notice, separate from an assignment", () => {
+  const assigned: AssignmentView = { id: "c9", contact: "Ana", reason: "person_requested", priority: 2, assignedAt: minutesAgo(3).toISOString() };
+  const unattended: AssignmentView = { ...assigned, kind: "unattended", assignedAt: minutesAgo(1).toISOString() };
+  assert.notEqual(assignmentKey(assigned), assignmentKey(unattended));
+  assert.deepEqual(newAssignments([unattended], new Set([assignmentKey(assigned)]), NOW), [unattended], "not hidden by an earlier assignment");
+});

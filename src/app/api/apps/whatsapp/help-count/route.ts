@@ -4,6 +4,7 @@
 // of this person (the assistant's counter). `assignments` feeds the in-app notice. Every count: nobody took it yet.
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/permission-guard";
+import { canAssignHelp } from "@/lib/help-actions";
 import { ASSIGNMENT_NOTICE_WINDOW_MS, contactLabel, type AssignmentView } from "@/lib/help-view";
 
 export async function GET() {
@@ -28,6 +29,17 @@ export async function GET() {
     }),
   ]);
 
+  // The owner also hears about a chat that no assistant could take: the owner was told and nobody was (no assistant in the
+  // queue, or none reachable). The chat then waits for the owner, so the owner gets the same in-app notice.
+  const unattended = canAssignHelp(access.session.user.role)
+    ? await prisma.whatsAppChat.findMany({
+        where: { ...where, assignedToId: null, helpAssigneeNotifiedAt: null, helpOwnerNotifiedAt: { gte: since } },
+        select: { id: true, pushName: true, remoteJid: true, helpReason: true, helpPriority: true, helpOwnerNotifiedAt: true },
+        orderBy: { helpOwnerNotifiedAt: "desc" },
+        take: 10,
+      })
+    : [];
+
   const assignments: AssignmentView[] = assigned
     .filter((chat) => chat.helpAssignedAt !== null)
     .map((chat) => ({
@@ -36,7 +48,18 @@ export async function GET() {
       reason: chat.helpReason,
       priority: chat.helpPriority,
       assignedAt: (chat.helpAssignedAt as Date).toISOString(),
+      kind: "assigned" as const,
+    }));
+  const unattendedNotices: AssignmentView[] = unattended
+    .filter((chat) => chat.helpOwnerNotifiedAt !== null)
+    .map((chat) => ({
+      id: chat.id,
+      contact: contactLabel(chat.pushName, chat.remoteJid),
+      reason: chat.helpReason,
+      priority: chat.helpPriority,
+      assignedAt: (chat.helpOwnerNotifiedAt as Date).toISOString(),
+      kind: "unattended" as const,
     }));
 
-  return Response.json({ open, high, mine: mineCount, mineHigh, assignments });
+  return Response.json({ open, high, mine: mineCount, mineHigh, assignments: [...assignments, ...unattendedNotices] });
 }

@@ -779,6 +779,8 @@ export interface Translations {
         assignedTitle: string;
         assignedUrgent: string;
         assignedPlain: string;
+        unattendedTitle: string;
+        unattendedBody: string;
         openChat: string;
         dismissNotice: string;
         assignNoWhatsapp: string;

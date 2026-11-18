@@ -6,6 +6,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased] — 2026-11-06
 
+### Added (owner notice when no assistant takes a chat that needs a person)
+- When a chat that needs a person is sent to the owner because no assistant could take it (no assistant in the queue, or none reachable), the owner gets the same in-app notice as an assistant (`AssignmentToaster`), titled "Un chat necesita tu atención". It is shown once per notice and only to users with `users.manage`. The WhatsApp message to the owner is unchanged. `GET /api/apps/whatsapp/help-count` returns these notices as `assignments` with `kind: "unattended"`.
+
+### Fixed (WhatsApp chat opened from a notice)
+- The notice link (`/admin/whatsapp?chat=ID`) opens the chat also when the WhatsApp page is already open: the page follows the link (`useSearchParams`) instead of reading it once on load.
+
+### Fixed (notice toast follows the design rules)
+- The notice card has no shadow (`minimal-ui` audit).
+
 ### Added (assignment notices for chats that need a person)
 - When the owner puts an assistant in charge of a chat (`Asignar a`), the assistant gets an in-app notice on any admin screen (`AssignmentToaster`): the customer's WhatsApp name (or the last four digits), the reason, and what to do. It is shown once per assignment and does not repeat after a reload. The sidebar counter next to WhatsApp shows, for an assistant, the open chats in charge of them; for the owner, the whole business.
 - If nobody takes that chat 15 minutes after the assignment, the assistant gets a WhatsApp notice (plain text, never the customer's message). If the assistant cannot receive it, the owner is told instead.
