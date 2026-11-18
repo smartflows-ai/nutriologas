@@ -59,6 +59,8 @@ model Tenant {
   cancellationTemplate      String?
   messageLanguage           String  @default("es") // Idioma de los mensajes al cliente: es | en
   businessHours          Json?   // Horario semanal de atención (null = horario por defecto, ver src/lib/business-hours.ts)
+  timeZone               String  @default("America/Mexico_City") // Zona horaria IANA del negocio (ticket #111, src/lib/clinic-time.ts)
+  timeZoneSource         String  @default("default") // default | google (detectada por la dirección) | manual (la eligió el dueño)
   appointmentNotes       AppointmentNote[]
   appointmentTrail       AppointmentTrail[]
 

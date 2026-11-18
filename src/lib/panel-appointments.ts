@@ -71,6 +71,7 @@ export const realPanelDeps: PanelDeps = {
         vertical: true,
         isBookingEnabled: true,
         businessHours: true,
+        timeZone: true,
         serviceModes: true,
         hasPhysicalLocation: true,
         address: true,

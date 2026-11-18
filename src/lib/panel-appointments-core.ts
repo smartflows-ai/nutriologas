@@ -16,7 +16,7 @@ import {
 import { buildCalendarText } from "@/lib/appointment-calendar-text";
 import { isBookable } from "@/lib/bookable";
 import { parseBusinessHours, slotWithinHours, type BusinessHours } from "@/lib/business-hours";
-import { clinicDateKeyOf, clinicTimeOf } from "@/lib/clinic-time";
+import { clinicDateKeyOf, clinicTimeOf, DEFAULT_TIME_ZONE, isValidTimeZone } from "@/lib/clinic-time";
 import { effectiveModes, isSyntheticEmail, referralOf, resolveModality, type Modality } from "@/lib/patient-intake";
 import { omitClinicalNotes } from "@/lib/permissions";
 import { cleanPetName } from "@/lib/pets";
@@ -39,6 +39,8 @@ export interface PanelTenant {
   readonly vertical: BusinessVertical;
   readonly isBookingEnabled: boolean;
   readonly businessHours: unknown;
+  /** The business time zone (IANA, ticket #111); a bad value falls back to the default. */
+  readonly timeZone: string;
   readonly serviceModes: ServiceModes;
   readonly hasPhysicalLocation: boolean;
   readonly address: string | null;
@@ -139,6 +141,7 @@ export interface PanelDeps {
   reloadVisit(tenantId: string, id: string): Promise<VisitRow | null>;
   freeSlots(input: {
     tenantId: string;
+    zone: string;
     hours: BusinessHours;
     durationMinutes: number;
     target: Date;
@@ -151,6 +154,11 @@ export interface PanelDeps {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
+/** The stored zone when valid, the default otherwise (same rule as tenant-time-zone.ts, kept here free of server code). */
+function usableTimeZone(zone: string | null | undefined): string {
+  return isValidTimeZone(zone) ? zone : DEFAULT_TIME_ZONE;
+}
+
 const fail = (status: number, error: string, extra: Record<string, unknown> = {}): PanelResult => ({
   status,
   body: { ...extra, error },
@@ -160,8 +168,8 @@ function endOf(start: Date, minutes: number): Date {
   return new Date(start.getTime() + minutes * 60_000);
 }
 
-function withinHours(hours: BusinessHours, start: Date, minutes: number): boolean {
-  return slotWithinHours(hours, clinicDateKeyOf(start), clinicTimeOf(start), minutes);
+function withinHours(hours: BusinessHours, start: Date, minutes: number, zone: string): boolean {
+  return slotWithinHours(hours, clinicDateKeyOf(start, zone), clinicTimeOf(start, zone), minutes);
 }
 
 function attendeeOf(email: string | null): string {
@@ -226,8 +234,9 @@ export async function createCore(
   const duration = product.durationMinutes || DEFAULT_DURATION;
   const hours = parseBusinessHours(tenant.businessHours);
   const checks = scheduleChecksFor(role, d.override);
-  const slot = { tenantId: tenant.id, hours, durationMinutes: duration, target: d.appointmentDate, now };
-  if (checks.hours && !withinHours(hours, d.appointmentDate, duration)) return slotRefused(deps, "outside_business_hours", 400, slot);
+  const zone = usableTimeZone(tenant.timeZone);
+  const slot = { tenantId: tenant.id, zone, hours, durationMinutes: duration, target: d.appointmentDate, now };
+  if (checks.hours && !withinHours(hours, d.appointmentDate, duration, zone)) return slotRefused(deps, "outside_business_hours", 400, slot);
 
   const userId = await deps.guestUserId(tenant.id, d.clientPhone, d.clientName);
   const referral = d.requesterPhone
@@ -368,15 +377,17 @@ export async function editCore(
   const hours = parseBusinessHours(tenant.businessHours);
   const checks = scheduleChecksFor(role, d.override);
   const timeChanged = start.getTime() !== appointment.appointmentDate.getTime() || duration !== appointment.durationMinutes;
+  const zone = usableTimeZone(tenant.timeZone);
   const slot = {
     tenantId,
+    zone,
     hours,
     durationMinutes: duration,
     target: start,
     now,
     exclude: { appointmentId: appointment.id, externalEventId: appointment.externalEventId },
   };
-  if (timeChanged && checks.hours && !withinHours(hours, start, duration)) return slotRefused(deps, "outside_business_hours", 400, slot);
+  if (timeChanged && checks.hours && !withinHours(hours, start, duration, zone)) return slotRefused(deps, "outside_business_hours", 400, slot);
 
   const result = await deps.updateVisit(tenantId, appointment, changes, checks.conflicts);
   if (!result.ok) {
@@ -419,6 +430,7 @@ export async function reopenCore(
     if (reopened.reason === "not_found") return { ok: false, result: fail(404, "appointment_not_found") };
     const result = await slotRefused(deps, "slot_unavailable", 409, {
       tenantId,
+      zone: usableTimeZone(tenant.timeZone),
       hours: parseBusinessHours(tenant.businessHours),
       durationMinutes: appointment.durationMinutes,
       target: appointment.appointmentDate,

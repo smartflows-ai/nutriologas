@@ -13,7 +13,9 @@ import {
   parseGraphDateTime,
   updateMicrosoftEvent,
 } from "@/lib/microsoft-calendar";
-import { ACTIVE_APPOINTMENT_STATUSES, BOT_TIMEZONE_OFFSET } from "@/lib/bot";
+import { ACTIVE_APPOINTMENT_STATUSES } from "@/lib/bot";
+import { clinicDateKeyOf, clinicDateTime } from "@/lib/clinic-time";
+import { getTenantTimeZone } from "@/lib/tenant-time-zone";
 
 export const CALENDAR_PROVIDERS: AppProvider[] = ["GOOGLE", "MICROSOFT"];
 
@@ -55,19 +57,33 @@ export function linkedEventKeys(rows: CalendarLink[]): Set<string> {
   );
 }
 
-/** Calendar date (YYYY-MM-DD) of an instant in the clinic's timezone. */
-export function dateKeyInClinicZone(date: Date): string {
-  return date.toLocaleDateString("en-CA", { timeZone: "America/Mexico_City" });
+/** Calendar date (YYYY-MM-DD) of an instant in the business's time zone. */
+export function dateKeyInClinicZone(date: Date, zone: string): string {
+  return clinicDateKeyOf(date, zone);
+}
+
+/** First and last instant of a business day, in its own zone. */
+function dayRange(date: string, zone: string): { dayStart: Date; dayEnd: Date } {
+  return {
+    dayStart: new Date(clinicDateTime(date, "00:00", zone)),
+    dayEnd: new Date(new Date(clinicDateTime(addOneDay(date), "00:00", zone)).getTime() - 1000),
+  };
+}
+
+function addOneDay(date: string): string {
+  const day = new Date(`${date}T00:00:00Z`);
+  day.setUTCDate(day.getUTCDate() + 1);
+  return day.toISOString().slice(0, 10);
 }
 
 /** Active native appointments for one clinic day. Pass a transaction client to read under a lock. */
 export async function getNativeBusyPeriods(
   db: Pick<Prisma.TransactionClient, "appointment">,
   tenantId: string,
-  date: string
+  date: string,
+  zone: string
 ): Promise<BusyPeriod[]> {
-  const dayStart = new Date(`${date}T00:00:00${BOT_TIMEZONE_OFFSET}`);
-  const dayEnd = new Date(`${date}T23:59:59${BOT_TIMEZONE_OFFSET}`);
+  const { dayStart, dayEnd } = dayRange(date, zone);
 
   const appointments = await db.appointment.findMany({
     where: {
@@ -92,25 +108,24 @@ export async function getNativeBusyPeriods(
 }
 
 /** Events on the tenant's connected calendar for one clinic day. Failures return no events. */
-export async function getExternalBusyPeriods(tenantId: string, date: string): Promise<BusyPeriod[]> {
-  const dayStart = new Date(`${date}T00:00:00${BOT_TIMEZONE_OFFSET}`);
-  const dayEnd = new Date(`${date}T23:59:59${BOT_TIMEZONE_OFFSET}`);
-  return fetchExternalBusy(tenantId, dayStart, dayEnd, date);
+export async function getExternalBusyPeriods(tenantId: string, date: string, zone: string): Promise<BusyPeriod[]> {
+  const { dayStart, dayEnd } = dayRange(date, zone);
+  return fetchExternalBusy(tenantId, dayStart, dayEnd, zone);
 }
 
 /**
  * Busy periods for one day: active native appointments plus events on the tenant's connected
  * calendar. Calendar failures fall back to the DB only.
  */
-export async function getBusyPeriods(tenantId: string, date: string): Promise<BusyPeriod[]> {
+export async function getBusyPeriods(tenantId: string, date: string, zone: string): Promise<BusyPeriod[]> {
   const [native, external] = await Promise.all([
-    getNativeBusyPeriods(prisma, tenantId, date),
-    getExternalBusyPeriods(tenantId, date),
+    getNativeBusyPeriods(prisma, tenantId, date, zone),
+    getExternalBusyPeriods(tenantId, date, zone),
   ]);
   return [...native, ...external];
 }
 
-async function fetchExternalBusy(tenantId: string, dayStart: Date, dayEnd: Date, date: string): Promise<BusyPeriod[]> {
+async function fetchExternalBusy(tenantId: string, dayStart: Date, dayEnd: Date, zone: string): Promise<BusyPeriod[]> {
   try {
     const provider = await getConnectedProvider(tenantId, CALENDAR_PROVIDERS);
     if (!provider) return [];
@@ -123,10 +138,10 @@ async function fetchExternalBusy(tenantId: string, dayStart: Date, dayEnd: Date,
         if (!e.start || e.transparency === "transparent" || e.status === "cancelled") return [];
         const start = e.start.dateTime
           ? new Date(e.start.dateTime).getTime()
-          : new Date(`${e.start.date}T00:00:00${BOT_TIMEZONE_OFFSET}`).getTime();
+          : new Date(clinicDateTime(e.start.date, "00:00", zone)).getTime();
         const end = e.end?.dateTime
           ? new Date(e.end.dateTime).getTime()
-          : new Date(`${e.end?.date ?? e.start.date}T00:00:00${BOT_TIMEZONE_OFFSET}`).getTime();
+          : new Date(clinicDateTime(e.end?.date ?? e.start.date, "00:00", zone)).getTime();
         return [{ start, end, externalEventId: e.id }];
       });
     }
@@ -139,7 +154,7 @@ async function fetchExternalBusy(tenantId: string, dayStart: Date, dayEnd: Date,
       return [{ start, end, externalEventId: e.id }];
     });
   } catch (err) {
-    console.error(`[calendar-sync] Busy lookup failed for ${date}:`, err);
+    console.error(`[calendar-sync] Busy lookup failed for ${dayStart.toISOString()}:`, err);
     return [];
   }
 }
@@ -181,6 +196,7 @@ export async function syncCalendarCreate(
     if (!token) return null;
 
     if (provider === "GOOGLE") {
+      const timeZone = await getTenantTimeZone(tenantId);
       const event = await createCalendarEvent(token, {
         summary: input.summary,
         description: input.description,
@@ -189,6 +205,7 @@ export async function syncCalendarCreate(
         attendeeEmail: input.attendeeEmail ?? "",
         withMeet: input.modality !== "IN_PERSON",
         location: input.modality === "IN_PERSON" ? input.location ?? undefined : undefined,
+        timeZone,
       });
       return { externalProvider: "GOOGLE", externalEventId: event.id, meetLink: event.hangoutLink ?? null };
     }
@@ -229,7 +246,11 @@ export async function syncCalendarUpdate(
       await updateCalendarEvent(
         token,
         link.externalEventId,
-        { startDateTime: range.start.toISOString(), endDateTime: range.end.toISOString() },
+        {
+          startDateTime: range.start.toISOString(),
+          endDateTime: range.end.toISOString(),
+          timeZone: await getTenantTimeZone(tenantId),
+        },
         text
       );
     } else {

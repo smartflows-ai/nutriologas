@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Check, Loader2, Lock, Phone, XCircle } from "lucide-react";
 import { useTranslation } from "@/i18n";
 import { localeFor } from "@/lib/utils";
+import { useBusinessTimeZone } from "@/components/shared/BusinessTimeZone";
 
 interface PendingVisit {
   id: string;
@@ -18,6 +19,8 @@ interface PendingVisit {
 
 export default function PendingConfirmations() {
   const { t, lang } = useTranslation();
+  // Dates on the business clock (Tenant.timeZone, ticket #111), whatever zone the browser is in.
+  const zone = useBusinessTimeZone();
   const tx = t.crm.whatsapp;
   const locale = localeFor(lang);
   const [items, setItems] = useState<PendingVisit[]>([]);
@@ -72,7 +75,7 @@ export default function PendingConfirmations() {
 
   const formatWhen = (iso: string) =>
     new Date(iso).toLocaleString(locale, {
-      timeZone: "America/Mexico_City",
+      timeZone: zone,
       weekday: "short",
       day: "numeric",
       month: "short",

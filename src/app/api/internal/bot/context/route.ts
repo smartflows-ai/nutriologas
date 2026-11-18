@@ -89,6 +89,9 @@ export async function POST(req: NextRequest) {
     waTemperature: bot.waTemperature,
     businessHoursText: bot.businessHoursText,
     calendarText: bot.calendarText,
+    // The business zone (ticket #111): every time in this context and in the tools is on this clock.
+    timeZone: bot.timeZone,
+    timeZoneLabel: bot.timeZoneLabel,
     creditExhausted: creditStatus.isExhausted,
     // Plain greeting: the reply to send without the model (null otherwise). introRequired tells the agent
     // whether it must introduce itself in this reply.

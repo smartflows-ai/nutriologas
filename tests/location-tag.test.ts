@@ -69,6 +69,7 @@ function visit(templates: { reminderTemplate?: string | null; confirmationTempla
       messageLanguage: "es",
       reminderLeadMinutes: 24 * 60,
       confirmationRequired: true,
+      timeZone: "America/Mexico_City",
       confirmationDeadlineMinutes: 120,
       reminderTemplate: templates.reminderTemplate ?? null,
       confirmationTemplate: templates.confirmationTemplate ?? null,

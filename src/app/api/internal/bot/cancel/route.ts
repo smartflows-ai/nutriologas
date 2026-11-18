@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { cancelAppointment } from "@/lib/appointments-service";
 import { ACTIVE_APPOINTMENT_STATUSES, isInternalKeyValid, resolveBotTenant } from "@/lib/bot";
 import { visitsOfSender } from "@/lib/patient-intake";
+import { botVisitTime } from "@/lib/bot-visit-view";
 
 export async function POST(req: NextRequest) {
   if (!isInternalKeyValid(req)) return Response.json({ error: "No autorizado" }, { status: 401 });
@@ -42,7 +43,8 @@ export async function POST(req: NextRequest) {
     cancelled: {
       appointmentId: appointment.id,
       serviceName: appointment.product.name,
-      startsAt: appointment.appointmentDate.toISOString(),
+      // When the cancelled visit was, in the business zone with weekday (no link or address: it no longer happens).
+      ...botVisitTime(appointment.appointmentDate, bot),
     },
   });
 }

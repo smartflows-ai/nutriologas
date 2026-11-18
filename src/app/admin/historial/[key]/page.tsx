@@ -10,6 +10,7 @@ import { useCan, useTenantMeta } from "@/components/admin/TenantMeta";
 import { getVerticalProfile } from "@/lib/vertical-profile";
 import { localeFor, fill } from "@/lib/utils";
 import VisitNoteDialog from "@/components/admin/VisitNoteDialog";
+import { useBusinessTimeZone } from "@/components/shared/BusinessTimeZone";
 
 interface Visit {
   id: string;
@@ -51,6 +52,8 @@ function ClampedText({ text, showMore, showLess }: { text: string; showMore: str
 
 export default function PatientHistoryPage() {
   const { t, lang } = useTranslation();
+  // Dates on the business clock (Tenant.timeZone, ticket #111), whatever zone the browser is in.
+  const zone = useBusinessTimeZone();
   const { vertical, isBookingEnabled } = useTenantMeta();
   // Clinical notes are ADMIN only (src/lib/permissions.ts); the API also leaves them out for STAFF.
   const canNotes = useCan("appointments.notes");
@@ -89,7 +92,7 @@ export default function PatientHistoryPage() {
   }, [load]);
 
   const formatDateTime = (iso: string) =>
-    new Date(iso).toLocaleString(locale, { timeZone: "America/Mexico_City", dateStyle: "medium", timeStyle: "short" });
+    new Date(iso).toLocaleString(locale, { timeZone: zone, dateStyle: "medium", timeStyle: "short" });
 
   const statusLabel = (status: string) =>
     ({

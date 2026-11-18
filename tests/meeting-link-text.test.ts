@@ -50,6 +50,7 @@ test("the reminder job sends the link of an online visit", async () => {
       messageLanguage: "es",
       reminderLeadMinutes: 24 * 60,
       confirmationRequired: true,
+      timeZone: "America/Mexico_City",
       confirmationDeadlineMinutes: 120,
       reminderTemplate: null,
       confirmationTemplate: null,

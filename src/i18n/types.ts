@@ -14,6 +14,12 @@ export interface Translations {
     serviceModesOnline: string;
     serviceModesBoth: string;
     serviceModesNeedsAddress: string;
+    timeZoneLabel: string;
+    timeZoneHint: string;
+    timeZoneDetected: string;
+    timeZoneProposed: string;
+    timeZoneDetectFailed: string;
+    timeZoneChangeNotice: string;
     physicalLocationLabel: string;
     physicalLocationHint: string;
     addressLabel: string;
@@ -611,6 +617,7 @@ export interface Translations {
       tokenName: string;
       tokenOwner: string;
       tokenLocation: string;
+      tokenTimeZone: string;
       addConfirmationRequest: string;
       confirmationRequestSnippet: string;
       messageLanguageLabel: string;
@@ -1838,6 +1845,7 @@ export interface Translations {
     template_needs_owner_name: string;
     template_needs_location: string;
     owner_name_required: string;
+    time_zone_invalid: string;
     template_repeats_confirmation: string;
     template_unknown_tag: string;
     template_too_long: string;

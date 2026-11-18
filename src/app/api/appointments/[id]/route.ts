@@ -16,6 +16,7 @@ import { omitReminderError, safeFailureReason } from "@/lib/reminder-state";
 import { AppointmentStatus } from "@prisma/client";
 import { withBookedBy } from "@/lib/reminder-messages";
 import { customerMeetUrl } from "@/lib/short-links";
+import { usableTimeZone } from "@/lib/tenant-time-zone";
 
 const APPOINTMENT_STATUSES: readonly string[] = Object.values(AppointmentStatus);
 
@@ -154,12 +155,12 @@ export async function PATCH(
       const tenant = patientPhone
         ? await prisma.tenant.findUnique({
             where: { id: tenantId },
-            select: { name: true, slug: true, customDomain: true, ownerName: true, messageLanguage: true, cancellationTemplate: true },
+            select: { name: true, slug: true, customDomain: true, ownerName: true, messageLanguage: true, timeZone: true, cancellationTemplate: true },
           })
         : null;
 
       if (patientPhone && tenant) {
-        // Same text as the Confirmaciones tab (ticket #103, D9): Mexico time, the business language, no emojis,
+        // Same text as the Confirmaciones tab (ticket #103, D9): business time, the business language, no emojis,
         // and the short video link of an online visit. A visit booked for someone else says who booked it.
         const message = withBookedBy(
           ownerConfirmationText({
@@ -174,6 +175,7 @@ export async function PATCH(
             tenantName: tenant.name,
             ownerName: tenant.ownerName,
             messageLanguage: tenant.messageLanguage,
+            timeZone: usableTimeZone(tenant.timeZone),
             cancellationTemplate: tenant.cancellationTemplate,
             modality: updated.modality,
             meetUrl: customerMeetUrl({ meetUrl: updated.meetUrl, meetShortCode: updated.meetShortCode }, tenant) || null,

@@ -81,6 +81,22 @@ graph TD
 | cancel_appointment | `toolHttpRequest` | `POST /api/internal/bot/cancel` |
 | reschedule_appointment | `toolHttpRequest` | `POST /api/internal/bot/reschedule` |
 
+**Cómo describen la cita las respuestas (ticket #111).** `list_my_appointments` (cada cita), `reschedule_appointment` (la cita ya movida) y `book_appointment` traen la hora en la zona horaria del negocio (`Tenant.timeZone`, Ciudad de México por default), ya resuelta, para que el modelo nunca convierta zonas ni calcule el día:
+
+| Campo | Ejemplo | Notas |
+|---|---|---|
+| `date` | `2026-11-17` | Fecha en México. Es la que se le pasa a `reschedule_appointment` |
+| `time` | `07:30 p.m.` | El mismo texto que manda `book_appointment` (`clinicTimeLabel`; el formato de 12 o 24 horas se decide en #114) |
+| `weekday` | `martes` | Día de la semana en español |
+| `startsAt` | `2026-11-17T19:30:00-06:00` | Solo en `list_my_appointments` y `reschedule_appointment`, con el offset del negocio ese día. Antes era UTC (`...Z`) |
+| `timeZone` | `America/Mexico_City` | Zona IANA del negocio |
+| `timeZoneLabel` | `hora de Ciudad de México` | Cómo se le nombra la zona al cliente, en el idioma del negocio |
+| `modality` | `ONLINE` | `IN_PERSON`, `ONLINE` o `null` (cita antigua, cuenta como presencial) |
+| `meetLink` | `https://<negocio>.newaigent.com/online/Ab12Cd34` | Solo en línea: el enlace corto, o el real si la cita no tiene código; `null` si no hay enlace |
+| `location` | dirección y mapa | Solo si no es en línea; `null` si es en línea o si el negocio no tiene local |
+
+`cancel_appointment` devuelve en `cancelled` solo `startsAt`, `date`, `time`, `weekday`, `timeZone` y `timeZoneLabel` (sin enlace ni dirección). `check_availability` devuelve `timezone` (`"<IANA> (UTC<offset>)"`, antes fijo en `America/Mexico_City (UTC-06:00)`), `timeZone` y `timeZoneLabel`; `bot/context` también trae `timeZone` y `timeZoneLabel`, y su `calendarText` ya está en la zona del negocio. Las tres primeras rutas usan la misma función, `botVisitView` (`src/lib/bot-visit-view.ts`). Sugerencia para el prompt (no cambiado): "Si `book_appointment` o `reschedule_appointment` devuelve `meetLink`, compártelo", y que la herramienta `reschedule_appointment` pida `date` y `time` tal como los devuelve `list_my_appointments`.
+
 En las herramientas, `instance` y `customerPhone` se llenan desde el mensaje real (`valueProvider: fieldValue`). El resto de los campos los llena el modelo (`modelOptional`). Los errores de validación regresan como 400 legibles en vez de romper el agente.
 
 ---

@@ -8,6 +8,8 @@ export interface BusinessLocation {
   placeId?: string | null;
   latitude?: number | null;
   longitude?: number | null;
+  /** Time zone Google gives for these coordinates (ticket #111), shown to the owner before saving; null when unknown. */
+  timeZone?: string | null;
 }
 
 export const locationSchema = z.object({

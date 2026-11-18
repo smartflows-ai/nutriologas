@@ -7,8 +7,12 @@ import { clientIp, rateLimited } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
+// Same limit as a saved address (locationSchema): /admin/negocio starts the search with the saved typed address, and a
+// longer limit than the address itself made a valid address fail and switch the search off (ticket #111).
+const MAX_QUERY = 300;
+
 const bodySchema = z.object({
-  query: z.string().trim().min(3).max(120),
+  query: z.string().trim().min(3).max(MAX_QUERY),
   sessionToken: z.string().trim().min(8).max(64),
   lang: z.enum(["es", "en"]).default("es"),
 });

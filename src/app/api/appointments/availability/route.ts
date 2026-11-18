@@ -1,7 +1,7 @@
 // src/app/api/appointments/availability/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { clinicDateTime } from "@/lib/clinic-time";
+import { clinicDateTime, isRealClinicTime } from "@/lib/clinic-time";
 import { getBusyPeriods, isSlotFree } from "@/lib/calendar-sync";
 import { daySlots, parseBusinessHours } from "@/lib/business-hours";
 import { isBookable } from "@/lib/bookable";
@@ -11,6 +11,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { apiError } from "@/lib/api-errors";
+import { usableTimeZone } from "@/lib/tenant-time-zone";
 
 export const dynamic = "force-dynamic";
 
@@ -46,7 +47,7 @@ export async function GET(req: NextRequest) {
     const tenantSlug = resolveTenantSlug(host);
     const tenant = await prisma.tenant.findFirst({
       where: { OR: [{ slug: tenantSlug }, { customDomain: tenantSlug }] },
-      select: { id: true, isBookingEnabled: true, businessHours: true },
+      select: { id: true, isBookingEnabled: true, businessHours: true, timeZone: true },
     });
 
     if (!tenant) {
@@ -67,14 +68,16 @@ export async function GET(req: NextRequest) {
 
     const duration = product.durationMinutes || 30;
     const hours = parseBusinessHours(tenant.businessHours);
-    const candidates = daySlots(hours, dateStr, duration);
+    const zone = usableTimeZone(tenant.timeZone);
+    // A time the clock skips that day (daylight saving time starts) is never offered.
+    const candidates = daySlots(hours, dateStr, duration).filter((time) => isRealClinicTime(dateStr, time, zone));
 
     // Same rule as booking: a slot is free only when no native appointment or calendar event overlaps it.
-    const busy = await getBusyPeriods(tenant.id, dateStr);
+    const busy = await getBusyPeriods(tenant.id, dateStr, zone);
     const self = await excludedVisit(searchParams.get("exclude"), tenant.id);
     const now = Date.now();
     const availableSlots = candidates.filter((time) => {
-      const start = new Date(clinicDateTime(dateStr, time));
+      const start = new Date(clinicDateTime(dateStr, time, zone));
       if (start.getTime() <= now) return false;
       const end = new Date(start.getTime() + duration * 60000);
       return isSlotFree(busy, start, end, self);

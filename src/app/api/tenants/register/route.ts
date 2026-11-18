@@ -8,6 +8,10 @@ import { passwordIssues, PASSWORD_API_ERROR } from "@/lib/password-rules";
 import { z } from "zod";
 import { locationSchema } from "@/lib/location";
 import { uploadLogoForTenant } from "@/lib/cloudinary";
+import { lookupTimeZone, realTimeZoneLookupDeps } from "@/lib/time-zone-lookup";
+import { suggestTimeZoneForPhone } from "@/lib/time-zones";
+import { chooseTimeZone, shouldDetectTimeZone } from "@/lib/time-zone-choice";
+import { isValidTimeZone } from "@/lib/clinic-time";
 
 export const runtime = "nodejs";
 
@@ -108,6 +112,22 @@ export async function POST(req: Request) {
       stripeSubscriptionId = sub.id;
     }
 
+    // ── Time zone (ticket #111): the zone the form shows (proposed from the address or the WhatsApp country code, or
+    // picked by the owner). With coordinates, Google is asked again: a zone equal to its answer is kept as detected,
+    // any other one as the owner's choice. A failed lookup never blocks the signup.
+    const requestedZone = isValidTimeZone(body.timeZone) ? body.timeZone : undefined;
+    const suggested = suggestTimeZoneForPhone(typeof whatsappNumber === "string" ? whatsappNumber : null);
+    const zoneInput = {
+      current: { timeZone: suggested, source: "default" as const },
+      requested: requestedZone,
+      addressChanged: location?.latitude != null && location.longitude != null,
+    };
+    const detectedZone =
+      shouldDetectTimeZone(zoneInput) && location?.latitude != null && location.longitude != null
+        ? await lookupTimeZone(location.latitude, location.longitude, realTimeZoneLookupDeps)
+        : null;
+    const zone = chooseTimeZone({ ...zoneInput, detected: detectedZone });
+
     // ── Create all DB records in a transaction ────────────────────
     const shouldEnableBooking = isBookingEnabled !== undefined 
       ? Boolean(isBookingEnabled) 
@@ -126,6 +146,8 @@ export async function POST(req: Request) {
           placeId: location?.placeId ?? null,
           latitude: location?.latitude ?? null,
           longitude: location?.longitude ?? null,
+          timeZone: zone.timeZone,
+          timeZoneSource: zone.source,
           logoUrl: null,
           vertical: (vertical as any) || "ECOMMERCE",
           isBookingEnabled: shouldEnableBooking,

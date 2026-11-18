@@ -8,6 +8,7 @@ import { daySlots } from "@/lib/business-hours";
 import { isBookable } from "@/lib/bookable";
 import { modalityModeFor } from "@/lib/patient-intake";
 import { getBusyPeriods, isSlotFree } from "@/lib/calendar-sync";
+import { clinicDateTime, clinicOffsetOf } from "@/lib/clinic-time";
 import { SLOTS_OFFERED_PER_REPLY, slotQuery, weekdayNameEs, type SlotQueryResult } from "@/lib/slot-query";
 
 const TIME_RE = /^\d{2}:\d{2}$/;
@@ -55,16 +56,16 @@ export async function POST(req: NextRequest) {
   }
 
   const duration = product.durationMinutes ?? 30;
-  const busy = await getBusyPeriods(bot.tenantId, date);
+  const busy = await getBusyPeriods(bot.tenantId, date, bot.timeZone);
 
   // Past times on today's date are left out of the grid: they are neither free nor offered.
   const now = Date.now();
   const grid = daySlots(bot.businessHours, date, duration).filter((time) => {
-    const slot = buildSlot(date, time, duration, bot.businessHours);
+    const slot = buildSlot(date, time, duration, bot.businessHours, bot.timeZone);
     return slot ? slot.start.getTime() > now : false;
   });
   const free = grid.filter((time) => {
-    const slot = buildSlot(date, time, duration, bot.businessHours);
+    const slot = buildSlot(date, time, duration, bot.businessHours, bot.timeZone);
     return slot !== null && isSlotFree(busy, slot.start, slot.end);
   });
 
@@ -83,7 +84,10 @@ export async function POST(req: NextRequest) {
     date,
     // The day of the week of the date asked: the agent says it, so a wrong weekday ("sabado 15") shows up.
     weekday: weekdayNameEs(date),
-    timezone: "America/Mexico_City (UTC-06:00)",
+    // The business zone (ticket #111): same "<IANA> (UTC<offset>)" text as before, plus how the customer reads it.
+    timezone: `${bot.timeZone} (UTC${clinicOffsetOf(new Date(clinicDateTime(date, "12:00", bot.timeZone)), bot.timeZone)})`,
+    timeZone: bot.timeZone,
+    timeZoneLabel: bot.timeZoneLabel,
     durationMinutes: duration,
     // How this service is delivered (IN_PERSON, ONLINE or ASK), so the agent tells the customer before booking.
     modalityMode: modalityModeFor(bot.serviceModes, product.visitModes),

@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { MessageSquare, XCircle } from "lucide-react";
 import { useTranslation } from "@/i18n";
 import { localeFor } from "@/lib/utils";
+import { useBusinessTimeZone } from "@/components/shared/BusinessTimeZone";
 
 interface HistoryNote {
   id: string;
@@ -25,6 +26,8 @@ interface Props {
 
 export default function VisitNoteDialog({ visitId, initialText, onClose, onSaved }: Props) {
   const { t, lang } = useTranslation();
+  // Dates on the business clock (Tenant.timeZone, ticket #111), whatever zone the browser is in.
+  const zone = useBusinessTimeZone();
   const locale = localeFor(lang);
   const [draft, setDraft] = useState(initialText);
   const [saving, setSaving] = useState(false);
@@ -113,7 +116,7 @@ export default function VisitNoteDialog({ visitId, initialText, onClose, onSaved
                   <li key={n.id} className="rounded-lg border border-gray-200 dark:border-gray-800 px-3 py-2">
                     <p className="text-xs text-gray-500 mb-1">
                       {new Date(n.appointment?.appointmentDate ?? n.createdAt).toLocaleString(locale, {
-                        timeZone: "America/Mexico_City",
+                        timeZone: zone,
                         dateStyle: "medium",
                         timeStyle: "short",
                       })}

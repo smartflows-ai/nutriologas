@@ -14,6 +14,8 @@ export const TOKEN_FIELDS = [
   { key: "nombre", labelKey: "tokenName" },
   { key: "ubicacion", labelKey: "tokenLocation" },
   { key: "responsable", labelKey: "tokenOwner" },
+  // The business time zone as the customer reads it ("hora de Cancún"), valid in all three texts (ticket #111).
+  { key: "zona", labelKey: "tokenTimeZone" },
 ] as const;
 
 export type TokenKey = (typeof TOKEN_FIELDS)[number]["key"];

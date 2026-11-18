@@ -16,6 +16,7 @@ import { omitClinicalNotes } from "@/lib/permissions";
 import { omitReminderError } from "@/lib/reminder-state";
 import { isSyntheticEmail } from "@/lib/patient-intake";
 import { slotRefused } from "@/lib/panel-appointments";
+import { usableTimeZone } from "@/lib/tenant-time-zone";
 
 const ACTIVE: readonly string[] = ["PENDING", "CONFIRMED"];
 
@@ -47,10 +48,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     const tenant = await prisma.tenant.findUnique({
       where: { id: tenantId },
-      select: { businessHours: true, hasPhysicalLocation: true, address: true },
+      select: { businessHours: true, timeZone: true, hasPhysicalLocation: true, address: true },
     });
     if (!tenant) return apiError("tenant_not_found", 404);
     const hours = parseBusinessHours(tenant.businessHours);
+    const zone = usableTimeZone(tenant.timeZone);
 
     const result = await restoreAppointment({
       tenantId,
@@ -58,7 +60,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       actor: { userId: session.user.id, role },
       now: new Date(),
       newStart,
-      withinHours: (start, minutes) => slotWithinHours(hours, dateKeyInClinicZone(start), clinicTimeOf(start), minutes),
+      withinHours: (start, minutes) => slotWithinHours(hours, dateKeyInClinicZone(start, zone), clinicTimeOf(start, zone), minutes),
       calendarFor: (visit: RestorableVisit) => ({
         ...buildCalendarText({
           serviceName: visit.product.name,
@@ -87,6 +89,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       if (!visit) return apiError(code, status);
       return slotRefused(code, status, {
         tenantId,
+        zone,
         hours,
         durationMinutes: visit.durationMinutes,
         target: newStart ?? visit.appointmentDate,

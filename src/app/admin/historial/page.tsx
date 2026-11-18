@@ -9,6 +9,7 @@ import { useCan, useTenantMeta } from "@/components/admin/TenantMeta";
 import { getVerticalProfile } from "@/lib/vertical-profile";
 import { localeFor } from "@/lib/utils";
 import Pagination from "@/components/admin/Pagination";
+import { useBusinessTimeZone } from "@/components/shared/BusinessTimeZone";
 
 interface PatientRow {
   patientKey: string;
@@ -34,6 +35,8 @@ const ROW_COLS = {
 
 export default function HistorialPage() {
   const { t, lang } = useTranslation();
+  // Dates on the business clock (Tenant.timeZone, ticket #111), whatever zone the browser is in.
+  const zone = useBusinessTimeZone();
   const { vertical, isBookingEnabled } = useTenantMeta();
   // Clinical notes (and their count) are ADMIN only, see src/lib/permissions.ts.
   const canNotes = useCan("appointments.notes");
@@ -84,7 +87,7 @@ export default function HistorialPage() {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const formatDate = (iso: string | null) =>
     iso
-      ? new Date(iso).toLocaleDateString(locale, { timeZone: "America/Mexico_City", dateStyle: "medium" })
+      ? new Date(iso).toLocaleDateString(locale, { timeZone: zone, dateStyle: "medium" })
       : t.crm.history.noVisit;
 
   return (

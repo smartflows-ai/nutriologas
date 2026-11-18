@@ -10,6 +10,7 @@ import { recordMessageCharge, reminderCostUsd } from "@/lib/credits";
 import { failedSendState, sentState } from "@/lib/reminder-state";
 import type { ReminderDeps, ReminderVisit } from "@/lib/reminder-run";
 import { customerMeetUrl } from "@/lib/short-links";
+import { usableTimeZone } from "@/lib/tenant-time-zone";
 
 export const LOOKAHEAD_HOURS = 96; // covers reminders up to 72 h before a visit, plus a day of margin
 
@@ -46,6 +47,7 @@ export const realReminderDeps: ReminderDeps = {
         tenantName: visit.tenant.name,
         ownerName: visit.tenant.ownerName,
         messageLanguage: visit.tenant.messageLanguage,
+        timeZone: visit.tenant.timeZone,
         cancellationTemplate: visit.tenant.cancellationTemplate,
       },
       now,
@@ -87,6 +89,7 @@ export async function loadReminderVisits(now: Date, appointmentId?: string): Pro
           name: true,
           ownerName: true,
           messageLanguage: true,
+          timeZone: true,
           reminderLeadMinutes: true,
           confirmationRequired: true,
           confirmationDeadlineMinutes: true,
@@ -111,7 +114,7 @@ export async function loadReminderVisits(now: Date, appointmentId?: string): Pro
     // The customer gets the short video link of this visit (or the real one when the visit has no code).
     const { meetShortCode, ...plain } = visit;
     const meetUrl = customerMeetUrl({ meetUrl: visit.meetUrl, meetShortCode }, { slug, customDomain }) || null;
-    return { ...plain, meetUrl, productName: product.name, tenant: { ...rest, locationText } };
+    return { ...plain, meetUrl, productName: product.name, tenant: { ...rest, timeZone: usableTimeZone(rest.timeZone), locationText } };
   });
 }
 

@@ -2,6 +2,7 @@
 // Weekly opening hours of the business. One schedule is read by the web booking flow and the WhatsApp bot.
 // Each day is a list of blocks (e.g. 09:00-13:00 and 14:00-18:00 leaves a lunch break). An empty list = closed.
 import { z } from "zod";
+import { clinicDateKeyOf } from "./clinic-time";
 
 export const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"] as const;
 export type Weekday = (typeof WEEKDAYS)[number];
@@ -149,13 +150,9 @@ export function formatBusinessHours(hours: BusinessHours): string {
 
 const CALENDAR_DAYS = 14;
 
-function clinicDateKey(now: Date): string {
-  return now.toLocaleDateString("en-CA", { timeZone: "America/Mexico_City" });
-}
-
-/** Next days in the clinic zone with weekday, date and hours, so the bot never works out weekdays itself. */
-export function upcomingCalendarText(hours: BusinessHours, now: Date = new Date()): string {
-  const [y, m, d] = clinicDateKey(now).split("-").map(Number);
+/** Next days in the business zone with weekday, date and hours, so the bot never works out weekdays itself. */
+export function upcomingCalendarText(hours: BusinessHours, zone: string, now: Date = new Date()): string {
+  const [y, m, d] = clinicDateKeyOf(now, zone).split("-").map(Number);
   const lines: string[] = [];
   for (let i = 0; i < CALENDAR_DAYS; i++) {
     const day = new Date(Date.UTC(y, m - 1, d + i));

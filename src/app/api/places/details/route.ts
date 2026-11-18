@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { apiError } from "@/lib/api-errors";
 import { clientIp, rateLimited } from "@/lib/rate-limit";
+import { lookupTimeZone, realTimeZoneLookupDeps } from "@/lib/time-zone-lookup";
 
 export const runtime = "nodejs";
 
@@ -33,11 +34,18 @@ export async function POST(req: Request) {
 
     const data = await res.json();
     if (!data.formattedAddress) return apiError("place_not_found", 404);
+    const latitude = typeof data.location?.latitude === "number" ? data.location.latitude : null;
+    const longitude = typeof data.location?.longitude === "number" ? data.location.longitude : null;
+    // The business time zone for this place (ticket #111), so the screen shows it as soon as the address is picked.
+    // Null when Google cannot tell: the address is still returned. The save checks it again on the server.
+    const timeZone =
+      latitude !== null && longitude !== null ? await lookupTimeZone(latitude, longitude, realTimeZoneLookupDeps) : null;
     return NextResponse.json({
       address: String(data.formattedAddress),
       placeId: String(data.id ?? placeId),
-      latitude: typeof data.location?.latitude === "number" ? data.location.latitude : null,
-      longitude: typeof data.location?.longitude === "number" ? data.location.longitude : null,
+      latitude,
+      longitude,
+      timeZone,
     });
   } catch (error) {
     console.error("[POST /api/places/details] Error:", error);

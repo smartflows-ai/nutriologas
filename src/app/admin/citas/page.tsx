@@ -18,6 +18,7 @@ import { AlternativesPicker } from "@/components/admin/appointments/SlotGrid";
 import type { FormTarget } from "@/components/admin/appointments/useAppointmentForm";
 import type { AppointmentItem, FreeSlot, VisitStatus } from "@/components/admin/appointments/types";
 import { clinicDateKeyOf } from "@/lib/clinic-time";
+import { useBusinessTimeZone } from "@/components/shared/BusinessTimeZone";
 import FilterChip from "@/components/ui/FilterChip";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -40,6 +41,7 @@ function MiniCalendar({
 }) {
   const { t, lang } = useTranslation();
   const locale = localeFor(lang);
+  const zone = useBusinessTimeZone();
 
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
   const firstDayOfWeek = new Date(viewYear, viewMonth, 1).getDay();
@@ -106,7 +108,7 @@ function MiniCalendar({
           const dateKey = `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
           const isSelected = selectedDate === dateKey;
           const hasAppt = appointmentDates.has(dateKey);
-          const isToday = dateKey === todayDateKey();
+          const isToday = dateKey === todayDateKey(zone);
 
           return (
             <button
@@ -146,10 +148,10 @@ function MiniCalendar({
   );
 }
 
-// Today on the clinic calendar (Mexico City), as YYYY-MM-DD: the same day the bot and the reminders use,
+// Today on the business calendar (its own time zone), as YYYY-MM-DD: the same day the bot and the reminders use,
 // whatever timezone the browser is in.
-function todayDateKey(): string {
-  return clinicDateKeyOf(new Date());
+function todayDateKey(zone: string): string {
+  return clinicDateKeyOf(new Date(), zone);
 }
 
 function CitasContent() {
@@ -168,12 +170,13 @@ function CitasContent() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [viewYear, setViewYear] = useState(() => Number(todayDateKey().slice(0, 4)));
-  const [viewMonth, setViewMonth] = useState(() => Number(todayDateKey().slice(5, 7)) - 1);
+  const zone = useBusinessTimeZone();
+  const [viewYear, setViewYear] = useState(() => Number(todayDateKey(zone).slice(0, 4)));
+  const [viewMonth, setViewMonth] = useState(() => Number(todayDateKey(zone).slice(5, 7)) - 1);
   const [activeTab, setActiveTab] = useState<string>("ALL");
   // The page opens on today's appointments; the date chips above the list switch between today, a chosen day and all dates.
-  const [selectedDate, setSelectedDate] = useState<string>(todayDateKey);
-  const todayKey = todayDateKey();
+  const [selectedDate, setSelectedDate] = useState<string>(() => todayDateKey(zone));
+  const todayKey = todayDateKey(zone);
   const [searchTerm, setSearchTerm] = useState("");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [editingNotesId, setEditingNotesId] = useState<string | null>(null);

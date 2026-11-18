@@ -51,7 +51,7 @@ test("writes after a lookup skip a visit deleted in between (security review S2)
   const service = read("src/lib/appointments-panel-service.ts");
   assert.equal((service.match(/updateMany\(\{\s*where: \{ id: visit\.id, tenantId, deletedAt: null \}/g) ?? []).length >= 3, true);
   assert.match(PATCH, /updateMany\(\{\s*where: \{ id: params\.id, tenantId, deletedAt: null \}/);
-  assert.match(read("src/lib/appointments-service.ts"), /const hidden = await lockDay\(tenantId, dateKeyInClinicZone\(appointment\.appointmentDate\)/);
+  assert.match(read("src/lib/appointments-service.ts"), /const hidden = await lockDay\(tenantId, dateKeyInClinicZone\(appointment\.appointmentDate, zone\)/);
 });
 
 test("panel bookings are rate limited per user", () => {

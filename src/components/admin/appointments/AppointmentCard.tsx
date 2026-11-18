@@ -24,6 +24,8 @@ import { priceViewFor } from "@/lib/price-display";
 import { reminderNotDelivered } from "@/lib/reminder-badge";
 import { isSyntheticEmail } from "@/lib/patient-intake";
 import type { AppointmentItem, TrailEntry, VisitStatus } from "./types";
+import { useBusinessTimeZone } from "@/components/shared/BusinessTimeZone";
+import { clinicDateKeyOf } from "@/lib/clinic-time";
 
 // Status colors are semantic (pending, confirmed, cancelled), so they stay fixed and do not follow the tenant theme.
 const STATUS_STYLE: Record<string, { bg: string; text: string; border: string; dot: string }> = {
@@ -62,9 +64,12 @@ export default function AppointmentCard({ appt, locale, canNotes, busy, onStatus
     NO_SHOW: t.agenda.statusNoShow,
   };
 
+  // Dates and times on the business clock (Tenant.timeZone), never the browser's (ticket #111).
+  const timeZone = useBusinessTimeZone();
   const dateObj = new Date(appt.appointmentDate);
-  const dateStr = dateObj.toLocaleDateString(locale, { weekday: "short", year: "numeric", month: "short", day: "numeric" });
-  const timeStr = dateObj.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit", hour12: true });
+  const dateStr = dateObj.toLocaleDateString(locale, { timeZone, weekday: "short", year: "numeric", month: "short", day: "numeric" });
+  const timeStr = dateObj.toLocaleTimeString(locale, { timeZone, hour: "2-digit", minute: "2-digit", hour12: true });
+  const [dayYear, , dayNumber] = clinicDateKeyOf(dateObj, timeZone).split("-");
   const style = STATUS_STYLE[appt.status] || STATUS_STYLE.PENDING;
   const patientName = appt.customerName || appt.user?.name || t.agenda.patientFallback;
   const titleText = appt.product?.name ?? t.agenda.consultFallback;
@@ -76,7 +81,7 @@ export default function AppointmentCard({ appt, locale, canNotes, busy, onStatus
   const trailLine = (entry: TrailEntry) =>
     fill(entry.action === "DELETED" ? t.agenda.deletedByLine : t.agenda.restoredByLine, {
       name: entry.by || t.agenda.someone,
-      date: new Date(entry.at).toLocaleString(locale, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }),
+      date: new Date(entry.at).toLocaleString(locale, { timeZone, day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }),
     });
 
   return (
@@ -84,9 +89,9 @@ export default function AppointmentCard({ appt, locale, canNotes, busy, onStatus
       {/* Date and time */}
       <div className="flex sm:flex-col items-center sm:items-start gap-3 sm:w-36 shrink-0">
         <div className="w-14 h-14 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex flex-col items-center justify-center text-primary">
-          <span className="text-xs font-medium leading-tight">{dateObj.toLocaleDateString(locale, { month: "short" })}</span>
-          <span className="text-xl font-semibold leading-none">{dateObj.getDate()}</span>
-          <span className="text-xs font-medium leading-tight">{dateObj.getFullYear()}</span>
+          <span className="text-xs font-medium leading-tight">{dateObj.toLocaleDateString(locale, { timeZone, month: "short" })}</span>
+          <span className="text-xl font-semibold leading-none">{Number(dayNumber)}</span>
+          <span className="text-xs font-medium leading-tight">{dayYear}</span>
         </div>
         <div className="space-y-0.5">
           <p className="text-sm font-semibold text-gray-900 dark:text-white">{timeStr}</p>

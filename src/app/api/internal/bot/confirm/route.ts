@@ -9,6 +9,7 @@ import { patientKeyOf } from "@/lib/patient-key";
 import { clinicLongDate, clinicTime, customerTexts, renderTemplate, withMeetingLink } from "@/lib/reminder-messages";
 import { isClearConfirmation } from "@/lib/confirmation-words";
 import { customerMeetUrl } from "@/lib/short-links";
+import { timeZoneLabel } from "@/lib/time-zones";
 
 export async function POST(req: NextRequest) {
   if (!isInternalKeyValid(req)) return Response.json({ error: "No autorizado" }, { status: 401 });
@@ -53,8 +54,9 @@ export async function POST(req: NextRequest) {
   const reply = withMeetingLink(
     renderTemplate(customerTexts(language).confirmedReply, {
       servicio: appointment.product.name,
-      fecha: clinicLongDate(appointment.appointmentDate, language),
-      hora: clinicTime(appointment.appointmentDate, language),
+      fecha: clinicLongDate(appointment.appointmentDate, language, bot.timeZone),
+      hora: clinicTime(appointment.appointmentDate, language, bot.timeZone),
+      zona: timeZoneLabel(bot.timeZone, language),
       negocio: tenant?.name ?? "",
       responsable: tenant?.ownerName,
     }),

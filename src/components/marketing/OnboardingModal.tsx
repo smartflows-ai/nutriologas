@@ -1,6 +1,6 @@
 "use client";
 // src/components/marketing/OnboardingModal.tsx
-import { useState, useRef, useCallback, useMemo } from "react";
+import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import Image from "next/image";
 import {
   Building2, Globe, MessageCircle, Mail, Lock, Upload,
@@ -11,6 +11,8 @@ import { translateApiError } from "@/i18n/validation";
 import AddressSearch from "@/components/shared/AddressSearch";
 import type { BusinessLocation } from "@/lib/location";
 import { passwordIssues, PASSWORD_FORM_MESSAGE } from "@/lib/password-rules";
+import { suggestTimeZoneForPhone, timeZoneLabel, timeZoneOptionsFor } from "@/lib/time-zones";
+import { fill } from "@/lib/utils";
 
 interface Props {
   onClose: () => void;
@@ -123,6 +125,21 @@ export default function OnboardingModal({
   // Phone lada selector
   const [dialCountry, setDialCountry] = useState(COUNTRIES[0]);
   const [dialOpen, setDialOpen] = useState(false);
+  // Business time zone (ticket #111): from the address when Google can tell, else from the WhatsApp country code.
+  // The owner can change it; once changed by hand, a new address or country code no longer replaces it.
+  const [timeZone, setTimeZone] = useState(() => suggestTimeZoneForPhone(COUNTRIES[0].dial));
+  const [timeZoneTouched, setTimeZoneTouched] = useState(false);
+  const [timeZoneNotice, setTimeZoneNotice] = useState<string | null>(null);
+  useEffect(() => {
+    if (timeZoneTouched) return;
+    if (hasPhysicalLocation && placeLocation?.timeZone) {
+      setTimeZone(placeLocation.timeZone);
+      setTimeZoneNotice(fill(t.locationUi.timeZoneProposed, { zona: timeZoneLabel(placeLocation.timeZone, lang) }));
+      return;
+    }
+    setTimeZone(suggestTimeZoneForPhone(dialCountry.dial));
+    setTimeZoneNotice(null);
+  }, [placeLocation, hasPhysicalLocation, dialCountry, timeZoneTouched, t, lang]);
   const [dialQuery, setDialQuery] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
 
@@ -223,6 +240,7 @@ export default function OnboardingModal({
           placeId: hasPhysicalLocation ? placeLocation?.placeId ?? undefined : undefined,
           latitude: hasPhysicalLocation ? placeLocation?.latitude ?? undefined : undefined,
           longitude: hasPhysicalLocation ? placeLocation?.longitude ?? undefined : undefined,
+          timeZone,
           plan,
           billingInterval,
           lang,
@@ -380,6 +398,26 @@ export default function OnboardingModal({
                     />
                   </div>
                 )}
+                <div>
+                  <label htmlFor="onboarding-time-zone" className={labelCls}>{t.locationUi.timeZoneLabel}</label>
+                  <select
+                    id="onboarding-time-zone"
+                    value={timeZone}
+                    onChange={(e) => {
+                      setTimeZone(e.target.value);
+                      setTimeZoneTouched(true);
+                      setTimeZoneNotice(null);
+                    }}
+                    className={inputCls}
+                  >
+                    {timeZoneOptionsFor(timeZone).map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.owner[lang === "en" ? "en" : "es"]}
+                      </option>
+                    ))}
+                  </select>
+                  {timeZoneNotice && <p role="status" className="mt-2 text-xs text-gray-400">{timeZoneNotice}</p>}
+                </div>
               </div>
 
               {/* City + Country row */}
