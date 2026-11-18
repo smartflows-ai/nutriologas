@@ -4,6 +4,8 @@ import Link from "next/link";
 import Navbar from "@/components/shop/Navbar";
 import WhatsAppButton from "@/components/shop/WhatsAppButton";
 import SessionProviderWrapper from "@/components/shop/SessionProviderWrapper";
+import { BusinessTimeZoneProvider } from "@/components/shared/BusinessTimeZone";
+import { usableTimeZone } from "@/lib/tenant-time-zone";
 import { getTenantSlug } from "@/lib/tenant";
 import { themeColorVars } from "@/lib/theme-vars";
 import { getVerticalProfile } from "@/lib/vertical-profile";
@@ -28,9 +30,10 @@ async function getTenantPublicData() {
       name: tenant?.name ?? t.storefrontUi.storeFallback,
       logoUrl: tenant?.logoUrl ?? null,
       theme: tenant?.theme,
-      vertical: (tenant?.vertical as string) ?? "ECOMMERCE"
+      vertical: (tenant?.vertical as string) ?? "ECOMMERCE",
+      timeZone: usableTimeZone(tenant?.timeZone),
     };
-  } catch { return { whatsapp: "", name: t.storefrontUi.storeFallback, logoUrl: null, theme: null, vertical: "ECOMMERCE" }; }
+  } catch { return { whatsapp: "", name: t.storefrontUi.storeFallback, logoUrl: null, theme: null, vertical: "ECOMMERCE", timeZone: usableTimeZone(null) }; }
 }
 
 export default async function PublicLayout({ children }: { children: React.ReactNode }) {
@@ -50,7 +53,7 @@ export default async function PublicLayout({ children }: { children: React.React
 
   // ── Tenant subdomain ───────────────────────────────────────────────────────
   // Full tenant layout with branding, Navbar, WhatsApp button, and footer.
-  const { whatsapp, name, logoUrl, theme, vertical } = await getTenantPublicData();
+  const { whatsapp, name, logoUrl, theme, vertical, timeZone } = await getTenantPublicData();
   
   const pColor = (theme as any)?.primaryColor || "#16a34a";
   const sColor = (theme as any)?.secondaryColor || "#15803d"; 
@@ -70,6 +73,7 @@ export default async function PublicLayout({ children }: { children: React.React
 
   return (
     <SessionProviderWrapper>
+    <BusinessTimeZoneProvider timeZone={timeZone}>
       <style dangerouslySetInnerHTML={{ __html: dynamicStyles }} />
       <div className="min-h-screen flex flex-col bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors duration-300">
         <Navbar storeName={name} logoUrl={logoUrl} isEcommerce={getVerticalProfile(vertical, false).hasOrders} />
@@ -88,6 +92,7 @@ export default async function PublicLayout({ children }: { children: React.React
         </footer>
         {whatsapp && <WhatsAppButton phone={whatsapp} />}
       </div>
+    </BusinessTimeZoneProvider>
     </SessionProviderWrapper>
   );
 }

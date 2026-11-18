@@ -12,6 +12,7 @@ import { PHONE_COUNTRIES } from "@/lib/phone";
 import { fill } from "@/lib/utils";
 import { AlternativesPicker, SlotGrid } from "./SlotGrid";
 import { useAppointmentForm, type FormTarget } from "./useAppointmentForm";
+import { useBusinessTimeZone } from "@/components/shared/BusinessTimeZone";
 
 const LABEL = "block text-xs font-semibold text-gray-700 dark:text-gray-200 mb-1";
 const INPUT = "input bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 text-sm";
@@ -64,7 +65,8 @@ export default function AppointmentFormPanel({ target, canOverbook, locale, onCl
   const f = useAppointmentForm({ target, canOverbook, onSaved });
   const { fields: v, set } = f;
   const isEdit = target.mode === "edit";
-  const today = clinicDateKeyOf(new Date());
+  const zone = useBusinessTimeZone();
+  const today = clinicDateKeyOf(new Date(), zone);
   const modeLabel = (m: "IN_PERSON" | "ONLINE") => (m === "ONLINE" ? t.agenda.modalityOnline : t.agenda.modalityInPerson);
 
   return (

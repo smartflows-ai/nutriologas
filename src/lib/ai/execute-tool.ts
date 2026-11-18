@@ -3,7 +3,8 @@ import { priceFieldsFor } from "@/lib/price-text";
 import { prisma } from "@/lib/db";
 import { getPeriodDates } from "@/lib/utils";
 import { getAppToken, getConnectedProvider } from "@/lib/connected-apps";
-import { addClinicDays, clinicDateKeyOf, clinicDateTime, clinicTimeOf } from "@/lib/clinic-time";
+import { addClinicDays, clinicDateKeyOf, clinicDateTime, clinicTimeOf, isRealClinicTime } from "@/lib/clinic-time";
+import { getTenantTimeZone, usableTimeZone } from "@/lib/tenant-time-zone";
 import { daySlots, formatBusinessHours, parseBusinessHours } from "@/lib/business-hours";
 import { getBusyPeriods, isSlotFree } from "@/lib/calendar-sync";
 
@@ -11,11 +12,11 @@ type Period = "day" | "week" | "month" | "year" | "all";
 
 const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
 
-/** Start of a clinic day (inclusive) and start of the next one (exclusive), as instants. */
-function clinicDayRange(dateKey: string) {
+/** Start of a business day (inclusive) and start of the next one (exclusive), as instants, in its own zone. */
+function clinicDayRange(dateKey: string, zone: string) {
   return {
-    gte: new Date(clinicDateTime(dateKey, "00:00")),
-    lt: new Date(clinicDateTime(addClinicDays(dateKey, 1), "00:00")),
+    gte: new Date(clinicDateTime(dateKey, "00:00", zone)),
+    lt: new Date(clinicDateTime(addClinicDays(dateKey, 1), "00:00", zone)),
   };
 }
 
@@ -199,15 +200,16 @@ export async function executeTool(
           where.status = input.status;
         }
 
-        // Days are clinic days (America/Mexico_City), never the server's clock.
-        const todayKey = clinicDateKeyOf(new Date());
+        // Days are the business's own days (Tenant.timeZone), never the server's clock.
+        const zone = await getTenantTimeZone(tenantId);
+        const todayKey = clinicDateKeyOf(new Date(), zone);
 
         if (input.date && DATE_KEY.test(input.date)) {
-          where.appointmentDate = clinicDayRange(input.date);
+          where.appointmentDate = clinicDayRange(input.date, zone);
         } else if (input.period === "today") {
-          where.appointmentDate = clinicDayRange(todayKey);
+          where.appointmentDate = clinicDayRange(todayKey, zone);
         } else if (input.period === "tomorrow") {
-          where.appointmentDate = clinicDayRange(addClinicDays(todayKey, 1));
+          where.appointmentDate = clinicDayRange(addClinicDays(todayKey, 1), zone);
         } else if (input.period === "week") {
           const { startDate, endDate } = getPeriodDates("week");
           where.appointmentDate = { gte: startDate, lte: endDate };
@@ -237,8 +239,8 @@ export async function executeTool(
             service: a.product?.name ?? "Consulta General",
             durationMinutes: a.durationMinutes ?? a.product?.durationMinutes ?? 30,
             ...(a.product ? priceFieldsFor(a.product, "es") : { price: null }),
-            date: clinicDateKeyOf(a.appointmentDate),
-            time: clinicTimeOf(a.appointmentDate),
+            date: clinicDateKeyOf(a.appointmentDate, zone),
+            time: clinicTimeOf(a.appointmentDate, zone),
             status: a.status,
           })),
         });
@@ -385,9 +387,10 @@ export async function executeTool(
       }
 
       case "get_schedule_availability": {
-        const dateKey = input.date && DATE_KEY.test(input.date) ? input.date : clinicDateKeyOf(new Date());
-        const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { businessHours: true } });
+        const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { businessHours: true, timeZone: true } });
         if (!tenant) return JSON.stringify({ error: "tenant_not_found" });
+        const zone = usableTimeZone(tenant.timeZone);
+        const dateKey = input.date && DATE_KEY.test(input.date) ? input.date : clinicDateKeyOf(new Date(), zone);
 
         let duration = 30;
         if (input.productName) {
@@ -399,11 +402,13 @@ export async function executeTool(
         }
 
         // Same rule as the public booking: free only when no appointment or calendar event overlaps the slot.
-        const candidates = daySlots(parseBusinessHours(tenant.businessHours), dateKey, duration);
-        const busy = await getBusyPeriods(tenantId, dateKey);
+        const candidates = daySlots(parseBusinessHours(tenant.businessHours), dateKey, duration).filter((time) =>
+          isRealClinicTime(dateKey, time, zone),
+        );
+        const busy = await getBusyPeriods(tenantId, dateKey, zone);
         const now = Date.now();
         const availableTimes = candidates.filter((time) => {
-          const start = new Date(clinicDateTime(dateKey, time));
+          const start = new Date(clinicDateTime(dateKey, time, zone));
           if (start.getTime() <= now) return false;
           return isSlotFree(busy, start, new Date(start.getTime() + duration * 60000));
         });
@@ -411,14 +416,15 @@ export async function executeTool(
       }
 
       case "get_confirmation_status": {
-        const todayKey = clinicDateKeyOf(new Date());
+        const zone = await getTenantTimeZone(tenantId);
+        const todayKey = clinicDateKeyOf(new Date(), zone);
         const fromKey = input.period === "tomorrow" ? addClinicDays(todayKey, 1) : todayKey;
         const toKey = input.period === "today" ? todayKey : input.period === "tomorrow" ? fromKey : addClinicDays(todayKey, 6);
         const appointments = await prisma.appointment.findMany({
           where: {
             tenantId,
             deletedAt: null,
-            appointmentDate: { gte: clinicDayRange(fromKey).gte, lt: clinicDayRange(toKey).lt },
+            appointmentDate: { gte: clinicDayRange(fromKey, zone).gte, lt: clinicDayRange(toKey, zone).lt },
           },
           select: { status: true, appointmentDate: true, reminderSentAt: true, customerConfirmedAt: true, autoReleasedAt: true },
         });

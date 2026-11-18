@@ -5,6 +5,9 @@ import { useState } from "react";
 import { Calendar as CalendarIcon, Clock } from "lucide-react";
 import { formatPrice, localeFor, fill } from "@/lib/utils";
 import { useTranslation } from "@/i18n";
+import { clinicDateKeyOf } from "@/lib/clinic-time";
+import { timeZoneLabel } from "@/lib/time-zones";
+import { useBusinessTimeZone } from "@/components/shared/BusinessTimeZone";
 import Link from "next/link";
 
 interface AppointmentData {
@@ -38,6 +41,7 @@ export default function CustomerAppointmentsList({
   initialAppointments: AppointmentData[];
 }) {
   const { t, lang } = useTranslation();
+  const zone = useBusinessTimeZone();
   const locale = localeFor(lang);
   const [appointments, setAppointments] = useState(initialAppointments);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
@@ -90,17 +94,21 @@ export default function CustomerAppointmentsList({
     <div className="space-y-4">
       {appointments.map((item) => {
         const d = new Date(item.appointmentDate);
+        // On the business clock, and named, so a patient in another zone reads the right time (ticket #111).
         const dateStr = d.toLocaleDateString(locale, {
+          timeZone: zone,
           weekday: "long",
           year: "numeric",
           month: "long",
           day: "numeric",
         });
-        const timeStr = d.toLocaleTimeString(locale, {
+        const timeStr = `${d.toLocaleTimeString(locale, {
+          timeZone: zone,
           hour: "2-digit",
           minute: "2-digit",
-        });
-        const shortMonth = d.toLocaleDateString(locale, { month: "short" });
+        })} (${timeZoneLabel(zone, lang)})`;
+        const shortMonth = d.toLocaleDateString(locale, { timeZone: zone, month: "short" });
+        const dayNumber = Number(clinicDateKeyOf(d, zone).slice(8, 10));
 
         const statusClass = STATUS_CLASS[item.status] || STATUS_CLASS.PENDING;
         const statusLabel = STATUS_LABEL[item.status] || STATUS_LABEL.PENDING;
@@ -114,7 +122,7 @@ export default function CustomerAppointmentsList({
             <div className="flex items-start gap-4">
               <div className="w-14 h-14 rounded-xl bg-gray-100 dark:bg-gray-800 border border-primary/10 dark:border-primary/40 flex flex-col items-center justify-center text-primary flex-shrink-0">
                 <CalendarIcon size={20} />
-                <span className="text-xs font-semibold mt-0.5">{d.getDate()} {shortMonth}</span>
+                <span className="text-xs font-semibold mt-0.5">{dayNumber} {shortMonth}</span>
               </div>
 
               <div className="space-y-1">

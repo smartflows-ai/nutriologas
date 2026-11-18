@@ -117,9 +117,10 @@ export default function ReminderMessagesCard() {
 
   // The deadline time only exists in the confirmation text, and the location only in the reminder and the
   // confirmation (a cancelled visit has no place to go to); offering them elsewhere would send them with brackets.
-  const cancellationDetails = [tx.tokenService, tx.tokenDate, tx.tokenTime, tx.tokenBusiness, tx.tokenOwner, tx.tokenName];
+  // The time zone goes in all three: each one names a time (ticket #111).
+  const cancellationDetails = [tx.tokenService, tx.tokenDate, tx.tokenTime, tx.tokenTimeZone, tx.tokenBusiness, tx.tokenOwner, tx.tokenName];
   const reminderDetails = [...cancellationDetails, tx.tokenLocation];
-  const confirmationDetails = [tx.tokenService, tx.tokenDate, tx.tokenTime, tx.tokenDeadline, tx.tokenBusiness, tx.tokenOwner, tx.tokenName, tx.tokenLocation];
+  const confirmationDetails = [tx.tokenService, tx.tokenDate, tx.tokenTime, tx.tokenTimeZone, tx.tokenDeadline, tx.tokenBusiness, tx.tokenOwner, tx.tokenName, tx.tokenLocation];
 
   if (loading) return null;
   if (!settings) {

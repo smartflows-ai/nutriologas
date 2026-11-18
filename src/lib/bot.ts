@@ -9,8 +9,9 @@ import { tenantPublicUrl } from "@/lib/tenant-url";
 import type { ServiceModes } from "@/lib/patient-intake";
 import { getVerticalProfile } from "@/lib/vertical-profile";
 import { BusinessHours, formatBusinessHours, parseBusinessHours, slotWithinHours, upcomingCalendarText } from "@/lib/business-hours";
-
-export const BOT_TIMEZONE_OFFSET = "-06:00"; // America/Mexico_City (CST)
+import { clinicDateTime, clinicTimeLabel, isRealClinicTime } from "@/lib/clinic-time";
+import { usableTimeZone } from "@/lib/tenant-time-zone";
+import { timeZoneLabel } from "@/lib/time-zones";
 
 export const ACTIVE_APPOINTMENT_STATUSES = ["PENDING", "CONFIRMED"] as const;
 
@@ -38,6 +39,10 @@ export interface BotTenant {
   businessHours: BusinessHours;
   businessHoursText: string;
   calendarText: string;
+  /** The business time zone (IANA, ticket #111): every wall-clock time the bot reads or writes is in it. */
+  timeZone: string;
+  /** How the customer reads that zone in the business language: "hora de Cancún". */
+  timeZoneLabel: string;
 }
 
 export function isInternalKeyValid(req: NextRequest): boolean {
@@ -73,6 +78,7 @@ export async function resolveBotTenant(instance: unknown): Promise<BotTenant | n
           isBookingEnabled: true,
           businessHours: true,
           serviceModes: true,
+          timeZone: true,
         },
       },
     },
@@ -81,6 +87,7 @@ export async function resolveBotTenant(instance: unknown): Promise<BotTenant | n
   if (!app) return null;
 
   const businessHours = parseBusinessHours(app.tenant.businessHours);
+  const timeZone = usableTimeZone(app.tenant.timeZone);
   return {
     tenantId: app.tenant.id,
     tenantName: app.tenant.name,
@@ -98,7 +105,9 @@ export async function resolveBotTenant(instance: unknown): Promise<BotTenant | n
     isBookingEnabled: app.tenant.isBookingEnabled,
     businessHours,
     businessHoursText: formatBusinessHours(businessHours),
-    calendarText: upcomingCalendarText(businessHours),
+    calendarText: upcomingCalendarText(businessHours, timeZone),
+    timeZone,
+    timeZoneLabel: timeZoneLabel(timeZone, app.tenant.messageLanguage),
   };
 }
 
@@ -117,27 +126,24 @@ export function normalizeCustomerPhone(remoteJid?: string | null, remoteJidAlt?:
 }
 
 /**
- * Builds start/end for a slot in Mexico City time. Returns null if the input is malformed
- * or the session does not fit the business's opening hours for that day.
+ * Builds start/end for a slot in the business's time zone. Returns null if the input is malformed, the time does not
+ * exist that day (the hour skipped when daylight saving time starts) or the session does not fit the opening hours.
  */
-export function buildSlot(date: string, time: string, durationMinutes: number, hours: BusinessHours) {
+export function buildSlot(date: string, time: string, durationMinutes: number, hours: BusinessHours, zone: string) {
   if (!DATE_REGEX.test(date) || !TIME_REGEX.test(time)) return null;
   if (!slotWithinHours(hours, date, time, durationMinutes)) return null;
+  if (!isRealClinicTime(date, time, zone)) return null;
 
-  const start = new Date(`${date}T${time}:00${BOT_TIMEZONE_OFFSET}`);
+  const start = new Date(clinicDateTime(date, time, zone));
   if (isNaN(start.getTime())) return null;
 
   const end = new Date(start.getTime() + durationMinutes * 60000);
   return { start, end };
 }
 
-export function formatSlotTime(date: Date): string {
-  return date.toLocaleTimeString("es-MX", {
-    timeZone: "America/Mexico_City",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
+/** "07:30 p.m." on the business clock. Kept as the bot's name for clinicTimeLabel, the single source of the format. */
+export function formatSlotTime(date: Date, zone: string): string {
+  return clinicTimeLabel(date, zone);
 }
 
 /**

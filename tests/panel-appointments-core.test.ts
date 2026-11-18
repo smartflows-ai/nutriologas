@@ -25,6 +25,7 @@ const TENANT: PanelTenant = {
   vertical: "HEALTH",
   isBookingEnabled: true,
   businessHours: null,
+  timeZone: "America/Mexico_City",
   serviceModes: "IN_PERSON",
   hasPhysicalLocation: true,
   address: "Calle 1",

@@ -2,7 +2,9 @@
 // Shared utilities for Google Calendar and Gmail operations (per-tenant).
 // Used by internal API endpoints that n8n calls.
 
-const TIMEZONE_OFFSET = "-06:00"; // America/Mexico_City (CST)
+import { clinicDateTime } from "./clinic-time";
+
+// Wall-clock times here are the business's own (Tenant.timeZone, ticket #111): every function receives the zone.
 
 const TIME_RANGES: Record<string, { start: string; end: string }> = {
   morning: { start: "08:00", end: "12:00" },
@@ -85,6 +87,8 @@ export async function createCalendarEvent(
     attendeeEmail: string;
     withMeet?: boolean;
     location?: string;
+    /** The business zone (IANA), so the event shows in the business's hours. */
+    timeZone: string;
   }
 ): Promise<any> {
   const withMeet = event.withMeet !== false;
@@ -104,8 +108,8 @@ export async function createCalendarEvent(
         summary: event.summary,
         description: event.description,
         location: event.location || undefined,
-        start: { dateTime: event.startDateTime, timeZone: "America/Mexico_City" },
-        end: { dateTime: event.endDateTime, timeZone: "America/Mexico_City" },
+        start: { dateTime: event.startDateTime, timeZone: event.timeZone },
+        end: { dateTime: event.endDateTime, timeZone: event.timeZone },
         attendees: event.attendeeEmail ? [{ email: event.attendeeEmail }] : undefined,
         conferenceData: withMeet
           ? {
@@ -135,7 +139,7 @@ export async function createCalendarEvent(
 export async function updateCalendarEvent(
   accessToken: string,
   eventId: string,
-  range: { startDateTime: string; endDateTime: string },
+  range: { startDateTime: string; endDateTime: string; timeZone: string },
   // New title and description when the visit's details change (ticket #103); omitted, they are kept.
   text?: { summary: string; description: string }
 ): Promise<void> {
@@ -148,8 +152,8 @@ export async function updateCalendarEvent(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        start: { dateTime: range.startDateTime, timeZone: "America/Mexico_City" },
-        end: { dateTime: range.endDateTime, timeZone: "America/Mexico_City" },
+        start: { dateTime: range.startDateTime, timeZone: range.timeZone },
+        end: { dateTime: range.endDateTime, timeZone: range.timeZone },
         ...(text ? { summary: text.summary, description: text.description } : {}),
       }),
     }
@@ -190,7 +194,8 @@ export async function findAvailableSlots(
   accessToken: string,
   date: string,
   duration: number,
-  timePreference: string = "any"
+  timePreference: string,
+  zone: string
 ): Promise<{
   success: boolean;
   availableSlots: string[];
@@ -198,8 +203,8 @@ export async function findAvailableSlots(
   message: string;
 }> {
   const range = TIME_RANGES[timePreference] || TIME_RANGES.any;
-  const timeMin = `${date}T${range.start}:00${TIMEZONE_OFFSET}`;
-  const timeMax = `${date}T${range.end}:00${TIMEZONE_OFFSET}`;
+  const timeMin = clinicDateTime(date, range.start, zone);
+  const timeMax = clinicDateTime(date, range.end, zone);
 
   const events = await fetchCalendarEvents(accessToken, timeMin, timeMax);
 
@@ -224,7 +229,7 @@ export async function findAvailableSlots(
     const timeStr = `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
 
     // Check if this slot overlaps any busy period
-    const slotStart = new Date(`${date}T${timeStr}:00${TIMEZONE_OFFSET}`).getTime();
+    const slotStart = new Date(clinicDateTime(date, timeStr, zone)).getTime();
     const slotEnd = slotStart + duration * 60000;
 
     const hasConflict = busyPeriods.some(
@@ -266,18 +271,12 @@ export function prepareEventData(input: {
   attendeePhone?: string;
   meetingTopic?: string;
   tenantName?: string;
+  zone: string;
 }) {
-  const { date, time, duration, attendeeName, attendeeEmail, attendeePhone, meetingTopic, tenantName } = input;
+  const { date, time, duration, attendeeName, attendeeEmail, attendeePhone, meetingTopic, tenantName, zone } = input;
 
-  // Calculate end time
-  const [hour, min] = time.split(":").map(Number);
-  const endMinutes = hour * 60 + min + duration;
-  const endHour = Math.floor(endMinutes / 60);
-  const endMin = endMinutes % 60;
-  const endTime = `${endHour.toString().padStart(2, "0")}:${endMin.toString().padStart(2, "0")}`;
-
-  const startDateTime = `${date}T${time}:00${TIMEZONE_OFFSET}`;
-  const endDateTime = `${date}T${endTime}:00${TIMEZONE_OFFSET}`;
+  const startDateTime = clinicDateTime(date, time, zone);
+  const endDateTime = new Date(new Date(startDateTime).getTime() + duration * 60000).toISOString();
 
   const topic = meetingTopic || "Consulta";
   const client = attendeeName || "Cliente";
@@ -302,6 +301,7 @@ Se ha generado un enlace de Google Meet para esta reunión.
     description,
     startDateTime,
     endDateTime,
+    timeZone: zone,
     attendeeName: client,
     attendeeEmail,
     date,

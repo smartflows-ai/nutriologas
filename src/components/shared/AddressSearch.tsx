@@ -26,6 +26,9 @@ const DEFAULT_INPUT =
   "w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-primary";
 const DEFAULT_PANEL = "border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900";
 
+// Same limit as the search route and a saved address.
+const MAX_QUERY = 300;
+
 const newToken = () => (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(36).slice(2));
 
 export default function AddressSearch({
@@ -62,8 +65,14 @@ export default function AddressSearch({
         const res = await fetch("/api/places/search", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ query: text, sessionToken: sessionToken.current, lang }),
+          body: JSON.stringify({ query: text.slice(0, MAX_QUERY), sessionToken: sessionToken.current, lang }),
         });
+        // A text the search rejects is just "no results": only a failure of the service turns the search off.
+        if (res.status === 400) {
+          setSuggestions([]);
+          setSearched(true);
+          return;
+        }
         if (!res.ok) {
           setUnavailable(true);
           return;
@@ -96,6 +105,7 @@ export default function AddressSearch({
         placeId: data.placeId,
         latitude: data.latitude,
         longitude: data.longitude,
+        timeZone: typeof data.timeZone === "string" ? data.timeZone : null,
       });
       setQuery("");
       setSuggestions([]);

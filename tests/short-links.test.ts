@@ -91,7 +91,8 @@ test("the customer-facing outputs use the short video link, the real link stays 
   for (const file of [
     "src/lib/reminder-data.ts",
     "src/app/api/internal/bot/book/route.ts",
-    "src/app/api/internal/bot/my-appointments/route.ts",
+    // bot/my-appointments and bot/reschedule describe a visit with botVisitView (ticket #111).
+    "src/lib/bot-visit-view.ts",
     "src/app/api/internal/bot/confirm/route.ts",
     "src/app/api/apps/whatsapp/confirmations/[id]/route.ts",
     "src/app/api/appointments/[id]/route.ts",

@@ -15,6 +15,7 @@ import { createAppointment } from "@/lib/appointments-service";
 import { botSlotTakenBody } from "@/lib/free-slots";
 import { buildCalendarText } from "@/lib/appointment-calendar-text";
 import { buildSlot, formatSlotTime, isInternalKeyValid, resolveBotTenant } from "@/lib/bot";
+import { clinicWeekdayOf } from "@/lib/clinic-time";
 import { isBookable } from "@/lib/bookable";
 import { cleanPetName } from "@/lib/pets";
 import { patientKeyOf } from "@/lib/patient-key";
@@ -156,7 +157,7 @@ export async function POST(req: NextRequest) {
   }
 
   const duration = product.durationMinutes ?? 30;
-  const slot = buildSlot(date, time, duration, bot.businessHours);
+  const slot = buildSlot(date, time, duration, bot.businessHours, bot.timeZone);
   if (!slot) {
     return Response.json(
       { success: false, error: "Fecha u hora fuera del horario de atención" },
@@ -216,6 +217,7 @@ export async function POST(req: NextRequest) {
   if (!result.ok) {
     const body = await botSlotTakenBody({
       tenantId: bot.tenantId,
+      zone: bot.timeZone,
       hours: bot.businessHours,
       durationMinutes: duration,
       target: slot.start,
@@ -231,7 +233,10 @@ export async function POST(req: NextRequest) {
       appointmentId: appointment.id,
       serviceName: product.name,
       date,
-      time: formatSlotTime(slot.start),
+      time: formatSlotTime(slot.start, bot.timeZone),
+      weekday: clinicWeekdayOf(slot.start, bot.timeZone),
+      timeZone: bot.timeZone,
+      timeZoneLabel: bot.timeZoneLabel,
       durationMinutes: duration,
       modality: patient.modality,
       // Who the visit is for, so the bot can name them and say the reminder goes to their number.

@@ -5,6 +5,7 @@ import type { AppProvider } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { sendWhatsAppMessage } from "@/lib/whatsapp";
 import { cancelAppointment } from "@/lib/appointments-service";
+import { timeZoneLabel } from "@/lib/time-zones";
 import { cancellationText, clinicLongDate, clinicTime, customerTexts, renderTemplate, withMeetingLink } from "@/lib/reminder-messages";
 
 export interface VisitForAction {
@@ -19,6 +20,8 @@ export interface VisitForAction {
   tenantName: string;
   ownerName?: string | null;
   messageLanguage: string;
+  /** The business time zone (IANA, ticket #111). */
+  timeZone: string;
   cancellationTemplate: string | null;
   /** Online visits carry their video call link in the confirmation. Optional: older callers have neither. */
   modality?: "IN_PERSON" | "ONLINE" | null;
@@ -28,8 +31,9 @@ export interface VisitForAction {
 function visitValues(visit: VisitForAction) {
   return {
     servicio: visit.productName,
-    fecha: clinicLongDate(visit.appointmentDate, visit.messageLanguage),
-    hora: clinicTime(visit.appointmentDate, visit.messageLanguage),
+    fecha: clinicLongDate(visit.appointmentDate, visit.messageLanguage, visit.timeZone),
+    hora: clinicTime(visit.appointmentDate, visit.messageLanguage, visit.timeZone),
+    zona: timeZoneLabel(visit.timeZone, visit.messageLanguage),
     negocio: visit.tenantName,
     responsable: visit.ownerName,
     nombre: visit.customerName,

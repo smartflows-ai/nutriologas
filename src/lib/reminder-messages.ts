@@ -41,6 +41,8 @@ export interface ReminderValues {
   responsable?: string | null;
   /** Address (in person) or video call link (online) for the location tag; blank when there is nothing to show. */
   ubicacion?: string;
+  /** The business time zone as the customer reads it ("hora de Cancún"), for the time zone tag. */
+  zona?: string;
 }
 
 /** First name only: "Hola [Nombre]" reads naturally, a full name with two surnames does not. */
@@ -199,20 +201,21 @@ export function withBookedBy(
 ${name ? fill(texts.bookedByLine, { nombre: name }) : texts.bookedByAnon}`;
 }
 
-/** Long date in the clinic zone, in the business language. */
-export function clinicLongDate(instant: Date, language: string): string {
+/** Long date in the business zone, in the business language. */
+export function clinicLongDate(instant: Date, language: string, zone: string): string {
   return instant.toLocaleDateString(customerTexts(language).locale, {
-    timeZone: "America/Mexico_City",
+    timeZone: zone,
     weekday: "long",
     day: "numeric",
     month: "long",
   });
 }
 
-export function clinicTime(instant: Date, language: string): string {
+/** Time in the business zone, in the business language: "07:30 p.m." / "7:30 PM". */
+export function clinicTime(instant: Date, language: string, zone: string): string {
   return language === "en"
-    ? instant.toLocaleTimeString("en-US", { timeZone: "America/Mexico_City", hour: "numeric", minute: "2-digit" })
-    : formatSlotTime(instant);
+    ? instant.toLocaleTimeString("en-US", { timeZone: zone, hour: "numeric", minute: "2-digit" })
+    : formatSlotTime(instant, zone);
 }
 
 /**

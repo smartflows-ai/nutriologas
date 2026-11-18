@@ -4,13 +4,8 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { rescheduleAppointment } from "@/lib/appointments-service";
 import { botSlotTakenBody } from "@/lib/free-slots";
-import {
-  ACTIVE_APPOINTMENT_STATUSES,
-  buildSlot,
-  formatSlotTime,
-  isInternalKeyValid,
-  resolveBotTenant,
-} from "@/lib/bot";
+import { ACTIVE_APPOINTMENT_STATUSES, buildSlot, isInternalKeyValid, resolveBotTenant } from "@/lib/bot";
+import { botVisitView } from "@/lib/bot-visit-view";
 import { visitsOfSender } from "@/lib/patient-intake";
 
 export async function POST(req: NextRequest) {
@@ -46,7 +41,7 @@ export async function POST(req: NextRequest) {
   }
 
   const duration = appointment.durationMinutes;
-  const slot = buildSlot(date, time, duration, bot.businessHours);
+  const slot = buildSlot(date, time, duration, bot.businessHours, bot.timeZone);
   if (!slot) {
     return Response.json(
       { success: false, error: "Fecha u hora fuera del horario de atención" },
@@ -66,6 +61,7 @@ export async function POST(req: NextRequest) {
   if (!result.ok) {
     const body = await botSlotTakenBody({
       tenantId: bot.tenantId,
+      zone: bot.timeZone,
       hours: bot.businessHours,
       durationMinutes: duration,
       target: slot.start,
@@ -80,10 +76,8 @@ export async function POST(req: NextRequest) {
     success: true,
     appointmentId: appointment.id,
     serviceName: appointment.product.name,
-    date,
-    time: formatSlotTime(slot.start),
     durationMinutes: duration,
-    // Office address and map link when the owner set a physical location; null otherwise.
-    location: bot.locationText || null,
+    // The moved visit in the business zone with weekday; an online visit keeps its video link and gets no address.
+    ...botVisitView(result.appointment, bot),
   });
 }

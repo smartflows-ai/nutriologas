@@ -12,7 +12,7 @@ import { createAppointment } from "@/lib/appointments-service";
 import { createFromPanel } from "@/lib/panel-appointments";
 import { rateLimited } from "@/lib/rate-limit";
 import { dateKeyInClinicZone, linkedEventKeys } from "@/lib/calendar-sync";
-import { clinicTimeOf } from "@/lib/clinic-time";
+import { clinicDateKeyOf, clinicDateTime, clinicTimeOf } from "@/lib/clinic-time";
 import { patientKeyOf } from "@/lib/patient-key";
 import { parseBusinessHours, slotWithinHours } from "@/lib/business-hours";
 import { isBookable } from "@/lib/bookable";
@@ -21,6 +21,7 @@ import { omitReminderError } from "@/lib/reminder-state";
 import { can, omitClinicalNotes } from "@/lib/permissions";
 import { buildCalendarText } from "@/lib/appointment-calendar-text";
 import { guestEmailFor, parseAge, resolveModality } from "@/lib/patient-intake";
+import { getTenantTimeZone, usableTimeZone } from "@/lib/tenant-time-zone";
 
 const MONTH_RE = /^\d{4}-\d{2}$/;
 // Panel bookings per user per minute (security review S5): plenty for a front desk, a stop for a runaway loop.
@@ -40,7 +41,11 @@ const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 async function getAdminAgenda(req: NextRequest, tenantId: string, role: string) {
   const sp = new URL(req.url).searchParams;
   const now = new Date();
-  const defaultMonth = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+  // Months and days are the business's own (Tenant.timeZone, ticket #111): a visit at 19:30 in Mexico City is on its
+  // own day, never on the next UTC day.
+  const zone = await getTenantTimeZone(tenantId);
+  const dayOf = (iso: string) => clinicDateKeyOf(new Date(iso), zone);
+  const defaultMonth = clinicDateKeyOf(now, zone).slice(0, 7);
   const monthParam = sp.get("month") ?? "";
   const month = MONTH_RE.test(monthParam) ? monthParam : defaultMonth;
   const dayParam = sp.get("day") ?? "";
@@ -51,8 +56,9 @@ async function getAdminAgenda(req: NextRequest, tenantId: string, role: string) 
   const pageSize = Math.min(100, Math.max(1, parseInt(sp.get("pageSize") || "20") || 20));
 
   const [year, monthIndex] = month.split("-").map(Number);
-  const start = new Date(Date.UTC(year, monthIndex - 1, 1));
-  const end = new Date(Date.UTC(year, monthIndex, 0, 23, 59, 59, 999));
+  const nextMonth = monthIndex === 12 ? `${year + 1}-01` : `${year}-${String(monthIndex + 1).padStart(2, "0")}`;
+  const start = new Date(clinicDateTime(`${month}-01`, "00:00", zone));
+  const end = new Date(new Date(clinicDateTime(`${nextMonth}-01`, "00:00", zone)).getTime() - 1);
 
   const include = {
     product: {
@@ -116,15 +122,15 @@ async function getAdminAgenda(req: NextRequest, tenantId: string, role: string) 
 
   // Counts follow the day filter (the whole month when no day is chosen), but not status or search,
   // so every status tab shows how many visits it would list for that day.
-  const inScope = day ? all.filter((a) => String(a.appointmentDate).slice(0, 10) === day) : all;
+  const inScope = day ? all.filter((a) => dayOf(String(a.appointmentDate)) === day) : all;
   const counts: Record<string, number> = { ALL: inScope.length, PENDING: 0, CONFIRMED: 0, COMPLETED: 0, CANCELLED: 0, NO_SHOW: 0 };
   for (const a of inScope) counts[a.status] = (counts[a.status] ?? 0) + 1;
   // Deleted visits have their own tab: they never count in "Todas", the KPIs or the calendar dots.
   if (canSeeDeleted) {
-    counts.DELETED = formattedDeleted.filter((a) => !day || a.appointmentDate.slice(0, 10) === day).length;
+    counts.DELETED = formattedDeleted.filter((a) => !day || dayOf(a.appointmentDate) === day).length;
   }
 
-  const days = Array.from(new Set(all.map((a) => String(a.appointmentDate).slice(0, 10))));
+  const days = Array.from(new Set(all.map((a) => dayOf(String(a.appointmentDate)))));
 
   const showDeleted = status === "DELETED" && canSeeDeleted;
   const matchesStatus = (s: string) =>
@@ -139,7 +145,7 @@ async function getAdminAgenda(req: NextRequest, tenantId: string, role: string) 
   const source: any[] = showDeleted ? formattedDeleted : all;
   const filtered = source.filter(
     (a) =>
-      (!day || String(a.appointmentDate).slice(0, 10) === day) &&
+      (!day || dayOf(String(a.appointmentDate)) === day) &&
       matchesStatus(a.status) &&
       matchesSearch(a)
   );
@@ -151,6 +157,7 @@ async function getAdminAgenda(req: NextRequest, tenantId: string, role: string) 
     pageSize,
     counts,
     days,
+    timeZone: zone,
   });
 }
 
@@ -271,6 +278,7 @@ export async function POST(req: NextRequest) {
         vertical: true,
         isBookingEnabled: true,
         businessHours: true,
+        timeZone: true,
         serviceModes: true,
         hasPhysicalLocation: true,
         address: true,
@@ -369,8 +377,9 @@ export async function POST(req: NextRequest) {
     const duration = product.durationMinutes || 30;
 
     const hours = parseBusinessHours(tenant.businessHours);
-    const day = dateKeyInClinicZone(apptDate);
-    if (!slotWithinHours(hours, day, clinicTimeOf(apptDate), duration)) {
+    const zone = usableTimeZone(tenant.timeZone);
+    const day = dateKeyInClinicZone(apptDate, zone);
+    if (!slotWithinHours(hours, day, clinicTimeOf(apptDate, zone), duration)) {
       return apiError("outside_business_hours", 400);
     }
 

@@ -3,6 +3,7 @@
 import { NextRequest } from "next/server";
 import { getAppToken } from "@/lib/connected-apps";
 import { findAvailableSlots } from "@/lib/google-calendar";
+import { getTenantTimeZone } from "@/lib/tenant-time-zone";
 
 export async function POST(req: NextRequest) {
   const key = req.headers.get("x-internal-key");
@@ -41,7 +42,8 @@ export async function POST(req: NextRequest) {
       accessToken,
       date,
       Number(duration),
-      timePreference || "any"
+      timePreference || "any",
+      await getTenantTimeZone(String(tenantId))
     );
     return Response.json(result);
   } catch (err: any) {

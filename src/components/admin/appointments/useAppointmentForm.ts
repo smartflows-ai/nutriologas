@@ -8,6 +8,7 @@ import { useTranslation } from "@/i18n";
 import { translateApiError } from "@/i18n/validation";
 import { markSlots } from "@/lib/business-hours";
 import { clinicDateKeyOf, clinicDateTime, clinicTimeOf } from "@/lib/clinic-time";
+import { useBusinessTimeZone } from "@/components/shared/BusinessTimeZone";
 import { isSyntheticEmail } from "@/lib/patient-intake";
 import { patientKeyOf } from "@/lib/patient-key";
 import { buildFullPhone, DEFAULT_DIAL_CODE } from "@/lib/phone";
@@ -51,6 +52,7 @@ function useKnownPatient(phone: string, enabled: boolean) {
 
 export function useAppointmentForm({ target, canOverbook, onSaved }: Options) {
   const { t } = useTranslation();
+  const zone = useBusinessTimeZone();
   const visit = target.mode === "edit" ? target.visit : null;
   const original = useMemo(() => {
     if (!visit) return null;
@@ -58,20 +60,20 @@ export function useAppointmentForm({ target, canOverbook, onSaved }: Options) {
     const email = visit.customerEmail && !isSyntheticEmail(visit.customerEmail) ? visit.customerEmail : "";
     return {
       productId: visit.productId ?? "",
-      day: clinicDateKeyOf(at),
-      time: clinicTimeOf(at),
+      day: clinicDateKeyOf(at, zone),
+      time: clinicTimeOf(at, zone),
       name: visit.customerName ?? "",
       age: visit.customerAge != null ? String(visit.customerAge) : "",
       email,
       modality: (visit.modality ?? "") as VisitModality | "",
       notes: visit.notes ?? "",
     };
-  }, [visit]);
+  }, [visit, zone]);
 
   const [services, setServices] = useState<ServiceOption[] | null>(null);
   const [usesPets, setUsesPets] = useState(false);
   const [productId, setProductId] = useState(original?.productId ?? "");
-  const [day, setDay] = useState(original?.day ?? clinicDateKeyOf(new Date()));
+  const [day, setDay] = useState(original?.day ?? clinicDateKeyOf(new Date(), zone));
   const [time, setTime] = useState(original?.time ?? "");
   const [manualTime, setManualTime] = useState(false);
   const [slots, setSlots] = useState<{ time: string; available: boolean }[]>([]);
@@ -175,7 +177,7 @@ export function useAppointmentForm({ target, canOverbook, onSaved }: Options) {
   const submit = async (options: { override?: boolean; slot?: FreeSlot } = {}) => {
     if (busy) return;
     const override = options.override ?? false;
-    const at = options.slot ? options.slot.iso : clinicDateTime(day, time);
+    const at = options.slot ? options.slot.iso : clinicDateTime(day, time, zone);
     if (!options.slot && !time) {
       setError(productId && day ? t.agenda.form.chooseTime : t.agenda.form.chooseService);
       return;

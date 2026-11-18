@@ -17,6 +17,7 @@ import {
 } from "@/lib/calendar-sync";
 import type { Modality } from "@/lib/patient-intake";
 import { rescheduleResetState } from "@/lib/reminder-state";
+import { getTenantTimeZone } from "@/lib/tenant-time-zone";
 
 export interface VisitRef extends CalendarLink {
   readonly id: string;
@@ -46,10 +47,11 @@ async function slotIsFree(
   start: Date,
   durationMinutes: number,
   tx: Prisma.TransactionClient,
-  external: BusyPeriod[]
+  external: BusyPeriod[],
+  zone: string
 ): Promise<boolean> {
-  const date = dateKeyInClinicZone(start);
-  const native = await getNativeBusyPeriods(tx, tenantId, date);
+  const date = dateKeyInClinicZone(start, zone);
+  const native = await getNativeBusyPeriods(tx, tenantId, date, zone);
   return isSlotFree([...native, ...external], start, endOf(start, durationMinutes), {
     appointmentId: visit.id,
     externalEventId: visit.externalEventId,
@@ -77,11 +79,12 @@ export async function updateVisit(
   const duration = changes.durationMinutes ?? visit.durationMinutes;
   const timeChanged = start.getTime() !== visit.appointmentDate.getTime() || duration !== visit.durationMinutes;
   const check = checkConflicts && timeChanged;
-  const date = dateKeyInClinicZone(start);
-  const external = check ? await getExternalBusyPeriods(tenantId, date) : [];
+  const zone = await getTenantTimeZone(tenantId);
+  const date = dateKeyInClinicZone(start, zone);
+  const external = check ? await getExternalBusyPeriods(tenantId, date, zone) : [];
 
   return lockDay(tenantId, date, async (tx) => {
-    if (check && !(await slotIsFree(tenantId, visit, start, duration, tx, external))) {
+    if (check && !(await slotIsFree(tenantId, visit, start, duration, tx, external, zone))) {
       return { ok: false as const, reason: "slot_unavailable" as const };
     }
     // Only a visit that is still not deleted: a delete in between wins and the edit answers 404 (security review S2).
@@ -103,10 +106,11 @@ export async function reopenVisit(
   toStatus: AppointmentStatus,
   now: Date
 ): Promise<SlotWrite<PanelVisit>> {
-  const date = dateKeyInClinicZone(visit.appointmentDate);
-  const external = await getExternalBusyPeriods(tenantId, date);
+  const zone = await getTenantTimeZone(tenantId);
+  const date = dateKeyInClinicZone(visit.appointmentDate, zone);
+  const external = await getExternalBusyPeriods(tenantId, date, zone);
   return lockDay(tenantId, date, async (tx) => {
-    if (!(await slotIsFree(tenantId, visit, visit.appointmentDate, visit.durationMinutes, tx, external))) {
+    if (!(await slotIsFree(tenantId, visit, visit.appointmentDate, visit.durationMinutes, tx, external, zone))) {
       return { ok: false as const, reason: "slot_unavailable" as const };
     }
     const written = await tx.appointment.updateMany({

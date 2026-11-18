@@ -8,6 +8,7 @@ import { daySlots } from "@/lib/business-hours";
 import { isBookable } from "@/lib/bookable";
 import { modalityModeFor } from "@/lib/patient-intake";
 import { getBusyPeriods, isSlotFree } from "@/lib/calendar-sync";
+import { clinicDateTime, clinicOffsetOf } from "@/lib/clinic-time";
 
 /** Hours offered per reply: a short list, never the whole day. */
 const SLOTS_OFFERED_PER_REPLY = 3;
@@ -36,18 +37,18 @@ export async function POST(req: NextRequest) {
   }
 
   const duration = product.durationMinutes ?? 30;
-  const busy = await getBusyPeriods(bot.tenantId, date);
+  const busy = await getBusyPeriods(bot.tenantId, date, bot.timeZone);
 
   const candidates = daySlots(bot.businessHours, date, duration);
   const availableSlots = candidates.filter((time) => {
-    const slot = buildSlot(date, time, duration, bot.businessHours);
+    const slot = buildSlot(date, time, duration, bot.businessHours, bot.timeZone);
     return slot !== null && isSlotFree(busy, slot.start, slot.end);
   });
 
   // Past slots on today's date are not offered.
   const now = Date.now();
   const upcoming = availableSlots.filter((time) => {
-    const slot = buildSlot(date, time, duration, bot.businessHours);
+    const slot = buildSlot(date, time, duration, bot.businessHours, bot.timeZone);
     return slot ? slot.start.getTime() > now : false;
   });
 
@@ -60,7 +61,10 @@ export async function POST(req: NextRequest) {
     success: true,
     serviceName: product.name,
     date,
-    timezone: "America/Mexico_City (UTC-06:00)",
+    // The business zone (ticket #111): same "<IANA> (UTC<offset>)" text as before, plus how the customer reads it.
+    timezone: `${bot.timeZone} (UTC${clinicOffsetOf(new Date(clinicDateTime(date, "12:00", bot.timeZone)), bot.timeZone)})`,
+    timeZone: bot.timeZone,
+    timeZoneLabel: bot.timeZoneLabel,
     durationMinutes: duration,
     // How this service is delivered (IN_PERSON, ONLINE or ASK), so the agent tells the customer before booking.
     modalityMode: modalityModeFor(bot.serviceModes, product.visitModes),

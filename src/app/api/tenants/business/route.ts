@@ -8,6 +8,10 @@ import { apiError } from "@/lib/api-errors";
 import { locationSchema } from "@/lib/location";
 import { ownerNameIsFilled } from "@/lib/owner-name";
 import { isSameWhatsAppNumber } from "@/lib/whatsapp-number";
+import { isValidTimeZone } from "@/lib/clinic-time";
+import { usableTimeZone } from "@/lib/tenant-time-zone";
+import { chooseTimeZone, shouldDetectTimeZone, timeZoneSourceOf } from "@/lib/time-zone-choice";
+import { lookupTimeZone, realTimeZoneLookupDeps } from "@/lib/time-zone-lookup";
 import {
   businessHoursSchema,
   isDefaultBusinessHours,
@@ -29,6 +33,8 @@ const updateBusinessSchema = z.object({
   longitude: z.number().nullable().optional(),
   // How the business sees patients; with BOTH the bot and the web ask each visit (see patient-intake.ts).
   serviceModes: z.enum(["IN_PERSON", "ONLINE", "BOTH"]).optional(),
+  // The business time zone (IANA). Checked below with isValidTimeZone: answers time_zone_invalid.
+  timeZone: z.string().trim().max(64).optional(),
 });
 
 export async function GET() {
@@ -56,6 +62,8 @@ export async function GET() {
         latitude: true,
         longitude: true,
         serviceModes: true,
+        timeZone: true,
+        timeZoneSource: true,
       },
     });
 
@@ -78,6 +86,8 @@ export async function GET() {
       latitude: tenant.latitude,
       longitude: tenant.longitude,
       serviceModes: tenant.serviceModes,
+      timeZone: usableTimeZone(tenant.timeZone),
+      timeZoneSource: timeZoneSourceOf(tenant.timeZoneSource),
       tenant,
     });
   } catch (error) {
@@ -143,6 +153,28 @@ export async function PATCH(req: Request) {
       }
     }
 
+    // Time zone (ticket #111): the owner's choice wins; otherwise new address coordinates are asked to Google.
+    // A failed lookup keeps the zone and never blocks saving the address.
+    const requestedZone = parsed.data.timeZone;
+    if (requestedZone !== undefined && !isValidTimeZone(requestedZone)) return apiError("time_zone_invalid", 400);
+    const stored = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { timeZone: true, timeZoneSource: true, latitude: true, longitude: true },
+    });
+    const zoneInput = {
+      current: { timeZone: usableTimeZone(stored?.timeZone), source: timeZoneSourceOf(stored?.timeZoneSource) },
+      requested: requestedZone,
+      addressChanged:
+        locationData?.latitude != null &&
+        locationData.longitude != null &&
+        (locationData.latitude !== stored?.latitude || locationData.longitude !== stored?.longitude),
+    };
+    const detected =
+      shouldDetectTimeZone(zoneInput) && locationData?.latitude != null && locationData.longitude != null
+        ? await lookupTimeZone(locationData.latitude, locationData.longitude, realTimeZoneLookupDeps)
+        : null;
+    const zone = chooseTimeZone({ ...zoneInput, detected });
+
     // Stored as NULL when it equals the default schedule, so later default changes still apply.
     const hoursData =
       businessHours === undefined
@@ -162,6 +194,8 @@ export async function PATCH(req: Request) {
         ...(parsed.data.serviceModes ? { serviceModes: parsed.data.serviceModes } : {}),
         ...(locationData ?? {}),
         ...(hoursData !== undefined ? { businessHours: hoursData } : {}),
+        timeZone: zone.timeZone,
+        timeZoneSource: zone.source,
       },
       select: {
         name: true,
@@ -178,11 +212,15 @@ export async function PATCH(req: Request) {
         latitude: true,
         longitude: true,
         serviceModes: true,
+        timeZone: true,
+        timeZoneSource: true,
       },
     });
 
     return NextResponse.json({
       ...updated,
+      // detected | failed | skipped: the screen tells the owner what happened with the zone.
+      timeZoneDetection: zone.detection,
       businessHours: parseBusinessHours(updated.businessHours),
       tenant: updated,
       message: "Business information updated"

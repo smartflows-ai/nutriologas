@@ -14,12 +14,14 @@ const DAYS_BEFORE = 1;
 const DAYS_AFTER = 3;
 
 export interface FreeSlot extends SlotRef {
-  /** The same time as an ISO date with the clinic offset, ready to send back as appointmentDate. */
+  /** The same time as an ISO date with the business offset, ready to send back as appointmentDate. */
   readonly iso: string;
 }
 
 export interface NearestFreeInput {
   readonly tenantId: string;
+  /** The business time zone (IANA): days and times are read on its clock. */
+  readonly zone: string;
   readonly hours: BusinessHours;
   readonly durationMinutes: number;
   readonly target: Date;
@@ -30,30 +32,30 @@ export interface NearestFreeInput {
 }
 
 async function freeTimesOf(input: NearestFreeInput, date: string): Promise<SlotRef[]> {
-  const busy = await getBusyPeriods(input.tenantId, date);
+  const busy = await getBusyPeriods(input.tenantId, date, input.zone);
   return daySlots(input.hours, date, input.durationMinutes)
     .filter((time) => {
-      const slot = buildSlot(date, time, input.durationMinutes, input.hours);
+      const slot = buildSlot(date, time, input.durationMinutes, input.hours, input.zone);
       return slot !== null && slot.start.getTime() > input.now.getTime() && isSlotFree(busy, slot.start, slot.end, input.exclude);
     })
     .map((time) => ({ date, time }));
 }
 
 export async function nearestFreeSlots(input: NearestFreeInput): Promise<FreeSlot[]> {
-  const targetDay = clinicDateKeyOf(input.target);
-  const today = clinicDateKeyOf(input.now);
+  const targetDay = clinicDateKeyOf(input.target, input.zone);
+  const today = clinicDateKeyOf(input.now, input.zone);
   const days = Array.from({ length: DAYS_BEFORE + DAYS_AFTER + 1 }, (_, i) => addClinicDays(targetDay, i - DAYS_BEFORE)).filter(
     (day) => day >= today
   );
   const limit = input.limit ?? ALTERNATIVES_OFFERED;
-  const target = { date: targetDay, time: clinicTimeOf(input.target) };
+  const target = { date: targetDay, time: clinicTimeOf(input.target, input.zone) };
   // The wanted day first: one calendar read usually finds enough; the other days only when it does not.
   const sameDay = days.includes(targetDay) ? await freeTimesOf(input, targetDay) : [];
   const others =
     sameDay.length >= limit ? [] : (await Promise.all(days.filter((d) => d !== targetDay).map((day) => freeTimesOf(input, day)))).flat();
   return nearestSlots([...sameDay, ...others], target, limit).map((s) => ({
     ...s,
-    iso: clinicDateTime(s.date, s.time),
+    iso: clinicDateTime(s.date, s.time, input.zone),
   }));
 }
 
@@ -67,17 +69,17 @@ export async function botSlotTakenBody(input: NearestFreeInput): Promise<Record<
   return {
     success: false,
     error: "slot_unavailable",
-    message: `Ese horario se acaba de ocupar. ${alternativesSentence(alternatives)} Ofrécelos al cliente en esta misma respuesta.`,
+    message: `Ese horario se acaba de ocupar. ${alternativesSentence(alternatives, input.zone)} Ofrécelos al cliente en esta misma respuesta.`,
     alternatives: alternatives.map(({ date, time }) => ({ date, time })),
   };
 }
 
 /** Spanish sentence for the WhatsApp agent: "Los horarios libres más cercanos son ...". */
-export function alternativesSentence(slots: readonly FreeSlot[]): string {
+export function alternativesSentence(slots: readonly FreeSlot[], zone: string): string {
   if (slots.length === 0) return "No hay horarios libres cercanos; ofrece revisar otro día.";
   const items = slots.map((s) => {
     const at = new Date(s.iso);
-    return `${clinicLongDate(at, "es")} a las ${clinicTime(at, "es")}`;
+    return `${clinicLongDate(at, "es", zone)} a las ${clinicTime(at, "es", zone)}`;
   });
   const list = items.join("; ");
   // A time ending in "p.m." already closes the sentence: no second period.

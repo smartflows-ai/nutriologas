@@ -11,6 +11,7 @@ import {
   sendGmailMessage,
   buildConfirmationEmail,
 } from "@/lib/google-calendar";
+import { getTenantTimeZone } from "@/lib/tenant-time-zone";
 
 export async function POST(req: NextRequest) {
   const key = req.headers.get("x-internal-key");
@@ -63,6 +64,7 @@ export async function POST(req: NextRequest) {
       attendeePhone,
       meetingTopic,
       tenantName,
+      zone: await getTenantTimeZone(String(tenantId)),
     });
 
     // 2. Check for conflicts
@@ -96,6 +98,7 @@ export async function POST(req: NextRequest) {
       startDateTime: eventData.startDateTime,
       endDateTime: eventData.endDateTime,
       attendeeEmail,
+      timeZone: eventData.timeZone,
     });
 
     const meetLink =

@@ -10,6 +10,7 @@ import { confirmVisit, releaseVisit } from "@/lib/reminder-actions";
 import { planLockResponse } from "@/lib/capability-guard";
 import { AWAITING_CONFIRMATION } from "@/lib/reminders";
 import { customerMeetUrl } from "@/lib/short-links";
+import { usableTimeZone } from "@/lib/tenant-time-zone";
 
 const bodySchema = z.object({ action: z.enum(["confirm", "release"]) });
 
@@ -42,7 +43,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       meetUrl: true,
       meetShortCode: true,
       product: { select: { name: true } },
-      tenant: { select: { name: true, slug: true, customDomain: true, messageLanguage: true, cancellationTemplate: true } },
+      tenant: { select: { name: true, slug: true, customDomain: true, messageLanguage: true, timeZone: true, cancellationTemplate: true } },
     },
   });
   if (!visit) return apiError("appointment_not_found", 404);
@@ -58,6 +59,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     productName: visit.product.name,
     tenantName: visit.tenant.name,
     messageLanguage: visit.tenant.messageLanguage,
+    timeZone: usableTimeZone(visit.tenant.timeZone),
     cancellationTemplate: visit.tenant.cancellationTemplate,
     modality: visit.modality,
     // The customer gets the short video link of this visit (the real one when the visit has no code).

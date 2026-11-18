@@ -19,7 +19,9 @@ import {
 import { localeFor, fill } from "@/lib/utils";
 import { priceViewFor, type PriceMode } from "@/lib/price-display";
 import { buildFullPhone, DEFAULT_DIAL_CODE, PHONE_COUNTRIES } from "@/lib/phone";
-import { clinicDateTime } from "@/lib/clinic-time";
+import { addClinicDays, clinicDateKeyOf, clinicDateTime } from "@/lib/clinic-time";
+import { timeZoneLabel } from "@/lib/time-zones";
+import { useBusinessTimeZone } from "@/components/shared/BusinessTimeZone";
 import { modalityModeFor, parseAge } from "@/lib/patient-intake";
 import { BusinessHours, blocksForDate, markSlots } from "@/lib/business-hours";
 import { useTranslation } from "@/i18n";
@@ -67,21 +69,23 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
   const rootRef = useRef<HTMLDivElement>(null);
   const slotsRef = useRef<HTMLDivElement>(null);
 
-  // Next 21 days, only the days the business is open (its weekly hours).
+  // Days and times are the business's own (Tenant.timeZone, ticket #111), whatever zone the visitor is in.
+  const zone = useBusinessTimeZone();
+
+  // Next 21 days from today on the business calendar, only the days the business is open (its weekly hours).
   const availableDays = (() => {
     const days = [];
-    const today = new Date();
+    const todayKey = clinicDateKeyOf(new Date(), zone);
     for (let i = 0; i < 21; i++) {
-      const d = new Date(today);
-      d.setDate(today.getDate() + i);
-      // Local calendar date. toISOString() would give the UTC date, which can be a day ahead in the evening.
-      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const dateStr = addClinicDays(todayKey, i);
+      // A date key at UTC noon names its own weekday and month, with no zone shifting it to another day.
+      const d = new Date(`${dateStr}T12:00:00Z`);
       if (blocksForDate(businessHours, dateStr).length > 0) {
         days.push({
           dateStr,
-          dayName: d.toLocaleDateString(locale, { weekday: "short" }),
-          dayNum: d.getDate(),
-          monthName: d.toLocaleDateString(locale, { month: "short" }),
+          dayName: d.toLocaleDateString(locale, { weekday: "short", timeZone: "UTC" }),
+          dayNum: Number(dateStr.slice(8, 10)),
+          monthName: d.toLocaleDateString(locale, { month: "short", timeZone: "UTC" }),
         });
       }
     }
@@ -170,7 +174,7 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
     setError(null);
 
     try {
-      const appointmentDateTime = clinicDateTime(selectedDate, selectedSlot);
+      const appointmentDateTime = clinicDateTime(selectedDate, selectedSlot, zone);
       const res = await fetch("/api/appointments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -386,6 +390,8 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
           <h3 className="text-base font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
             <span className="w-6 h-6 rounded-full bg-primary text-[color:var(--on-primary)] ring-1 ring-inset ring-gray-900/15 dark:ring-white/25 text-xs flex items-center justify-center font-semibold">2</span>
             {t.booking.step2}
+            {/* The times are the business's: say which clock, so a visitor in another zone is not misled. */}
+            <span className="text-xs font-normal text-gray-500 dark:text-gray-400">({timeZoneLabel(zone, lang)})</span>
           </h3>
 
           {loadingSlots ? (

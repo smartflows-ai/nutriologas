@@ -4,12 +4,15 @@
 import type { AppProvider } from "@prisma/client";
 import { planReminder, releaseAt } from "@/lib/reminders";
 import { hasLocationTag, hasVisitDetailTags } from "@/lib/reminder-template-rules";
+import { timeZoneLabel } from "@/lib/time-zones";
 import { clinicLongDate, clinicTime, customerTexts, placeLine, placeText, renderTemplate, usableTemplate, withBookedBy, withPlaceAfterDetails, withLocation, withMeetingLink } from "@/lib/reminder-messages";
 
 export interface ReminderTenant {
   name: string;
   ownerName?: string | null;
   messageLanguage: string;
+  /** The business time zone (IANA, ticket #111): dates and times in the messages are on its clock. */
+  timeZone: string;
   reminderLeadMinutes: number;
   confirmationRequired: boolean;
   confirmationDeadlineMinutes: number;
@@ -88,8 +91,9 @@ function reminderText(visit: ReminderVisit, requestConfirmation: boolean, releas
   const texts = customerTexts(t.messageLanguage);
   const values = {
     servicio: visit.productName,
-    fecha: clinicLongDate(visit.appointmentDate, t.messageLanguage),
-    hora: clinicTime(visit.appointmentDate, t.messageLanguage),
+    fecha: clinicLongDate(visit.appointmentDate, t.messageLanguage, t.timeZone),
+    hora: clinicTime(visit.appointmentDate, t.messageLanguage, t.timeZone),
+    zona: timeZoneLabel(t.timeZone, t.messageLanguage),
     negocio: t.name,
     responsable: t.ownerName,
     nombre: visit.customerName,
@@ -104,7 +108,7 @@ function reminderText(visit: ReminderVisit, requestConfirmation: boolean, releas
   // reminder text above it repeats the same greeting and details. The default confirmation text is only the
   // short request, so it is still added under the reminder.
   if (confirmationSource !== null && hasVisitDetailTags(confirmationSource)) {
-    const body = renderTemplate(confirmationSource, { ...values, hora_limite: clinicTime(releaseInstant as Date, t.messageLanguage) });
+    const body = renderTemplate(confirmationSource, { ...values, hora_limite: clinicTime(releaseInstant as Date, t.messageLanguage, t.timeZone) });
     const line = hasLocationTag(confirmationSource) ? null : placeLine(visit, t.locationText, t.messageLanguage);
     return withBookedBy(line ? withPlaceAfterDetails(confirmationSource, body, line) : body, visit, t.messageLanguage);
   }
@@ -113,7 +117,7 @@ function reminderText(visit: ReminderVisit, requestConfirmation: boolean, releas
   const reminderIsCustom = Boolean(t.reminderTemplate?.trim()) && reminderSource !== texts.reminderTemplate;
   const tail =
     confirmationSource !== null
-      ? renderTemplate(confirmationSource, { ...values, hora_limite: clinicTime(releaseInstant as Date, t.messageLanguage) })
+      ? renderTemplate(confirmationSource, { ...values, hora_limite: clinicTime(releaseInstant as Date, t.messageLanguage, t.timeZone) })
       : reminderIsCustom
         ? null
         : texts.plainFooter;

@@ -25,6 +25,9 @@ import { buildFullPhone, splitFullPhone, DEFAULT_DIAL_CODE, PHONE_COUNTRIES } fr
 import { translateApiError } from "@/i18n/validation";
 import { ownerNameIsFilled } from "@/lib/owner-name";
 import AddressSearch from "@/components/shared/AddressSearch";
+import { DEFAULT_TIME_ZONE } from "@/lib/clinic-time";
+import { fill } from "@/lib/utils";
+import { timeZoneLabel, timeZoneOptionsFor } from "@/lib/time-zones";
 import PasswordFields, {
   EMPTY_PASSWORD_VALUES,
   isPasswordFormTouched,
@@ -66,7 +69,7 @@ const nextBlock = (blocks: DayHours[]): DayHours => {
 };
 
 export default function BusinessProfilePage() {
-  const { t } = useTranslation();
+  const { t, lang } = useTranslation();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -108,6 +111,10 @@ export default function BusinessProfilePage() {
   const [hasPhysicalLocation, setHasPhysicalLocation] = useState(false);
   // How the business sees patients; with "BOTH" the bot and the booking page ask each visit.
   const [serviceModes, setServiceModes] = useState<"IN_PERSON" | "ONLINE" | "BOTH">("IN_PERSON");
+  // Business time zone (ticket #111): detected from the address on save, or chosen here.
+  const [timeZone, setTimeZone] = useState<string>(DEFAULT_TIME_ZONE);
+  const [savedTimeZone, setSavedTimeZone] = useState<string>(DEFAULT_TIME_ZONE);
+  const [timeZoneNotice, setTimeZoneNotice] = useState<string | null>(null);
   const [location, setLocation] = useState<BusinessLocation | null>(null);
   const [hours, setHours] = useState<BusinessHours>(DEFAULT_BUSINESS_HOURS);
 
@@ -147,6 +154,10 @@ export default function BusinessProfilePage() {
         setOwnerName(tenantData.ownerName || "");
         setHasPhysicalLocation(Boolean(tenantData.hasPhysicalLocation));
         if (tenantData.serviceModes) setServiceModes(tenantData.serviceModes);
+        if (tenantData.timeZone) {
+          setTimeZone(tenantData.timeZone);
+          setSavedTimeZone(tenantData.timeZone);
+        }
         setLocation(
           tenantData.address
             ? {
@@ -319,6 +330,7 @@ export default function BusinessProfilePage() {
           ownerName: ownerName.trim(),
           hasPhysicalLocation,
           serviceModes,
+          timeZone,
           address: hasPhysicalLocation ? location?.address : null,
           placeId: hasPhysicalLocation ? location?.placeId ?? null : null,
           latitude: hasPhysicalLocation ? location?.latitude ?? null : null,
@@ -330,6 +342,18 @@ export default function BusinessProfilePage() {
         const data = await res.json().catch(() => ({}));
         throw new Error(translateApiError(t, data.error) || t.crm.business.saveError);
       }
+      const savedData = await res.json().catch(() => ({}));
+      if (typeof savedData.timeZone === "string") {
+        setTimeZone(savedData.timeZone);
+        setSavedTimeZone(savedData.timeZone);
+      }
+      setTimeZoneNotice(
+        savedData.timeZoneDetection === "detected"
+          ? fill(t.locationUi.timeZoneDetected, { zona: timeZoneLabel(savedData.timeZone, lang) })
+          : savedData.timeZoneDetection === "failed"
+            ? t.locationUi.timeZoneDetectFailed
+            : null,
+      );
 
       setInitialData({
         name: name.trim(),
@@ -685,7 +709,17 @@ export default function BusinessProfilePage() {
               <span className="block text-sm font-medium text-gray-900 dark:text-white">
                 {t.locationUi.addressLabel}
               </span>
-              <AddressSearch value={location} onChange={setLocation} />
+              <AddressSearch
+                value={location}
+                onChange={(next) => {
+                  setLocation(next);
+                  // The zone Google gives for the picked place (ticket #111) is proposed right away; saving keeps it.
+                  if (next?.timeZone) {
+                    setTimeZone(next.timeZone);
+                    setTimeZoneNotice(fill(t.locationUi.timeZoneProposed, { zona: timeZoneLabel(next.timeZone, lang) }));
+                  }
+                }}
+              />
             </div>
           )}
 
@@ -707,6 +741,32 @@ export default function BusinessProfilePage() {
             {serviceModes !== "ONLINE" && !hasPhysicalLocation && (
               <p className="text-xs text-gray-500 dark:text-gray-400">{t.locationUi.serviceModesNeedsAddress}</p>
             )}
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="time-zone" className="text-sm font-medium text-gray-900 dark:text-white block">
+              {t.locationUi.timeZoneLabel}
+            </label>
+            <p className="text-xs text-gray-500 dark:text-gray-400">{t.locationUi.timeZoneHint}</p>
+            <select
+              id="time-zone"
+              value={timeZone}
+              onChange={(e) => {
+                setTimeZone(e.target.value);
+                setTimeZoneNotice(null);
+              }}
+              className="select-themed w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
+            >
+              {timeZoneOptionsFor(timeZone).map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.owner[lang === "en" ? "en" : "es"]}
+                </option>
+              ))}
+            </select>
+            {timeZone !== savedTimeZone && (
+              <p className="text-xs text-gray-500 dark:text-gray-400">{t.locationUi.timeZoneChangeNotice}</p>
+            )}
+            {timeZoneNotice && <p role="status" className="text-xs text-gray-600 dark:text-gray-300">{timeZoneNotice}</p>}
           </div>
         </div>
 

@@ -49,6 +49,7 @@ function visit(overrides: Partial<ReminderVisit>, locationText: string | null): 
       messageLanguage: "es",
       reminderLeadMinutes: 24 * 60,
       confirmationRequired: true,
+      timeZone: "America/Mexico_City",
       confirmationDeadlineMinutes: 120,
       reminderTemplate: null,
       confirmationTemplate: null,

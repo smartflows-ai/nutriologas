@@ -19,6 +19,7 @@ import {
   syncCalendarUpdate,
 } from "@/lib/calendar-sync";
 import { newMeetShortCode } from "@/lib/short-links";
+import { getTenantTimeZone } from "@/lib/tenant-time-zone";
 
 export const appointmentInclude = {
   product: { select: { name: true, durationMinutes: true, price: true, priceMode: true } },
@@ -106,14 +107,15 @@ export async function linkCreated(id: string, link: CalendarLink, meetUrl: strin
 
 export async function createAppointment(input: CreateAppointmentInput): Promise<CreateAppointmentResult> {
   const end = endOf(input.appointmentDate, input.durationMinutes);
-  const date = dateKeyInClinicZone(input.appointmentDate);
+  const zone = await getTenantTimeZone(input.tenantId);
+  const date = dateKeyInClinicZone(input.appointmentDate, zone);
   const checkConflicts = input.checkConflicts ?? true;
   // Calendar lookup is a network call, so it runs before the lock is taken.
-  const external = checkConflicts ? await getExternalBusyPeriods(input.tenantId, date) : [];
+  const external = checkConflicts ? await getExternalBusyPeriods(input.tenantId, date, zone) : [];
 
   const created = await lockDay(input.tenantId, date, async (tx) => {
     if (checkConflicts) {
-      const native = await getNativeBusyPeriods(tx, input.tenantId, date);
+      const native = await getNativeBusyPeriods(tx, input.tenantId, date, zone);
       if (!isSlotFree([...native, ...external], input.appointmentDate, end)) return null;
     }
 
@@ -178,12 +180,13 @@ export interface RescheduleInput {
 export async function rescheduleAppointment(input: RescheduleInput) {
   const { appointment } = input;
   const end = endOf(input.newStart, appointment.durationMinutes);
-  const date = dateKeyInClinicZone(input.newStart);
-  const external = input.checkConflicts ? await getExternalBusyPeriods(input.tenantId, date) : [];
+  const zone = await getTenantTimeZone(input.tenantId);
+  const date = dateKeyInClinicZone(input.newStart, zone);
+  const external = input.checkConflicts ? await getExternalBusyPeriods(input.tenantId, date, zone) : [];
 
   const updated = await lockDay(input.tenantId, date, async (tx) => {
     if (input.checkConflicts) {
-      const native = await getNativeBusyPeriods(tx, input.tenantId, date);
+      const native = await getNativeBusyPeriods(tx, input.tenantId, date, zone);
       const free = isSlotFree([...native, ...external], input.newStart, end, {
         appointmentId: appointment.id,
         externalEventId: appointment.externalEventId,
@@ -258,7 +261,8 @@ export async function softDeleteAppointment(
 
   const at = new Date();
   // Same per-day lock as bookings and edits, so a delete and an edit of one visit never interleave.
-  const hidden = await lockDay(tenantId, dateKeyInClinicZone(appointment.appointmentDate), async (tx) => {
+  const zone = await getTenantTimeZone(tenantId);
+  const hidden = await lockDay(tenantId, dateKeyInClinicZone(appointment.appointmentDate, zone), async (tx) => {
     // Only a visit that is not deleted yet: two clicks at once write one trail row.
     const result = await tx.appointment.updateMany({
       where: { id: appointment.id, tenantId, deletedAt: null },
@@ -368,11 +372,12 @@ export async function restoreAppointment(input: RestoreInput): Promise<RestoreRe
     if (!input.withinHours(input.newStart, visit.durationMinutes)) return { ok: false, reason: "outside_business_hours" };
   }
   const end = endOf(start, visit.durationMinutes);
-  const date = dateKeyInClinicZone(start);
-  const external = await getExternalBusyPeriods(input.tenantId, date);
+  const zone = await getTenantTimeZone(input.tenantId);
+  const date = dateKeyInClinicZone(start, zone);
+  const external = await getExternalBusyPeriods(input.tenantId, date, zone);
 
   const restored = await lockDay(input.tenantId, date, async (tx) => {
-    const native = await getNativeBusyPeriods(tx, input.tenantId, date);
+    const native = await getNativeBusyPeriods(tx, input.tenantId, date, zone);
     if (!isSlotFree([...native, ...external], start, end)) return "slot_unavailable" as const;
     const done = await unhide(tx, input, { appointmentDate: start, ...rescheduleResetState() });
     return done ? ("restored" as const) : ("not_found" as const);

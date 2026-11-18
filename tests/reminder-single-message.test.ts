@@ -33,6 +33,7 @@ function visit(overrides: Partial<ReminderVisit> = {}, tenant: Partial<ReminderV
       messageLanguage: "es",
       reminderLeadMinutes: 180,
       confirmationRequired: true,
+      timeZone: "America/Mexico_City",
       confirmationDeadlineMinutes: 60,
       reminderTemplate: REMINDER,
       confirmationTemplate: CONFIRMATION,

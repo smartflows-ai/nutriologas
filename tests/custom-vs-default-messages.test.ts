@@ -44,6 +44,7 @@ function visit(tenant: Partial<ReminderVisit["tenant"]> = {}, overrides: Partial
       messageLanguage: "es",
       reminderLeadMinutes: 180,
       confirmationRequired: true,
+      timeZone: "America/Mexico_City",
       confirmationDeadlineMinutes: 60,
       reminderTemplate: null,
       confirmationTemplate: null,
