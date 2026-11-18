@@ -93,3 +93,11 @@ test("taking a chat pauses the bot that was answering it", () => {
   const action = read("src/app/api/apps/whatsapp/chats/[id]/help/route.ts");
   assert.ok(action.includes("takePatch(userId, new Date(), chat.botEnabled)"));
 });
+
+test("the help escalation setting is owner only: the route and the card both require users.manage", () => {
+  const route = read("src/app/api/tenants/help/route.ts");
+  assert.equal((route.match(/requirePermission\("users\.manage"\)/g) ?? []).length, 2, "GET and PATCH are owner only");
+  assert.doesNotMatch(route, /requirePermission\("whatsapp\.settings"\)/, "no staff permission on the escalation setting");
+  const page = read("src/app/admin/whatsapp/page.tsx");
+  assert.match(page, /canAssignHelpChats && <HelpSettingsCard \/>/, "the card is shown to the owner only");
+});

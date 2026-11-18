@@ -739,7 +739,7 @@ export default function WhatsAppPage() {
           </form>
 
           <div className="mt-8 space-y-8">
-            <HelpSettingsCard />
+            {canAssignHelpChats && <HelpSettingsCard />}
             <ReminderSettingsCard />
             <ReminderMessagesCard />
           </div>
