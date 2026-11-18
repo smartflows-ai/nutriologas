@@ -9,7 +9,7 @@ const WEEKDAYS_ES = ["domingo", "lunes", "martes", "miércoles", "jueves", "vier
 export const SLOTS_OFFERED_PER_REPLY = 3;
 
 export type SlotEdge = "first" | "last";
-export type RequestedStatus = "free" | "taken" | "outside_hours";
+export type RequestedStatus = "free" | "taken" | "closed" | "past" | "no_fit";
 
 export interface SlotQueryInput {
   /** Every start time offered that day for this service, "HH:mm", from now on (times already past are left out). */
@@ -18,6 +18,8 @@ export interface SlotQueryInput {
   readonly free: readonly string[];
   /** An exact time the customer asked for, "HH:mm". */
   readonly time?: string | null;
+  /** The status of `time`, decided by the route (see classifyRequestedTime). Without it the grid decides. */
+  readonly status?: RequestedStatus | null;
   /** "first" or "last" free time of the day. */
   readonly edge?: SlotEdge | null;
   /** Exclusive: the free times strictly after this one (legacy paging). */
@@ -64,11 +66,7 @@ export function slotQuery(input: SlotQueryInput): SlotQueryResult {
 
   if (input.time) {
     const time = input.time;
-    const status: RequestedStatus = !input.grid.includes(time)
-      ? "outside_hours"
-      : freeSet.has(time)
-        ? "free"
-        : "taken";
+    const status: RequestedStatus = input.status ?? (!input.grid.includes(time) ? "closed" : freeSet.has(time) ? "free" : "taken");
     return { requested: { time, status }, availableSlots: nearestTo(free, time, limit), hasMore: false, edgeTime: null };
   }
 
@@ -80,4 +78,39 @@ export function slotQuery(input: SlotQueryInput): SlotQueryResult {
   const later = input.after ? free.filter((time) => minutesOf(time) > minutesOf(input.after as string)) : free;
   const offered = later.slice(0, limit);
   return { requested: null, availableSlots: offered, hasMore: later.length > offered.length, edgeTime: null };
+}
+
+/** The facts about one requested time, found by the route. */
+export interface RequestedTimeFacts {
+  /** The business is open at that start time (a block of that day contains it). */
+  readonly inside: boolean;
+  /** The time is already past (today's earlier hours, or any hour of a past date). */
+  readonly past: boolean;
+  /** A session of this service fits inside the block before it closes. */
+  readonly fits: boolean;
+  /** The session does not collide with another visit or a calendar event. */
+  readonly free: boolean;
+}
+
+/**
+ * One status per requested time, in this order: past, closed, does not fit, then free or taken.
+ * An open hour is never reported as closed, and a closed hour never as taken.
+ */
+export function classifyRequestedTime(facts: RequestedTimeFacts): RequestedStatus {
+  if (facts.past) return "past";
+  if (!facts.inside) return "closed";
+  if (!facts.fits) return "no_fit";
+  return facts.free ? "free" : "taken";
+}
+
+const CLOCK_RE = /^(\d{1,2}):(\d{2})$/;
+
+/** "9:00" and "09:00" are the same hour. Anything else (seconds, am/pm, 25:00) is not a clock time: null. */
+export function normalizeClock(value: string): string | null {
+  const match = CLOCK_RE.exec(value.trim());
+  if (!match) return null;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (hours > 23 || minutes > 59) return null;
+  return `${String(hours).padStart(2, "0")}:${match[2]}`;
 }

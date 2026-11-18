@@ -178,3 +178,10 @@ export function markSlots(candidates: string[], available: string[]): { time: st
   const free = new Set(available);
   return candidates.map((time) => ({ time, available: free.has(time) }));
 }
+
+/** True when the business is open at that start time that day (a block of the day contains it), whatever the length of the service. */
+export function insideBusinessHours(hours: BusinessHours, date: string, time: string): boolean {
+  if (!TIME_REGEX.test(time)) return false;
+  const start = toMinutes(time);
+  return blocksForDate(hours, date).some((block) => start >= toMinutes(block.start) && start < toMinutes(block.end));
+}

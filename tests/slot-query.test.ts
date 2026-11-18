@@ -21,10 +21,10 @@ test("an exact taken time is reported as taken, with the three nearest free time
   assert.deepEqual(result.availableSlots, ["09:00", "10:30", "11:00"]);
 });
 
-test("a time that is not offered that day (outside hours) is reported as outside_hours", () => {
+test("a time the business does not open at is reported as closed", () => {
   const free = ["09:00", "18:00"];
   const result = slotQuery({ grid: GRID, free, time: "20:00" });
-  assert.deepEqual(result.requested, { time: "20:00", status: "outside_hours" });
+  assert.deepEqual(result.requested, { time: "20:00", status: "closed" });
   assert.deepEqual(result.availableSlots, ["18:00", "09:00"].sort());
 });
 
