@@ -7,8 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { notifyTenantOwner } from "@/lib/whatsapp";
-
-const COOLDOWN_MS = 60 * 60 * 1000; // 60 minutes
+import { shouldAlertOwner } from "@/lib/owner-alert";
 
 function isAuthorized(req: NextRequest): boolean {
   return req.headers.get("x-internal-key") === process.env.INTERNAL_API_KEY;
@@ -39,21 +38,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
   }
 
-  const lastAlertedAt = tenant.botFailureAlertedAt;
-  const withinCooldown = lastAlertedAt && Date.now() - lastAlertedAt.getTime() < COOLDOWN_MS;
-  if (withinCooldown) {
+  if (!shouldAlertOwner(new Date(), tenant.botFailureAlertedAt)) {
     return NextResponse.json({ alerted: false });
+  }
+
+  // The cooldown is written only after the owner was told. A failed send leaves it unset, so the next failure retries.
+  const sent = await notifyTenantOwner(
+    tenantId,
+    "El asistente de WhatsApp no pudo responder a un cliente por una falla temporal. Revisa el panel o contacta al cliente manualmente.",
+  );
+  if (!sent) {
+    return NextResponse.json({ alerted: false, error: "owner_alert_failed" }, { status: 502 });
   }
 
   await prisma.tenant.update({
     where: { id: tenantId },
     data: { botFailureAlertedAt: new Date() },
   });
-
-  await notifyTenantOwner(
-    tenantId,
-    "El asistente de WhatsApp no pudo responder a un cliente por una falla temporal. Revisa el panel o contacta al cliente manualmente.",
-  );
 
   return NextResponse.json({ alerted: true });
 }

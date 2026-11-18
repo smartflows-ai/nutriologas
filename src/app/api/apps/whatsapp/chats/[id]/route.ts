@@ -2,6 +2,7 @@
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/permission-guard";
 import { apiError } from "@/lib/api-errors";
+import { resolvePatch } from "@/lib/help-actions";
 
 /**
  * Turns the AI bot on or off for one contact. Off means the bot stops answering this chat,
@@ -32,6 +33,8 @@ export async function PATCH(
     data: {
       botEnabled: body.botEnabled,
       botPausedReason: body.botEnabled ? null : "manual",
+      // Turning the bot back on means a person finished with this chat: the help request is handled.
+      ...(body.botEnabled ? resolvePatch() : {}),
     },
     select: { id: true, botEnabled: true, botPausedReason: true },
   });

@@ -1,5 +1,6 @@
 // src/app/api/internal/whatsapp/sync/route.ts
 import { prisma } from "@/lib/db";
+import { ownerTookOverPatch, resolvePatch } from "@/lib/help-actions";
 import { NextRequest } from "next/server";
 
 export async function POST(req: NextRequest) {
@@ -77,6 +78,11 @@ export async function POST(req: NextRequest) {
       }
     });
 
+    // A customer who writes again while a person is needed and nobody took the chat: the panel says so.
+    if (!fromMe && !data.message?.reactionMessage && chat.helpPriority > 0 && !chat.helpTakenAt) {
+      await (prisma as any).whatsAppChat.update({ where: { id: chat.id }, data: { helpCustomerWroteAt: timestamp } });
+    }
+
     // 2. Guardar el Mensaje.
     // Messages the owner sends (from the phone) pause the bot for this contact. Bot replies do not:
     // the bot stores its reply under a "bot-" key before sending, and Evolution's echo of that reply
@@ -133,6 +139,17 @@ export async function POST(req: NextRequest) {
       await (prisma as any).whatsAppChat.update({
         where: { id: chat.id },
         data: { botEnabled: false, botPausedReason: "owner_reply" },
+      });
+    }
+
+    // A person answering from their phone means the chat was taken care of; any reply (the bot's included) ends an
+    // "unanswered" help request, because its cause is gone.
+    const replied = fromMe && !isEcho && !isReaction;
+    if (replied && chat.helpPriority > 0 && (ownerWroteToContact || String(chat.helpReason ?? "").startsWith("unanswered"))) {
+      await (prisma as any).whatsAppChat.update({
+        where: { id: chat.id },
+        // A person writing into a chat paused by a hand-off: it stays paused, as "a person is writing".
+        data: { ...resolvePatch(), ...(ownerWroteToContact && !chat.botEnabled ? ownerTookOverPatch(chat.botPausedReason) : {}) },
       });
     }
 

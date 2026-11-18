@@ -44,6 +44,7 @@ model Tenant {
   boardingCapacity   Int?             // Capacidad de hospedaje (veterinaria/hotel)
   aiCreditLimitUsd   Float?  // Override per-tenant AI credit cap (null = use plan default)
   botFailureAlertedAt DateTime? // Last time the owner was alerted that the WhatsApp bot's model cascade failed (throttles repeat alerts)
+  helpEscalationMinutes Int @default(15) // Minutes an assistant has to take a chat that needs help before the owner is told (15 to 240, multiples of 15)
   remindersEnabled       Boolean @default(true)   // Recordatorios de cita por WhatsApp
   reminderOffsetsMinutes Int[]   @default([1440, 120]) // Legacy: ya no se usa (reemplazado por reminderMode)
   reminderLeadMinutes       Int     @default(1440) // Minutos antes de la cita en que sale el recordatorio (múltiplos de 30)
@@ -128,6 +129,8 @@ model User {
   mustChangePassword Boolean @default(false)
   // Goes up on a password reset or a deactivation; a session only works for the version it was issued for.
   sessionVersion     Int     @default(0)
+  // WhatsApp number a staff member receives "a chat needs help" notices on (prisma/sql/28-help-requests).
+  whatsappNumber     String?
   googleId     String?
   conektaCustomerId String?
   orders  Order[]
@@ -135,6 +138,7 @@ model User {
   // Visits this user deleted (soft delete, ticket #103) and the delete / restore history they wrote.
   deletedAppointments Appointment[] @relation("AppointmentDeletedBy")
   appointmentTrail    AppointmentTrail[]
+  assignedChats       WhatsAppChat[] @relation("ChatAssignee")
   reviews Review[]
   accounts Account[]
   sessions Session[]
@@ -232,12 +236,24 @@ model WhatsAppChat {
   lastMessage String?  @db.Text
   unreadCount Int      @default(0)
   botEnabled  Boolean  @default(true)  // false: the AI bot does not answer this contact
-  botPausedReason String? // "manual" (owner switched it off) | "owner_reply" (owner wrote to the contact)
+  botPausedReason String? // "manual" (owner switched it off) | "owner_reply" (owner wrote to the contact) | "purchase_intent" (the customer wants to buy)
+  // Needs a person (prisma/sql/28-help-requests, src/lib/help-reasons.ts). helpPriority 0 = no help needed.
+  helpReason  String?
+  helpPriority Int     @default(0)
+  helpRequestedAt DateTime?
+  assignedToId String? // The assistant in charge of this chat (a STAFF user)
+  assignedTo  User?    @relation("ChatAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  helpAssigneeNotifiedAt DateTime?
+  helpOwnerNotifiedAt DateTime?
+  helpTakenAt DateTime?
+  helpAssignedAt DateTime? // when the owner put the assistant in charge (the in-app notice and the WhatsApp reminder start from it)
+  helpCustomerWroteAt DateTime? // the customer wrote again while the chat needed a person and nobody had taken it
   updatedAt   DateTime @updatedAt
 
   messages    WhatsAppMessage[]
 
   @@unique([tenantId, remoteJid])
+  @@index([tenantId, helpPriority, updatedAt])
   @@map("whatsapp_chats")
 }
 

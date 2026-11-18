@@ -8,6 +8,8 @@ import { isInternalKeyValid } from "@/lib/bot";
 import { loadReminderVisits, realReminderDeps } from "@/lib/reminder-data";
 import { syncCalendarDelete } from "@/lib/calendar-sync";
 import { reminderRunStatus, runReminderBatch } from "@/lib/reminder-run";
+import { detectUnanswered, escalateDueChats, remindAssignees } from "@/lib/help-requests";
+import { realAssignmentDeps, realEscalationDeps, realHelpDeps, realUnansweredSource } from "@/lib/help-data";
 
 const STUCK_CALENDAR_BATCH = 20;
 
@@ -33,6 +35,23 @@ async function removeStuckCalendarEvents(): Promise<{ removed: number; errors: s
   return { removed, errors };
 }
 
+/**
+ * Chats that need a person: tell the owner when an assistant did not take a chat in time, and flag customers who
+ * wait without an answer. Runs on the same 15-minute clock as the reminders, so the precision is the same. A failure
+ * here never changes the reminder run's answer (n8n reads its status code).
+ */
+async function runHelpChecks(now: Date) {
+  try {
+    const unanswered = await detectUnanswered(realHelpDeps, realUnansweredSource, now);
+    const assignments = await remindAssignees(realAssignmentDeps, now);
+    const escalation = await escalateDueChats(realEscalationDeps, now);
+    return { unanswered, assignments, escalation };
+  } catch (error: unknown) {
+    console.error("[reminders/run] help checks failed", error instanceof Error ? error.message : error);
+    return null;
+  }
+}
+
 export async function POST(req: NextRequest) {
   if (!isInternalKeyValid(req)) return Response.json({ error: "No autorizado" }, { status: 401 });
 
@@ -50,6 +69,8 @@ export async function POST(req: NextRequest) {
   const calendar = dryRun ? { removed: 0, errors: [] } : await removeStuckCalendarEvents();
   if (calendar.errors.length > 0) console.error("[reminders/run] calendar cleanup errors", calendar.errors);
 
+  const help = dryRun ? null : await runHelpChecks(now);
+
   const status = reminderRunStatus(batch, dryRun);
   return Response.json(
     {
@@ -57,6 +78,7 @@ export async function POST(req: NextRequest) {
       checked: visits.length,
       dryRun,
       calendarRemoved: calendar.removed,
+      help,
       ...batch,
     },
     { status },

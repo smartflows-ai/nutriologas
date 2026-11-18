@@ -128,6 +128,7 @@ export default function TeamManager() {
               onReset={() => setPending({ action: "reset_password", user })}
               onDeactivate={() => setPending({ action: "deactivate", user })}
               onActivate={() => void act(user, "activate")}
+              onWhatsappSaved={() => void load()}
             />
           ))}
         </ul>

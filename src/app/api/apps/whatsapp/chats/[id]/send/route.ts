@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/permission-guard";
 import { apiError } from "@/lib/api-errors";
 import { sendWhatsAppMessage } from "@/lib/whatsapp";
+import { ownerTookOverPatch, repliedPatch } from "@/lib/help-actions";
 
 const MAX_LENGTH = 4096;
 
@@ -14,7 +15,7 @@ export async function POST(
 ) {
   const access = await requirePermission("whatsapp.chats");
   if (!access.ok) return access.response;
-  const { tenantId } = access;
+  const { tenantId, session } = access;
   const body = await req.json().catch(() => null);
   const text = typeof body?.text === "string" ? body.text.trim() : "";
   if (!text) return apiError("whatsapp_message_required", 400);
@@ -22,7 +23,7 @@ export async function POST(
 
   const chat = await prisma.whatsAppChat.findFirst({
     where: { id: params.id, tenantId },
-    select: { id: true, remoteJid: true, botEnabled: true },
+    select: { id: true, remoteJid: true, botEnabled: true, botPausedReason: true },
   });
   if (!chat) return apiError("whatsapp_chat_not_found", 404);
 
@@ -58,7 +59,10 @@ export async function POST(
     where: { id: chat.id },
     data: {
       lastMessage: text,
-      ...(chat.botEnabled ? { botEnabled: false, botPausedReason: "owner_reply" } : {}),
+      ...(chat.botEnabled ? { botEnabled: false, botPausedReason: "owner_reply" } : ownerTookOverPatch(chat.botPausedReason)),
+      // Answering from the panel is the proof that a person took care of the chat: the help request is handled
+      // and the one who answered is in charge of this chat from now on.
+      ...(session.user.id ? repliedPatch(session.user.id) : {}),
     },
     select: { id: true, botEnabled: true, botPausedReason: true },
   });
