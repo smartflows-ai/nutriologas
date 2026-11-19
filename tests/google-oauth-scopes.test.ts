@@ -14,17 +14,17 @@ function requestedScopes(source: string): string[] {
   return Array.from(block[1].matchAll(/"(https:\/\/www\.googleapis\.com\/auth\/[^"]+)"/g), (m) => m[1]);
 }
 
-test("the connection requests calendar.events and the account identity, nothing else", () => {
+test("the connection requests calendar.events, gmail.send and the account identity, nothing else", () => {
   assert.deepEqual(requestedScopes(START).sort(), [
     "https://www.googleapis.com/auth/calendar.events",
+    "https://www.googleapis.com/auth/gmail.send",
     "https://www.googleapis.com/auth/userinfo.email",
     "https://www.googleapis.com/auth/userinfo.profile",
   ]);
 });
 
-test("gmail.send and spreadsheets.readonly are not requested", () => {
+test("spreadsheets.readonly is not requested (no code uses Sheets)", () => {
   const scopes = requestedScopes(START);
-  assert.equal(scopes.includes("https://www.googleapis.com/auth/gmail.send"), false);
   assert.equal(scopes.includes("https://www.googleapis.com/auth/spreadsheets.readonly"), false);
 });
 

@@ -26,10 +26,13 @@ export async function GET(req: NextRequest) {
     : (process.env.NEXTAUTH_URL ?? "https://newaigent.com");
   const redirectUri = `${baseUrl}/api/apps/oauth/google/callback`;
 
-  // Only what the product uses: the calendar events (read busy times, create, edit and delete visits) and the account
-  // identity. Gmail and Sheets are not requested (gmail.send is a restricted scope; see docs/CHANGELOG.md).
+  // What the product uses: the calendar events (read busy times, create, edit and delete visits), the account identity,
+  // and gmail.send for the confirmation e-mail of calendar/create-event. gmail.send is a restricted scope and needs
+  // Google's security assessment before the consent screen stops showing "app not verified". spreadsheets.readonly is
+  // not requested: no code uses Sheets.
   const scopes = [
     "https://www.googleapis.com/auth/calendar.events",
+    "https://www.googleapis.com/auth/gmail.send",
     "https://www.googleapis.com/auth/userinfo.email",
     "https://www.googleapis.com/auth/userinfo.profile",
   ].join(" ");
