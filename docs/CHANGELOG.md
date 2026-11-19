@@ -6,6 +6,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased] — 2026-11-06
 
+### Changed (Google connection asks only for what the product uses)
+- The Google Calendar connection asks only for `calendar.events`, `userinfo.email` and `userinfo.profile` (`src/app/api/apps/oauth/google/start/route.ts`). `gmail.send` and `spreadsheets.readonly` are no longer requested: nothing in the app calls Sheets, and Gmail is used only by `POST /api/internal/calendar/create-event` (its confirmation e-mail stops; no repository workflow calls that route). Accounts already connected keep their permissions until they connect again.
+- The calendar readers (`src/app/api/calendar/events/route.ts`, `src/lib/external-calendar.ts`) no longer call the calendar list, which needs a permission the connection does not ask for. They read the primary calendar, and the owner's e-mail (used as the calendar owner label) comes from `userinfo`. Accounts with several calendars see only the primary one.
+- Google's "app not verified" screen stays until Google approves `calendar.events` (justification, demonstration video and identity check in the Google Auth Platform console). Tests: `tests/google-oauth-scopes.test.ts`.
+
 ### Fixed (availability for the WhatsApp agent, ticket #112)
 - Every requested hour gets one status: free, taken, closed (the business does not open then), past (the hour already passed) or no_fit (open, but the service does not finish before closing). Before, a closed hour, a past hour and an hour that did not fit were all reported as "no es hora de atencion", and an open hour off the service grid (09:15 for a 30 minute service) was reported as closed (`src/lib/slot-query.ts`, `src/lib/availability-message.ts`, `insideBusinessHours` in `src/lib/business-hours.ts`).
 - Invalid input gets a clear error instead of a server error or a silent answer: a date that does not exist or is not a date (`date_invalid`, which used to return 500), an hour that is not a clock time (`time_invalid`; "9:00" is accepted as 09:00), `after` that is not an hour (`after_invalid`, which used to repeat the first hours), `time` and `edge` together (`time_and_edge`), and a service with no valid duration (`service_duration_invalid`).

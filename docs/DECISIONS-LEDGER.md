@@ -776,3 +776,15 @@ Ran `node local-utils/minimal-ui/theme-colors.js`, `node local-utils/minimal-ui/
 ## 2026-11-18 — Dev — Restart the demo server after a schema change
 
 The demo server on port 3100 keeps the Prisma client it loaded when it started. After `prisma generate` with a new column (`helpAssignedAt`), assigning a chat from the screen answered "The conversation could not be updated", while the same write worked in a script. Fix: restart the demo server (port 3100 only, never 3000). Check: a sign-in and the assign request answer 200. Rule for demo work: after changing `schema.prisma` and regenerating, restart the demo server before testing a screen.
+
+---
+
+## 2026-11-18 — Dev — Google connection asks only for calendar.events
+
+Decision: the Google Calendar connection requests `calendar.events`, `userinfo.email` and `userinfo.profile`. `gmail.send` and `spreadsheets.readonly` are removed: nothing in the app calls Sheets, and Gmail was used only by `calendar/create-event`. The calendar list is no longer read (it needs a permission we no longer ask for); the primary calendar is read and the owner e-mail comes from `userinfo`.
+
+Why: the consent screen showed "app not verified" with a limit of 100 users because the app asked for restricted and sensitive scopes without approval. `gmail.send` is restricted and would need an extra security assessment; `calendar.events` is the only sensitive scope the product needs.
+
+Consequences: accounts with several calendars see only the primary one; the confirmation e-mail of `calendar/create-event` stops (the route logs the error and still succeeds); accounts already connected must connect again to get the new permissions. Verification of `calendar.events` is pending in the Google Auth Platform console (justification, demonstration video, developer identity).
+
+Lesson: the consent screen's "Acceso a los datos" list was empty while the code asked for five scopes. Keep the list in the console equal to the scopes in the start route.
