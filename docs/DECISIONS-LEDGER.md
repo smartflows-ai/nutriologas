@@ -788,3 +788,25 @@ Why: the consent screen showed "app not verified" with a limit of 100 users beca
 Consequences: accounts with several calendars see only the primary one; the confirmation e-mail of `calendar/create-event` stops (the route logs the error and still succeeds); accounts already connected must connect again to get the new permissions. Verification of `calendar.events` is pending in the Google Auth Platform console (justification, demonstration video, developer identity).
 
 Lesson: the consent screen's "Acceso a los datos" list was empty while the code asked for five scopes. Keep the list in the console equal to the scopes in the start route.
+
+---
+
+## 2026-11-18 — Dev — Keep gmail.send and request it properly (reverses the scope cut)
+
+Decision: the Google connection keeps `gmail.send`, because `calendar/create-event` sends the confirmation e-mail with it. `spreadsheets.readonly` stays removed (no code uses Sheets). The earlier entry of the same day ("calendar.events only") is reversed for `gmail.send` only.
+
+Why: a WhatsApp message in place of the e-mail was a workaround that hid the permission problem instead of solving it. The permission the product really uses is `gmail.send`, so it is requested and justified, and its verification is done with Google.
+
+Consequences: the consent screen keeps "app not verified" until Google approves `calendar.events` and `gmail.send` (restricted: security assessment, longer than the sensitive review). Until then the 100-user limit applies. The rest of the earlier consequences stand (primary calendar only; accounts connected before the change reconnect).
+
+Lesson: a workaround that removes a feature to avoid a review is a patch. Ask first which permission the feature needs, then request it correctly.
+
+---
+
+## 2026-11-18 — Dev — Correction: gmail.send is sensitive, not restricted; the final scope list
+
+Correction of the two entries above: Google's Gmail API page lists `gmail.send` as a **sensitive** scope. The restricted ones are `gmail.readonly`, `gmail.compose`, `gmail.modify`, `gmail.metadata`, `gmail.insert`, the `gmail.settings.*` scopes and `https://mail.google.com/`. Restricted scopes need the security assessment; sensitive ones need only Google's review. The earlier entries said the opposite and are kept as history.
+
+Decision: the connection asks for `calendar.events`, `calendar.calendarlist.readonly`, `gmail.send`, `userinfo.email` and `userinfo.profile`, and nothing else. The calendar list is read again, because `calendarList.list` does not accept `calendar.events`: without `calendar.calendarlist.readonly` the readers fell back to the primary calendar, silently. `spreadsheets.readonly` stays removed.
+
+Consequences: accounts connected before this change read only the primary calendar until they connect again. The consent screen needs the review of three sensitive scopes, with one justification and one demonstration per scope.
