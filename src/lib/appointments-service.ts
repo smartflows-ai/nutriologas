@@ -6,6 +6,7 @@ import { restoreCheck } from "@/lib/appointment-admin-rules";
 import { prisma } from "@/lib/db";
 import { patientKeyOf } from "@/lib/patient-key";
 import type { Modality } from "@/lib/patient-intake";
+import type { ConsentSource } from "@/lib/wa-consent";
 import { findOrCreatePet } from "@/lib/pets";
 import { rescheduleResetState } from "@/lib/reminder-state";
 import {
@@ -61,6 +62,11 @@ export interface CreateAppointmentInput {
   checkConflicts?: boolean;
   /** Set when the patient already confirmed (on the phone call): the reminder does not ask SI (ticket #103, D1). */
   customerConfirmedAt?: Date | null;
+  /** Strict consent for proactive WhatsApp about this visit (feat/whatsapp-ban-prevention, src/lib/wa-consent.ts). */
+  whatsappConsentAt?: Date | null;
+  whatsappConsentSource?: ConsentSource | null;
+  /** How the visit was booked: WHATSAPP | WEB | PANEL. */
+  bookingChannel?: "WHATSAPP" | "WEB" | "PANEL" | null;
 }
 
 export type CreateAppointmentResult =
@@ -146,6 +152,9 @@ export async function createAppointment(input: CreateAppointmentInput): Promise<
         referredByKey: input.referredByKey ?? null,
         referredByName: input.referredByName ?? null,
         customerConfirmedAt: input.customerConfirmedAt ?? null,
+        whatsappConsentAt: input.whatsappConsentAt ?? null,
+        whatsappConsentSource: input.whatsappConsentSource ?? null,
+        bookingChannel: input.bookingChannel ?? null,
       },
       include: appointmentInclude,
     });

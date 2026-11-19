@@ -4,6 +4,17 @@ All notable changes to Presto AI are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased] — 2026-11-19
+
+### Added (WhatsApp ban prevention: strict consent, opt-out, quiet hours, send pacing)
+- Three pure, tested decision modules: `src/lib/wa-optout.ts` (detects "baja/stop/ya no me escribas" and never fires on "cancelar mi cita"), `src/lib/wa-pacing.ts` (quiet hours with midnight wrap, and a per-instance per-run send cap), `src/lib/wa-consent.ts` (strict consent with SHADOW/ENFORCE and a grandfather cutover). Tests: `tests/wa-optout.test.ts`, `wa-pacing.test.ts`, `wa-consent.test.ts`, plus new gate cases in `reminder-run.test.ts`.
+- The reminder job (`src/lib/reminder-run.ts`, `reminder-data.ts`) applies the gates: a visit blocked by consent (ENFORCE only) sends no reminder and is never released (counts as confirmed); opt-out blocks in both modes; a night-time reminder is held for the morning when the visit allows it; at most 3 messages per WhatsApp number per 15-minute run, the rest deferred. The run response adds `blocked`, `shadowWouldBlock` and `deferred` counts. SHADOW (the default) measures what would be blocked without blocking anything.
+- Inbound opt-out: `POST /api/internal/whatsapp/sync` detects a stop request, sets `whatsapp_chats.optedOutAt` and turns the bot off for that contact; a later message never re-enables it.
+- Strict consent is captured at every booking entry point: the bot (`bot/book`, `WHATSAPP_BOOKING`, only when the sender books for themselves), the storefront `/agendar` (an optional unchecked "receive WhatsApp reminders" box, `WEB_CHECKBOX`), and the panel's "Nueva cita" (a staff checkbox, `PANEL_STAFF`). Stored on `appointments.whatsappConsentAt/Source` with `bookingChannel`.
+- Settings (`/admin/whatsapp` reminders card, `PATCH /api/tenants/reminders`): quiet-hours window (default 21:00–08:00) and a "only message patients who agreed" toggle that flips the tenant SHADOW→ENFORCE and stamps `messagingEnforcedAt` so existing visits are grandfathered.
+- Schema `prisma/sql/30-whatsapp-ban-prevention` (additive): `tenants.messagingPolicyMode/messagingEnforcedAt/quietHoursStartMin/quietHoursEndMin`, `appointments.whatsappConsentAt/whatsappConsentSource/bookingChannel`, `whatsapp_chats.optedOutAt/optedOutSource`. **NOT applied** — apply before the code (backup + approval).
+- Never labeled "anti-ban" or "safe": these reduce preventable risk; they do not guarantee WhatsApp will not restrict a number. On a separate branch from the D1 security work, so it does not touch the D1 files.
+
 ## [Unreleased] — 2026-11-06
 
 ### Changed (Google connection asks for exactly the scopes the product uses)

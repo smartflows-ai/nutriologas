@@ -600,6 +600,12 @@ export interface Translations {
       reminderWindowLine: string;
       reminderWindowShort: string;
       reminderWindowInvalid: string;
+      quietHoursLabel: string;
+      quietHoursHint: string;
+      quietHoursFrom: string;
+      quietHoursTo: string;
+      strictConsentLabel: string;
+      strictConsentHint: string;
       confirmationRequiredLabel: string;
       confirmationRequiredHint: string;
       deadlineHoursLabel: string;
@@ -1280,6 +1286,7 @@ export interface Translations {
     privacyConsentLink: string;
     privacyConsentAfter: string;
     privacyConsentHealth: string;
+    whatsappRemindersConsent: string;
     submitting: string;
     submit: string;
   };
@@ -1462,6 +1469,8 @@ export interface Translations {
       reasonPlaceholder: string;
       alreadyConfirmed: string;
       alreadyConfirmedHint: string;
+      whatsappConsent: string;
+      whatsappConsentHint: string;
       petName: string;
       petSpecies: string;
       save: string;

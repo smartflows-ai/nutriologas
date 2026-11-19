@@ -575,6 +575,17 @@ The customer messages carry short addresses on the business's own subdomain inst
 - Visits booked before this change have no code and keep the real link.
 - Tests: `tests/short-links.test.ts`.
 
+## WhatsApp ban prevention (strict consent, opt-out, quiet hours, pacing)
+
+Reduces preventable reasons WhatsApp bans a Baileys number. These are safeguards, not a guarantee — never label anything "anti-ban" or "safe". Branch `feat/whatsapp-ban-prevention` (separate from the D1 security work).
+
+- **Three pure modules** (tests alongside): `src/lib/wa-optout.ts` (`isOptOut`, detects "baja/stop/ya no me escribas", never fires on "cancelar mi cita"), `src/lib/wa-pacing.ts` (quiet hours with midnight wrap, per-instance per-run cap of 3), `src/lib/wa-consent.ts` (`mayStartMessage`: SHADOW measures, ENFORCE blocks; opt-out blocks in both; a visit created before `messagingEnforcedAt` is grandfathered).
+- **Consent sources** (`appointments.whatsappConsentAt/whatsappConsentSource`, `bookingChannel`): `WHATSAPP_BOOKING` (bot, only when the sender books for themselves — booking for another person is not consent), `WEB_CHECKBOX` (optional unchecked box on `/agendar`), `PANEL_STAFF` (staff checkbox in "Nueva cita"). Holding a phone number is never consent.
+- **Reminder gate** (`src/lib/reminder-run.ts`, fed by `reminder-data.ts`): a consent-blocked visit (ENFORCE only) sends nothing and is never released, so it counts as confirmed; opt-out blocks in both modes; a night reminder is held for the morning when the visit still allows it; at most 3 sends per number per 15-min run, the rest deferred. The run response carries `blocked`, `shadowWouldBlock`, `deferred`. Default mode is SHADOW per tenant.
+- **Opt-out**: `whatsapp/sync` runs `isOptOut` on inbound text, sets `whatsapp_chats.optedOutAt` and turns the bot off for that contact. A later message never re-enables it; only a new explicit consent does. Reminders match the opt-out to the visit by `patientKeyOf`.
+- **Settings** (`PATCH /api/tenants/reminders`, reminders card): quiet-hours window (`quietHoursStartMin/EndMin`, default 21:00–08:00) and `messagingPolicyMode`; switching to ENFORCE stamps `messagingEnforcedAt` (grandfathers existing visits).
+- **Schema**: `prisma/sql/30-whatsapp-ban-prevention` (additive). **Apply before the code** (backup + approval); every column is nullable or defaulted.
+
 ## Appointment Reminders and Confirmation (separate workflow, no LLM)
 
 - **Workflow**: `n8n/workflows/n8n-reminders-workflow.json`. A Schedule Trigger every 15 minutes calls `POST /api/internal/reminders/run`. The interval sets the precision: a reminder or a release goes out at most 15 minutes late.

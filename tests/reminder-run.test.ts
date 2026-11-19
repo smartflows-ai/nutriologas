@@ -127,8 +127,80 @@ test("dry run lists the work and touches nothing", async () => {
   assert.equal(calls.sent.length + calls.marked.length + calls.charged.length + calls.released.length, 0);
 });
 
+// ── Ban prevention: strict consent, opt-out, quiet hours, per-instance cap ──
+
+const CONSENTED = { whatsappConsentAt: new Date(NOW.getTime() - HOUR) };
+
+test("opt-out blocks the reminder in any mode and sends nothing", async () => {
+  for (const mode of ["SHADOW", "ENFORCE"] as const) {
+    const { deps, calls } = fakeDeps();
+    const v = visit({ optedOutAt: NOW, tenant: { ...visit().tenant, messagingPolicyMode: mode } });
+    const result = await runReminderBatch([v], NOW, deps, { dryRun: false });
+    assert.equal(result.blocked, 1);
+    assert.equal(result.sent, 0);
+    assert.equal(calls.sent.length, 0);
+  }
+});
+
+test("ENFORCE mode with no consent blocks; with consent it sends", async () => {
+  const blockedDeps = fakeDeps();
+  const noConsent = visit({ tenant: { ...visit().tenant, messagingPolicyMode: "ENFORCE" } });
+  const r1 = await runReminderBatch([noConsent], NOW, blockedDeps.deps, { dryRun: false });
+  assert.equal(r1.blocked, 1);
+  assert.equal(blockedDeps.calls.sent.length, 0);
+
+  const okDeps = fakeDeps();
+  const withConsent = visit({ ...CONSENTED, tenant: { ...visit().tenant, messagingPolicyMode: "ENFORCE" } });
+  const r2 = await runReminderBatch([withConsent], NOW, okDeps.deps, { dryRun: false });
+  assert.equal(r2.sent, 1);
+  assert.equal(r2.blocked, 0);
+});
+
+test("SHADOW mode with no consent sends but flags it would block", async () => {
+  const { deps, calls } = fakeDeps();
+  const v = visit({ tenant: { ...visit().tenant, messagingPolicyMode: "SHADOW" } });
+  const result = await runReminderBatch([v], NOW, deps, { dryRun: false });
+  assert.equal(result.sent, 1);
+  assert.equal(result.shadowWouldBlock, 1);
+  assert.equal(calls.sent.length, 1);
+});
+
+test("a night-time reminder is held for quiet hours when the visit allows it", async () => {
+  const night = new Date("2026-11-02T08:00:00.000Z"); // 02:00 in America/Mexico_City
+  const { deps, calls } = fakeDeps();
+  const v = visit({
+    ...CONSENTED,
+    appointmentDate: new Date(night.getTime() + 23 * HOUR),
+  });
+  const result = await runReminderBatch([v], night, deps, { dryRun: false });
+  assert.equal(result.deferred, 1);
+  assert.equal(result.sent, 0);
+  assert.equal(calls.sent.length, 0);
+});
+
+test("per-instance cap: at most 3 sends for one tenant in a run, the rest deferred", async () => {
+  const { deps, calls } = fakeDeps();
+  const visits = ["a", "b", "c", "d"].map((id) => visit({ id, ...CONSENTED }));
+  const result = await runReminderBatch(visits, NOW, deps, { dryRun: false });
+  assert.equal(result.sent, 3);
+  assert.equal(result.deferred, 1);
+  assert.equal(calls.sent.length, 3);
+});
+
+test("the cap is per tenant, not global", async () => {
+  const { deps, calls } = fakeDeps();
+  const visits = [
+    ...["a", "b", "c", "d"].map((id) => visit({ id, tenantId: "t1", ...CONSENTED })),
+    ...["e", "f", "g", "h"].map((id) => visit({ id, tenantId: "t2", ...CONSENTED })),
+  ];
+  const result = await runReminderBatch(visits, NOW, deps, { dryRun: false });
+  assert.equal(result.sent, 6); // 3 per tenant
+  assert.equal(result.deferred, 2);
+  assert.equal(calls.sent.length, 6);
+});
+
 function batch(overrides: Partial<ReminderBatchResult>): ReminderBatchResult {
-  return { sent: 0, released: 0, skipped: 0, failed: 0, failures: [], actions: [], ...overrides };
+  return { sent: 0, released: 0, skipped: 0, failed: 0, blocked: 0, shadowWouldBlock: 0, deferred: 0, failures: [], actions: [], ...overrides };
 }
 
 test("HTTP status is 502 when every attempted send failed", () => {

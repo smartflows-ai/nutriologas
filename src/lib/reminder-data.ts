@@ -4,6 +4,8 @@
 import { prisma } from "@/lib/db";
 import { ACTIVE_APPOINTMENT_STATUSES } from "@/lib/bot";
 import { sendWhatsAppMessage } from "@/lib/whatsapp";
+import { patientKeyOf } from "@/lib/patient-key";
+import type { MessagingPolicyMode } from "@/lib/wa-consent";
 import { releaseVisit } from "@/lib/reminder-actions";
 import { locationTextForBot } from "@/lib/location";
 import { recordMessageCharge, reminderCostUsd } from "@/lib/credits";
@@ -83,6 +85,8 @@ export async function loadReminderVisits(now: Date, appointmentId?: string): Pro
       meetShortCode: true,
       referredByKey: true,
       referredByName: true,
+      patientKey: true,
+      whatsappConsentAt: true,
       product: { select: { name: true } },
       tenant: {
         select: {
@@ -96,6 +100,10 @@ export async function loadReminderVisits(now: Date, appointmentId?: string): Pro
           reminderTemplate: true,
           confirmationTemplate: true,
           cancellationTemplate: true,
+          messagingPolicyMode: true,
+          messagingEnforcedAt: true,
+          quietHoursStartMin: true,
+          quietHoursEndMin: true,
           hasPhysicalLocation: true,
           address: true,
           placeId: true,
@@ -108,13 +116,42 @@ export async function loadReminderVisits(now: Date, appointmentId?: string): Pro
     },
     orderBy: { appointmentDate: "asc" },
   });
+
+  // Opt-out lookup (ban prevention): a customer who said "stop" is on their chat, keyed by remoteJid. Match it to
+  // the visit by normalized patient key. Only opted-out chats are loaded, so this is a small set.
+  const tenantIds = Array.from(new Set(rows.map((r) => r.tenantId)));
+  const optedOutChats = tenantIds.length
+    ? await prisma.whatsAppChat.findMany({
+        where: { tenantId: { in: tenantIds }, optedOutAt: { not: null } },
+        select: { tenantId: true, remoteJid: true, optedOutAt: true },
+      })
+    : [];
+  const optOutByKey = new Map<string, Date>();
+  for (const chat of optedOutChats) {
+    const key = patientKeyOf(chat.remoteJid.split("@")[0]);
+    if (key && chat.optedOutAt) optOutByKey.set(`${chat.tenantId}:${key}`, chat.optedOutAt);
+  }
+
   return rows.map(({ product, tenant, ...visit }) => {
     const { hasPhysicalLocation, address, placeId, latitude, longitude, slug, customDomain, ...rest } = tenant;
     const locationText = locationTextForBot({ hasPhysicalLocation, address, placeId, latitude, longitude, slug, customDomain });
     // The customer gets the short video link of this visit (or the real one when the visit has no code).
-    const { meetShortCode, ...plain } = visit;
+    const { meetShortCode, patientKey, whatsappConsentAt, ...plain } = visit;
     const meetUrl = customerMeetUrl({ meetUrl: visit.meetUrl, meetShortCode }, { slug, customDomain }) || null;
-    return { ...plain, meetUrl, productName: product.name, tenant: { ...rest, timeZone: usableTimeZone(rest.timeZone), locationText } };
+    const optedOutAt = patientKey ? optOutByKey.get(`${visit.tenantId}:${patientKey}`) ?? null : null;
+    return {
+      ...plain,
+      meetUrl,
+      optedOutAt,
+      whatsappConsentAt,
+      productName: product.name,
+      tenant: {
+        ...rest,
+        messagingPolicyMode: (rest.messagingPolicyMode === "ENFORCE" ? "ENFORCE" : "SHADOW") as MessagingPolicyMode,
+        timeZone: usableTimeZone(rest.timeZone),
+        locationText,
+      },
+    };
   });
 }
 

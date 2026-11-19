@@ -134,6 +134,8 @@ export interface PanelCreate {
   readonly notes: string | null;
   /** The patient confirmed on the call: the visit starts confirmed and the reminder does not ask SI (D1). */
   readonly alreadyConfirmed: boolean;
+  /** Staff recorded that the patient agreed to receive WhatsApp for this visit (strict consent). */
+  readonly whatsappConsent: boolean;
   /** Owner only: book outside business hours or on top of another visit, after the warning. */
   readonly override: boolean;
   readonly petName: string | null;
@@ -189,6 +191,7 @@ export function parsePanelCreate(body: unknown, now: Date): RuleResult<PanelCrea
       modality: modality.data,
       notes: notes.data,
       alreadyConfirmed: b.alreadyConfirmed === true,
+      whatsappConsent: b.whatsappConsent === true,
       override: b.override === true,
       petName,
       petSpecies,

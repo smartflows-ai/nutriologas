@@ -296,7 +296,7 @@ export async function POST(req: NextRequest) {
       }
       return createFromPanel({ role: session?.user?.role ?? "", tenant, body, now: new Date() });
     }
-    const { productId, appointmentDate, notes, clientName, clientEmail, clientPhone, clientAge, modality: requestedModality, petName, petSpecies } = body;
+    const { productId, appointmentDate, notes, clientName, clientEmail, clientPhone, clientAge, modality: requestedModality, petName, petSpecies, whatsappConsent } = body;
 
     if (!productId || !appointmentDate) {
       return apiError("service_and_date_required", 400);
@@ -408,6 +408,10 @@ export async function POST(req: NextRequest) {
       customerEmail: clientEmail?.toLowerCase().trim() || null,
       customerAge: age,
       modality,
+      bookingChannel: "WEB",
+      // The customer ticked the WhatsApp reminders box on /agendar. Unticked = no consent (never assumed).
+      whatsappConsentAt: whatsappConsent === true ? new Date() : null,
+      whatsappConsentSource: whatsappConsent === true ? "WEB_CHECKBOX" : null,
       notes: reason,
       petName: pet || null,
       petSpecies: usesPets ? petSpecies ?? null : null,

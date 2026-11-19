@@ -57,6 +57,11 @@ model Tenant {
   reminderTemplate          String?
   confirmationTemplate      String?
   cancellationTemplate      String?
+  // Prevención de baneos (feat/whatsapp-ban-prevention, prisma/sql/30). Consentimiento estricto y horas de silencio.
+  messagingPolicyMode       String  @default("SHADOW") // SHADOW (solo registra) | ENFORCE (bloquea sin consentimiento). src/lib/wa-consent.ts
+  messagingEnforcedAt       DateTime? // cuándo pasó a ENFORCE; las citas creadas antes se respetan (grandfather)
+  quietHoursStartMin        Int?    // minutos desde medianoche, inicio de horas de silencio (null = 21:00). src/lib/wa-pacing.ts
+  quietHoursEndMin          Int?    // null = 08:00
   messageLanguage           String  @default("es") // Idioma de los mensajes al cliente: es | en
   businessHours          Json?   // Horario semanal de atención (null = horario por defecto, ver src/lib/business-hours.ts)
   timeZone               String  @default("America/Mexico_City") // Zona horaria IANA del negocio (ticket #111, src/lib/clinic-time.ts)
@@ -250,6 +255,9 @@ model WhatsAppChat {
   helpTakenAt DateTime?
   helpAssignedAt DateTime? // when the owner put the assistant in charge (the in-app notice and the WhatsApp reminder start from it)
   helpCustomerWroteAt DateTime? // the customer wrote again while the chat needed a person and nobody had taken it
+  // Opt-out (feat/whatsapp-ban-prevention): the customer asked to stop receiving messages. src/lib/wa-optout.ts
+  optedOutAt  DateTime?
+  optedOutSource String? // inbound_keyword | panel
   updatedAt   DateTime @updatedAt
 
   messages    WhatsAppMessage[]
@@ -643,6 +651,10 @@ model Appointment {
   reminderAttempts      Int       @default(0)
   reminderLastError     String?   @db.Text
   reminderLastAttemptAt DateTime?
+  // Strict consent for proactive WhatsApp about this visit (feat/whatsapp-ban-prevention). src/lib/wa-consent.ts
+  whatsappConsentAt     DateTime?
+  whatsappConsentSource String?   // WHATSAPP_BOOKING | WEB_CHECKBOX | PANEL_STAFF | WHATSAPP_INBOUND
+  bookingChannel        String?   // WHATSAPP | WEB | PANEL
 
   appointmentDate DateTime          // fecha y hora de la cita
   durationMinutes Int               // duración en minutos

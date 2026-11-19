@@ -17,6 +17,11 @@ const SELECT = {
   confirmationTemplate: true,
   cancellationTemplate: true,
   messageLanguage: true,
+  // Ban prevention: consent-gate mode and quiet hours (feat/whatsapp-ban-prevention).
+  messagingPolicyMode: true,
+  messagingEnforcedAt: true,
+  quietHoursStartMin: true,
+  quietHoursEndMin: true,
   ownerName: true,
   hasPhysicalLocation: true,
   address: true,
@@ -38,6 +43,11 @@ const reminderSettingsSchema = z.object({
   reminderTemplate: templateField,
   confirmationTemplate: templateField,
   cancellationTemplate: templateField,
+  // SHADOW only measures; ENFORCE blocks reminders without consent (src/lib/wa-consent.ts).
+  messagingPolicyMode: z.enum(["SHADOW", "ENFORCE"]).optional(),
+  // Quiet-hours window, minutes from local midnight. start === end disables it. null = the default (21:00/08:00).
+  quietHoursStartMin: z.number().int().min(0).max(1439).nullable().optional(),
+  quietHoursEndMin: z.number().int().min(0).max(1439).nullable().optional(),
 });
 
 function normalizeTemplate(value: string | null | undefined): string | null | undefined {
@@ -132,9 +142,16 @@ export async function PATCH(req: Request) {
     if (deadline >= lead) return apiError("reminder_window_invalid", 400);
   }
 
+  // Turning ENFORCE on stamps the cutover: visits created before now are grandfathered (keep today's behavior).
+  let enforcedAt: Date | undefined;
+  if (data.messagingPolicyMode === "ENFORCE") {
+    const current = await prisma.tenant.findUnique({ where: { id: access.tenantId }, select: { messagingPolicyMode: true } });
+    if (current && current.messagingPolicyMode !== "ENFORCE") enforcedAt = new Date();
+  }
+
   const updated = await prisma.tenant.update({
     where: { id: access.tenantId },
-    data,
+    data: { ...data, ...(enforcedAt ? { messagingEnforcedAt: enforcedAt } : {}) },
     select: SELECT,
   });
   return NextResponse.json(updated);
