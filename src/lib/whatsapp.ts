@@ -1,14 +1,9 @@
 // src/lib/whatsapp.ts
-// Centralized helper for sending WhatsApp notifications through Evolution API
+// Centralized helper for sending WhatsApp notifications. The provider calls live in
+// src/lib/messaging/evolution-adapter.ts (TLS validated, timeout, per-instance key).
 import { prisma } from "@/lib/db";
-import https from "https";
 import { WA_INVALID_NUMBER, WA_NOT_AVAILABLE, WA_NOT_CONNECTED } from "@/lib/whatsapp-reasons";
-
-const insecureAgent = new https.Agent({ rejectUnauthorized: false });
-
-function evoFetch(url: string, init?: RequestInit) {
-  return fetch(url, { ...(init ?? {}), ...(({ agent: insecureAgent }) as any) });
-}
+import { evolutionConfigFromEnv, instanceKeyOf, sendText } from "@/lib/messaging/evolution-adapter";
 
 export function formatWhatsAppNumber(phone: string): string {
   // Strip all non-digit characters
@@ -35,7 +30,9 @@ export interface SendWhatsAppParams {
 export interface SendWhatsAppResult {
   success: boolean;
   reason?: string;
-  data?: any;
+  // The provider's message id when it returned one; used only to dedupe the echo of a panel send.
+  // The raw provider body is never exposed (it can echo the number or the text).
+  messageId?: string | null;
 }
 
 export async function sendWhatsAppMessage({
@@ -44,17 +41,15 @@ export async function sendWhatsAppMessage({
   text,
 }: SendWhatsAppParams): Promise<SendWhatsAppResult> {
   try {
-    const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL;
-    const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY;
-
-    if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY) {
+    const cfg = evolutionConfigFromEnv();
+    if (!cfg) {
       console.warn("[whatsapp] EVOLUTION_API_URL or EVOLUTION_API_KEY not configured");
       return { success: false, reason: WA_NOT_AVAILABLE };
     }
 
     const app = await prisma.connectedApp.findFirst({
       where: { tenantId, provider: "WHATSAPP" },
-      select: { waInstanceId: true, waStatus: true },
+      select: { waInstanceId: true, waStatus: true, accessToken: true },
     });
 
     if (!app || !app.waInstanceId) {
@@ -68,30 +63,23 @@ export async function sendWhatsAppMessage({
       return { success: false, reason: WA_INVALID_NUMBER };
     }
 
-    const url = `${EVOLUTION_API_URL}/message/sendText/${app.waInstanceId}`;
-    const res = await evoFetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: EVOLUTION_API_KEY,
-      },
-      body: JSON.stringify({
-        number: recipient,
-        text,
-      }),
+    const sent = await sendText(cfg, {
+      instance: app.waInstanceId,
+      apiKey: instanceKeyOf(app.accessToken, cfg.globalKey),
+      number: recipient,
+      text,
     });
 
-    if (!res.ok) {
-      const errText = await res.text();
-      console.error("[whatsapp] Evolution API error sending message:", res.status, errText);
+    if (!sent.ok) {
+      // Status only: the provider body can echo the number or the text.
+      console.error("[whatsapp] send failed:", sent.error, sent.status ?? "");
       return { success: false, reason: WA_NOT_AVAILABLE };
     }
 
-    const data = await res.json();
-    return { success: true, data };
-  } catch (error: any) {
-    console.error("[whatsapp] Unexpected error sending WhatsApp message:", error);
-    return { success: false, reason: error.message || "Error al enviar mensaje por WhatsApp" };
+    return { success: true, messageId: sent.messageId };
+  } catch (error: unknown) {
+    console.error("[whatsapp] Unexpected error sending WhatsApp message:", error instanceof Error ? error.name : "unknown");
+    return { success: false, reason: WA_NOT_AVAILABLE };
   }
 }
 

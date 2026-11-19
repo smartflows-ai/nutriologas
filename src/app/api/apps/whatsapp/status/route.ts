@@ -4,16 +4,8 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
-import https from "https";
 import { MAX_QR_REFRESHES, QR_TTL_MS, fetchEvolutionQr, markQrExpired, qrMetaOf, storeQr } from "@/lib/whatsapp-qr";
-
-const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL!;
-const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY!;
-
-const insecureAgent = new https.Agent({ rejectUnauthorized: false });
-function evoFetch(url: string, init?: RequestInit) {
-  return fetch(url, { ...(init ?? {}), ...(({ agent: insecureAgent }) as any) });
-}
+import { connectionState, evolutionConfigFromEnv, fetchInstanceInfo, instanceKeyOf } from "@/lib/messaging/evolution-adapter";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -29,54 +21,25 @@ export async function GET(req: NextRequest) {
   if (!app?.waInstanceId)
     return Response.json({ status: "disconnected" });
 
+  const cfg = evolutionConfigFromEnv();
+  if (!cfg) return Response.json({ status: app.waStatus || "disconnected" });
+
   let isConnected = false;
   let phoneNumber: string | null = app.waPhoneNumber;
+  const instanceKey = instanceKeyOf(app.accessToken, cfg.globalKey);
 
-  // 1. Consultar estado real en Evolution API vía fetchInstances (más confiable y contiene ownerJid)
-  try {
-    const infoRes = await evoFetch(
-      `${EVOLUTION_API_URL}/instance/fetchInstances?instanceName=${app.waInstanceId}`,
-      { headers: { apikey: EVOLUTION_API_KEY } }
-    );
-    if (infoRes.ok) {
-      const infoData = await infoRes.json();
-      const inst = Array.isArray(infoData)
-        ? infoData.find((i: any) => i.name === app.waInstanceId || i.id === app.waInstanceId) || infoData[0]
-        : infoData;
+  // 1. Real state and owner phone from Evolution (server-side lookup with the global key).
+  const info = await fetchInstanceInfo(cfg, app.waInstanceId);
+  if (info?.state === "open") isConnected = true;
+  if (info?.phone) phoneNumber = info.phone;
 
-      if (inst) {
-        const state = inst.connectionStatus || inst.state || inst.instance?.state;
-        if (state === "open") {
-          isConnected = true;
-        }
-        const rawPhone = inst.ownerJid || inst.number || inst.instance?.ownerJid || inst.instance?.number;
-        if (rawPhone) {
-          phoneNumber = rawPhone.replace(/@.*$/, "").replace(/\D/g, "");
-        }
-      }
-    }
-  } catch (err: any) {
-    console.warn("[whatsapp-status] fetchInstances error:", err.message);
-  }
-
-  // 2. Si fetchInstances no indicó open, verificar connectionState
+  // 2. If that did not say open, ask the instance itself.
   if (!isConnected) {
-    try {
-      const statusRes = await evoFetch(
-        `${EVOLUTION_API_URL}/instance/connectionState/${app.waInstanceId}`,
-        { headers: { apikey: EVOLUTION_API_KEY } }
-      );
-      if (statusRes.ok) {
-        const statusData = await statusRes.json();
-        const state = statusData.instance?.state || statusData.state || statusData.connectionStatus;
-        if (state === "open") {
-          isConnected = true;
-        }
-      }
-    } catch (err: any) {
-      console.warn("[whatsapp-status] connectionState error:", err.message);
-    }
+    isConnected = (await connectionState(cfg, { instance: app.waInstanceId, apiKey: instanceKey })) === "open";
   }
+
+  // Legacy row still holding the global key: replace it with the instance's own token.
+  const tokenToStore = info?.token && info.token !== app.accessToken ? info.token : null;
 
   // 3. Pairing code still open: refresh it when it is older than its lifetime; after the last refresh it expires.
   let currentQr = app.waQrCode;
@@ -90,7 +53,7 @@ export async function GET(req: NextRequest) {
       currentQr = null;
       currentStatus = "qr_expired";
     } else if (stale) {
-      const fresh = await fetchEvolutionQr(app.waInstanceId!);
+      const fresh = await fetchEvolutionQr(app.waInstanceId, app.accessToken);
       if (fresh) {
         await storeQr(tenantId, fresh, {
           ...((app.metadata as Record<string, unknown>) ?? {}),
@@ -105,13 +68,14 @@ export async function GET(req: NextRequest) {
 
   // Si ya conectó, actualizar base de datos y limpiar QR
   if (isConnected) {
-    if (app.waStatus !== "connected" || app.waQrCode !== null || (phoneNumber && !app.waPhoneNumber)) {
+    if (app.waStatus !== "connected" || app.waQrCode !== null || (phoneNumber && !app.waPhoneNumber) || tokenToStore) {
       await prisma.connectedApp.update({
         where: { tenantId_provider: { tenantId, provider: "WHATSAPP" } },
         data: {
           waStatus: "connected",
           waQrCode: null, // limpiar QR
           waPhoneNumber: phoneNumber || app.waPhoneNumber,
+          ...(tokenToStore ? { accessToken: tokenToStore } : {}),
         },
       });
 

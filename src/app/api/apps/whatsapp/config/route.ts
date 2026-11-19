@@ -25,12 +25,14 @@ export async function PATCH(req: NextRequest) {
   const { tenantId } = access;
   const { waTemperature, waContext } = await req.json();
 
+  // select only the settings fields: the row also holds accessToken (the instance credential).
   const updated = await prisma.connectedApp.update({
     where: { tenantId_provider: { tenantId, provider: "WHATSAPP" } },
     data: {
       waTemperature: typeof waTemperature === 'number' ? waTemperature : undefined,
       waContext: typeof waContext === 'string' ? waContext : undefined,
     },
+    select: { waTemperature: true, waContext: true, waStatus: true, waPhoneNumber: true },
   });
 
   return Response.json(updated);

@@ -38,7 +38,7 @@ export async function POST(
   }
 
   // Evolution's echo of this message may reach the sync route first. The upsert keeps one row per key.
-  const keyId = sent.data?.key?.id ?? `owner-${Date.now()}`;
+  const keyId = sent.messageId ?? `owner-${Date.now()}`;
   const message = await prisma.whatsAppMessage.upsert({
     where: { keyId },
     update: {},

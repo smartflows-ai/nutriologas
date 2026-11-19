@@ -5,6 +5,16 @@
 
 ---
 
+## 2026-11-18 — Claude — Keep Evolution/Baileys, harden it (D1), do not migrate to Meta Cloud API
+
+Decision: stay on Evolution API + Baileys. Meta Cloud API was priced (since Oct 2026 it also charges bot replies after 1,000/number/month; a full Pro tenant ≈ MXN 1,425/month) and deferred on cost. Evolution must not sit in front of Meta either. The owner's master prompt sets the goal: reduce preventable risk, keep the provider replaceable, never claim ban protection, never evade (no number rotation, no artificial warm-up). Plan in four deliveries (security; central messaging service + outbox + shadow policy; strict consent + opt-out + quiet hours; risk states + circuit breaker + kill switches).
+
+D1 shipped on branch `feat/whatsapp-security-d1` (no schema change): `src/lib/messaging/evolution-adapter.ts` as the only Evolution caller, TLS validated, per-instance tokens (global key no longer stored), signed webhooks for n8n JWT Auth. See CHANGELOG 2026-11-18.
+
+Lesson / incident: commit `dade484` (2026-10-26) committed `n8n/workflows/*.json` with the live `EVOLUTION_API_KEY`, `INTERNAL_API_KEY` and `OPENROUTER_API_KEY` to the public repo. The folder is git-ignored now, but the values remain in history. Treat as compromised; rotation (Evolution server, OpenRouter dashboard, Vercel, n8n) is the fix, not history rewriting. Owner will rotate at the end of the implementation.
+
+---
+
 ## 2026-07-21 — System — Initial scaffold
 
 Multi-agent SDLC team scaffolded under `.agents/`. Agents: Orchestrator, BA, Architect, Designer, Dev, Code Reviewer, Tester, Security, DevOps, SRE, Docs.
