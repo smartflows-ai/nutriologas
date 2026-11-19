@@ -152,6 +152,16 @@ test("a known sender correcting their own surname or a typo is still the same pe
   assert.equal(isOtherPersonsName(knownSender, "  ana   lopez  ruiz "), false);
 });
 
+test("a stored filler name is not compared: the patient can give their real name (ticket #113)", () => {
+  // Otherwise bot/book asks for the full name and then refuses it as another person, and the agent loops.
+  for (const stored of ["Paciente", "Desconocido", "Paciente / Cliente"]) {
+    assert.equal(isOtherPersonsName({ name: stored, email: null, age: 30 }, "Ana López"), false, stored);
+  }
+  // A real one-word name is still compared: another first name is still another person (#72).
+  assert.equal(isOtherPersonsName({ name: "Juan", email: null, age: 30 }, "María López"), true);
+  assert.equal(isOtherPersonsName({ name: "Juan", email: null, age: 30 }, "Juan Pérez"), false);
+});
+
 test("case and accents do not make a different first name", () => {
   assert.equal(isOtherPersonsName({ name: "Maria Lopez", email: null, age: 40 }, "maría lópez"), false);
   assert.equal(isOtherPersonsName({ name: "José Ruiz", email: null, age: 40 }, "JOSE"), false);

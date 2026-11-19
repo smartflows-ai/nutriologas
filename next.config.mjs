@@ -10,6 +10,18 @@ const nextConfig = {
     ],
   },
 
+  // A short directions link pasted next to a ")" or a period ("…/ubicacion)") still works: WhatsApp keeps the sign as
+  // part of the link (ticket #116). Temporary redirect, so a later change of this rule is not cached by browsers.
+  async redirects() {
+    return [
+      {
+        source: "/ubicacion:tail((?:[\\).,;:!?]|%29)+)",
+        destination: "/ubicacion",
+        permanent: false,
+      },
+    ];
+  },
+
   async headers() {
     return [
       {

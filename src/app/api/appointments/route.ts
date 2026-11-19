@@ -21,6 +21,7 @@ import { omitReminderError } from "@/lib/reminder-state";
 import { can, omitClinicalNotes } from "@/lib/permissions";
 import { buildCalendarText } from "@/lib/appointment-calendar-text";
 import { guestEmailFor, parseAge, resolveModality } from "@/lib/patient-intake";
+import { isPlausibleFullName } from "@/lib/full-name";
 import { getTenantTimeZone, usableTimeZone } from "@/lib/tenant-time-zone";
 
 const MONTH_RE = /^\d{4}-\d{2}$/;
@@ -304,6 +305,10 @@ export async function POST(req: NextRequest) {
     // The phone is the patient's identity (visit history), so every booking needs a usable one.
     if (!patientKeyOf(clientPhone)) {
       return apiError("phone_required", 400);
+    }
+    // First name and surname on every visit (ticket #113).
+    if (!isPlausibleFullName(clientName)) {
+      return apiError("full_name_required", 400);
     }
     // Age is part of the patient record.
     const age = parseAge(clientAge);

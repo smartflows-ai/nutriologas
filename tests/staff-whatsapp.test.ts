@@ -28,3 +28,9 @@ test("something that is not a phone number is invalid", () => {
   assert.equal(normalizeStaffWhatsapp("+1234567890123456"), "invalid");
   assert.equal(normalizeStaffWhatsapp(12345678901 as unknown as string), "invalid");
 });
+
+test("ten local digits get the business country code when it is given (ticket #120)", () => {
+  assert.equal(normalizeStaffWhatsapp("300 123 4567", "57"), "+573001234567");
+  assert.equal(normalizeStaffWhatsapp("+52 55 1234 5678", "57"), "+525512345678");
+  assert.equal(normalizeStaffWhatsapp("55 1234 5678"), "+525512345678");
+});

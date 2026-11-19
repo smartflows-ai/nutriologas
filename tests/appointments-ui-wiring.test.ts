@@ -44,8 +44,16 @@ test("a deleted visit only offers Recuperar; calendar events get no edit or dele
 test("new primary buttons use the readable text color of the tenant theme", () => {
   for (const [name, src] of [["page", PAGE], ["card", CARD], ["form", FORM]] as const) {
     assert.doesNotMatch(src, /bg-primary[^"]*text-white/, name);
-    assert.doesNotMatch(src, /btn-primary/, name);
   }
+  // The shared button class itself follows the theme (ticket #116), so screens may use it.
+  const css = readFileSync(path.join(process.cwd(), "src/app/globals.css"), "utf8");
+  const btn = /\.btn-primary \{\s*@apply ([^;]+);/.exec(css)?.[1] ?? "";
+  assert.match(btn, /text-\[color:var\(--on-primary\)\]/);
+  assert.doesNotMatch(btn, /text-white/);
+});
+
+test("the create button of Citas is the shared primary button, like Servicios (ticket #116)", () => {
+  assert.match(PAGE, /className="btn-primary inline-flex items-center gap-2 min-h-11 sm:min-h-0 shrink-0"\s*>\s*<Plus size=\{18\}/);
 });
 
 test("the screen texts come from the dictionaries", () => {

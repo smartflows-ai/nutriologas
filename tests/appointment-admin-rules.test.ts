@@ -136,23 +136,26 @@ test("the 'already confirmed' checkbox and the owner override are read as boolea
   assert.equal(result.ok && result.data.override, true);
 });
 
-test("a booking for another person needs the requester's phone, and it must be a different number", () => {
-  const ok = parsePanelCreate(createBody({ forOtherPerson: true, requesterPhone: "+52 844 111 2222" }), NOW);
-  assert.equal(ok.ok && ok.data.requesterPhone, "+52 844 111 2222");
-  assert.deepEqual(parsePanelCreate(createBody({ forOtherPerson: true, requesterPhone: "" }), NOW), {
-    ok: false,
-    error: "requester_phone_required",
-  });
-  // The same number written another way is the same person.
-  assert.deepEqual(parsePanelCreate(createBody({ forOtherPerson: true, requesterPhone: "528446683688" }), NOW), {
-    ok: false,
-    error: "other_person_same_phone",
-  });
+test("the panel refuses booking for another person (ticket #113); the bot still does it", () => {
+  for (const extra of [
+    { forOtherPerson: true, requesterPhone: "+52 844 111 2222" },
+    { requesterPhone: "+52 844 111 2222" },
+    { patientPhone: "+52 844 111 2222" },
+  ]) {
+    assert.deepEqual(parsePanelCreate(createBody(extra), NOW), { ok: false, error: "field_not_allowed" }, JSON.stringify(extra));
+  }
+  // An unticked checkbox and empty fields from an old form are not a request.
+  const plain = parsePanelCreate(createBody({ forOtherPerson: false, requesterPhone: "" }), NOW);
+  assert.equal(plain.ok && plain.data.requesterPhone, null);
 });
 
-test("a requester phone sent without 'for another person' is ignored", () => {
-  const result = parsePanelCreate(createBody({ requesterPhone: "+52 844 111 2222" }), NOW);
-  assert.equal(result.ok && result.data.requesterPhone, null);
+test("a new or changed patient name needs a first name and a surname (ticket #113)", () => {
+  assert.deepEqual(parsePanelCreate(createBody({ clientName: "Ana" }), NOW), { ok: false, error: "full_name_required" });
+  assert.deepEqual(parsePanelCreate(createBody({ clientName: "desconocido" }), NOW), { ok: false, error: "full_name_required" });
+  assert.deepEqual(parsePanelEdit({ clientName: "Ana" }, NOW), { ok: false, error: "full_name_required" });
+  assert.equal(parsePanelEdit({ clientName: "Ana López" }, NOW).ok, true);
+  // An edit that does not send the name is not checked: older visits keep the name they have.
+  assert.equal(parsePanelEdit({ clientAge: 40 }, NOW).ok, true);
 });
 
 test("pet fields are kept as typed, empty ones become null", () => {
@@ -171,10 +174,10 @@ test("a body that is not an object is refused", () => {
 // ── parsePanelEdit ───────────────────────────────────────────────────────────
 
 test("an edit carries only the fields that were sent", () => {
-  const result = parsePanelEdit({ clientName: " Ana ", clientAge: 40 }, NOW);
+  const result = parsePanelEdit({ clientName: " Ana  López ", clientAge: 40 }, NOW);
   assert.equal(result.ok, true);
   if (!result.ok) return;
-  assert.deepEqual(result.data, { clientName: "Ana", clientAge: 40, override: false });
+  assert.deepEqual(result.data, { clientName: "Ana López", clientAge: 40, override: false });
 });
 
 test("an edit that sends the phone is refused", () => {
@@ -302,10 +305,6 @@ test("a date more than a year ahead is refused", () => {
 test("oversized ids and phones are refused", () => {
   assert.deepEqual(parsePanelCreate(createBody({ productId: "x".repeat(65) }), NOW), { ok: false, error: "validation_failed" });
   assert.deepEqual(parsePanelCreate(createBody({ clientPhone: `+52 ${"5".repeat(40)}` }), NOW), { ok: false, error: "phone_required" });
-  assert.deepEqual(
-    parsePanelCreate(createBody({ forOtherPerson: true, requesterPhone: `+52 ${"4".repeat(40)}` }), NOW),
-    { ok: false, error: "requester_phone_required" }
-  );
 });
 
 test("the notes rule is shared: empty is null, text is trimmed, too long or not text is refused", () => {

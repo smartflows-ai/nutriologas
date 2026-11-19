@@ -1,18 +1,18 @@
 // src/app/not-found.tsx
 import Image from "next/image";
 import Link from "next/link";
-import { getTranslationServer } from "@/i18n/server";
+import { getBusinessTranslationServer } from "@/lib/tenant-language";
 
-export function generateMetadata() {
-  const t = getTranslationServer();
+export async function generateMetadata() {
+  const t = await getBusinessTranslationServer();
   return {
     title: t.notFound.metaTitle,
     description: t.notFound.metaDescription,
   };
 }
 
-export default function NotFound() {
-  const t = getTranslationServer();
+export default async function NotFound() {
+  const t = await getBusinessTranslationServer();
 
   return (
     <main className="mk-page relative flex flex-col items-center justify-center overflow-hidden">

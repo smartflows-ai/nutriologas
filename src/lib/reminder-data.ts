@@ -110,7 +110,7 @@ export async function loadReminderVisits(now: Date, appointmentId?: string): Pro
   });
   return rows.map(({ product, tenant, ...visit }) => {
     const { hasPhysicalLocation, address, placeId, latitude, longitude, slug, customDomain, ...rest } = tenant;
-    const locationText = locationTextForBot({ hasPhysicalLocation, address, placeId, latitude, longitude, slug, customDomain });
+    const locationText = locationTextForBot({ hasPhysicalLocation, address, placeId, latitude, longitude, slug, customDomain, messageLanguage: rest.messageLanguage });
     // The customer gets the short video link of this visit (or the real one when the visit has no code).
     const { meetShortCode, ...plain } = visit;
     const meetUrl = customerMeetUrl({ meetUrl: visit.meetUrl, meetShortCode }, { slug, customDomain }) || null;

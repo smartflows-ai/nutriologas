@@ -260,8 +260,8 @@ export default function ProductosPage() {
             {t.crm.products.subtitle} • {totalCount} {t.crm.products.totalProducts}
           </p>
         </div>
-        <button onClick={openCreate} className="btn-primary flex items-center gap-2 shadow-sm">
-          <Plus size={18} /> {t.crm.products.newProduct}
+        <button onClick={openCreate} className="btn-primary inline-flex items-center gap-2 min-h-11 sm:min-h-0 shrink-0">
+          <Plus size={18} aria-hidden="true" /> {t.crm.products.newProduct}
         </button>
       </div>
 

@@ -3,6 +3,7 @@
 // (in person or online). Pure functions, no I/O: the routes load the data and call these.
 
 import { patientKeyOf } from "@/lib/patient-key";
+import { isFillerName } from "@/lib/full-name";
 
 // A "known patient" is a WhatsApp number that already has an appointment in the business. Its name, email and
 // age come from the latest visit (see getKnownPatient in patients.ts), so the bot never asks them twice.
@@ -148,9 +149,12 @@ function firstNameKey(name: unknown): string {
  * True when a known sender books under another first name and no other number came with the request: the agent
  * most likely dropped the other person's phone (ticket #72), and saving it would put that person's visit, reminder
  * and data under the sender's number. No name sent (the registered one is used), an unknown sender or a sender
- * without a registered name cannot be compared. A nickname also counts as another name: the bot then asks.
+ * without a registered name, or with a filler one ("Paciente"), cannot be compared. A nickname also counts as another
+ * name: the bot then asks.
  */
 export function isOtherPersonsName(known: KnownPatient | null, typedName: unknown): boolean {
+  // A stored filler ("Paciente") has no first name to compare: the patient is giving their real name (ticket #113).
+  if (isFillerName(known?.name)) return false;
   const typed = firstNameKey(typedName);
   const registered = firstNameKey(known?.name);
   return typed !== "" && registered !== "" && typed !== registered;

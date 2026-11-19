@@ -142,6 +142,17 @@ export default function OnboardingModal({
   }, [placeLocation, hasPhysicalLocation, dialCountry, timeZoneTouched, t, lang]);
   const [dialQuery, setDialQuery] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
+  // City, country and dial code follow the picked address (ticket #120). The owner can still change them; a dial code
+  // changed by hand is not replaced. Nothing here is sent: the formatted address already names the city and country.
+  const [dialTouched, setDialTouched] = useState(false);
+  useEffect(() => {
+    if (!hasPhysicalLocation || !placeLocation) return;
+    if (placeLocation.city) setCity(placeLocation.city);
+    const country = COUNTRIES.find((c) => c.code === placeLocation.countryCode);
+    if (!country) return;
+    setSelectedCountry(country);
+    if (!dialTouched) setDialCountry(country);
+  }, [placeLocation, hasPhysicalLocation, dialTouched]);
 
   // Step 2 — Account
   const [email, setEmail] = useState("");
@@ -561,7 +572,7 @@ export default function OnboardingModal({
                                   ? "bg-mk-violet/20 text-mk-violet-light"
                                   : "text-gray-300 hover:bg-white/5"
                                 }`}
-                              onClick={() => { setDialCountry(c); setDialOpen(false); setDialQuery(""); }}
+                              onClick={() => { setDialCountry(c); setDialTouched(true); setDialOpen(false); setDialQuery(""); }}
                             >
                               <span className="text-xs font-semibold leading-none">{c.code}</span>
                               <span className="flex-1">{countryName(c)}</span>
