@@ -1,5 +1,5 @@
-// The Google connection asks only for what the product uses. Restricted and sensitive scopes that are not used must not
-// come back (they would need Google's extra review and keep the "app not verified" screen for every user).
+// The Google connection asks only for what the product uses. Scopes that no code needs must not come back: each sensitive
+// scope adds to Google's review and keeps the "app not verified" screen for every user.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -14,8 +14,9 @@ function requestedScopes(source: string): string[] {
   return Array.from(block[1].matchAll(/"(https:\/\/www\.googleapis\.com\/auth\/[^"]+)"/g), (m) => m[1]);
 }
 
-test("the connection requests calendar.events, gmail.send and the account identity, nothing else", () => {
+test("the connection requests exactly the scopes the product uses, nothing else", () => {
   assert.deepEqual(requestedScopes(START).sort(), [
+    "https://www.googleapis.com/auth/calendar.calendarlist.readonly",
     "https://www.googleapis.com/auth/calendar.events",
     "https://www.googleapis.com/auth/gmail.send",
     "https://www.googleapis.com/auth/userinfo.email",
@@ -28,13 +29,8 @@ test("spreadsheets.readonly is not requested (no code uses Sheets)", () => {
   assert.equal(scopes.includes("https://www.googleapis.com/auth/spreadsheets.readonly"), false);
 });
 
-// The calendar list needs a permission the connection no longer asks for; the owner email comes from userinfo instead.
-const READERS = ["src/app/api/calendar/events/route.ts", "src/lib/external-calendar.ts"];
-
-test("the calendar readers do not call the calendar list (it needs a permission the connection does not ask for)", () => {
-  for (const rel of READERS) {
-    const code = readFileSync(path.join(ROOT, rel), "utf8").replace(/\r\n/g, "\n");
-    assert.equal(code.includes("calendarList"), false, rel);
-    assert.ok(code.includes("https://www.googleapis.com/oauth2/v2/userinfo"), `${rel} reads the account email`);
-  }
+test("the broad calendar scopes are never requested (calendar.events and calendar.calendarlist.readonly are enough)", () => {
+  const scopes = requestedScopes(START);
+  assert.equal(scopes.includes("https://www.googleapis.com/auth/calendar"), false);
+  assert.equal(scopes.includes("https://www.googleapis.com/auth/calendar.readonly"), false);
 });

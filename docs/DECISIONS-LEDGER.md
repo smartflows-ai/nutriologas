@@ -800,3 +800,13 @@ Why: a WhatsApp message in place of the e-mail was a workaround that hid the per
 Consequences: the consent screen keeps "app not verified" until Google approves `calendar.events` and `gmail.send` (restricted: security assessment, longer than the sensitive review). Until then the 100-user limit applies. The rest of the earlier consequences stand (primary calendar only; accounts connected before the change reconnect).
 
 Lesson: a workaround that removes a feature to avoid a review is a patch. Ask first which permission the feature needs, then request it correctly.
+
+---
+
+## 2026-11-18 — Dev — Correction: gmail.send is sensitive, not restricted; the final scope list
+
+Correction of the two entries above: Google's Gmail API page lists `gmail.send` as a **sensitive** scope. The restricted ones are `gmail.readonly`, `gmail.compose`, `gmail.modify`, `gmail.metadata`, `gmail.insert`, the `gmail.settings.*` scopes and `https://mail.google.com/`. Restricted scopes need the security assessment; sensitive ones need only Google's review. The earlier entries said the opposite and are kept as history.
+
+Decision: the connection asks for `calendar.events`, `calendar.calendarlist.readonly`, `gmail.send`, `userinfo.email` and `userinfo.profile`, and nothing else. The calendar list is read again, because `calendarList.list` does not accept `calendar.events`: without `calendar.calendarlist.readonly` the readers fell back to the primary calendar, silently. `spreadsheets.readonly` stays removed.
+
+Consequences: accounts connected before this change read only the primary calendar until they connect again. The consent screen needs the review of three sensitive scopes, with one justification and one demonstration per scope.

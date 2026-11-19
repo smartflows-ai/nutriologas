@@ -1,5 +1,5 @@
 // src/app/api/apps/oauth/google/start/route.ts
-// Initiates Google OAuth flow with Calendar + Sheets scopes.
+// Initiates the Google OAuth flow with the calendar, Gmail and identity scopes the product uses.
 import { NextRequest, NextResponse } from "next/server";
 import { getAppSession } from "@/lib/session";
 
@@ -26,12 +26,13 @@ export async function GET(req: NextRequest) {
     : (process.env.NEXTAUTH_URL ?? "https://newaigent.com");
   const redirectUri = `${baseUrl}/api/apps/oauth/google/callback`;
 
-  // What the product uses: the calendar events (read busy times, create, edit and delete visits), the account identity,
-  // and gmail.send for the confirmation e-mail of calendar/create-event. gmail.send is a restricted scope and needs
-  // Google's security assessment before the consent screen stops showing "app not verified". spreadsheets.readonly is
-  // not requested: no code uses Sheets.
+  // What the product uses: calendar.events (read busy times, create, edit and delete visits), calendar.calendarlist.readonly
+  // (list the owner's calendars, so busy times on every calendar count), gmail.send (the confirmation e-mail of
+  // calendar/create-event; sensitive scope, verified with Google), and the account identity. spreadsheets.readonly is not
+  // requested: no code uses Sheets.
   const scopes = [
     "https://www.googleapis.com/auth/calendar.events",
+    "https://www.googleapis.com/auth/calendar.calendarlist.readonly",
     "https://www.googleapis.com/auth/gmail.send",
     "https://www.googleapis.com/auth/userinfo.email",
     "https://www.googleapis.com/auth/userinfo.profile",

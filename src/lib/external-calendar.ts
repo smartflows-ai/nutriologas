@@ -71,18 +71,22 @@ async function fetchGoogleCalendarAppointments(
   let calendarIds: string[] = ["primary"];
   let primaryCalEmail = "";
 
-  // The connection asks only for calendar.events, so the calendar list cannot be read. The account's own calendar is
-  // the primary one, whose id is the account email (the userinfo.email scope the connection already has).
   try {
-    const userRes = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-    if (userRes.ok) {
-      const userData = await userRes.json();
-      primaryCalEmail = typeof userData.email === "string" ? userData.email : "";
+    const calListRes = await fetch(
+      "https://www.googleapis.com/calendar/v3/users/me/calendarList",
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    if (calListRes.ok) {
+      const calListData = await calListRes.json();
+      const calendarList: any[] = calListData.items ?? [];
+      if (calendarList.length > 0) {
+        calendarIds = calendarList.map((c: any) => c.id);
+        const primaryCal = calendarList.find((c: any) => c.primary === true);
+        primaryCalEmail = primaryCal?.id ?? "";
+      }
     }
   } catch {
-    // Without the email the events still load; only the owner label stays empty.
+    // Fallback to primary
   }
 
   const allItems: any[] = [];
