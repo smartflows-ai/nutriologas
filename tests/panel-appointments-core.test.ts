@@ -109,7 +109,7 @@ function fakeDeps(overrides: Partial<PanelDeps> = {}): { deps: PanelDeps; calls:
 const createBody = (overrides: Record<string, unknown> = {}) => ({
   productId: "p1",
   appointmentDate: AT_10,
-  clientName: "Luis",
+  clientName: "Luis Pérez",
   clientPhone: "+52 55 0000 0001",
   clientAge: "30",
   ...overrides,
@@ -174,15 +174,21 @@ test("'already confirmed' creates a confirmed visit with its confirmation time",
   assert.equal((calls.created[0].customerConfirmedAt as Date).getTime(), NOW.getTime());
 });
 
-test("for another person: the visit is saved with that person's phone and the requester as 'recommended by'", async () => {
+test("the panel does not book for another person (ticket #113): nothing is created", async () => {
   const { deps, calls } = fakeDeps();
-  await createCore(
+  const res = await createCore(
     { role: "STAFF", tenant: TENANT, body: createBody({ forOtherPerson: true, requesterPhone: "+52 55 0000 0009" }), now: NOW },
     deps
   );
-  assert.equal(calls.created[0].customerPhone, "+52 55 0000 0001");
-  assert.equal(calls.created[0].referredByKey, "525500000009");
-  assert.equal(calls.created[0].referredByName, "Señora Prima");
+  assert.deepEqual([res.status, res.body.error], [400, "field_not_allowed"]);
+  assert.equal(calls.created.length, 0);
+});
+
+test("a one-word name is refused before anything is created (ticket #113)", async () => {
+  const { deps, calls } = fakeDeps();
+  const res = await createCore({ role: "STAFF", tenant: TENANT, body: createBody({ clientName: "Luis" }), now: NOW }, deps);
+  assert.deepEqual([res.status, res.body.error], [400, "full_name_required"]);
+  assert.equal(calls.created.length, 0);
 });
 
 test("a pet business needs the pet's name; a both-modes service needs the modality", async () => {
@@ -229,9 +235,9 @@ test("staff cannot move a visit outside business hours", async () => {
 
 test("a name change updates only that field and the calendar event's text", async () => {
   const { deps, calls } = fakeDeps();
-  const res = await editCore({ role: "STAFF", tenantId: "t1", appointment: visit(), body: { clientName: "Luis" }, now: NOW }, deps);
+  const res = await editCore({ role: "STAFF", tenantId: "t1", appointment: visit(), body: { clientName: "Luis Pérez" }, now: NOW }, deps);
   assert.equal(res.status, 200);
-  assert.deepEqual(calls.updated[0].changes, { customerName: "Luis" });
+  assert.deepEqual(calls.updated[0].changes, { customerName: "Luis Pérez" });
   assert.equal(calls.updated[0].checkConflicts, true);
   assert.match(calls.eventsUpdated[0].summary, /Luis/);
   assert.equal(calls.eventsReplaced, 0);
@@ -240,7 +246,7 @@ test("a name change updates only that field and the calendar event's text", asyn
 
 test("a calendar that could not be updated is reported", async () => {
   const { deps } = fakeDeps({ updateEvent: async () => false });
-  const res = await editCore({ role: "STAFF", tenantId: "t1", appointment: visit(), body: { clientName: "Luis" }, now: NOW }, deps);
+  const res = await editCore({ role: "STAFF", tenantId: "t1", appointment: visit(), body: { clientName: "Luis Pérez" }, now: NOW }, deps);
   assert.equal(res.body.calendarSynced, false);
 });
 
@@ -266,7 +272,7 @@ test("a new single-mode service sets its own modality", async () => {
 
 test("a visit deleted while it was being edited answers 404", async () => {
   const { deps } = fakeDeps({ updateVisit: async () => ({ ok: false, reason: "not_found" }) });
-  const res = await editCore({ role: "STAFF", tenantId: "t1", appointment: visit(), body: { clientName: "Luis" }, now: NOW }, deps);
+  const res = await editCore({ role: "STAFF", tenantId: "t1", appointment: visit(), body: { clientName: "Luis Pérez" }, now: NOW }, deps);
   assert.deepEqual([res.status, res.body.error], [404, "appointment_not_found"]);
 });
 

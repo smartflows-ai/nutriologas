@@ -2020,6 +2020,8 @@ export const en: Translations = {
     outside_business_hours: "That time is outside business hours.",
     date_in_past: "That time has already passed.",
     name_required: "Enter the patient's name.",
+    full_name_required: "Enter the patient's first name and surname.",
+    field_not_allowed: "The panel no longer books for another person. Book with the patient's WhatsApp.",
     email_invalid: "Check the email: it does not look valid.",
     field_not_editable: "A visit's phone cannot be changed. Cancel the visit and create a new one.",
     requester_phone_required: "Enter the phone of the person asking for the visit.",

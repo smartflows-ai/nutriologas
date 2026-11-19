@@ -11,7 +11,8 @@ import { clinicDateKeyOf, clinicDateTime, clinicTimeOf } from "@/lib/clinic-time
 import { useBusinessTimeZone } from "@/components/shared/BusinessTimeZone";
 import { isSyntheticEmail } from "@/lib/patient-intake";
 import { patientKeyOf } from "@/lib/patient-key";
-import { buildFullPhone, DEFAULT_DIAL_CODE } from "@/lib/phone";
+import { buildFullPhone, defaultDialCodeForZone } from "@/lib/phone";
+import { isPlausibleFullName } from "@/lib/full-name";
 import type { AppointmentItem, FreeSlot, ServiceOption, VisitModality } from "./types";
 
 export type FormTarget = { readonly mode: "create" } | { readonly mode: "edit"; readonly visit: AppointmentItem };
@@ -78,9 +79,11 @@ export function useAppointmentForm({ target, canOverbook, onSaved }: Options) {
   const [manualTime, setManualTime] = useState(false);
   const [slots, setSlots] = useState<{ time: string; available: boolean }[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
-  const [dial, setDial] = useState(DEFAULT_DIAL_CODE);
+  // First dial code: the country of the business zone (ticket #120).
+  const [dial, setDial] = useState(() => defaultDialCodeForZone(zone));
   const [phone, setPhone] = useState("");
   const [name, setName] = useState(original?.name ?? "");
+  const [nameTouched, setNameTouched] = useState(false);
   const [age, setAge] = useState(original?.age ?? "");
   const [email, setEmail] = useState(original?.email ?? "");
   const [modality, setModality] = useState<VisitModality | "">(original?.modality ?? "");
@@ -91,7 +94,7 @@ export function useAppointmentForm({ target, canOverbook, onSaved }: Options) {
   const [petName, setPetName] = useState("");
   const [petSpecies, setPetSpecies] = useState("dog");
   const [forOther, setForOther] = useState(false);
-  const [requesterDial, setRequesterDial] = useState(DEFAULT_DIAL_CODE);
+  const [requesterDial, setRequesterDial] = useState(() => defaultDialCodeForZone(zone));
   const [requesterPhone, setRequesterPhone] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -156,8 +159,7 @@ export function useAppointmentForm({ target, canOverbook, onSaved }: Options) {
     alreadyConfirmed,
     whatsappConsent,
     override,
-    forOtherPerson: forOther,
-    requesterPhone: forOther ? fullRequester : undefined,
+    // Booking for another person is off in the panel (ticket #113): the API refuses these fields.
     petName: usesPets ? petName : undefined,
     petSpecies: usesPets ? petSpecies : undefined,
   });
@@ -177,12 +179,22 @@ export function useAppointmentForm({ target, canOverbook, onSaved }: Options) {
     return { ...body, override };
   };
 
+  // A new visit, or an edit that changes the name, needs a first name and a surname (ticket #113). An older visit
+  // edited without touching its name keeps the name it has.
+  const nameNeedsCheck = !original || name !== original.name;
+  const nameIssue = nameTouched && name.trim() !== "" && nameNeedsCheck && !isPlausibleFullName(name);
+
   const submit = async (options: { override?: boolean; slot?: FreeSlot } = {}) => {
     if (busy) return;
     const override = options.override ?? false;
     const at = options.slot ? options.slot.iso : clinicDateTime(day, time, zone);
     if (!options.slot && !time) {
       setError(productId && day ? t.agenda.form.chooseTime : t.agenda.form.chooseService);
+      return;
+    }
+    if (nameNeedsCheck && !isPlausibleFullName(name)) {
+      setNameTouched(true);
+      setError(t.apiErrors.full_name_required);
       return;
     }
     const body = visit ? editBody(at, override) : createBody(at, override);
@@ -234,7 +246,7 @@ export function useAppointmentForm({ target, canOverbook, onSaved }: Options) {
     services,
     service,
     usesPets,
-    fields: { productId, day, time, manualTime, dial, phone, name, age, email, modality, notes, alreadyConfirmed, whatsappConsent, petName, petSpecies, forOther, requesterDial, requesterPhone },
+    fields: { productId, day, time, manualTime, dial, phone, name, nameIssue, age, email, modality, notes, alreadyConfirmed, whatsappConsent, petName, petSpecies, forOther, requesterDial, requesterPhone },
     set: {
       productId: (v: string) => {
         setProductId(v);
@@ -249,6 +261,7 @@ export function useAppointmentForm({ target, canOverbook, onSaved }: Options) {
       dial: setDial,
       phone: setPhone,
       name: setName,
+      nameTouched: () => setNameTouched(true),
       age: setAge,
       email: setEmail,
       modality: setModality,

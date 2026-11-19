@@ -109,9 +109,9 @@ export default function CarruselPage() {
         {!showAddForm && (
           <button 
             onClick={() => setShowAddForm(true)}
-            className="btn-primary flex items-center gap-2 "
+            className="btn-primary inline-flex items-center gap-2 min-h-11 sm:min-h-0 shrink-0"
           >
-            <Plus size={18} /> {t.crm.carousel.newBanner}
+            <Plus size={18} aria-hidden="true" /> {t.crm.carousel.newBanner}
           </button>
         )}
       </div>

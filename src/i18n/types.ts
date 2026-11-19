@@ -1838,6 +1838,8 @@ export interface Translations {
     date_in_past: string;
     // Ticket #103: visits created, edited, deleted and restored from /admin/citas.
     name_required: string;
+    full_name_required: string;
+    field_not_allowed: string;
     email_invalid: string;
     field_not_editable: string;
     requester_phone_required: string;

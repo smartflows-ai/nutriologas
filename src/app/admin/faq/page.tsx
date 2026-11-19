@@ -130,9 +130,9 @@ export default function FAQPage() {
         {!showAddForm && (
           <button 
             onClick={() => setShowAddForm(true)}
-            className="btn-primary flex items-center gap-2 "
+            className="btn-primary inline-flex items-center gap-2 min-h-11 sm:min-h-0 shrink-0"
           >
-            <Plus size={18} /> {t.crm.faq.newQuestionBtn}
+            <Plus size={18} aria-hidden="true" /> {t.crm.faq.newQuestionBtn}
           </button>
         )}
       </div>

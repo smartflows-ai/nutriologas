@@ -1,5 +1,6 @@
 // src/lib/phone.ts
 // Country dial codes for phone inputs, and the rule that turns a country + local number into E.164-style "+CC...".
+import { countryForTimeZone } from "./time-zones";
 
 export interface PhoneCountry {
   iso: string;
@@ -27,6 +28,17 @@ export const PHONE_COUNTRIES: PhoneCountry[] = [
   { iso: "ES", dial: "34" },
   { iso: "GB", dial: "44" },
 ];
+
+/** Dial code of a country (ISO alpha-2), or null when the list does not have it. */
+export function dialCodeForCountry(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  return PHONE_COUNTRIES.find((c) => c.iso === iso.toUpperCase())?.dial ?? null;
+}
+
+/** First dial code of a phone field: the country of the business zone (ticket #120), else Mexico, as before. */
+export function defaultDialCodeForZone(zone: string | null | undefined): string {
+  return dialCodeForCountry(countryForTimeZone(zone)) ?? DEFAULT_DIAL_CODE;
+}
 
 // Builds "+<dial><local digits>". If the local input already starts with "+", it is a full
 // international number and the selected dial code is ignored.

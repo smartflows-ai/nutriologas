@@ -20,6 +20,7 @@ import { isBookable } from "@/lib/bookable";
 import { cleanPetName } from "@/lib/pets";
 import { patientKeyOf } from "@/lib/patient-key";
 import { getKnownPatient } from "@/lib/patients";
+import { isPlausibleFullName } from "@/lib/full-name";
 import { cleanSenderName, guestEmailFor, isOtherPersonsName, maskPhone, mergePatient, missingIntake, referralOf, resolveBookingPhone, resolveModality, effectiveModes, type Modality } from "@/lib/patient-intake";
 import { customerMeetUrl } from "@/lib/short-links";
 
@@ -145,6 +146,22 @@ export async function POST(req: NextRequest) {
       );
     }
     patient = { name: customerName, email: customerEmail.toLowerCase().trim(), age: null, modality: null };
+  }
+
+  // First name and surname on every visit (ticket #113). A registered patient whose stored name is one word is asked
+  // once; sending the full name with the same first name passes the #72 check above.
+  if (!isPlausibleFullName(patient.name)) {
+    const typedName = typeof customerName === "string" && customerName.trim() !== "";
+    return Response.json(
+      {
+        success: false,
+        error: "full_name_required",
+        message: typedName
+          ? "Falta el nombre completo: pide nombre y apellido de quien va a la cita (no inventes ni uses un nombre de relleno) y vuelve a agendar enviándolo en customerName."
+          : "El nombre registrado de este paciente no tiene apellido: pídele su apellido y vuelve a agendar enviando en customerName su nombre y apellido.",
+      },
+      { status: 400 }
+    );
   }
 
   // Veterinary and pet-care businesses book per pet, so the history follows the animal.

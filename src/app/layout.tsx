@@ -10,73 +10,101 @@ import { headers } from "next/headers";
 import { Lang } from "@/i18n/types";
 import { Toaster } from "sonner";
 import { themeColorVars } from "@/lib/theme-vars";
+import { tenantPreview } from "@/lib/tenant-metadata";
+import { cache } from "react";
 
-// El tenant se resuelve en v1 con el slug por defecto.
-// En v2 se resolverá desde el subdominio via middleware.
-async function getTenantTheme() {
-  const tenantSlug = getTenantSlug();
+const DEFAULT_THEME = {
+  primaryColor: "#16a34a",
+  secondaryColor: "#15803d",
+  accentColor: "#4ade80",
+  fontFamily: "Inter, sans-serif",
+};
 
-  try {
-    const tenant = await prisma.tenant.findFirst({
-      where: { OR: [{ slug: tenantSlug }, { customDomain: tenantSlug }] },
-      include: { theme: true },
-    });
-    return {
-      name: tenant?.name ?? "NewAigent",
-      theme: tenant?.theme ?? {
-        primaryColor: "#16a34a",
-        secondaryColor: "#15803d",
-        accentColor: "#4ade80",
-        fontFamily: "Inter, sans-serif",
-      },
-    };
-  } catch {
-    return {
-      name: "NewAigent",
-      theme: {
-        primaryColor: "#16a34a",
-        secondaryColor: "#15803d",
-        accentColor: "#4ade80",
-        fontFamily: "Inter, sans-serif",
-      },
-    };
-  }
+/** First active carousel image, else the first photo of a visible service: the link preview image without a logo. */
+async function previewFallbackImage(tenantId: string): Promise<string | null> {
+  const [slide, product] = await Promise.all([
+    prisma.carouselImage.findFirst({ where: { tenantId, isActive: true }, orderBy: { sortOrder: "asc" }, select: { url: true } }),
+    prisma.product.findFirst({
+      where: { tenantId, isActive: true, deletedAt: null, NOT: { images: { isEmpty: true } } },
+      orderBy: { createdAt: "asc" },
+      select: { images: true },
+    }),
+  ]);
+  return slide?.url ?? product?.images[0] ?? null;
 }
 
+// One read per request, shared by generateMetadata and the layout (React cache).
+const getTenantTheme = cache(async () => {
+  const tenantSlug = getTenantSlug();
+  try {
+    const tenant = tenantSlug
+      ? await prisma.tenant.findFirst({
+          where: { OR: [{ slug: tenantSlug }, { customDomain: tenantSlug }] },
+          include: { theme: true },
+        })
+      : null;
+    const preview = tenant
+      ? tenantPreview({
+          name: tenant.name,
+          slug: tenant.slug,
+          customDomain: tenant.customDomain,
+          businessInfo: tenant.businessInfo,
+          logoUrl: tenant.logoUrl,
+          messageLanguage: tenant.messageLanguage,
+          fallbackImage: tenant.logoUrl ? null : await previewFallbackImage(tenant.id),
+        })
+      : null;
+    return { name: tenant?.name ?? "NewAigent", theme: tenant?.theme ?? DEFAULT_THEME, preview };
+  } catch {
+    return { name: "NewAigent", theme: DEFAULT_THEME, preview: null };
+  }
+});
+
 export async function generateMetadata(): Promise<Metadata> {
-  const { name } = await getTenantTheme();
-  const slug = getTenantSlug();
-  const isMarketing = !slug;
-
+  const { preview } = await getTenantTheme();
   const t = getTranslationServer();
-  const siteTitle = isMarketing ? "NewAigent" : name;
-  const siteDescription = isMarketing
-    ? t.seo.marketingDescription
-    : t.seo.tenantWelcome.replace("{name}", name);
+  const icons: Metadata["icons"] = {
+    icon: [
+      { url: "/favicon/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/favicon/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+    ],
+    apple: "/favicon/apple-touch-icon.png",
+  };
 
+  // Marketing page (root domain), or a subdomain with no business behind it.
+  if (!preview) {
+    return {
+      title: "NewAigent",
+      description: t.seo.marketingDescription,
+      keywords: t.seo.keywords,
+      icons,
+      manifest: "/favicon/site.webmanifest",
+      openGraph: { title: "NewAigent", description: t.seo.marketingDescription, type: "website", url: "https://newaigent.com" },
+    };
+  }
+
+  // A business page: the preview in the business language, with its address and image (ticket #116).
+  const images = preview.image ? [{ url: preview.image }] : undefined;
   return {
-    title: siteTitle,
-    description: siteDescription,
-    keywords: t.seo.keywords,
-    icons: {
-      icon: [
-        { url: '/favicon/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
-        { url: '/favicon/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
-      ],
-      apple: '/favicon/apple-touch-icon.png',
-    },
-    manifest: '/favicon/site.webmanifest',
+    title: preview.title,
+    description: preview.description,
+    icons,
+    manifest: "/favicon/site.webmanifest",
     openGraph: {
-      title: siteTitle,
-      description: siteDescription,
+      title: preview.title,
+      description: preview.description,
       type: "website",
-      url: isMarketing ? "https://newaigent.com" : undefined,
+      url: preview.url,
+      siteName: preview.title,
+      locale: preview.locale,
+      images,
     },
+    twitter: { card: preview.image ? "summary_large_image" : "summary", title: preview.title, description: preview.description, images: preview.image ? [preview.image] : undefined },
   };
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const { name, theme } = await getTenantTheme();
+  const { theme } = await getTenantTheme();
   
   const headersList = headers();
   const acceptLanguage = headersList.get("accept-language")?.toLowerCase() || "";

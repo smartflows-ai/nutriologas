@@ -5,6 +5,7 @@ import { z } from "zod";
 import { can } from "@/lib/permissions";
 import { patientKeyOf } from "@/lib/patient-key";
 import { parseAge, type Modality } from "@/lib/patient-intake";
+import { isPlausibleFullName } from "@/lib/full-name";
 
 type Role = string | null | undefined;
 
@@ -15,12 +16,14 @@ export type PanelRuleError =
   | "date_in_past"
   | "date_too_far"
   | "name_required"
+  | "full_name_required"
   | "phone_required"
   | "age_required"
   | "email_invalid"
   | "validation_failed"
   | "requester_phone_required"
   | "other_person_same_phone"
+  | "field_not_allowed"
   | "field_not_editable";
 
 export type RuleResult<T> = { readonly ok: true; readonly data: T } | { readonly ok: false; readonly error: PanelRuleError };
@@ -85,10 +88,12 @@ function parseDate(value: unknown, now: Date): RuleResult<Date> {
   return { ok: true, data: d };
 }
 
+/** A new or changed patient name needs a first name and a surname (ticket #113). */
 function parseName(value: unknown): RuleResult<string> {
   const name = text(value).replace(/\s+/g, " ");
   if (!name) return { ok: false, error: "name_required" };
-  return name.length > MAX_NAME ? { ok: false, error: "validation_failed" } : { ok: true, data: name };
+  if (name.length > MAX_NAME) return { ok: false, error: "validation_failed" };
+  return isPlausibleFullName(name) ? { ok: true, data: name } : { ok: false, error: "full_name_required" };
 }
 
 function parseEmail(value: unknown): RuleResult<string | null> {
@@ -144,7 +149,19 @@ export interface PanelCreate {
   readonly requesterPhone: string | null;
 }
 
-function parseRequester(b: Record<string, unknown>, patientPhone: string): RuleResult<string | null> {
+/**
+ * The panel no longer books for another person (ticket #113): the option is hidden and these fields are refused, so a
+ * stale form or a hand-made request cannot use it. The WhatsApp bot still books for others (bot/book).
+ */
+const OTHER_PERSON_FIELDS = ["forOtherPerson", "requesterPhone", "patientPhone"] as const;
+
+function refuseOtherPerson(b: Record<string, unknown>): RuleResult<null> {
+  const sent = OTHER_PERSON_FIELDS.some((field) => b[field] !== undefined && b[field] !== null && b[field] !== false && b[field] !== "");
+  return sent ? { ok: false, error: "field_not_allowed" } : { ok: true, data: null };
+}
+
+// Kept for when booking for another person comes back to the panel; not called while the option is off.
+export function parseRequester(b: Record<string, unknown>, patientPhone: string): RuleResult<string | null> {
   if (b.forOtherPerson !== true) return { ok: true, data: null };
   const requester = text(b.requesterPhone);
   const requesterKey = requester.length <= MAX_PHONE ? patientKeyOf(requester) : null;
@@ -176,7 +193,7 @@ export function parsePanelCreate(body: unknown, now: Date): RuleResult<PanelCrea
   const petName = optionalText(b.petName, MAX_PET_NAME);
   const petSpecies = optionalText(b.petSpecies, MAX_PET_NAME);
   if (petName === "too_long" || petSpecies === "too_long") return { ok: false, error: "validation_failed" };
-  const requester = parseRequester(b, phone);
+  const requester = refuseOtherPerson(b);
   if (!requester.ok) return requester;
 
   return {
@@ -318,4 +335,18 @@ export function reopenPlanFor(fromStatus: string, toStatus: string, appointmentD
   if (ACTIVE_STATUSES.includes(fromStatus) || !ACTIVE_STATUSES.includes(toStatus)) return "none";
   if (appointmentDate.getTime() > now.getTime()) return "check_slot";
   return fromStatus === "CANCELLED" ? "window_closed" : "allow";
+}
+
+// ── What the card offers (ticket #113) ───────────────────────────────────────
+// The card asks these instead of copying the rule, so a button is shown only when the server would accept it.
+
+/** "Recuperar" on a deleted visit: only before its start time. */
+export function canOfferRestore(appointmentDate: Date, now: Date): boolean {
+  return restoreCheck({ appointmentDate }, now).ok;
+}
+
+/** "Reabrir" on a cancelled, no-show or attended visit: not when the server would answer that the window closed. */
+export function canOfferReopen(fromStatus: string, appointmentDate: Date, now: Date): boolean {
+  const plan = reopenPlanFor(fromStatus, "CONFIRMED", appointmentDate, now);
+  return plan === "check_slot" || plan === "allow";
 }

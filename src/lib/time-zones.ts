@@ -14,29 +14,32 @@ export interface TimeZoneOption {
   owner: Record<Language, string>;
   /** What the patient reads next to a time: "hora de Cancún". */
   patient: Record<Language, string>;
+  /** Country of the zone (ISO 3166 alpha-2): default dial code and bot currency of the business (ticket #120). */
+  country: string;
 }
 
-const option = (value: string, ownerEs: string, ownerEn: string, cityEs: string, cityEn: string): TimeZoneOption => ({
+const option = (value: string, ownerEs: string, ownerEn: string, cityEs: string, cityEn: string, country: string): TimeZoneOption => ({
   value,
   owner: { es: ownerEs, en: ownerEn },
   patient: { es: `hora de ${cityEs}`, en: `${cityEn} time` },
+  country,
 });
 
 export const TIME_ZONE_OPTIONS: readonly TimeZoneOption[] = [
-  option("America/Mexico_City", "México, Centro (CDMX, Guadalajara, Monterrey)", "Mexico, Central (Mexico City, Guadalajara, Monterrey)", "Ciudad de México", "Mexico City"),
-  option("America/Cancun", "México, Quintana Roo (Cancún)", "Mexico, Quintana Roo (Cancun)", "Cancún", "Cancun"),
-  option("America/Mazatlan", "México, Pacífico (Sinaloa, Nayarit, Baja California Sur)", "Mexico, Pacific (Sinaloa, Nayarit, Baja California Sur)", "Mazatlán", "Mazatlan"),
-  option("America/Hermosillo", "México, Sonora (Hermosillo)", "Mexico, Sonora (Hermosillo)", "Hermosillo", "Hermosillo"),
-  option("America/Tijuana", "México, Baja California (Tijuana, Mexicali)", "Mexico, Baja California (Tijuana, Mexicali)", "Tijuana", "Tijuana"),
-  option("America/New_York", "Estados Unidos, Este (Nueva York, Miami)", "United States, Eastern (New York, Miami)", "Nueva York", "New York"),
-  option("America/Chicago", "Estados Unidos, Centro (Chicago, Houston, Dallas)", "United States, Central (Chicago, Houston, Dallas)", "Chicago", "Chicago"),
-  option("America/Denver", "Estados Unidos, Montaña (Denver)", "United States, Mountain (Denver)", "Denver", "Denver"),
-  option("America/Los_Angeles", "Estados Unidos, Pacífico (Los Ángeles, San Diego)", "United States, Pacific (Los Angeles, San Diego)", "Los Ángeles", "Los Angeles"),
-  option("America/Bogota", "Colombia (Bogotá)", "Colombia (Bogota)", "Bogotá", "Bogota"),
-  option("America/Lima", "Perú (Lima)", "Peru (Lima)", "Lima", "Lima"),
-  option("America/Santiago", "Chile (Santiago)", "Chile (Santiago)", "Santiago", "Santiago"),
-  option("America/Argentina/Buenos_Aires", "Argentina (Buenos Aires)", "Argentina (Buenos Aires)", "Buenos Aires", "Buenos Aires"),
-  option("Europe/Madrid", "España (Madrid)", "Spain (Madrid)", "Madrid", "Madrid"),
+  option("America/Mexico_City", "México, Centro (CDMX, Guadalajara, Monterrey)", "Mexico, Central (Mexico City, Guadalajara, Monterrey)", "Ciudad de México", "Mexico City", "MX"),
+  option("America/Cancun", "México, Quintana Roo (Cancún)", "Mexico, Quintana Roo (Cancun)", "Cancún", "Cancun", "MX"),
+  option("America/Mazatlan", "México, Pacífico (Sinaloa, Nayarit, Baja California Sur)", "Mexico, Pacific (Sinaloa, Nayarit, Baja California Sur)", "Mazatlán", "Mazatlan", "MX"),
+  option("America/Hermosillo", "México, Sonora (Hermosillo)", "Mexico, Sonora (Hermosillo)", "Hermosillo", "Hermosillo", "MX"),
+  option("America/Tijuana", "México, Baja California (Tijuana, Mexicali)", "Mexico, Baja California (Tijuana, Mexicali)", "Tijuana", "Tijuana", "MX"),
+  option("America/New_York", "Estados Unidos, Este (Nueva York, Miami)", "United States, Eastern (New York, Miami)", "Nueva York", "New York", "US"),
+  option("America/Chicago", "Estados Unidos, Centro (Chicago, Houston, Dallas)", "United States, Central (Chicago, Houston, Dallas)", "Chicago", "Chicago", "US"),
+  option("America/Denver", "Estados Unidos, Montaña (Denver)", "United States, Mountain (Denver)", "Denver", "Denver", "US"),
+  option("America/Los_Angeles", "Estados Unidos, Pacífico (Los Ángeles, San Diego)", "United States, Pacific (Los Angeles, San Diego)", "Los Ángeles", "Los Angeles", "US"),
+  option("America/Bogota", "Colombia (Bogotá)", "Colombia (Bogota)", "Bogotá", "Bogota", "CO"),
+  option("America/Lima", "Perú (Lima)", "Peru (Lima)", "Lima", "Lima", "PE"),
+  option("America/Santiago", "Chile (Santiago)", "Chile (Santiago)", "Santiago", "Santiago", "CL"),
+  option("America/Argentina/Buenos_Aires", "Argentina (Buenos Aires)", "Argentina (Buenos Aires)", "Buenos Aires", "Buenos Aires", "AR"),
+  option("Europe/Madrid", "España (Madrid)", "Spain (Madrid)", "Madrid", "Madrid", "ES"),
 ];
 
 const languageOf = (language: string | null | undefined): Language => (language === "en" ? "en" : "es");
@@ -60,7 +63,7 @@ export function timeZoneLabel(zone: string, language: string | null | undefined)
 export function timeZoneOptionsFor(current: string | null | undefined): TimeZoneOption[] {
   if (!current || TIME_ZONE_OPTIONS.some((o) => o.value === current)) return [...TIME_ZONE_OPTIONS];
   const city = cityOf(current);
-  return [...TIME_ZONE_OPTIONS, option(current, city, city, city, city)];
+  return [...TIME_ZONE_OPTIONS, option(current, city, city, city, city, countryForTimeZone(current) ?? "")];
 }
 
 // Longest prefix first, so "+52" is not read as "+5".
@@ -79,4 +82,21 @@ export function suggestTimeZoneForPhone(phone: string | null | undefined): strin
   const clean = (phone ?? "").replace(/[^\d+]/g, "");
   const match = ZONE_BY_DIAL_CODE.find(([code]) => clean.startsWith(code));
   return match ? match[1] : DEFAULT_TIME_ZONE;
+}
+
+/** Mexican zones Google can return that are not in the owner's list (they all keep Mexico's dial code and currency). */
+const EXTRA_ZONE_COUNTRY: Readonly<Record<string, string>> = {
+  "America/Monterrey": "MX",
+  "America/Merida": "MX",
+  "America/Matamoros": "MX",
+  "America/Chihuahua": "MX",
+  "America/Ciudad_Juarez": "MX",
+  "America/Ojinaga": "MX",
+  "America/Bahia_Banderas": "MX",
+};
+
+/** Country (ISO alpha-2) of an IANA zone the platform knows, or null. Pure: the screens use it too. */
+export function countryForTimeZone(zone: string | null | undefined): string | null {
+  if (!zone) return null;
+  return TIME_ZONE_OPTIONS.find((o) => o.value === zone)?.country ?? EXTRA_ZONE_COUNTRY[zone] ?? null;
 }
