@@ -371,9 +371,9 @@ export default function SocialCampaignPage() {
         {view === "list" && (
           <button
             onClick={() => { resetForm(); setView("form"); }}
-            className="btn-primary flex items-center gap-2 text-sm px-4 py-2.5 shadow-sm"
+            className="btn-primary inline-flex items-center gap-2 min-h-11 sm:min-h-0 shrink-0"
           >
-            <Plus size={16} /> {t.crm.social.newCampaign}
+            <Plus size={18} aria-hidden="true" /> {t.crm.social.newCampaign}
           </button>
         )}
       </div>

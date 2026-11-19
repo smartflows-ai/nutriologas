@@ -106,6 +106,9 @@ export default function AddressSearch({
         latitude: data.latitude,
         longitude: data.longitude,
         timeZone: typeof data.timeZone === "string" ? data.timeZone : null,
+        city: typeof data.city === "string" ? data.city : null,
+        region: typeof data.region === "string" ? data.region : null,
+        countryCode: typeof data.countryCode === "string" ? data.countryCode : null,
       });
       setQuery("");
       setSuggestions([]);

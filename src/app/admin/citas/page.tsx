@@ -406,9 +406,9 @@ function CitasContent() {
           {canBook && isBookingEnabled && (
             <button
               onClick={() => setFormTarget({ mode: "create" })}
-              className="min-h-11 sm:min-h-0 px-3.5 py-2 rounded-xl bg-primary hover:opacity-90 text-[color:var(--on-primary)] text-xs font-semibold flex items-center gap-1.5 transition-opacity"
+              className="btn-primary inline-flex items-center gap-2 min-h-11 sm:min-h-0 shrink-0"
             >
-              <Plus size={14} aria-hidden="true" />
+              <Plus size={18} aria-hidden="true" />
               {t.agenda.newAppointment}
             </button>
           )}

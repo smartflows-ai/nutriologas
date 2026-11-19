@@ -9,6 +9,8 @@ import { requirePermission } from "@/lib/permission-guard";
 import { prisma } from "@/lib/db";
 import { isSameWhatsAppNumber } from "@/lib/whatsapp-number";
 import { normalizeStaffWhatsapp } from "@/lib/staff-whatsapp";
+import { defaultDialCodeForZone } from "@/lib/phone";
+import { getTenantTimeZone } from "@/lib/tenant-time-zone";
 import { resetStaffPassword, setStaffActive } from "@/lib/staff-users";
 import { staffDeps } from "@/lib/staff-users-data";
 import { NO_STORE, staffFailure, teamActor, teamWritesExceeded } from "@/lib/team-api";
@@ -29,7 +31,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
     // The number the staff member receives "a chat needs help" notices on (null clears it).
     if (raw?.action === "set_whatsapp") {
-      const number = normalizeStaffWhatsapp(raw.whatsappNumber);
+      const number = normalizeStaffWhatsapp(raw.whatsappNumber, defaultDialCodeForZone(await getTenantTimeZone(guard.tenantId)));
       if (number === "invalid") return apiError("validation_failed", 400);
       if (number) {
         // It must be a person's own line: not the business number the bot writes from, and not the owner's.

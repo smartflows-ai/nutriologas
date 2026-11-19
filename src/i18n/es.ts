@@ -2011,6 +2011,8 @@ export const es: Translations = {
     outside_business_hours: "Esa hora está fuera del horario de atención.",
     date_in_past: "Esa hora ya pasó.",
     name_required: "Escribe el nombre del paciente.",
+    full_name_required: "Escribe nombre y apellido del paciente.",
+    field_not_allowed: "Desde el panel ya no se agenda para otra persona. Agenda con el WhatsApp del paciente.",
     email_invalid: "Revisa el correo: no parece válido.",
     field_not_editable: "El teléfono de una cita no se puede cambiar. Cancela la cita y crea una nueva.",
     requester_phone_required: "Escribe el teléfono de quien pide la cita.",

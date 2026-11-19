@@ -26,6 +26,7 @@ import { isSyntheticEmail } from "@/lib/patient-intake";
 import type { AppointmentItem, TrailEntry, VisitStatus } from "./types";
 import { useBusinessTimeZone } from "@/components/shared/BusinessTimeZone";
 import { clinicDateKeyOf } from "@/lib/clinic-time";
+import { canOfferReopen, canOfferRestore } from "@/lib/appointment-admin-rules";
 
 // Status colors are semantic (pending, confirmed, cancelled), so they stay fixed and do not follow the tenant theme.
 const STATUS_STYLE: Record<string, { bg: string; text: string; border: string; dot: string }> = {
@@ -234,7 +235,7 @@ export default function AppointmentCard({ appt, locale, canNotes, busy, onStatus
         </div>
 
         {isDeleted ? (
-          onRestore && (
+          onRestore && canOfferRestore(new Date(appt.appointmentDate), new Date()) && (
             <button
               disabled={busy}
               onClick={() => onRestore(appt)}
@@ -305,7 +306,9 @@ export default function AppointmentCard({ appt, locale, canNotes, busy, onStatus
                 </button>
               </>
             )}
-            {!isExternal && (appt.status === "COMPLETED" || appt.status === "CANCELLED" || appt.status === "NO_SHOW") && (
+            {!isExternal &&
+              (appt.status === "COMPLETED" || appt.status === "CANCELLED" || appt.status === "NO_SHOW") &&
+              canOfferReopen(appt.status, new Date(appt.appointmentDate), new Date()) && (
               <button
                 disabled={busy}
                 onClick={() => onStatus(appt.id, "CONFIRMED")}

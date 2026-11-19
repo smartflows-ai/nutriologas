@@ -21,7 +21,7 @@ import {
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useTranslation } from "@/i18n";
-import { buildFullPhone, splitFullPhone, DEFAULT_DIAL_CODE, PHONE_COUNTRIES } from "@/lib/phone";
+import { buildFullPhone, splitFullPhone, DEFAULT_DIAL_CODE, PHONE_COUNTRIES, defaultDialCodeForZone } from "@/lib/phone";
 import { translateApiError } from "@/i18n/validation";
 import { ownerNameIsFilled } from "@/lib/owner-name";
 import AddressSearch from "@/components/shared/AddressSearch";
@@ -146,7 +146,8 @@ export default function BusinessProfilePage() {
         setCustomDomain(currentCustomDomain);
         setName(currentName);
         const { dial, local } = splitFullPhone(currentWhatsapp);
-        setDialCode(dial);
+        // A saved number keeps its dial code; with none, start from the country of the business zone (ticket #120).
+        setDialCode(currentWhatsapp ? dial : defaultDialCodeForZone(tenantData.timeZone));
         setWhatsappNumber(local);
         setBusinessInfo(currentInfo);
         setLogoUrl(currentLogo);

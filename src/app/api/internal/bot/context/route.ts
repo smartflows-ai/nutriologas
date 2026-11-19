@@ -12,6 +12,7 @@ import { INTRO_WINDOW_HOURS, buildGreetingReply, introRequired } from "@/lib/gre
 import { effectiveModes, intakeNeeds, modalityModeFor, modalityModeOf } from "@/lib/patient-intake";
 import { patientKeyOf } from "@/lib/patient-key";
 import { getKnownPatient } from "@/lib/patients";
+import { currencyForTimeZone } from "@/lib/currency";
 
 export async function POST(req: NextRequest) {
   if (!isInternalKeyValid(req)) return Response.json({ error: "No autorizado" }, { status: 401 });
@@ -76,6 +77,8 @@ export async function POST(req: NextRequest) {
     }),
     getCreditStatus(bot.tenantId),
   ]);
+  // Money of the prices, from the country of the business zone (ticket #120); MXN when the zone is unknown.
+  const currency = currencyForTimeZone(bot.timeZone);
   const assessmentTargets = await loadAssessmentTargets({ id: bot.tenantId, isBookingEnabled: bot.isBookingEnabled }, products);
 
   return Response.json({
@@ -114,7 +117,7 @@ export async function POST(req: NextRequest) {
       name: p.name,
       ...priceFieldsFor(p, bot.messageLanguage),
       bookInstead: assessmentTargets.get(p.id) ?? null,
-      currency: "MXN",
+      currency,
       description: p.description,
       category: p.category,
       durationMinutes: p.durationMinutes ?? 30,

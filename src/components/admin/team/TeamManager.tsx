@@ -76,7 +76,7 @@ export default function TeamManager() {
           disabled={!hasFreeSeat}
           aria-describedby={seats && !hasFreeSeat ? LIMIT_TEXT_ID : undefined}
           onClick={() => setIsFormOpen(true)}
-          className="btn-primary text-[color:var(--on-primary)] inline-flex items-center gap-2 min-h-11 shrink-0"
+          className="btn-primary inline-flex items-center gap-2 min-h-11 sm:min-h-0 shrink-0"
         >
           <UserPlus size={18} aria-hidden="true" />
           {tx.add}

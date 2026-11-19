@@ -18,11 +18,12 @@ import {
 } from "lucide-react";
 import { localeFor, fill } from "@/lib/utils";
 import { priceViewFor, type PriceMode } from "@/lib/price-display";
-import { buildFullPhone, DEFAULT_DIAL_CODE, PHONE_COUNTRIES } from "@/lib/phone";
+import { buildFullPhone, PHONE_COUNTRIES, defaultDialCodeForZone } from "@/lib/phone";
 import { addClinicDays, clinicDateKeyOf, clinicDateTime } from "@/lib/clinic-time";
 import { timeZoneLabel } from "@/lib/time-zones";
 import { useBusinessTimeZone } from "@/components/shared/BusinessTimeZone";
 import { modalityModeFor, parseAge } from "@/lib/patient-intake";
+import { isPlausibleFullName } from "@/lib/full-name";
 import { BusinessHours, blocksForDate, markSlots } from "@/lib/business-hours";
 import { useTranslation } from "@/i18n";
 import { translateApiError } from "@/i18n/validation";
@@ -101,7 +102,8 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
 
   // Step 3: Patient form
   const [name, setName] = useState("");
-  const [dialCode, setDialCode] = useState(DEFAULT_DIAL_CODE);
+  // First dial code: the country of the business zone (ticket #120).
+  const [dialCode, setDialCode] = useState(() => defaultDialCodeForZone(zone));
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [age, setAge] = useState("");
@@ -151,6 +153,10 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
     // The email is optional: without it no calendar invitation is sent.
     if (!name || !phone) {
       setError(t.booking.errorRequiredFields);
+      return;
+    }
+    if (!isPlausibleFullName(name)) {
+      setError(t.apiErrors.full_name_required);
       return;
     }
     if (parseAge(age) === null) {

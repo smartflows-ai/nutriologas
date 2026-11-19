@@ -7,7 +7,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { botVisitTime, botVisitView, type BotVisitPlace, type BotVisitSource } from "../src/lib/bot-visit-view";
 
-const ADDRESS = "Av. Siempre Viva 742, Monterrey (https://consultorio.newaigent.com/ubicacion)";
+const ADDRESS = "Av. Siempre Viva 742, Monterrey. Cómo llegar: https://consultorio.newaigent.com/ubicacion";
 const PLACE: BotVisitPlace = {
   shortLinkTenant: { slug: "consultorio", customDomain: null },
   locationText: ADDRESS,

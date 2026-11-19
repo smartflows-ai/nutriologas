@@ -5,6 +5,7 @@ import { z } from "zod";
 import { apiError } from "@/lib/api-errors";
 import { clientIp, rateLimited } from "@/lib/rate-limit";
 import { lookupTimeZone, realTimeZoneLookupDeps } from "@/lib/time-zone-lookup";
+import { placeParts } from "@/lib/address-components";
 
 export const runtime = "nodejs";
 
@@ -27,7 +28,7 @@ export async function POST(req: Request) {
     const { placeId, sessionToken, lang } = parsed.data;
     const url = `https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}?sessionToken=${encodeURIComponent(sessionToken)}&languageCode=${lang}`;
     const res = await fetch(url, {
-      headers: { "X-Goog-Api-Key": key, "X-Goog-FieldMask": "id,formattedAddress,location" },
+      headers: { "X-Goog-Api-Key": key, "X-Goog-FieldMask": "id,formattedAddress,location,addressComponents" },
     });
     if (res.status === 404) return apiError("place_not_found", 404);
     if (!res.ok) return apiError("places_unavailable", 502);
@@ -40,12 +41,17 @@ export async function POST(req: Request) {
     // Null when Google cannot tell: the address is still returned. The save checks it again on the server.
     const timeZone =
       latitude !== null && longitude !== null ? await lookupTimeZone(latitude, longitude, realTimeZoneLookupDeps) : null;
+    // City, state and country for the signup screen (ticket #120). Same call, nothing stored; null when missing.
+    const { city, region, countryCode } = placeParts(data.addressComponents);
     return NextResponse.json({
       address: String(data.formattedAddress),
       placeId: String(data.id ?? placeId),
       latitude,
       longitude,
       timeZone,
+      city,
+      region,
+      countryCode,
     });
   } catch (error) {
     console.error("[POST /api/places/details] Error:", error);

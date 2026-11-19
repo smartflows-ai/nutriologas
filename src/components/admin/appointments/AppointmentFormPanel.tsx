@@ -156,28 +156,31 @@ export default function AppointmentFormPanel({ target, canOverbook, locale, onCl
         <section className="space-y-4">
           <h3 className={SECTION}>{t.agenda.form.patient}</h3>
 
-          {!isEdit && (
-            <div>
-              <label className="flex items-start gap-3 text-sm text-gray-800 dark:text-gray-100 cursor-pointer min-h-11 sm:min-h-0">
-                <input type="checkbox" checked={v.forOther} onChange={(e) => set.forOther(e.target.checked)} className="mt-0.5 w-4 h-4 accent-primary shrink-0" />
-                <span>{t.agenda.form.forOther}</span>
-              </label>
-              {v.forOther && (
-                <div className="mt-3 space-y-1">
-                  <PhoneInput
-                    id="appt-requester-phone"
-                    dial={v.requesterDial}
-                    value={v.requesterPhone}
-                    onDial={set.requesterDial}
-                    onChange={set.requesterPhone}
-                    label={t.agenda.form.requesterPhone}
-                  />
-                  {f.requesterName && <p className={HINT}>{fill(t.agenda.form.requesterKnown, { name: f.requesterName })}</p>}
-                  <p className={HINT}>{t.agenda.form.forOtherHint}</p>
+          {/* Booking for another person is off in the panel (ticket #113): the API refuses it (field_not_allowed) and the
+              WhatsApp bot still books for others. Kept here, commented, for when it comes back.
+              {!isEdit && (
+                <div>
+                  <label className="flex items-start gap-3 text-sm text-gray-800 dark:text-gray-100 cursor-pointer min-h-11 sm:min-h-0">
+                    <input type="checkbox" checked={v.forOther} onChange={(e) => set.forOther(e.target.checked)} className="mt-0.5 w-4 h-4 accent-primary shrink-0" />
+                    <span>{t.agenda.form.forOther}</span>
+                  </label>
+                  {v.forOther && (
+                    <div className="mt-3 space-y-1">
+                      <PhoneInput
+                        id="appt-requester-phone"
+                        dial={v.requesterDial}
+                        value={v.requesterPhone}
+                        onDial={set.requesterDial}
+                        onChange={set.requesterPhone}
+                        label={t.agenda.form.requesterPhone}
+                      />
+                      {f.requesterName && <p className={HINT}>{fill(t.agenda.form.requesterKnown, { name: f.requesterName })}</p>}
+                      <p className={HINT}>{t.agenda.form.forOtherHint}</p>
+                    </div>
+                  )}
                 </div>
               )}
-            </div>
-          )}
+          */}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {isEdit ? (
@@ -195,7 +198,22 @@ export default function AppointmentFormPanel({ target, canOverbook, locale, onCl
 
             <div>
               <label htmlFor="appt-name" className={LABEL}>{t.agenda.form.name}</label>
-              <input id="appt-name" type="text" maxLength={120} value={v.name} onChange={(e) => set.name(e.target.value)} placeholder={t.booking.fullNamePlaceholder} className={INPUT} required />
+              <input
+                id="appt-name"
+                type="text"
+                maxLength={120}
+                value={v.name}
+                onChange={(e) => set.name(e.target.value)}
+                onBlur={set.nameTouched}
+                placeholder={t.booking.fullNamePlaceholder}
+                className={INPUT}
+                required
+                aria-invalid={v.nameIssue}
+                aria-describedby={v.nameIssue ? "appt-name-issue" : undefined}
+              />
+              {v.nameIssue && (
+                <p id="appt-name-issue" className="text-xs text-red-600 dark:text-red-400 mt-1">{t.apiErrors.full_name_required}</p>
+              )}
             </div>
             <div>
               <label htmlFor="appt-age" className={LABEL}>{t.agenda.form.age}</label>
