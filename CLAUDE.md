@@ -698,9 +698,11 @@ INTERNAL_API_KEY=                # openssl rand -hex 32
 # Note: in .env.example it may appear as INTERNAL_API_SECRET — they must be the same value
 
 # ─── WhatsApp Evolution API ─────────────────────────────────────────────────────
-EVOLUTION_API_URL=
-EVOLUTION_API_KEY=
+EVOLUTION_API_URL=              # https with a valid certificate (the app no longer accepts invalid certs)
+EVOLUTION_API_KEY=              # Global key: server-side only, for create/fetchInstances. Never stored in the DB
+EVOLUTION_WEBHOOK_SECRET=       # Evolution signs each webhook with a 10-min JWT (jwt_key header); the n8n trigger verifies it. openssl rand -hex 32, same value in n8n
 PLATFORM_WA_INSTANCE=            # NewAigent's own instance: account messages such as the password reset code (src/lib/platform-whatsapp.ts). Without it no code is sent and /recuperar still answers ok
+PLATFORM_WA_INSTANCE_TOKEN=     # That instance's own token (optional; falls back to the global key)
 
 # ─── Redis / Upstash (session cache) ────────────────────────────────────────────
 UPSTASH_REDIS_REST_URL=
@@ -783,7 +785,7 @@ Then open `http://doctor.localhost:3000` to see the "doctor" tenant.
 - **Schema in sync**: verified on 2026-11-02 with a read-only `prisma migrate diff`: `botEnabled`, `botPausedReason` and `businessHours` are already applied. Update 2026-11-10: `whatsapp_bot_memory` is now declared in the schema (`WhatsappBotMemory`) and a read-only `migrate diff` of the real database against the schema is empty (run it with `npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --script`; the repo's `prisma.config.ts` reads `DIRECT_DATABASE_URL`).
 - **No test database**: local development and production share one database. A separate mirror database for tests, periodic backups and `prisma migrate` adoption are pending tasks.
 - **Web appointments from before the time fix**: they were saved with UTC time (6 hours ahead). Fix with `local-utils/shift-web-appointments-utc-fix.mjs` (first without `--write`) and manually move the calendar events that get listed.
-- **Hardcoded secrets in n8n workflows** (internal key, Evolution API key, OpenRouter key in the social campaign). Move to credentials when n8n allows it, and rotate them.
+- **Hardcoded secrets in n8n workflows** (internal key, Evolution API key, OpenRouter key in the social campaign). Move to credentials when n8n allows it, and rotate them. **Exposed in public history (2026-11-18):** commit `dade484` committed `n8n/workflows/*.json` with the live `EVOLUTION_API_KEY`, `INTERNAL_API_KEY` and `OPENROUTER_API_KEY`. The folder is git-ignored now, but the values remain in the public repo's history. Treat all three as compromised; the fix is rotation (Evolution server env, OpenRouter dashboard, Vercel, n8n), not history rewriting. Rotating the internal key cuts the bot briefly unless the readers accept both the old and new key during the switch (14 routes read `process.env.INTERNAL_API_KEY`).
 - **Social workflow**: if a publication fails after the text was generated, its tokens are not reported.
 - **Pets**: the `pets` table and `appointments.petId` exist in the database, but tests with real data are pending: the database queried on Oct. 26 was empty. `local-utils/check-pets.ts` still needs to be run with a real tenant.
 - **Reminders**: tested end to end locally; deploy and production verification are pending (see "Appointment Reminders and Confirmation").
@@ -1137,6 +1139,9 @@ Rules that apply when these skills touch this product:
 
 ## WhatsApp Connection and Evolution API Integration
 
+- **One Evolution client (D1, 2026-11-18)**: every call to Evolution goes through `src/lib/messaging/evolution-adapter.ts`. It validates TLS (no `rejectUnauthorized: false` anywhere), times out, uses each instance's own token, and never returns or logs the provider response body (it can echo a number or the message text). `whatsapp.ts`, `platform-whatsapp.ts`, `whatsapp-qr.ts`, `connect/whatsapp` and `whatsapp/status` all use it. Never add a raw `fetch` to Evolution; extend the adapter.
+- **Keys**: `EVOLUTION_API_KEY` is the global key, used **server-side only** for `/instance/create` and `/instance/fetchInstances`, and is **never stored in the database**. Each instance has its own token (Evolution 2.3.7 returns it as `hash` on create); it is stored in `connected_apps.accessToken` and used for sends, QR, status and `webhook/set`. `instanceKeyOf(stored, global)` falls back to the global key for legacy rows, and `whatsapp/status` upgrades such a row to the real instance token when it next reads it. Backfill: `local-utils/whatsapp-instance-tokens.ts`.
+- **Signed webhooks**: Evolution signs every webhook call with a short-lived JWT built from `EVOLUTION_WEBHOOK_SECRET` (the `jwt_key` header → `Authorization: Bearer <HS256, 10-min expiry>`). The n8n trigger must enable JWT Auth with the same secret so a forged `messages.upsert` POST is rejected. Set the secret in `.env` and in the n8n credential (same value).
 - **Required flags when creating an instance**:
   When creating or connecting an instance in `POST /api/apps/connect/whatsapp`, the following flags are strictly applied in the `/instance/create` payload as well as in `/settings/set` and `/webhook/set`:
   1. `events: ["MESSAGES_UPSERT"]` (fires the webhook on incoming messages).

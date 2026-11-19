@@ -4,6 +4,14 @@ All notable changes to Presto AI are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased] — 2026-11-18
+
+### Security (WhatsApp provider calls hardened — delivery D1 of the Evolution messaging plan)
+- One module now talks to Evolution: `src/lib/messaging/evolution-adapter.ts`. It validates TLS on every call (the four `new https.Agent({ rejectUnauthorized: false })` bypasses in `whatsapp.ts`, `whatsapp-qr.ts`, `connect/whatsapp` and `whatsapp/status` are gone), sets a timeout on every request, and never returns or logs the provider response body (it can echo a phone number or the message text). Tests: `tests/evolution-adapter.test.ts`.
+- Each WhatsApp instance uses its own token (Evolution 2.3.7 returns it as `hash` on create). `connect/whatsapp` no longer copies the global `EVOLUTION_API_KEY` into `connected_apps.accessToken`; it stores the instance token. The global key is used server-side only, for create and `fetchInstances`. `whatsapp.ts`, `platform-whatsapp.ts`, `whatsapp-qr.ts` and `whatsapp/status` send the instance token; `instanceKeyOf` falls back to the global key for rows that still hold it, and `whatsapp/status` upgrades such a row to the instance token when it reads it. Backfill for existing rows: `local-utils/whatsapp-instance-tokens.ts` (operator-only, dry run by default).
+- Evolution signs every webhook call with a short-lived JWT (`EVOLUTION_WEBHOOK_SECRET` → `jwt_key` header, HS256, 10-minute expiry), so n8n can require JWT Auth on its trigger and reject forged `messages.upsert` posts. `connect/whatsapp` and the backfill set the header through `webhook/set`. New env vars: `EVOLUTION_WEBHOOK_SECRET`, `PLATFORM_WA_INSTANCE_TOKEN` (`.env.example`).
+- Pending in D1 (needs human approval and an `~/.n8n-backups/` backup before any n8n write): import the JWT Auth check on the chat-workflow trigger, move the hardcoded Evolution and internal keys into n8n credentials, and rotate `EVOLUTION_API_KEY`, `INTERNAL_API_KEY` and `OPENROUTER_API_KEY` (all three are present in commit `dade484` in the public repo history; rotation, not history rewriting, is the fix).
+
 ## [Unreleased] — 2026-11-06
 
 ### Changed (Google connection asks for exactly the scopes the product uses)
