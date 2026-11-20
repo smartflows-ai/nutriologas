@@ -15,6 +15,7 @@ const SUBJECT_ES: Readonly<Record<HelpReason, string>> = {
   tool_loop: "el asistente repite un error con un cliente",
   reminder_failed: "no se pudo entregar un recordatorio",
   urgency: "un cliente pudo escribir sobre una urgencia",
+  opted_out: "un cliente pidió no recibir más mensajes (revisa que sea correcto)",
 };
 
 export type NoticeKind = "assistant" | "assignment" | "owner" | "owner_unreachable" | "escalation";

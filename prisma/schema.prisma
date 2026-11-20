@@ -270,6 +270,9 @@ model WhatsAppChat {
   // Opt-out (feat/whatsapp-ban-prevention): the customer asked to stop receiving messages. src/lib/wa-optout.ts
   optedOutAt  DateTime?
   optedOutSource String? // inbound_keyword | panel
+  // Who brought the messages back after an opt-out, and when (prisma/sql/33-chat-messaging-reactivation).
+  messagingReactivatedAt   DateTime?
+  messagingReactivatedById String?
   updatedAt   DateTime @updatedAt
 
   messages    WhatsAppMessage[]

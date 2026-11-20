@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { MessageSquare, Settings, Send, User, Bot, BotOff, RefreshCw, ChevronLeft, X, Check, PanelLeftClose, PanelLeftOpen, Trash2, Lightbulb, UserCheck, MessageCircle } from "lucide-react";
+import { MessageSquare, Settings, Send, User, Bot, BotOff, Bell, BellOff, RefreshCw, ChevronLeft, X, Check, PanelLeftClose, PanelLeftOpen, Trash2, Lightbulb, UserCheck, MessageCircle } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useTranslation } from "@/i18n";
@@ -239,8 +239,10 @@ function WhatsAppPageContent() {
   };
 
   // Take, mark handled or assign the open chat. The list is refreshed afterwards so the assistant's name shows.
-  const helpAction = async (action: "take" | "resolve" | "assign", assigneeId?: string | null) => {
+  const helpAction = async (action: "take" | "resolve" | "assign" | "reactivate", assigneeId?: string | null) => {
     if (!selectedChat || helpBusy) return;
+    // Bringing messages back after an opt-out is the patient's new consent: a person confirms it first.
+    if (action === "reactivate" && !confirm(t.crm.whatsapp.help.reactivateConfirm)) return;
     setHelpBusy(true);
     try {
       const res = await fetch(`/api/apps/whatsapp/chats/${selectedChat.id}/help`, {
@@ -252,6 +254,7 @@ function WhatsAppPageContent() {
       if (!res.ok) throw new Error(data.error);
       mergeChatState(data.chat);
       if (data.warning === "assignee_no_whatsapp") toast(t.crm.whatsapp.help.assignWarning);
+      if (action === "reactivate") toast(t.crm.whatsapp.help.reactivated);
       const fresh = await fetch("/api/apps/whatsapp/chats");
       if (fresh.ok) {
         const list = await fresh.json();
@@ -565,6 +568,25 @@ function WhatsAppPageContent() {
                   />
                 )}
 
+                {/* The patient asked to stop messages (QA 2026-11-20): say what that blocks, and offer the way back. */}
+                {selectedChat.optedOutAt && (
+                  <div className="border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+                    <span className="inline-flex items-start gap-1.5 text-sm text-gray-700 dark:text-gray-200">
+                      <BellOff size={16} className="shrink-0 mt-0.5" aria-hidden="true" />
+                      {t.crm.whatsapp.help.optedOutNote}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={helpBusy}
+                      onClick={() => void helpAction("reactivate")}
+                      className="btn-secondary inline-flex items-center justify-center gap-1.5 min-h-11 sm:min-h-0 text-sm disabled:opacity-50"
+                    >
+                      <Bell size={14} aria-hidden="true" />
+                      {t.crm.whatsapp.help.reactivate}
+                    </button>
+                  </div>
+                )}
+
                 {/* Messages List */}
                 <div
                   ref={messagesContainerRef}
@@ -609,7 +631,9 @@ function WhatsAppPageContent() {
                     <div className="flex items-center justify-between gap-3 text-xs text-gray-500">
                       <span className="flex items-center gap-1.5">
                         <BotOff size={12} aria-hidden="true" />
-                        {selectedChat.botPausedReason === "owner_reply"
+                        {selectedChat.botPausedReason === "opted_out"
+                          ? t.crm.whatsapp.help.reason.optedOut
+                          : selectedChat.botPausedReason === "owner_reply"
                           ? t.crm.whatsapp.botPausedByOwner
                           : selectedChat.botPausedReason === "taken"
                             ? t.crm.whatsapp.help.pausedByTake
@@ -617,14 +641,17 @@ function WhatsAppPageContent() {
                             ? t.crm.whatsapp.help.pausedForPerson
                             : t.crm.whatsapp.botPausedManual}
                       </span>
-                      <button
-                        type="button"
-                        onClick={toggleBot}
-                        disabled={botBusy}
-                        className="text-primary underline underline-offset-2 disabled:opacity-50"
-                      >
-                        {t.crm.whatsapp.resumeBot}
-                      </button>
+                      {/* An opt-out comes back only through "Reactivar mensajes" (above), never by turning the bot on. */}
+                      {selectedChat.botPausedReason !== "opted_out" && (
+                        <button
+                          type="button"
+                          onClick={toggleBot}
+                          disabled={botBusy}
+                          className="text-primary underline underline-offset-2 disabled:opacity-50"
+                        >
+                          {t.crm.whatsapp.resumeBot}
+                        </button>
+                      )}
                     </div>
                   )}
                   <form onSubmit={(e) => { e.preventDefault(); sendMessage(); }} className="flex items-end gap-2">

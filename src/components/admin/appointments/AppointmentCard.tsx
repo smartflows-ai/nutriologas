@@ -3,22 +3,7 @@
 // One visit in the /admin/citas list (moved out of the page, ticket #103). Native visits get the status buttons,
 // Editar and Eliminar; calendar events only open in their calendar; a deleted visit shows who deleted or restored
 // it and one action, Recuperar.
-import {
-  AlertTriangle,
-  Check,
-  CheckCircle2,
-  ExternalLink,
-  Mail,
-  MapPin,
-  MessageSquare,
-  Pencil,
-  Phone,
-  RotateCcw,
-  Trash2,
-  User,
-  Video,
-  ShieldAlert,
-} from "lucide-react";
+import { AlertTriangle, Check, CheckCircle2, ExternalLink, Mail, MapPin, MessageSquare, Pencil, Phone, RotateCcw, Trash2, User, Video, ShieldAlert, Loader2 } from "lucide-react";
 import { useTranslation } from "@/i18n";
 import { fill } from "@/lib/utils";
 import { priceViewFor } from "@/lib/price-display";
@@ -47,6 +32,8 @@ interface Props {
   canNotes: boolean;
   /** True while an action on this visit is running: its buttons are disabled. */
   busy: boolean;
+  /** The status being saved right now, so its button shows a spinner and "Cancelando…" (QA 2026-11-20). */
+  busyStatus?: VisitStatus | null;
   onStatus: (id: string, status: VisitStatus) => void;
   onNotes: (id: string) => void;
   /** Present only for roles that may edit, delete or restore. */
@@ -57,7 +44,7 @@ interface Props {
 
 const TEXT_ACTION = "inline-flex items-center gap-1 px-2 py-1.5 min-h-11 sm:min-h-0 rounded-xl text-xs transition-colors disabled:opacity-50";
 
-export default function AppointmentCard({ appt, locale, canNotes, busy, onStatus, onNotes, onEdit, onDelete, onRestore }: Props) {
+export default function AppointmentCard({ appt, locale, canNotes, busy, busyStatus = null, onStatus, onNotes, onEdit, onDelete, onRestore }: Props) {
   const { t } = useTranslation();
   const statusLabel: Record<string, string> = {
     PENDING: t.agenda.statusPending,
@@ -73,6 +60,16 @@ export default function AppointmentCard({ appt, locale, canNotes, busy, onStatus
   const dateStr = dateObj.toLocaleDateString(locale, { timeZone, weekday: "short", year: "numeric", month: "short", day: "numeric" });
   const timeStr = dateObj.toLocaleTimeString(locale, { timeZone, hour: "2-digit", minute: "2-digit", hour12: true });
   const [dayYear, , dayNumber] = clinicDateKeyOf(dateObj, timeZone).split("-");
+  // A status change can take a few seconds (calendar and WhatsApp): the pressed button says it is working.
+  const actionLabel = (status: VisitStatus, label: string) =>
+    busy && busyStatus === status ? (
+      <>
+        <Loader2 size={13} className="animate-spin" aria-hidden="true" />
+        {status === "CANCELLED" ? t.agenda.cancelling : t.agenda.working}
+      </>
+    ) : (
+      label
+    );
   const style = STATUS_STYLE[appt.status] || STATUS_STYLE.PENDING;
   const patientName = appt.customerName || appt.user?.name || t.agenda.patientFallback;
   const titleText = appt.product?.name ?? t.agenda.consultFallback;
@@ -281,15 +278,20 @@ export default function AppointmentCard({ appt, locale, canNotes, busy, onStatus
                   onClick={() => onStatus(appt.id, "CONFIRMED")}
                   className="px-3 py-1.5 rounded-xl bg-primary hover:bg-secondary text-[color:var(--on-primary)] font-semibold text-xs flex items-center gap-1 shadow-sm transition-all disabled:opacity-50"
                 >
-                  <Check size={13} />
-                  {t.agenda.confirm}
+                  {busy && busyStatus === "CONFIRMED" ? actionLabel("CONFIRMED", t.agenda.confirm) : (
+                    <>
+                      <Check size={13} />
+                      {t.agenda.confirm}
+                    </>
+                  )}
                 </button>
                 <button
                   disabled={busy}
                   onClick={() => onStatus(appt.id, "CANCELLED")}
-                  className="px-2.5 py-1.5 rounded-xl text-red-600 dark:text-red-400 text-xs hover:underline transition-all disabled:opacity-50"
+                  aria-busy={busy && busyStatus === "CANCELLED"}
+                  className="px-2.5 py-1.5 rounded-xl text-red-600 dark:text-red-400 text-xs hover:underline transition-all disabled:opacity-50 inline-flex items-center gap-1"
                 >
-                  {t.agenda.cancel}
+                  {actionLabel("CANCELLED", t.agenda.cancel)}
                 </button>
               </>
             )}
@@ -300,22 +302,27 @@ export default function AppointmentCard({ appt, locale, canNotes, busy, onStatus
                   onClick={() => onStatus(appt.id, "COMPLETED")}
                   className="px-3 py-1.5 rounded-xl bg-primary hover:opacity-90 text-[color:var(--on-primary)] font-semibold text-xs flex items-center gap-1 transition-all disabled:opacity-50"
                 >
-                  <CheckCircle2 size={13} />
-                  {t.agenda.attended}
+                  {busy && busyStatus === "COMPLETED" ? actionLabel("COMPLETED", t.agenda.attended) : (
+                    <>
+                      <CheckCircle2 size={13} />
+                      {t.agenda.attended}
+                    </>
+                  )}
                 </button>
                 <button
                   disabled={busy}
                   onClick={() => onStatus(appt.id, "NO_SHOW")}
-                  className="px-2 py-1.5 rounded-xl text-gray-500 text-xs hover:underline transition-all disabled:opacity-50"
+                  className="px-2 py-1.5 rounded-xl text-gray-500 text-xs hover:underline transition-all disabled:opacity-50 inline-flex items-center gap-1"
                 >
-                  {t.agenda.noShow}
+                  {actionLabel("NO_SHOW", t.agenda.noShow)}
                 </button>
                 <button
                   disabled={busy}
                   onClick={() => onStatus(appt.id, "CANCELLED")}
-                  className="px-2 py-1.5 rounded-xl text-red-600 dark:text-red-400 text-xs hover:underline transition-all disabled:opacity-50"
+                  aria-busy={busy && busyStatus === "CANCELLED"}
+                  className="px-2 py-1.5 rounded-xl text-red-600 dark:text-red-400 text-xs hover:underline transition-all disabled:opacity-50 inline-flex items-center gap-1"
                 >
-                  {t.agenda.cancel}
+                  {actionLabel("CANCELLED", t.agenda.cancel)}
                 </button>
               </>
             )}
@@ -325,9 +332,9 @@ export default function AppointmentCard({ appt, locale, canNotes, busy, onStatus
               <button
                 disabled={busy}
                 onClick={() => onStatus(appt.id, "CONFIRMED")}
-                className="px-2.5 py-1 rounded-lg text-xs text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-colors disabled:opacity-50"
+                className="px-2.5 py-1 rounded-lg text-xs text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-colors disabled:opacity-50 inline-flex items-center gap-1"
               >
-                {t.agenda.reopen}
+                {actionLabel("CONFIRMED", t.agenda.reopen)}
               </button>
             )}
           </div>

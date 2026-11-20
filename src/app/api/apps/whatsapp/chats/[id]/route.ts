@@ -22,10 +22,15 @@ export async function PATCH(
 
   const existing = await prisma.whatsAppChat.findFirst({
     where: { id: params.id, tenantId },
-    select: { id: true },
+    select: { id: true, optedOutAt: true },
   });
   if (!existing) {
     return apiError("whatsapp_chat_not_found", 404);
+  }
+  // A patient who asked to stop messages gets the bot back only through "Reactivar mensajes" (help route), which
+  // records who confirmed it with the patient (QA 2026-11-20).
+  if (body.botEnabled && existing.optedOutAt) {
+    return apiError("whatsapp_chat_opted_out", 409);
   }
 
   const chat = await prisma.whatsAppChat.update({

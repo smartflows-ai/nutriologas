@@ -17,7 +17,10 @@ import { usableTimeZone } from "@/lib/tenant-time-zone";
 export const LOOKAHEAD_HOURS = 96; // covers reminders up to 72 h before a visit, plus a day of margin
 
 export const realReminderDeps: ReminderDeps = {
-  // The strict-consent and quiet-hours gate ran in reminder-run before this call, so consent is passed as given.
+  // The strict-consent and quiet-hours gate ran in reminder-run before this call, so consent is passed as given and
+  // the send is marked urgent: reminder-run already decided it cannot wait for the morning (the visit or its
+  // confirmation deadline comes first). Without it the service held it again and it went out after the deadline
+  // or after the visit (QA 2026-11-20).
   send: (visit, text) =>
     sendWhatsAppMessage({
       tenantId: visit.tenantId,
@@ -25,6 +28,7 @@ export const realReminderDeps: ReminderDeps = {
       text,
       purpose: "TRANSACTIONAL",
       consent: "YES",
+      urgent: true,
       idempotencyKey: `reminder:${visit.id}`,
     }),
   markSent: async (id, now) => {

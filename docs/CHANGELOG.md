@@ -4,6 +4,22 @@ All notable changes to Presto AI are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased] — 2026-11-20
+
+### Fixed (QA of PR #130: opt-out, quiet hours, agenda)
+- Opt-out detector: complaints ("no me escribieron el link", "el doctor ya no me escribió") and one-item requests ("no me manden la ubicación") no longer count as a request to stop messages.
+- A detected opt-out now lands in "Necesitan ayuda" (new reason `opted_out`) and the chat offers **Reactivar mensajes**, which records who confirmed it with the patient and when. The bot switch can no longer lift an opt-out. New migration `prisma/sql/33-chat-messaging-reactivation` (two nullable columns): **not applied**; apply it before deploying.
+- A reminder held for quiet hours no longer goes out after its confirmation deadline (the visit was released minutes after the patient got it), and the messaging service no longer holds a reminder the reminder job decided to send.
+- The reminders card refuses a setup where, with the business hours, a reminder would go out inside the quiet hours (error with an example time; the API answers `reminder_in_quiet_hours`).
+- The agenda "Opted out of WhatsApp" badge now matches visits stored as `+52…` or `52…` (it compared raw digits with a broken `/D/g`).
+- Cancelling a visit from the agenda: the calendar removal and the patient notice run at the same time, and the button shows a spinner and "Cancelando…".
+- A bot reply the policy stops on purpose (opt-out, kill switch, paused number) now answers 200 with `blocked: true` on `/api/internal/whatsapp/send`, so n8n no longer sends the owner a false "bot failure" alert or marks "Respuesta no entregada"; sync does not store a bot reply for an opted-out chat.
+- `bot/help` and `bot/handoff` refuse the `opted_out` reason: only the inbound detection raises it.
+- n8n changes for the team to paste by hand (duplicate replies, opt-out race, webhook JWT): `n8n/docs/cambios-n8n-2026-11-20.md`.
+
+### Changed (docs)
+- CLAUDE.md and this file said migrations 30, 31 and 32 were not applied; a read-only check on 2026-11-20 shows all three in the real database and an empty `migrate diff`.
+
 ## [Unreleased] — 2026-11-19
 
 ### Added (WhatsApp continuity: panel notices, paused-line banner, permission badges)

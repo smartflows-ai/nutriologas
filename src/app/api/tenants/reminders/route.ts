@@ -6,6 +6,9 @@ import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/permission-guard";
 import { apiError } from "@/lib/api-errors";
 import { unfilledFields } from "@/lib/reminder-template-rules";
+import { parseBusinessHours } from "@/lib/business-hours";
+import { reminderQuietConflict } from "@/lib/reminder-quiet-hours";
+import { DEFAULT_QUIET_END_MIN, DEFAULT_QUIET_START_MIN } from "@/lib/wa-pacing";
 import { templateProblem, validateConfirmationTemplate, validateReminderNoConfirmation, validateKnownTags, validateNoDeadlineTag, validateNoLocationTag, validateTemplateLength } from "@/lib/reminder-messages";
 
 const SELECT = {
@@ -25,6 +28,8 @@ const SELECT = {
   ownerName: true,
   hasPhysicalLocation: true,
   address: true,
+  // Read to check that no reminder lands inside the quiet hours (QA 2026-11-20); edited in /admin/negocio.
+  businessHours: true,
 } as const;
 
 // Fields a text can use that the business must fill in before the text is saved.
@@ -73,9 +78,10 @@ export async function GET() {
   )
     .filter(([kind, text]) => text && templateProblem(text, kind))
     .map(([kind]) => kind);
-  const { ownerName, hasPhysicalLocation, address, ...rest } = tenant;
+  const { ownerName, hasPhysicalLocation, address, businessHours, ...rest } = tenant;
   return NextResponse.json({
     ...rest,
+    businessHours: parseBusinessHours(businessHours),
     invalidTemplates,
     ownerName,
     locationReady: Boolean(hasPhysicalLocation && address?.trim()),
@@ -142,6 +148,30 @@ export async function PATCH(req: Request) {
     if (deadline >= lead) return apiError("reminder_window_invalid", 400);
   }
 
+  // No reminder may go out inside the quiet hours (QA 2026-11-20): with the weekly hours, the lead and the quiet
+  // window that will be stored after this save, every visit time maps to one reminder time. The card runs the same
+  // rule (src/lib/reminder-quiet-hours.ts) and disables Save; this is the server's copy of that check. It runs only
+  // when this save touches the timing, so the "Mensajes al cliente" card (same route, texts only) is never blocked.
+  const touchesTiming =
+    data.remindersEnabled !== undefined ||
+    data.reminderLeadMinutes !== undefined ||
+    data.quietHoursStartMin !== undefined ||
+    data.quietHoursEndMin !== undefined;
+  if (touchesTiming) {
+    const current = await prisma.tenant.findUnique({
+      where: { id: access.tenantId },
+      select: { remindersEnabled: true, reminderLeadMinutes: true, quietHoursStartMin: true, quietHoursEndMin: true, businessHours: true },
+    });
+    if (!current) return apiError("tenant_not_found", 404);
+    const enabled = data.remindersEnabled ?? current.remindersEnabled;
+    const lead = data.reminderLeadMinutes ?? current.reminderLeadMinutes;
+    const quietStart = (data.quietHoursStartMin !== undefined ? data.quietHoursStartMin : current.quietHoursStartMin) ?? DEFAULT_QUIET_START_MIN;
+    const quietEnd = (data.quietHoursEndMin !== undefined ? data.quietHoursEndMin : current.quietHoursEndMin) ?? DEFAULT_QUIET_END_MIN;
+    if (enabled && reminderQuietConflict(parseBusinessHours(current.businessHours), lead, quietStart, quietEnd)) {
+      return apiError("reminder_in_quiet_hours", 400);
+    }
+  }
+
   // Turning ENFORCE on stamps the cutover: visits created before now are grandfathered (keep today's behavior).
   let enforcedAt: Date | undefined;
   if (data.messagingPolicyMode === "ENFORCE") {
@@ -154,5 +184,6 @@ export async function PATCH(req: Request) {
     data: { ...data, ...(enforcedAt ? { messagingEnforcedAt: enforcedAt } : {}) },
     select: SELECT,
   });
-  return NextResponse.json(updated);
+  const { businessHours: savedHours, ...saved } = updated;
+  return NextResponse.json({ ...saved, businessHours: parseBusinessHours(savedHours) });
 }

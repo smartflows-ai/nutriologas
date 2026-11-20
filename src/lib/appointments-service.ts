@@ -233,17 +233,24 @@ export async function cancelAppointment(
     include: appointmentInclude,
   });
 
-  if (appointment.externalEventId) {
-    const removed = await syncCalendarDelete(tenantId, appointment);
-    if (removed) {
-      await prisma.appointment.update({
-        where: { id: appointment.id },
-        data: { externalProvider: null, externalEventId: null },
-      });
-    }
-  }
+  await removeMirrorEvent(tenantId, appointment);
 
   return updated;
+}
+
+/**
+ * Deletes the calendar event that mirrors a cancelled visit and unlinks it. A visit without an event does nothing.
+ * Exported so the panel can run it at the same time as the patient's cancellation notice (QA 2026-11-20).
+ */
+export async function removeMirrorEvent(tenantId: string, appointment: { id: string } & CalendarLink): Promise<void> {
+  if (!appointment.externalEventId) return;
+  const removed = await syncCalendarDelete(tenantId, appointment);
+  if (removed) {
+    await prisma.appointment.update({
+      where: { id: appointment.id },
+      data: { externalProvider: null, externalEventId: null },
+    });
+  }
 }
 
 // ── Soft delete and restore (ticket #103) ────────────────────────────────────

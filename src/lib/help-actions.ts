@@ -9,6 +9,9 @@ type Role = Parameters<typeof can>[0];
 /** The reason stored when taking a chat paused the bot (the bot must not answer over the person who took it). */
 export const TAKEN_PAUSE = "taken";
 
+/** The pause reason the sync route writes when a patient asks to stop messages (src/lib/wa-optout.ts). */
+export const OPTED_OUT_PAUSE = "opted_out";
+
 /** Taking a chat puts the person in charge and stops the escalation. A bot that was still answering is paused. */
 export function takePatch(userId: string, now: Date, botEnabled: boolean) {
   const base = { assignedToId: userId, helpTakenAt: now };
@@ -55,4 +58,42 @@ export function resumeBotPatch(botPausedReason: string | null | undefined): { bo
 /** A person writing into a chat paused by a hand-off: the bot stays off, and the reason now says a person is writing. */
 export function ownerTookOverPatch(botPausedReason: string | null | undefined): { botPausedReason: "owner_reply" } | Record<string, never> {
   return isHandoffPause(botPausedReason) ? { botPausedReason: "owner_reply" } : {};
+}
+
+/**
+ * A person confirmed with the patient that they want WhatsApp messages again. Clears the opt-out and records who
+ * and when (that record is the new explicit consent). The bot comes back only when the opt-out is what paused it,
+ * and the help request is closed only when it was the opt-out one; the owner's own pause and other requests stay.
+ */
+export interface ReactivatePatch {
+  optedOutAt: null;
+  optedOutSource: null;
+  messagingReactivatedAt: Date;
+  messagingReactivatedById: string;
+  botEnabled?: true;
+  botPausedReason?: null;
+  helpReason?: null;
+  helpPriority?: number;
+  helpRequestedAt?: null;
+  helpAssigneeNotifiedAt?: null;
+  helpOwnerNotifiedAt?: null;
+  helpTakenAt?: null;
+  helpCustomerWroteAt?: null;
+}
+
+export function reactivateMessagingPatch(
+  userId: string,
+  now: Date,
+  botPausedReason: string | null | undefined,
+  helpReason: string | null | undefined,
+): ReactivatePatch {
+  const base = {
+    optedOutAt: null,
+    optedOutSource: null,
+    messagingReactivatedAt: now,
+    messagingReactivatedById: userId,
+  };
+  const bot = botPausedReason === OPTED_OUT_PAUSE ? { botEnabled: true as const, botPausedReason: null } : {};
+  const help = helpReason === "opted_out" ? resolvePatch() : {};
+  return { ...base, ...bot, ...help };
 }

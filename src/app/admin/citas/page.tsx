@@ -179,6 +179,8 @@ function CitasContent() {
   const todayKey = todayDateKey(zone);
   const [searchTerm, setSearchTerm] = useState("");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  // Which status is being saved, so the pressed button shows a spinner (QA 2026-11-20: Cancel looked frozen).
+  const [updatingStatus, setUpdatingStatus] = useState<VisitStatus | null>(null);
   const [editingNotesId, setEditingNotesId] = useState<string | null>(null);
   const [hasCalendarIntegration, setHasCalendarIntegration] = useState(false);
   const calendarAccount = useCalendarAccount();
@@ -275,6 +277,7 @@ function CitasContent() {
 
   const updateStatus = async (id: string, newStatus: string) => {
     setUpdatingId(id);
+    setUpdatingStatus(newStatus as VisitStatus);
     try {
       const res = await fetch(`/api/appointments/${id}`, {
         method: "PATCH",
@@ -308,6 +311,7 @@ function CitasContent() {
       toast.error(t.agenda.toastUpdateErrorNet);
     } finally {
       setUpdatingId(null);
+      setUpdatingStatus(null);
     }
   };
 
@@ -575,6 +579,7 @@ function CitasContent() {
                   locale={locale}
                   canNotes={canNotes}
                   busy={updatingId === appt.id}
+                  busyStatus={updatingId === appt.id ? updatingStatus : null}
                   onStatus={updateStatus}
                   onNotes={setEditingNotesId}
                   onEdit={canEdit ? (a) => setFormTarget({ mode: "edit", visit: a }) : undefined}

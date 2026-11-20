@@ -6,6 +6,8 @@
 // YES: consent recorded for this visit (booked on WhatsApp, web checkbox or staff checkbox).
 // NONE: no consent recorded for this visit. In SHADOW mode reminders still go out; the badge tells the staff to call.
 
+import { patientKeyOf } from "./patient-key";
+
 export type WhatsAppPermission = "YES" | "NONE" | "OPTED_OUT";
 
 /** The digits of a WhatsApp JID, e.g. "5215512345678@s.whatsapp.net" -> "5215512345678". */
@@ -14,12 +16,27 @@ export function digitsOfJid(jid: string): string {
   return jid.split("@")[0].split(":")[0].replace(/\D/g, "");
 }
 
+/**
+ * The patient keys (52 + 10 digits, src/lib/patient-key.ts) of the chats that opted out. The visit side uses the same
+ * key, so "+52...", "52..." and "521..." all match (QA 2026-11-20). An @lid chat carries no phone and adds nothing.
+ */
+export function optedOutKeysOf(remoteJids: readonly string[]): Set<string> {
+  const keys = new Set<string>();
+  for (const jid of remoteJids) {
+    if (jid.endsWith("@lid")) continue;
+    const key = patientKeyOf(digitsOfJid(jid));
+    if (key) keys.add(key);
+  }
+  return keys;
+}
+
+/** `patientKey` is the visit phone normalized with patientKeyOf; `optedOutKeys` comes from optedOutKeysOf. */
 export function whatsappPermissionOf(
   visit: { whatsappConsentAt?: Date | string | null },
-  phoneDigits: string | null | undefined,
-  optedOutDigits: ReadonlySet<string>,
+  patientKey: string | null | undefined,
+  optedOutKeys: ReadonlySet<string>,
 ): WhatsAppPermission {
-  if (phoneDigits && optedOutDigits.has(phoneDigits)) return "OPTED_OUT";
+  if (patientKey && optedOutKeys.has(patientKey)) return "OPTED_OUT";
   return visit.whatsappConsentAt ? "YES" : "NONE";
 }
 

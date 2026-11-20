@@ -41,16 +41,21 @@ export function minutesUntilQuietEnd(localMin: number, startMin: number, endMin:
 /**
  * Hold a due reminder until the quiet window ends, but only when the visit is far enough that a usable window
  * still remains afterwards. If the visit is too soon, send now rather than never.
+ * When the reminder asks to confirm, the limit is the confirmation deadline, not the visit: a reminder that would
+ * arrive after its deadline gets the visit released minutes later (QA 2026-11-20), so it goes out now instead.
  */
 export function shouldHoldForQuietHours(input: {
   localMin: number;
   minutesUntilAppt: number;
+  /** Minutes until the visit is released when it asks to confirm; omitted when it does not ask. */
+  minutesUntilDeadline?: number | null;
   quietStartMin: number;
   quietEndMin: number;
 }): boolean {
   if (!isWithinQuietHours(input.localMin, input.quietStartMin, input.quietEndMin)) return false;
   const untilEnd = minutesUntilQuietEnd(input.localMin, input.quietStartMin, input.quietEndMin);
-  return input.minutesUntilAppt > untilEnd + MIN_WINDOW_AFTER_QUIET_MIN;
+  const limit = input.minutesUntilDeadline ?? input.minutesUntilAppt;
+  return limit > untilEnd + MIN_WINDOW_AFTER_QUIET_MIN;
 }
 
 /** Whether another send is allowed for an instance that has already sent `sentSoFar` this run. */
