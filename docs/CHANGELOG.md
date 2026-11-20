@@ -16,6 +16,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 - The "Asignar a" label in the help band no longer wraps onto two lines.
+- Production database check (read-only, 2026-11-20): migration `prisma/sql/35-message-key-drop-global` is applied (the global `keyId` index is gone). The order against the deploy of PR #134 was not verified.
 - The "Saved" message of the sending switch sits beside the checkbox, on the same edge.
 - `.env.example` names the internal key `INTERNAL_API_KEY`, the name the code reads (it said `INTERNAL_API_SECRET`).
 
