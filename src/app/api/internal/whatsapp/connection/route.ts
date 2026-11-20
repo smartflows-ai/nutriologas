@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { isInternalKeyValid } from "@/lib/bot";
 import { connectionEffectOf, connectionPatchOf } from "@/lib/messaging/connection";
 import { NextRequest } from "next/server";
+import { phoneFromJid } from "@/lib/whatsapp-phone";
 
 export async function POST(req: NextRequest) {
   if (!isInternalKeyValid(req)) return Response.json({ error: "No autorizado" }, { status: 401 });
@@ -25,7 +26,10 @@ export async function POST(req: NextRequest) {
   if (!app) return Response.json({ error: "Instancia no encontrada" }, { status: 404 });
 
   const effect = connectionEffectOf({ state, statusCode });
-  const patch = connectionPatchOf(effect, new Date());
+  const patch: Record<string, unknown> = { ...connectionPatchOf(effect, new Date()) };
+  // An open event carries the line's own JID (wuid): keep the number, so the panel shows it (QA 2026-11-20).
+  const ownPhone = effect.kind === "connected" ? phoneFromJid(data.wuid) : null;
+  if (ownPhone) patch.waPhoneNumber = ownPhone;
   if (Object.keys(patch).length > 0) await prisma.connectedApp.update({ where: { id: app.id }, data: patch });
   return Response.json({ effect: effect.kind });
 }

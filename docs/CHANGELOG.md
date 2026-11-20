@@ -4,11 +4,17 @@ All notable changes to Presto AI are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased] — 2026-11-20 (second round)
+
+### Fixed
+- The WhatsApp screen showed "Conectado:" with no number: the screen now fills a missing line number from Evolution and saves it; an open connection event also saves it; with no number the header reads "Conectado".
+- A message did not show in a chat when both numbers of the conversation are on the platform (the other business had stored the same WhatsApp id first). Message ids are now unique per business. Migration `prisma/sql/34-message-key-per-tenant` is applied to production; `prisma/sql/35-message-key-drop-global` goes after this code is deployed.
+
 ## [Unreleased] — 2026-11-20
 
 ### Fixed (QA of PR #130: opt-out, quiet hours, agenda)
 - Opt-out detector: complaints ("no me escribieron el link", "el doctor ya no me escribió") and one-item requests ("no me manden la ubicación") no longer count as a request to stop messages.
-- A detected opt-out now lands in "Necesitan ayuda" (new reason `opted_out`) and the chat offers **Reactivar mensajes**, which records who confirmed it with the patient and when. The bot switch can no longer lift an opt-out. New migration `prisma/sql/33-chat-messaging-reactivation` (two nullable columns): **not applied**; apply it before deploying.
+- A detected opt-out now lands in "Necesitan ayuda" (new reason `opted_out`) and the chat offers **Reactivar mensajes**, which records who confirmed it with the patient and when. The bot switch can no longer lift an opt-out. New migration `prisma/sql/33-chat-messaging-reactivation` (two nullable columns): **applied to production on 2026-11-20** after a verified backup, tested first on a throwaway copy.
 - A reminder held for quiet hours no longer goes out after its confirmation deadline (the visit was released minutes after the patient got it), and the messaging service no longer holds a reminder the reminder job decided to send.
 - The reminders card refuses a setup where, with the business hours, a reminder would go out inside the quiet hours (error with an example time; the API answers `reminder_in_quiet_hours`).
 - The agenda "Opted out of WhatsApp" badge now matches visits stored as `+52…` or `52…` (it compared raw digits with a broken `/D/g`).

@@ -757,6 +757,7 @@ export interface Translations {
     whatsapp: {
       title: string;
       connected: string;
+      connectedNoNumber: string;
       showList: string;
       hideList: string;
       tabChats: string;

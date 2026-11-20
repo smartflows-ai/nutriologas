@@ -289,12 +289,15 @@ model WhatsAppMessage {
   tenantId  String
   tenant    Tenant   @relation(fields: [tenantId], references: [id])
   remoteJid String
-  keyId     String   @unique // ID del mensaje en WhatsApp para evitar duplicados
+  // WhatsApp message id. Unique per business, not globally: the same message has the same id on both sides of a chat,
+  // and both numbers can be on the platform (prisma/sql/34-message-key-per-tenant, 35-message-key-drop-global).
+  keyId     String
   content   String   @db.Text
   type      String   @default("text") // text, image, etc.
   fromMe    Boolean  @default(false)
   timestamp DateTime @default(now())
 
+  @@unique([tenantId, keyId])
   @@index([tenantId])
   @@index([chatId])
   @@map("whatsapp_messages")
