@@ -1,0 +1,36 @@
+---
+paths:
+  - "src/lib/clinic-time.ts"
+  - "src/lib/time-zone*.ts"
+  - "src/lib/tenant-time-zone.ts"
+  - "src/lib/short-link*.ts"
+  - "src/lib/location.ts"
+  - "src/app/ubicacion/**"
+  - "src/app/online/**"
+  - "src/app/api/places/**"
+  - "src/components/shared/BusinessTimeZone.tsx"
+  - "next.config.mjs"
+---
+
+> Moved from `CLAUDE.md` on 2026-11-20. Loads only when a matching file is read.
+
+## Business time zone (`Tenant.timeZone`, ticket #111)
+
+Every business has its own time zone (IANA name). Instants are stored in UTC; the zone is used only when a wall-clock time comes in or goes out.
+- **R1.** Stored times are UTC instants (`appointmentDate`); only reading and writing a wall-clock time uses the zone.
+- **R2.** One zone per business, used by everything of that business: weekly hours, free times, reminders, the bot, the calendar events, the panel, `/agendar` and `/mis-citas`. The admin agenda (`GET /api/appointments`) groups visits by the business day, not the UTC day (before, a 19:30 visit in Mexico City showed on the next day).
+- **R3.** One module converts: `src/lib/clinic-time.ts` (`clinicDateTime`, `clinicIsoOf`, `clinicDateKeyOf`, `clinicTimeOf`, `clinicTimeLabel`, `clinicWeekdayOf`, `clinicOffsetOf`, `isRealClinicTime`, `isValidTimeZone`, `DEFAULT_TIME_ZONE`), and every function receives the zone. Daylight saving time is handled: a skipped hour is never offered (`isRealClinicTime`), a repeated hour uses its first instant. `tests/time-zone-guard.test.ts` fails if `America/Mexico_City` or `-06:00` appears in any other file under `src/` (the zone list `src/lib/time-zones.ts` is the other allowed file).
+- **R4.** The zone comes from the address: picking a place (`AddressSearch`) returns its zone from `POST /api/places/details` (`timeZone`, null when Google cannot tell), and `/admin/negocio` and the signup modal propose it at once in their "Zona horaria" list (signup starts from the WhatsApp country code). On save the server asks Google again; a sent zone equal to Google's answer stays `google`, any other one is `manual`. Saving coordinates in `/admin/negocio` or at signup asks Google's Time Zone API (`src/lib/time-zone-lookup.ts`, server only, 5 s timeout, network injected for tests). The owner can always pick another zone in the same card (list in `src/lib/time-zones.ts`: Mexico, United States, Latin American capitals and Madrid; a detected zone outside the list is kept and shown as an extra option). A zone picked by hand sticks (`timeZoneSource = manual`) and a new address no longer replaces it. A failed lookup never blocks the save and never changes the zone. Without an address, signup suggests a zone from the WhatsApp country code (`suggestTimeZoneForPhone`). Rules: `src/lib/time-zone-choice.ts` (`chooseTimeZone`, `shouldDetectTimeZone`). Invalid zone in the API: 400 `time_zone_invalid`.
+- **R5.** Every bot answer with a time carries `timeZone` and `timeZoneLabel` ("hora de Cancún" / "Cancun time", `timeZoneLabel` in `src/lib/time-zones.ts`; the labels of `Intl` are not used because they read "hora estándar oriental"). The business texts name the zone only with the tag `[Zona horaria]` / `[Time zone]`, valid in the reminder, confirmation and cancellation texts. `/agendar` and `/mis-citas` name the zone next to the times. Showing each patient their own zone is phase 2.
+- **Server code with only the tenant id** reads the zone with `getTenantTimeZone(tenantId)` (`src/lib/tenant-time-zone.ts`, one primary-key read; `usableTimeZone` falls back to the default for a bad stored value). **Client screens** read it with `useBusinessTimeZone()` (`src/components/shared/BusinessTimeZone.tsx`), filled by the admin and storefront layouts.
+- Tests: `tests/clinic-time.test.ts`, `time-zones.test.ts`, `time-zone-lookup.test.ts`, `time-zone-choice.test.ts`, `time-zone-tag.test.ts`, `time-zone-guard.test.ts`, `bot-visit-view.test.ts`, `bot-visit-routes-wiring.test.ts`.
+- Production: `prisma/sql/29-tenant-time-zone` is applied (confirmed read-only on 2026-11-18). Allow **Time Zone API** on `GOOGLE_MAPS_API_KEY` (see "Business Profile"). The key must be a server key: Google refuses Time Zone API calls from a key with website (referer) restrictions (`REQUEST_DENIED`, "API keys with referer restrictions cannot be used with this API").
+
+## Short links on the business subdomain (`/ubicacion`, `/online/<code>`)
+
+The customer messages carry short addresses on the business's own subdomain instead of long URLs (`src/lib/short-links.ts`):
+- `<tenant>.newaigent.com/ubicacion` redirects (302) to the Google Maps directions built from the business address, place id and coordinates (`directionsUrl`). With no physical place it answers a closed page. Used by `locationTextForBot`: the bot, the reminders and the `[Ubicación]` tag. Its text is `<address>. Cómo llegar: <link>` (`Directions:` in English): the link closes the text and is never inside parentheses, because WhatsApp took a glued `)` as part of the link and that address answered 404 (ticket #116). `next.config.mjs` also redirects `/ubicacion` followed by `)`, `.`, `,`, `;`, `:`, `!`, `?` or `%29` to `/ubicacion` (tests `tests/location-text.test.ts`, run with the same matcher as Next).
+- `<tenant>.newaigent.com/online/<code>` redirects (302) to the video call of ONE appointment. The code is 8 random characters, unique per business (`Appointment.meetShortCode`, migration `prisma/sql/26-meet-short-code`, nullable, applied to production 2026-11-13 after a verified backup). It is open from the start of the visit until one hour after it ends, and only while the visit is PENDING or CONFIRMED. Any other case, unknown or malformed codes included, answers the same closed page (410). Rate limited per IP.
+- The customer receives the short link wherever the raw `meetUrl` used to go (`customerMeetUrl`): reminder, bot booking and my-appointments, the reply after SI, the owner's confirmation (Confirmaciones and Citas). The admin UI, the calendar event and `meetUrl` keep the real link. Google's calendar invitation to the patient's email still carries the real Meet link (cannot be changed).
+- Visits booked before this change have no code and keep the real link.
+- Tests: `tests/short-links.test.ts`.
