@@ -4,18 +4,16 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
-import https from "https";
-
-const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL!;
-const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY!;
-
-// Allow self-signed / expired certs on Evolution API (no SSL in dev)
-const insecureAgent = new https.Agent({ rejectUnauthorized: false });
-
-// Thin wrapper so every Evolution call skips TLS validation
-function evoFetch(url: string, init?: RequestInit) {
-  return fetch(url, { ...(init ?? {}), ...(({ agent: insecureAgent }) as any) });
-}
+import {
+  connectQr,
+  createInstance,
+  evolutionConfigFromEnv,
+  fetchInstanceInfo,
+  instanceKeyOf,
+  setSettings,
+  setWebhook,
+  webhookHeaders,
+} from "@/lib/messaging/evolution-adapter";
 
 export async function POST(req: NextRequest) {
   try {
@@ -33,136 +31,67 @@ export async function POST(req: NextRequest) {
     });
     if (!tenant) return Response.json({ error: "Tenant no encontrado" }, { status: 404 });
 
+    const cfg = evolutionConfigFromEnv();
+    if (!cfg) return Response.json({ error: "No se pudo inicializar la conexión de WhatsApp." }, { status: 503 });
+
     const instanceName = `${tenant.slug}-${tenantId}`;
     const webhookUrl = `${process.env.N8N_WEBHOOK_BASE_URL}/${tenant.slug}-${tenantId}`;
-
-    // 1. Verificar si la instancia ya existe
-    let checkRes;
-    let existingInstance: any = null;
-    try {
-      const fetchInstRes = await evoFetch(`${EVOLUTION_API_URL}/instance/fetchInstances?instanceName=${instanceName}`, {
-        method: "GET",
-        headers: { apikey: EVOLUTION_API_KEY },
-      });
-      if (fetchInstRes.ok) {
-        const instList = await fetchInstRes.json();
-        existingInstance = Array.isArray(instList)
-          ? instList.find((i: any) => i.name === instanceName || i.id === instanceName) || instList[0]
-          : instList;
-      }
-    } catch (err: any) {
-      console.warn("[whatsapp-connect] fetchInstances check warning:", err.message);
-    }
+    // Evolution signs every webhook call with a short-lived JWT; n8n verifies it.
+    const hookHeaders = webhookHeaders(process.env.EVOLUTION_WEBHOOK_SECRET);
+    if (!hookHeaders.jwt_key) console.error("[whatsapp-connect] EVOLUTION_WEBHOOK_SECRET not set: webhook calls are unsigned; set it before enabling JWT Auth on the n8n trigger");
 
     let qrCode: string | null = null;
     let status = "connecting";
+    // The instance's own token. The global key is never stored.
+    let instanceToken: string | null = null;
 
-    if (existingInstance && (existingInstance.name === instanceName || existingInstance.id === instanceName)) {
-      if (existingInstance.connectionStatus === "open" || existingInstance.state === "open") {
-        // Ya está conectado
+    // 1. Existing instance: reuse it (connected, or ask for a fresh code).
+    const existing = await fetchInstanceInfo(cfg, instanceName);
+    if (existing) {
+      instanceToken = existing.token;
+      if (existing.state === "open") {
         status = "connected";
       } else {
-        // Existe pero no está conectado, solicitamos QR fresco
-        const qrRes = await evoFetch(`${EVOLUTION_API_URL}/instance/connect/${instanceName}`, {
-          method: "GET",
-          headers: { apikey: EVOLUTION_API_KEY },
-        });
-
-        if (qrRes.ok) {
-          const qrData = await qrRes.json();
-          qrCode = qrData.base64 || qrData.code || (typeof qrData === "string" ? qrData : null);
-          status = qrCode ? "qr_pending" : "connecting";
-        }
+        qrCode = await connectQr(cfg, { instance: instanceName, apiKey: instanceKeyOf(instanceToken, cfg.globalKey) });
+        status = qrCode ? "qr_pending" : "connecting";
       }
     } else {
-      // No existe, creamos con las banderas requeridas:
-      // MESSAGES_UPSERT, Webhook Base64: true, Reject Calls: true, Ignore Groups: true, Read Messages: true, Always Online: true, Read Status: false
-      const createRes = await evoFetch(`${EVOLUTION_API_URL}/instance/create`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: EVOLUTION_API_KEY,
-        },
-        body: JSON.stringify({
-          instanceName,
-          qrcode: true,
-          integration: "WHATSAPP-BAILEYS",
-          rejectCall: true,
-          groupsIgnore: true,
-          alwaysOnline: true,
-          readMessages: true,
-          readStatus: false,
-          syncFullHistory: false,
-          webhook: {
-            url: webhookUrl,
-            byEvents: false,
-            base64: true,
-            events: ["MESSAGES_UPSERT"],
-          },
-        }),
-      });
-
-      if (!createRes.ok) {
-        const err = await createRes.text();
-        if (!err.includes("already exists")) {
-          return Response.json({ error: "No se pudo inicializar la conexión de WhatsApp." }, { status: 500 });
-        }
-      } else {
-        try {
-          const data = await createRes.json();
-          qrCode = data.qrcode?.base64 ?? null;
-          status = qrCode ? "qr_pending" : "connecting";
-        } catch {
+      // 2. New instance with the required flags and the signed webhook.
+      const created = await createInstance(cfg, { instance: instanceName, webhookUrl, headers: hookHeaders });
+      if (!created.ok) {
+        // Created at the same moment by another request: read it back instead of failing.
+        const raced = await fetchInstanceInfo(cfg, instanceName);
+        if (!raced) {
+          console.error("[whatsapp-connect] create failed:", created.error, created.status ?? "");
           return Response.json({ error: "No se pudo inicializar la conexión de WhatsApp." }, { status: 502 });
         }
+        instanceToken = raced.token;
+        if (raced.state === "open") status = "connected";
+      } else {
+        instanceToken = created.token;
+        qrCode = created.qrCode;
+        status = qrCode ? "qr_pending" : "connecting";
       }
     }
 
-    // Asegurar banderas requeridas en Settings de Evolution API
-    try {
-      await evoFetch(`${EVOLUTION_API_URL}/settings/set/${instanceName}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", apikey: EVOLUTION_API_KEY },
-        body: JSON.stringify({
-          rejectCall: true,
-          groupsIgnore: true,
-          alwaysOnline: true,
-          readMessages: true,
-          readStatus: false,
-          syncFullHistory: false,
-        }),
-      });
-    } catch (e) {
-      console.warn("[whatsapp-connect] settings/set warning:", e);
+    // 3. Make sure settings and the signed webhook are in place (also on instances created before).
+    const instanceKey = instanceKeyOf(instanceToken, cfg.globalKey);
+    if (!(await setSettings(cfg, { instance: instanceName, apiKey: instanceKey }))) {
+      console.warn("[whatsapp-connect] settings/set did not apply");
     }
-
-    // Asegurar banderas requeridas en Webhook de Evolution API (MESSAGES_UPSERT + base64)
-    try {
-      await evoFetch(`${EVOLUTION_API_URL}/webhook/set/${instanceName}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", apikey: EVOLUTION_API_KEY },
-        body: JSON.stringify({
-          webhook: {
-            enabled: true,
-            url: webhookUrl,
-            byEvents: false,
-            base64: true,
-            events: ["MESSAGES_UPSERT"],
-          },
-        }),
-      });
-    } catch (e) {
-      console.warn("[whatsapp-connect] webhook/set warning:", e);
+    if (!(await setWebhook(cfg, { instance: instanceName, apiKey: instanceKey, url: webhookUrl, headers: hookHeaders }))) {
+      console.warn("[whatsapp-connect] webhook/set did not apply");
     }
 
     // A new code starts its own lifetime; refreshes are counted from zero.
     const qrMeta = qrCode ? { qrIssuedAt: Date.now(), qrRefreshes: 0 } : {};
 
-    // Guardar en connected_apps
+    // Guardar en connected_apps. Only write accessToken when we actually have the instance token,
+    // so a reconnect that could not read it never overwrites a good stored token with an empty string.
     await prisma.connectedApp.upsert({
       where: { tenantId_provider: { tenantId, provider: "WHATSAPP" } },
       update: {
-        accessToken: EVOLUTION_API_KEY,
+        ...(instanceToken ? { accessToken: instanceToken } : {}),
         waInstanceId: instanceName,
         waInstanceName: instanceName,
         waStatus: status,
@@ -174,7 +103,7 @@ export async function POST(req: NextRequest) {
       create: {
         tenantId,
         provider: "WHATSAPP",
-        accessToken: EVOLUTION_API_KEY,
+        accessToken: instanceToken ?? "",
         waInstanceId: instanceName,
         waInstanceName: instanceName,
         waStatus: status,

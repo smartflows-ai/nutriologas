@@ -264,6 +264,17 @@ export default function AppointmentFormPanel({ target, canOverbook, locale, onCl
                 <span>{t.agenda.form.alreadyConfirmed}</span>
               </label>
               <p className={`${HINT} ml-7`}>{t.agenda.form.alreadyConfirmedHint}</p>
+
+              <label className="mt-3 flex items-start gap-3 text-sm text-gray-800 dark:text-gray-100 cursor-pointer min-h-11 sm:min-h-0">
+                <input
+                  type="checkbox"
+                  checked={v.whatsappConsent}
+                  onChange={(e) => set.whatsappConsent(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 accent-primary shrink-0"
+                />
+                <span>{t.agenda.form.whatsappConsent}</span>
+              </label>
+              <p className={`${HINT} ml-7`}>{t.agenda.form.whatsappConsentHint}</p>
             </div>
           )}
         </section>

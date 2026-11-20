@@ -4,6 +4,43 @@ All notable changes to Presto AI are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased] — 2026-11-19
+
+### Added (WhatsApp continuity: panel notices, paused-line banner, permission badges)
+- Cancelling or moving a visit from the panel now tells the patient (same cancellation text as the release; the new time for a move). Both go through the messaging policy, keyed per visit.
+- A paused line (or a business or global kill switch) shows a notice at the top of the panel, so the owner learns it without WhatsApp.
+- The agenda shows a neutral badge with an icon and a word when a visit has no WhatsApp permission recorded, or when the patient asked not to receive messages (`src/lib/whatsapp-permission.ts`).
+- Still open: bot replies from n8n, and the paused-line notice in WhatsApp (the owner's alerts also stop while the line is paused).
+
+### Added (WhatsApp anti-ban core: one send path, policy, delivery rules, circuit breaker, status card)
+- One send path for every outbound WhatsApp message: `sendWhatsAppMessage` now calls the messaging service (`src/lib/messaging/service.ts`) with the production gateway (`gateway.ts`). Purposes: CUSTOMER_REPLY, TRANSACTIONAL and INTERNAL. Reminders and cancellations use idempotency keys.
+- Pure, tested rules: `policy.ts` (kill switches, risk states, opt-out, consent by mode, quiet hours, internal notices only to the team), `delivery.ts` (no resend of SENT or UNKNOWN, retry classes, circuit breaker, kill switch scope), `connection.ts` (connection events; a logout or forbidden is a possible restriction, never a confirmed ban). Tests: `tests/messaging-*.test.ts`.
+- Routes: `GET/PATCH /api/apps/whatsapp/risk` (status and business pause), `POST /api/apps/whatsapp/risk/resume` (after a confirmation), `POST /api/internal/whatsapp/connection` (connection events). The Evolution webhook subscribes to `CONNECTION_UPDATE`.
+- Status card in the WhatsApp settings tab (`WhatsAppRiskCard.tsx`). Business privacy text: a patient can stop messages by replying BAJA or STOP (ES and EN; needs a human legal review).
+- Schema: `prisma/sql/31-whatsapp-outbox` and `prisma/sql/32-whatsapp-risk`, additive, verified up and down on the local demo database. **Not applied to production.**
+- Bot replies: `POST /api/internal/whatsapp/send` (internal key, purpose fixed to CUSTOMER_REPLY, idempotent on the bot's own "bot-" key). The n8n workflow still calls Evolution directly until it is switched to this route (needs approval and an import).
+- Held messages (quiet hours) are sent later by the reminder job (`drainHeld`), still under the policy and the breaker.
+- Webhook secret: the first guard of both workflows drops events whose `jwt_key` header is not the secret of that environment.
+- Consent: confirmations and releases pass the visit's consent into the policy.
+- Platform line: the global kill switch stops the platform sender.
+- Not done: the bot send node switch in n8n, the per-instance key migration for existing instances, and applying migrations 30 to 32 in production.
+
+### Added (WhatsApp ban prevention: strict consent, opt-out, quiet hours, send pacing)
+- Three pure, tested decision modules: `src/lib/wa-optout.ts` (detects "baja/stop/ya no me escribas" and never fires on "cancelar mi cita"), `src/lib/wa-pacing.ts` (quiet hours with midnight wrap, and a per-instance per-run send cap), `src/lib/wa-consent.ts` (strict consent with SHADOW/ENFORCE and a grandfather cutover). Tests: `tests/wa-optout.test.ts`, `wa-pacing.test.ts`, `wa-consent.test.ts`, plus new gate cases in `reminder-run.test.ts`.
+- The reminder job (`src/lib/reminder-run.ts`, `reminder-data.ts`) applies the gates: a visit blocked by consent (ENFORCE only) sends no reminder and is never released (counts as confirmed); opt-out blocks in both modes; a night-time reminder is held for the morning when the visit allows it; at most 3 messages per WhatsApp number per 15-minute run, the rest deferred. The run response adds `blocked`, `shadowWouldBlock` and `deferred` counts. SHADOW (the default) measures what would be blocked without blocking anything.
+- Inbound opt-out: `POST /api/internal/whatsapp/sync` detects a stop request, sets `whatsapp_chats.optedOutAt` and turns the bot off for that contact; a later message never re-enables it.
+- Strict consent is captured at every booking entry point: the bot (`bot/book`, `WHATSAPP_BOOKING`, only when the sender books for themselves), the storefront `/agendar` (an optional unchecked "receive WhatsApp reminders" box, `WEB_CHECKBOX`), and the panel's "Nueva cita" (a staff checkbox, `PANEL_STAFF`). Stored on `appointments.whatsappConsentAt/Source` with `bookingChannel`.
+- Settings (`/admin/whatsapp` reminders card, `PATCH /api/tenants/reminders`): quiet-hours window (default 21:00–08:00) and a "only message patients who agreed" toggle that flips the tenant SHADOW→ENFORCE and stamps `messagingEnforcedAt` so existing visits are grandfathered.
+- Schema `prisma/sql/30-whatsapp-ban-prevention` (additive): `tenants.messagingPolicyMode/messagingEnforcedAt/quietHoursStartMin/quietHoursEndMin`, `appointments.whatsappConsentAt/whatsappConsentSource/bookingChannel`, `whatsapp_chats.optedOutAt/optedOutSource`. **NOT applied** — apply before the code (backup + approval).
+- Never labeled "anti-ban" or "safe": these reduce preventable risk; they do not guarantee WhatsApp will not restrict a number. On a separate branch from the D1 security work, so it does not touch the D1 files.
+## [Unreleased] — 2026-11-18
+
+### Security (WhatsApp provider calls hardened — delivery D1 of the Evolution messaging plan)
+- One module now talks to Evolution: `src/lib/messaging/evolution-adapter.ts`. It validates TLS on every call (the four `new https.Agent({ rejectUnauthorized: false })` bypasses in `whatsapp.ts`, `whatsapp-qr.ts`, `connect/whatsapp` and `whatsapp/status` are gone), sets a timeout on every request, and never returns or logs the provider response body (it can echo a phone number or the message text). Tests: `tests/evolution-adapter.test.ts`.
+- Each WhatsApp instance uses its own token (Evolution 2.3.7 returns it as `hash` on create). `connect/whatsapp` no longer copies the global `EVOLUTION_API_KEY` into `connected_apps.accessToken`; it stores the instance token. The global key is used server-side only, for create and `fetchInstances`. `whatsapp.ts`, `platform-whatsapp.ts`, `whatsapp-qr.ts` and `whatsapp/status` send the instance token; `instanceKeyOf` falls back to the global key for rows that still hold it, and `whatsapp/status` upgrades such a row to the instance token when it reads it. Backfill for existing rows: `local-utils/whatsapp-instance-tokens.ts` (operator-only, dry run by default).
+- Evolution signs every webhook call with a short-lived JWT (`EVOLUTION_WEBHOOK_SECRET` → `jwt_key` header, HS256, 10-minute expiry), so n8n can require JWT Auth on its trigger and reject forged `messages.upsert` posts. `connect/whatsapp` and the backfill set the header through `webhook/set`. New env vars: `EVOLUTION_WEBHOOK_SECRET`, `PLATFORM_WA_INSTANCE_TOKEN` (`.env.example`).
+- Pending in D1 (needs human approval and an `~/.n8n-backups/` backup before any n8n write): import the JWT Auth check on the chat-workflow trigger, move the hardcoded Evolution and internal keys into n8n credentials, and rotate `EVOLUTION_API_KEY`, `INTERNAL_API_KEY` and `OPENROUTER_API_KEY` (all three are present in commit `dade484` in the public repo history; rotation, not history rewriting, is the fix).
+
 ## [Unreleased] — 2026-11-06
 
 ### Changed (Google connection asks for exactly the scopes the product uses)

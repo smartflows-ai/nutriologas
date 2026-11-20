@@ -5,6 +5,8 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { contactJids, isInternalKeyValid, normalizeCustomerPhone, resolveBotTenant } from "@/lib/bot";
 import { isTeamNumber } from "@/lib/team-numbers";
+import { detectRunaway } from "@/lib/wa-loop-guard";
+import { notifyTenantOwner } from "@/lib/whatsapp";
 
 export async function POST(req: NextRequest) {
   if (!isInternalKeyValid(req)) return Response.json({ error: "No autorizado" }, { status: 401 });
@@ -27,6 +29,32 @@ export async function POST(req: NextRequest) {
   ]);
   if (isTeamNumber(digits, [tenant?.whatsappNumber, ...staff.map((user) => user.whatsappNumber)])) {
     return Response.json({ botEnabled: false, reason: "team_member" });
+  }
+
+  // Ban prevention (B0): a conversation that runs like an automated loop pauses the bot for that contact only.
+  // The owner is told once, when the pause happens; the bot comes back only from the chat (mark handled or turn on).
+  const now = Date.now();
+  const recent = await prisma.whatsAppMessage.findMany({
+    where: { tenantId: bot.tenantId, remoteJid: { in: jids }, timestamp: { gte: new Date(now - 60 * 60 * 1000) } },
+    select: { timestamp: true, fromMe: true },
+    take: 500,
+  });
+  const verdict = detectRunaway(
+    recent.map((m) => ({ atMs: m.timestamp.getTime(), fromMe: m.fromMe })),
+    now
+  );
+  if (verdict.paused) {
+    const paused = await prisma.whatsAppChat.updateMany({
+      where: { tenantId: bot.tenantId, remoteJid: { in: jids }, botEnabled: true },
+      data: { botEnabled: false, botPausedReason: "loop_guard" },
+    });
+    if (paused.count > 0) {
+      await notifyTenantOwner(
+        bot.tenantId,
+        "Pausé el asistente para un contacto porque su conversación parece automática (muchos mensajes seguidos). Revísalo en Chats; puedes volver a activar el asistente desde ese chat."
+      );
+    }
+    return Response.json({ botEnabled: false, reason: "loop_guard" });
   }
 
   // A contact can have more than one chat row. If any of them is paused, the bot stays off for this contact only.

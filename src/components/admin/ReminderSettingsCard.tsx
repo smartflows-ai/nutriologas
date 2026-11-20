@@ -15,7 +15,16 @@ interface TimingSettings {
   reminderLeadMinutes: number;
   confirmationRequired: boolean;
   confirmationDeadlineMinutes: number;
+  // Ban prevention: consent-gate mode and quiet hours.
+  messagingPolicyMode: "SHADOW" | "ENFORCE";
+  quietHoursStartMin: number | null;
+  quietHoursEndMin: number | null;
 }
+
+// Quiet-hours defaults when the tenant has not set them (same as src/lib/wa-pacing.ts).
+const DEFAULT_QUIET_START_HOUR = 21;
+const DEFAULT_QUIET_END_HOUR = 8;
+const hourOf = (minutes: number | null, fallback: number) => (minutes == null ? fallback : Math.floor(minutes / 60));
 
 // Minutes shown as hours (1.5 = 1 h 30 min) and back.
 const toHours = (minutes: number) => minutes / 60;
@@ -56,6 +65,9 @@ export default function ReminderSettingsCard() {
           reminderLeadMinutes: settings.reminderLeadMinutes,
           confirmationRequired: settings.confirmationRequired,
           confirmationDeadlineMinutes: settings.confirmationDeadlineMinutes,
+          messagingPolicyMode: settings.messagingPolicyMode,
+          quietHoursStartMin: settings.quietHoursStartMin,
+          quietHoursEndMin: settings.quietHoursEndMin,
         }),
       });
       if (!res.ok) {
@@ -162,6 +174,54 @@ export default function ReminderSettingsCard() {
           <span>{tx.reminderWindowInvalid}</span>
         </div>
       )}
+
+      {/* Ban prevention: quiet hours and strict consent. */}
+      <div className="pt-4 border-t border-gray-100 dark:border-gray-800 space-y-4">
+        <div className="space-y-1.5">
+          <p className="text-sm font-medium text-gray-900 dark:text-white">{tx.quietHoursLabel}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">{tx.quietHoursHint}</p>
+          <div className="flex items-center gap-3 pt-1">
+            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
+              {tx.quietHoursFrom}
+              <select
+                className="input select-themed w-24"
+                value={hourOf(settings.quietHoursStartMin, DEFAULT_QUIET_START_HOUR)}
+                onChange={(e) => update({ quietHoursStartMin: Number(e.target.value) * 60 })}
+              >
+                {Array.from({ length: 24 }, (_, h) => (
+                  <option key={h} value={h}>{String(h).padStart(2, "0")}:00</option>
+                ))}
+              </select>
+            </label>
+            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
+              {tx.quietHoursTo}
+              <select
+                className="input select-themed w-24"
+                value={hourOf(settings.quietHoursEndMin, DEFAULT_QUIET_END_HOUR)}
+                onChange={(e) => update({ quietHoursEndMin: Number(e.target.value) * 60 })}
+              >
+                {Array.from({ length: 24 }, (_, h) => (
+                  <option key={h} value={h}>{String(h).padStart(2, "0")}:00</option>
+                ))}
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="flex items-center justify-between gap-4">
+            <span className="text-sm font-medium text-gray-900 dark:text-white">{tx.strictConsentLabel}</span>
+            <input
+              type="checkbox"
+              className="w-5 h-5 accent-primary shrink-0"
+              checked={settings.messagingPolicyMode === "ENFORCE"}
+              onChange={(e) => update({ messagingPolicyMode: e.target.checked ? "ENFORCE" : "SHADOW" })}
+            />
+          </label>
+          <p className="text-xs text-gray-500 dark:text-gray-400">{tx.strictConsentHint}</p>
+        </div>
+      </div>
+
 
       {error && (
         <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 flex items-center gap-3 text-red-700 dark:text-red-300 text-sm">

@@ -361,6 +361,38 @@ export interface Translations {
     allRights: string;
   };
   crm: {
+    waRisk: {
+      noPermissionBadge: string;
+      noPermissionHint: string;
+      optedOutBadge: string;
+      optedOutHint: string;
+      bannerTitle: string;
+      bannerDesc: string;
+      bannerLink: string;
+      title: string;
+      desc: string;
+      stateNormal: string;
+      stateObservation: string;
+      stateDegraded: string;
+      statePaused: string;
+      stateReview: string;
+      stateSuspended: string;
+      reasonRestriction: string;
+      reasonAuth: string;
+      reasonFailures: string;
+      reasonDisconnected: string;
+      businessPause: string;
+      businessPauseDesc: string;
+      platformPaused: string;
+      resumeTitle: string;
+      resumeNeed: string;
+      resumeConfirm: string;
+      resumeBtn: string;
+      saved: string;
+      saveError: string;
+      loading: string;
+      loadError: string;
+    };
     dashboard: {
       title: string;
       subtitle: string;
@@ -600,6 +632,12 @@ export interface Translations {
       reminderWindowLine: string;
       reminderWindowShort: string;
       reminderWindowInvalid: string;
+      quietHoursLabel: string;
+      quietHoursHint: string;
+      quietHoursFrom: string;
+      quietHoursTo: string;
+      strictConsentLabel: string;
+      strictConsentHint: string;
       confirmationRequiredLabel: string;
       confirmationRequiredHint: string;
       deadlineHoursLabel: string;
@@ -1280,6 +1318,7 @@ export interface Translations {
     privacyConsentLink: string;
     privacyConsentAfter: string;
     privacyConsentHealth: string;
+    whatsappRemindersConsent: string;
     submitting: string;
     submit: string;
   };
@@ -1462,6 +1501,8 @@ export interface Translations {
       reasonPlaceholder: string;
       alreadyConfirmed: string;
       alreadyConfirmedHint: string;
+      whatsappConsent: string;
+      whatsappConsentHint: string;
       petName: string;
       petSpecies: string;
       save: string;

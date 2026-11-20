@@ -5,6 +5,7 @@ import type { AppProvider } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { sendWhatsAppMessage } from "@/lib/whatsapp";
 import { cancelAppointment } from "@/lib/appointments-service";
+import { customerMeetUrl } from "@/lib/short-links";
 import { timeZoneLabel } from "@/lib/time-zones";
 import { cancellationText, clinicLongDate, clinicTime, customerTexts, renderTemplate, withMeetingLink } from "@/lib/reminder-messages";
 
@@ -19,6 +20,8 @@ export interface VisitForAction {
   productName: string;
   tenantName: string;
   ownerName?: string | null;
+  /** Consent captured for this visit (ban prevention). Missing = no consent recorded. */
+  whatsappConsentAt?: Date | null;
   messageLanguage: string;
   /** The business time zone (IANA, ticket #111). */
   timeZone: string;
@@ -58,6 +61,10 @@ export async function releaseVisit(
   const sent = await sendWhatsAppMessage({
     tenantId: visit.tenantId,
     to: visit.customerPhone,
+    // The release gate already ran for this visit (a visit without consent is never released in ENFORCE).
+    purpose: "TRANSACTIONAL",
+    consent: "YES",
+    idempotencyKey: `cancel:${visit.id}`,
     text: cancellationText(visit.cancellationTemplate, visitValues(visit), visit.messageLanguage, (problem) =>
       console.warn(`[reminders] stored cancellation text ignored (${problem}) for tenant ${visit.tenantId}; default used`),
     ),
@@ -89,6 +96,87 @@ export async function confirmVisit(visit: VisitForAction, now: Date = new Date()
       tenantId: visit.tenantId,
       to: visit.customerPhone,
       text: ownerConfirmationText(visit),
+      purpose: "TRANSACTIONAL",
+      consent: visit.whatsappConsentAt ? "YES" : "NO",
     });
   }
+}
+
+/** Loads what the patient's notice needs for a visit of this business. Null when the visit is gone. */
+async function loadNoticeVisit(visitId: string, tenantId: string): Promise<VisitForAction | null> {
+  const row = await prisma.appointment.findFirst({
+    where: { id: visitId, tenantId, deletedAt: null },
+    select: {
+      id: true,
+      tenantId: true,
+      customerPhone: true,
+      customerName: true,
+      appointmentDate: true,
+      externalProvider: true,
+      externalEventId: true,
+      whatsappConsentAt: true,
+      modality: true,
+      meetUrl: true,
+      meetShortCode: true,
+      product: { select: { name: true } },
+      tenant: { select: { name: true, slug: true, customDomain: true, ownerName: true, messageLanguage: true, timeZone: true, cancellationTemplate: true } },
+    },
+  });
+  if (!row) return null;
+  return {
+    id: row.id,
+    tenantId: row.tenantId,
+    customerPhone: row.customerPhone,
+    customerName: row.customerName,
+    appointmentDate: row.appointmentDate,
+    externalProvider: row.externalProvider,
+    externalEventId: row.externalEventId,
+    productName: row.product?.name ?? "",
+    tenantName: row.tenant.name,
+    ownerName: row.tenant.ownerName,
+    whatsappConsentAt: row.whatsappConsentAt,
+    messageLanguage: row.tenant.messageLanguage,
+    timeZone: row.tenant.timeZone,
+    cancellationTemplate: row.tenant.cancellationTemplate,
+    modality: row.modality,
+    meetUrl: row.meetUrl ? customerMeetUrl({ meetUrl: row.meetUrl, meetShortCode: row.meetShortCode }, row.tenant) || null : null,
+  };
+}
+
+/**
+ * Hole 1: the business cancelled a visit from the panel. The patient gets the same cancellation text the release sends.
+ * It goes through the messaging policy (consent from the visit; opt-out always blocks). Returns whether it was sent.
+ */
+export async function notifyCancelledFromPanel(visitId: string, tenantId: string): Promise<boolean> {
+  const visit = await loadNoticeVisit(visitId, tenantId);
+  if (!visit?.customerPhone) return false;
+  const sent = await sendWhatsAppMessage({
+    tenantId,
+    to: visit.customerPhone,
+    text: cancellationText(visit.cancellationTemplate, visitValues(visit), visit.messageLanguage, (problem) =>
+      console.warn(`[panel] stored cancellation text ignored (${problem}) for tenant ${tenantId}; default used`),
+    ),
+    purpose: "TRANSACTIONAL",
+    consent: visit.whatsappConsentAt ? "YES" : "NO",
+    idempotencyKey: `cancel:${visitId}`,
+  });
+  return sent.success;
+}
+
+/**
+ * Hole 1: the business moved a visit to another time from the panel. The patient gets the visit's new date and time,
+ * in the same text as the confirmation. The key includes the new time, so each move is its own message.
+ */
+export async function notifyMovedFromPanel(visitId: string, tenantId: string): Promise<boolean> {
+  const visit = await loadNoticeVisit(visitId, tenantId);
+  if (!visit?.customerPhone) return false;
+  const sent = await sendWhatsAppMessage({
+    tenantId,
+    to: visit.customerPhone,
+    text: ownerConfirmationText(visit),
+    purpose: "TRANSACTIONAL",
+    consent: visit.whatsappConsentAt ? "YES" : "NO",
+    idempotencyKey: `move:${visitId}:${visit.appointmentDate.toISOString()}`,
+  });
+  return sent.success;
 }

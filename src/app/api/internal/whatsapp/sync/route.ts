@@ -1,6 +1,7 @@
 // src/app/api/internal/whatsapp/sync/route.ts
 import { prisma } from "@/lib/db";
 import { ownerTookOverPatch, resolvePatch } from "@/lib/help-actions";
+import { isOptOut } from "@/lib/wa-optout";
 import { NextRequest } from "next/server";
 
 export async function POST(req: NextRequest) {
@@ -81,6 +82,16 @@ export async function POST(req: NextRequest) {
     // A customer who writes again while a person is needed and nobody took the chat: the panel says so.
     if (!fromMe && !data.message?.reactionMessage && chat.helpPriority > 0 && !chat.helpTakenAt) {
       await (prisma as any).whatsAppChat.update({ where: { id: chat.id }, data: { helpCustomerWroteAt: timestamp } });
+    }
+
+    // Opt-out (ban prevention): the customer asked to stop. Record it, so proactive messages (reminders,
+    // confirmations) skip them, and turn the bot off for this contact. A later message never re-enables it;
+    // only an explicit new consent does.
+    if (!fromMe && !chat.optedOutAt && isOptOut(content)) {
+      await (prisma as any).whatsAppChat.update({
+        where: { id: chat.id },
+        data: { optedOutAt: timestamp, optedOutSource: "inbound_keyword", botEnabled: false, botPausedReason: "opted_out" },
+      });
     }
 
     // 2. Guardar el Mensaje.

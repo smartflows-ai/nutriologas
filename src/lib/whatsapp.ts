@@ -1,14 +1,14 @@
 // src/lib/whatsapp.ts
-// Centralized helper for sending WhatsApp notifications through Evolution API
+// Centralized helper for WhatsApp messages through Evolution API.
+// Ban prevention: every send goes through the messaging service (policy, idempotency, audit, breaker).
+// The reasons returned here are the customer-safe ones (WA_NOT_AVAILABLE, WA_INVALID_NUMBER): a blocked or paused
+// send never shows its internal cause to a customer. Tests: tests/messaging-service.test.ts.
 import { prisma } from "@/lib/db";
-import https from "https";
-import { WA_INVALID_NUMBER, WA_NOT_AVAILABLE, WA_NOT_CONNECTED } from "@/lib/whatsapp-reasons";
-
-const insecureAgent = new https.Agent({ rejectUnauthorized: false });
-
-function evoFetch(url: string, init?: RequestInit) {
-  return fetch(url, { ...(init ?? {}), ...(({ agent: insecureAgent }) as any) });
-}
+import { randomUUID } from "node:crypto";
+import { WA_INVALID_NUMBER, WA_NOT_AVAILABLE } from "@/lib/whatsapp-reasons";
+import { sendOutbound, type SendOutcome } from "@/lib/messaging/service";
+import { prismaGateway, prismaOutboxStore } from "@/lib/messaging/gateway";
+import type { ConsentState, MessagePurpose } from "@/lib/messaging/policy";
 
 export function formatWhatsAppNumber(phone: string): string {
   // Strip all non-digit characters
@@ -30,68 +30,65 @@ export interface SendWhatsAppParams {
   tenantId: string;
   to: string;
   text: string;
+  /** Why the message is sent. Defaults to TRANSACTIONAL (a message about a visit). */
+  purpose?: MessagePurpose;
+  /** Consent for this recipient, decided by the caller. Defaults to NO (measured in SHADOW, blocked in ENFORCE). */
+  consent?: ConsentState;
+  urgent?: boolean;
+  /** True when `to` is one of the business's own numbers. */
+  recipientIsTeam?: boolean;
+  /** Same key = same message: a retry of the same send is never delivered twice. Without it, every call is new. */
+  idempotencyKey?: string;
 }
 
 export interface SendWhatsAppResult {
   success: boolean;
   reason?: string;
-  data?: any;
+  messageId?: string | null;
+  data?: unknown;
+}
+
+function resultOf(outcome: SendOutcome): SendWhatsAppResult {
+  if (outcome.status === "SENT") {
+    return { success: true, messageId: outcome.providerMessageId, data: { duplicate: outcome.duplicate } };
+  }
+  // Customer-safe reason for every other outcome: the internal decision stays in the outbox, not on screen.
+  return { success: false, reason: WA_NOT_AVAILABLE, data: { status: outcome.status } };
 }
 
 export async function sendWhatsAppMessage({
   tenantId,
   to,
   text,
+  purpose = "TRANSACTIONAL",
+  consent = "NO",
+  urgent = false,
+  recipientIsTeam = false,
+  idempotencyKey,
 }: SendWhatsAppParams): Promise<SendWhatsAppResult> {
   try {
-    const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL;
-    const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY;
-
-    if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY) {
-      console.warn("[whatsapp] EVOLUTION_API_URL or EVOLUTION_API_KEY not configured");
-      return { success: false, reason: WA_NOT_AVAILABLE };
-    }
-
-    const app = await prisma.connectedApp.findFirst({
-      where: { tenantId, provider: "WHATSAPP" },
-      select: { waInstanceId: true, waStatus: true },
-    });
-
-    if (!app || !app.waInstanceId) {
-      return { success: false, reason: WA_NOT_CONNECTED };
-    }
-
-    // A full JID (contact chats, including @lid contacts) is sent as-is; a phone number is normalized.
     const isJid = to.includes("@");
-    const recipient = isJid ? to.trim() : formatWhatsAppNumber(to);
-    if (!recipient || (!isJid && recipient.length < 8)) {
-      return { success: false, reason: WA_INVALID_NUMBER };
-    }
+    if (isJid && !to.trim().endsWith("@s.whatsapp.net")) return { success: false, reason: WA_INVALID_NUMBER };
+    const digits = isJid ? to.trim().replace(/@.*$/, "") : formatWhatsAppNumber(to);
+    if (!digits || digits.length < 8) return { success: false, reason: WA_INVALID_NUMBER };
 
-    const url = `${EVOLUTION_API_URL}/message/sendText/${app.waInstanceId}`;
-    const res = await evoFetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: EVOLUTION_API_KEY,
-      },
-      body: JSON.stringify({
-        number: recipient,
+    const outcome = await sendOutbound(
+      {
+        tenantId,
+        to: digits,
+        purpose,
         text,
-      }),
-    });
-
-    if (!res.ok) {
-      const errText = await res.text();
-      console.error("[whatsapp] Evolution API error sending message:", res.status, errText);
-      return { success: false, reason: WA_NOT_AVAILABLE };
-    }
-
-    const data = await res.json();
-    return { success: true, data };
-  } catch (error: any) {
-    console.error("[whatsapp] Unexpected error sending WhatsApp message:", error);
-    return { success: false, reason: error.message || "Error al enviar mensaje por WhatsApp" };
+        idempotencyKey: idempotencyKey ?? `auto:${randomUUID()}`,
+        consent,
+        urgent,
+        recipientIsTeam,
+      },
+      { store: prismaOutboxStore, gateway: prismaGateway, now: () => new Date() },
+    );
+    return resultOf(outcome);
+  } catch (error: unknown) {
+    console.error("[whatsapp] Unexpected error sending WhatsApp message:", error instanceof Error ? error.name : "unknown");
+    return { success: false, reason: WA_NOT_AVAILABLE };
   }
 }
 
@@ -113,7 +110,14 @@ export async function notifyTenantOwner(tenantId: string, message: string): Prom
     return false;
   }
 
-  const result = await sendWhatsAppMessage({ tenantId, to: tenant.whatsappNumber, text: message });
+  // A notice to the business's own number: internal purpose, no customer consent needed.
+  const result = await sendWhatsAppMessage({
+    tenantId,
+    to: tenant.whatsappNumber,
+    text: message,
+    purpose: "INTERNAL",
+    recipientIsTeam: true,
+  });
   if (!result.success) {
     console.error(`[whatsapp] notifyTenantOwner failed for tenant ${tenantId}:`, result.reason);
   }

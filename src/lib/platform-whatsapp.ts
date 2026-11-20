@@ -1,7 +1,9 @@
 // src/lib/platform-whatsapp.ts
 // Sends WhatsApp messages from NewAigent's own line (the platform instance), not from a tenant's line.
 // Used for account messages such as the owner's password reset code. It never reads a tenant.
+import { prisma } from "@/lib/db";
 import { formatWhatsAppNumber } from "@/lib/whatsapp";
+import { evolutionConfigFromEnv, instanceKeyOf, sendText } from "@/lib/messaging/evolution-adapter";
 
 export interface SendPlatformWhatsAppParams {
   to: string;
@@ -20,11 +22,10 @@ export function platformInstanceName(): string | null {
 }
 
 export async function sendPlatformWhatsAppMessage({ to, text }: SendPlatformWhatsAppParams): Promise<SendPlatformWhatsAppResult> {
-  const baseUrl = process.env.EVOLUTION_API_URL;
-  const apiKey = process.env.EVOLUTION_API_KEY;
+  const cfg = evolutionConfigFromEnv();
   const instance = platformInstanceName();
 
-  if (!baseUrl || !apiKey || !instance) {
+  if (!cfg || !instance) {
     console.warn("[platform-whatsapp] EVOLUTION_API_URL, EVOLUTION_API_KEY or PLATFORM_WA_INSTANCE not configured");
     return { success: false, reason: "not_configured" };
   }
@@ -34,21 +35,17 @@ export async function sendPlatformWhatsAppMessage({ to, text }: SendPlatformWhat
     return { success: false, reason: "invalid_number" };
   }
 
-  try {
-    const res = await fetch(`${baseUrl}/message/sendText/${encodeURIComponent(instance)}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", apikey: apiKey },
-      body: JSON.stringify({ number: recipient, text }),
-      signal: AbortSignal.timeout(15_000),
-    });
-    if (!res.ok) {
-      // Log the status only; the body can echo the message text or the number.
-      console.error("[platform-whatsapp] send failed, status", res.status);
-      return { success: false, reason: "provider_error" };
-    }
-    return { success: true };
-  } catch (error) {
-    console.error("[platform-whatsapp] send error", error instanceof Error ? error.name : "unknown");
-    return { success: false, reason: "network_error" };
+  // Ban prevention: the global kill switch stops the platform line too (set by an operator in platform_flags).
+  const flags = await prisma.platformFlag.findUnique({ where: { id: "global" }, select: { globalKillSwitch: true } });
+  if (flags?.globalKillSwitch) return { success: false, reason: "paused" };
+
+  // The platform instance's own token when configured; the global key otherwise.
+  const apiKey = instanceKeyOf(process.env.PLATFORM_WA_INSTANCE_TOKEN, cfg.globalKey);
+  const sent = await sendText(cfg, { instance, apiKey, number: recipient, text });
+  if (!sent.ok) {
+    // Log the status only; the body can echo the message text or the number.
+    console.error("[platform-whatsapp] send failed:", sent.error, sent.status ?? "");
+    return { success: false, reason: sent.error === "http" ? "provider_error" : "network_error" };
   }
+  return { success: true };
 }

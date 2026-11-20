@@ -163,7 +163,7 @@ El prompt es guía para el modelo. El filtro determinista de saludos está en `C
 ## 7. Importar o actualizar en n8n
 
 1. Desactiva el workflow anterior que use el mismo path del webhook (`:tenantSlug`) y el mismo `webhookId`. Dos workflows activos en el mismo path entran en conflicto.
-2. Importa `n8n/workflows/n8n-chat-workflow-v3.json` (copia de v2 con la modalidad por servicio y los precios por `priceText`; v2 queda como respaldo). Antes, respalda el workflow activo en n8n.
+2. Importa `n8n/workflows/NewAigent - WhatsApp Bot (Chat).json` (copia de v2 con la modalidad por servicio y los precios por `priceText`; v2 queda como respaldo). Antes, respalda el workflow activo en n8n.
 3. Vincula la credencial de OpenRouter (`OpenRouter account`) y la de Postgres (`Orchestrator`) si n8n no las vincula solo.
 4. Verifica que el Bot Agent no tenga Output Parser conectado.
 5. Limpia la memoria de la sesión de prueba antes de volver a probar, para no arrastrar respuestas viejas.
@@ -184,7 +184,7 @@ El prompt es guía para el modelo. El filtro determinista de saludos está en `C
 
 - Datos del paciente y modalidad: la migracion `prisma/sql/21-patient-intake/up.sql` ya esta aplicada (2026-11-06). Falta desplegar el codigo y despues re-importar el workflow (el prompt y la herramienta `book_appointment` cambiaron). Un workflow viejo sigue funcionando contra el servidor nuevo (ruta anterior, correo obligatorio).
 
-- Precio según valoración y modalidad por servicio: las migraciones `prisma/sql/24-product-visit-modes` y `prisma/sql/25-product-price-mode` ya están aplicadas (2026-11-10). Los workflows `n8n-chat-workflow-v3.json` y `n8n-social-campaign-workflow-v2.json` ya se re-importaron (2026-11-10). Falta desplegar el código y probar en vivo: un servicio sin precio que apunta a la consulta ("¿cuánto cuesta X?" debe responder que se define en la valoración y ofrecer agendar la consulta), un servicio "Desde", un servicio solo presencial (no debe ofrecer en línea) y uno donde el cliente elige.
+- Precio según valoración y modalidad por servicio: las migraciones `prisma/sql/24-product-visit-modes` y `prisma/sql/25-product-price-mode` ya están aplicadas (2026-11-10). Los workflows `NewAigent - WhatsApp Bot (Chat).json` (antes `n8n-chat-workflow-v3.json`) y `n8n-social-campaign-workflow-v2.json` ya se re-importaron (2026-11-10). Falta desplegar el código y probar en vivo: un servicio sin precio que apunta a la consulta ("¿cuánto cuesta X?" debe responder que se define en la valoración y ofrecer agendar la consulta), un servicio "Desde", un servicio solo presencial (no debe ofrecer en línea) y uno donde el cliente elige.
 - Probar mascotas con datos reales: `local-utils/check-pets.ts` y una reserva de veterinaria. Re-importar el workflow en n8n (los nodos `book_appointment` y el prompt cambiaron).
 - Filtro de salida (determinista) para bloquear respuestas con términos internos como "YYYY-MM-DD", "query" o "base de datos".
 - Deduplicación de mensajes entrantes por `key.id`.

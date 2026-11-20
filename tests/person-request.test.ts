@@ -9,7 +9,7 @@ import path from "node:path";
 import { asksForPerson, PERSON_REQUEST_PATTERN } from "../src/lib/person-request";
 
 const ROOT = path.resolve(__dirname, "..");
-const WORKFLOW = path.join(ROOT, "n8n", "workflows", "n8n-chat-workflow-v3.json");
+const WORKFLOW = path.join(ROOT, "n8n", "workflows", "NewAigent - WhatsApp Bot (Chat).json");
 const hasWorkflow = existsSync(WORKFLOW);
 const skip = hasWorkflow ? false : "local n8n workflow not present";
 
@@ -181,9 +181,9 @@ test("the new nodes lead nowhere else: the guard only calls the help route, and 
   assert.deepEqual(edges.filter((edge) => edge.startsWith("Mark Help: Person Request ")), [], "no output: it cannot change the reply");
 });
 
-test("the workflow has exactly the 45 original nodes plus the 2 new ones, and no cycle or dangling link", { skip }, () => {
+test("the workflow has exactly the 45 original nodes plus the 3 new ones (person guard, webhook secret guard), and no cycle or dangling link", { skip }, () => {
   const w = loadWorkflow();
-  assert.equal(w.nodes.length, 47);
+  assert.equal(w.nodes.length, 48);
   const names = new Set(w.nodes.map((n) => n.name));
   assert.equal(names.size, w.nodes.length, "names are unique");
   const adj = new Map<string, string[]>();

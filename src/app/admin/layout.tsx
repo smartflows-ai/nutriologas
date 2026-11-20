@@ -3,6 +3,7 @@ import AdminSidebar from "@/components/admin/AdminSidebar";
 import AssignmentToaster from "@/components/admin/whatsapp/AssignmentToaster";
 import SessionWatch from "@/components/admin/SessionWatch";
 import TrialBanner from "@/components/admin/TrialBanner";
+import WhatsAppPauseBanner from "@/components/admin/WhatsAppPauseBanner";
 import TrialExpiredGate from "@/components/admin/TrialExpiredGate";
 import { TenantMetaProvider } from "@/components/admin/TenantMeta";
 import { BusinessTimeZoneProvider } from "@/components/shared/BusinessTimeZone";
@@ -68,6 +69,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
       {/* Trial countdown banner */}
       {showTrialBanner && !showExpiredGate && <TrialBanner daysLeft={trialDaysLeft} canManageBilling={canManageBilling} />}
+      {!showExpiredGate && <WhatsAppPauseBanner />}
 
       <div className="flex flex-1 overflow-hidden">
         <AdminSidebar 

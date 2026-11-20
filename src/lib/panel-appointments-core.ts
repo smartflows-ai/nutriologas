@@ -98,6 +98,10 @@ export interface CreateVisitInput {
   readonly referredByKey: string | null;
   readonly referredByName: string | null;
   readonly checkConflicts: boolean;
+  readonly bookingChannel: "PANEL";
+  /** Staff ticked "the patient agreed to receive WhatsApp" when booking (strict consent). */
+  readonly whatsappConsentAt: Date | null;
+  readonly whatsappConsentSource: "PANEL_STAFF" | null;
   readonly calendar: { summary: string; description: string; attendeeEmail: string; location: string | null };
 }
 
@@ -273,6 +277,9 @@ export async function createCore(
     referredByKey: referral.referredByKey,
     referredByName: referral.referredByName,
     checkConflicts: checks.conflicts,
+    bookingChannel: "PANEL",
+    whatsappConsentAt: d.whatsappConsent ? now : null,
+    whatsappConsentSource: d.whatsappConsent ? "PANEL_STAFF" : null,
     calendar: { ...text, attendeeEmail: attendeeOf(d.clientEmail), location: tenant.hasPhysicalLocation ? tenant.address : null },
   });
   if (!result.ok) return slotRefused(deps, "slot_unavailable", 409, slot);

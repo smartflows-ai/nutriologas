@@ -57,8 +57,14 @@ model Tenant {
   reminderTemplate          String?
   confirmationTemplate      String?
   cancellationTemplate      String?
+  // Prevención de baneos (feat/whatsapp-ban-prevention, prisma/sql/30). Consentimiento estricto y horas de silencio.
+  messagingPolicyMode       String  @default("SHADOW") // SHADOW (solo registra) | ENFORCE (bloquea sin consentimiento). src/lib/wa-consent.ts
+  messagingEnforcedAt       DateTime? // cuándo pasó a ENFORCE; las citas creadas antes se respetan (grandfather)
+  quietHoursStartMin        Int?    // minutos desde medianoche, inicio de horas de silencio (null = 21:00). src/lib/wa-pacing.ts
+  quietHoursEndMin          Int?    // null = 08:00
   messageLanguage           String  @default("es") // Idioma de los mensajes al cliente: es | en
   businessHours          Json?   // Horario semanal de atención (null = horario por defecto, ver src/lib/business-hours.ts)
+  whatsappKillSwitch     Boolean @default(false) // ban prevention: the owner pauses this business sends (migration 32)
   timeZone               String  @default("America/Mexico_City") // Zona horaria IANA del negocio (ticket #111, src/lib/clinic-time.ts)
   timeZoneSource         String  @default("default") // default | google (detectada por la dirección) | manual (la eligió el dueño)
   appointmentNotes       AppointmentNote[]
@@ -77,6 +83,7 @@ model Tenant {
   connectedApps   ConnectedApp[]
   whatsappChats   WhatsAppChat[]
   whatsappMessages WhatsAppMessage[]
+  whatsappOutbox   WhatsAppOutbox[]
   faqs            FAQ[]
   socialCampaigns SocialCampaign[]
   socialPosts     SocialPost[]
@@ -225,6 +232,16 @@ model ConnectedApp {
 
   metadata        Json?
 
+  // Ban prevention (migration 32): the instance state the send policy reads.
+  riskState            String    @default("NORMAL") // NORMAL | OBSERVATION | DEGRADED | SENDING_PAUSED | REQUIRES_MANUAL_REVIEW | SUSPENDED
+  statusReason         String?
+  lastConnectedAt      DateTime?
+  lastDisconnectedAt   DateTime?
+  lastSuccessfulSendAt DateTime?
+  consecutiveFailures  Int       @default(0)
+  sendingPausedAt      DateTime?
+  killSwitch           Boolean   @default(false)
+
   @@unique([tenantId, provider])
   @@map("connected_apps")
 }
@@ -250,6 +267,9 @@ model WhatsAppChat {
   helpTakenAt DateTime?
   helpAssignedAt DateTime? // when the owner put the assistant in charge (the in-app notice and the WhatsApp reminder start from it)
   helpCustomerWroteAt DateTime? // the customer wrote again while the chat needed a person and nobody had taken it
+  // Opt-out (feat/whatsapp-ban-prevention): the customer asked to stop receiving messages. src/lib/wa-optout.ts
+  optedOutAt  DateTime?
+  optedOutSource String? // inbound_keyword | panel
   updatedAt   DateTime @updatedAt
 
   messages    WhatsAppMessage[]
@@ -643,6 +663,10 @@ model Appointment {
   reminderAttempts      Int       @default(0)
   reminderLastError     String?   @db.Text
   reminderLastAttemptAt DateTime?
+  // Strict consent for proactive WhatsApp about this visit (feat/whatsapp-ban-prevention). src/lib/wa-consent.ts
+  whatsappConsentAt     DateTime?
+  whatsappConsentSource String?   // WHATSAPP_BOOKING | WEB_CHECKBOX | PANEL_STAFF | WHATSAPP_INBOUND
+  bookingChannel        String?   // WHATSAPP | WEB | PANEL
 
   appointmentDate DateTime          // fecha y hora de la cita
   durationMinutes Int               // duración en minutos
@@ -749,4 +773,41 @@ model WhatsappBotMemory {
   message   Json
 
   @@map("whatsapp_bot_memory")
+}
+
+// Ban prevention (migration 31): every outbound WhatsApp message the platform decides to send, hold or block. The audit.
+model WhatsAppOutbox {
+  id                String    @id @default(uuid())
+  tenantId          String
+  tenant            Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  recipientKey      String    // last four digits only, for the audit
+  recipient         String?   // full number, ONLY while the message is held for quiet hours; cleared when sent or closed
+  purpose           String    // CUSTOMER_REPLY | TRANSACTIONAL | INTERNAL | MARKETING
+  kind              String    @default("immediate")
+  status            String    @default("QUEUED") // QUEUED | SENT | FAILED | UNKNOWN | BLOCKED
+  policyDecision    String?
+  idempotencyKey    String
+  scheduledAt       DateTime?
+  attempts          Int       @default(0)
+  maxAttempts       Int       @default(3)
+  providerMessageId String?
+  lastError         String?
+  body              String?   @db.Text // cleared once the message is sent
+  sentAt            DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@unique([tenantId, idempotencyKey])
+  @@index([status, scheduledAt])
+  @@index([tenantId, createdAt])
+  @@map("whatsapp_outbox")
+}
+
+// Ban prevention (migration 32): the global kill switch, one row. A flag in the database takes effect at once.
+model PlatformFlag {
+  id               String   @id @default("global")
+  globalKillSwitch Boolean  @default(false)
+  updatedAt        DateTime @updatedAt
+
+  @@map("platform_flags")
 }

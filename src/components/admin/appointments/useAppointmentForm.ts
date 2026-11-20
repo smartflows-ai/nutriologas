@@ -89,6 +89,8 @@ export function useAppointmentForm({ target, canOverbook, onSaved }: Options) {
   const [modality, setModality] = useState<VisitModality | "">(original?.modality ?? "");
   const [notes, setNotes] = useState(original?.notes ?? "");
   const [alreadyConfirmed, setAlreadyConfirmed] = useState(false);
+  // Staff records the patient's agreement to receive WhatsApp for this visit (strict consent). Unchecked by default.
+  const [whatsappConsent, setWhatsappConsent] = useState(false);
   const [petName, setPetName] = useState("");
   const [petSpecies, setPetSpecies] = useState("dog");
   const [forOther, setForOther] = useState(false);
@@ -155,6 +157,7 @@ export function useAppointmentForm({ target, canOverbook, onSaved }: Options) {
     modality: service?.modalityMode === "ASK" ? modality : undefined,
     notes,
     alreadyConfirmed,
+    whatsappConsent,
     override,
     // Booking for another person is off in the panel (ticket #113): the API refuses these fields.
     petName: usesPets ? petName : undefined,
@@ -243,7 +246,7 @@ export function useAppointmentForm({ target, canOverbook, onSaved }: Options) {
     services,
     service,
     usesPets,
-    fields: { productId, day, time, manualTime, dial, phone, name, nameIssue, age, email, modality, notes, alreadyConfirmed, petName, petSpecies, forOther, requesterDial, requesterPhone },
+    fields: { productId, day, time, manualTime, dial, phone, name, nameIssue, age, email, modality, notes, alreadyConfirmed, whatsappConsent, petName, petSpecies, forOther, requesterDial, requesterPhone },
     set: {
       productId: (v: string) => {
         setProductId(v);
@@ -264,6 +267,7 @@ export function useAppointmentForm({ target, canOverbook, onSaved }: Options) {
       modality: setModality,
       notes: setNotes,
       alreadyConfirmed: setAlreadyConfirmed,
+      whatsappConsent: setWhatsappConsent,
       petName: setPetName,
       petSpecies: setPetSpecies,
       forOther: setForOther,

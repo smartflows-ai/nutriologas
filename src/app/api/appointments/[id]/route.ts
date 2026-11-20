@@ -8,7 +8,7 @@ import { apiError } from "@/lib/api-errors";
 import { cancelAppointment, softDeleteAppointment } from "@/lib/appointments-service";
 import { findNonEditableField, parseNotesField, trailRoleOf } from "@/lib/appointment-admin-rules";
 import { editFromPanel, isPanelEdit, reopenFromPanel } from "@/lib/panel-appointments";
-import { ownerConfirmationText } from "@/lib/reminder-actions";
+import { notifyCancelledFromPanel, notifyMovedFromPanel, ownerConfirmationText } from "@/lib/reminder-actions";
 import { saveVisitNote } from "@/lib/appointment-notes";
 import { can, omitClinicalNotes } from "@/lib/permissions";
 import { requirePermission } from "@/lib/permission-guard";
@@ -74,7 +74,14 @@ export async function PATCH(
       if (!can(role, "appointments.reschedule")) return apiError("appointment_update_forbidden", 403);
       // An edit and a status change are separate actions on the screen.
       if (status !== undefined || internalNotes !== undefined) return apiError("validation_failed", 400);
-      return editFromPanel({ role, tenantId, appointment, body, now });
+      const response = await editFromPanel({ role, tenantId, appointment, body, now });
+      // Hole 1: a visit moved from the panel tells the patient its new time (best effort, never changes the answer).
+      if (response.status === 200 && body.appointmentDate !== undefined) {
+        await notifyMovedFromPanel(params.id, tenantId).catch((error: unknown) =>
+          console.error("[panel] move notice failed", error instanceof Error ? error.name : "error"),
+        );
+      }
+      return response;
     }
     if (body.appointmentDate !== undefined) {
       return apiError("appointment_update_forbidden", 403);
@@ -136,6 +143,13 @@ export async function PATCH(
         : null;
     if (!updated) return apiError("appointment_not_found", 404);
 
+    // Hole 1: a visit cancelled from the panel tells the patient (same text as the release; best effort).
+    if (status === "CANCELLED") {
+      await notifyCancelledFromPanel(params.id, tenantId).catch((error: unknown) =>
+        console.error("[panel] cancel notice failed", error instanceof Error ? error.name : "error"),
+      );
+    }
+
     // The visit's note also goes into the patient's history (one row per visit).
     if (canNotes && internalNotes !== undefined) {
       await saveVisitNote(updated, String(internalNotes ?? ""), session.user.name ?? null);
@@ -184,10 +198,13 @@ export async function PATCH(
           tenant.messageLanguage
         );
 
+        // A visit confirmation to the patient: transactional, consent taken from the visit (ENFORCE blocks without it).
         const waRes = await sendWhatsAppMessage({
           tenantId,
           to: patientPhone,
           text: message,
+          purpose: "TRANSACTIONAL",
+          consent: updated.whatsappConsentAt ? "YES" : "NO",
         });
 
         whatsappSent = waRes.success;

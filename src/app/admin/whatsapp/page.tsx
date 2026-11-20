@@ -10,6 +10,7 @@ import { translateApiError } from "@/i18n/validation";
 import PendingConfirmations from "@/components/admin/PendingConfirmations";
 import ReminderMessagesCard from "@/components/admin/ReminderMessagesCard";
 import ReminderSettingsCard from "@/components/admin/ReminderSettingsCard";
+import WhatsAppRiskCard from "@/components/admin/WhatsAppRiskCard";
 import { useCan, useCanOpen } from "@/components/admin/TenantMeta";
 import { toast } from "@/hooks/useToast";
 import FilterChip from "@/components/ui/FilterChip";
@@ -752,6 +753,7 @@ function WhatsAppPageContent() {
 
           <div className="mt-8 space-y-8">
             {canAssignHelpChats && <HelpSettingsCard />}
+            <WhatsAppRiskCard />
             <ReminderSettingsCard />
             <ReminderMessagesCard />
           </div>

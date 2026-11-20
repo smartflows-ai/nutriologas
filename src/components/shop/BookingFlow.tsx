@@ -112,6 +112,8 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
   const [petSpecies, setPetSpecies] = useState<string>("dog");
   const [notes, setNotes] = useState("");
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
+  // Optional, unchecked by default: consent to receive WhatsApp reminders for this visit (never blocks booking).
+  const [waReminders, setWaReminders] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -195,6 +197,7 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
           petName: tenant.usesPets ? petName : undefined,
           petSpecies: tenant.usesPets ? petSpecies : undefined,
           notes: notes || undefined,
+          whatsappConsent: waReminders,
         }),
       });
 
@@ -620,6 +623,17 @@ export default function BookingFlow({ product, tenant, businessHours }: Props) {
             </span>
             {tenant.handlesHealthData && <span className="block">{t.booking.privacyConsentHealth}</span>}
           </span>
+        </label>
+
+        {/* Optional: consent to receive WhatsApp reminders for this visit. Unchecked by default; never required. */}
+        <label className="flex items-start gap-3 text-xs text-gray-600 dark:text-gray-400 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={waReminders}
+            onChange={(e) => setWaReminders(e.target.checked)}
+            className="mt-0.5 w-4 h-4 accent-primary shrink-0"
+          />
+          <span className="block">{t.booking.whatsappRemindersConsent}</span>
         </label>
 
         {/* Action button */}

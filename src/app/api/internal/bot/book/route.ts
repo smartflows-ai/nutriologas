@@ -220,6 +220,11 @@ export async function POST(req: NextRequest) {
     modality: patient.modality,
     referredByKey: referral.referredByKey,
     referredByName: referral.referredByName,
+    bookingChannel: "WHATSAPP",
+    // The sender wrote first, so booking for themselves is verifiable WhatsApp consent. Booking for someone
+    // else is not: that other number never wrote, so the reminder to them stays gated by consent.
+    whatsappConsentAt: forOther ? null : new Date(),
+    whatsappConsentSource: forOther ? null : "WHATSAPP_BOOKING",
     notes: reason,
     petName: pet || null,
     petSpecies: bot.usesPets ? petSpecies ?? null : null,

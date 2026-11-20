@@ -45,6 +45,8 @@ function visit(tenant: Partial<ReminderVisit["tenant"]> = {}, overrides: Partial
       reminderLeadMinutes: 180,
       confirmationRequired: true,
       timeZone: "America/Mexico_City",
+      quietHoursStartMin: 0, // empty window: these tests check text, not the quiet-hours gate
+      quietHoursEndMin: 0,
       confirmationDeadlineMinutes: 60,
       reminderTemplate: null,
       confirmationTemplate: null,

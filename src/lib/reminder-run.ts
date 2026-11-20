@@ -5,6 +5,16 @@ import type { AppProvider } from "@prisma/client";
 import { planReminder, releaseAt } from "@/lib/reminders";
 import { hasLocationTag, hasVisitDetailTags } from "@/lib/reminder-template-rules";
 import { timeZoneLabel } from "@/lib/time-zones";
+import { clinicTimeOf } from "@/lib/clinic-time";
+import { mayStartMessage, type MessagingPolicyMode } from "@/lib/wa-consent";
+import {
+  DEFAULT_QUIET_END_MIN,
+  DEFAULT_QUIET_START_MIN,
+  MAX_SENDS_PER_INSTANCE_PER_RUN,
+  minutesOfDay,
+  shouldHoldForQuietHours,
+  underSendCap,
+} from "@/lib/wa-pacing";
 import { clinicLongDate, clinicTime, customerTexts, placeLine, placeText, renderTemplate, usableTemplate, withBookedBy, withPlaceAfterDetails, withLocation, withMeetingLink } from "@/lib/reminder-messages";
 
 export interface ReminderTenant {
@@ -21,6 +31,11 @@ export interface ReminderTenant {
   cancellationTemplate: string | null;
   /** Address plus directions link (`locationTextForBot`); empty or missing when the business has no physical place. */
   locationText?: string | null;
+  /** Ban prevention: strict-consent gate and quiet hours. Optional so older callers/tests keep working. */
+  messagingPolicyMode?: MessagingPolicyMode | null;
+  messagingEnforcedAt?: Date | null;
+  quietHoursStartMin?: number | null;
+  quietHoursEndMin?: number | null;
 }
 
 export interface ReminderVisit {
@@ -43,6 +58,9 @@ export interface ReminderVisit {
   /** Set when someone else booked the visit for this patient: the message says who. */
   referredByKey?: string | null;
   referredByName?: string | null;
+  /** Ban prevention: the customer opted out, and the consent captured for this visit (if any). */
+  optedOutAt?: Date | null;
+  whatsappConsentAt?: Date | null;
   tenant: ReminderTenant;
 }
 
@@ -70,15 +88,23 @@ export interface ReminderBatchResult {
   released: number;
   skipped: number;
   failed: number;
+  /** Blocked by the strict-consent gate in ENFORCE mode (no reminder sent). */
+  blocked: number;
+  /** Would have been blocked by consent, but SHADOW mode let it through (for measuring before enforcing). */
+  shadowWouldBlock: number;
+  /** Held for quiet hours or the per-instance cap; retried on a later run. */
+  deferred: number;
   failures: ReminderFailure[];
   actions: object[];
 }
 
 type Outcome =
-  | { type: "sent" }
+  | { type: "sent"; shadowWouldBlock?: boolean }
   | { type: "released"; failure?: ReminderFailure }
   | { type: "skipped" }
   | { type: "none" }
+  | { type: "blocked"; shadow: boolean }
+  | { type: "deferred" }
   | { type: "failed"; failure: ReminderFailure }
   | { type: "planned"; action: object };
 
@@ -131,7 +157,7 @@ function reminderText(visit: ReminderVisit, requestConfirmation: boolean, releas
   return withBookedBy(tail === null ? headWithPlace : `${headWithPlace}\n\n${tail}`, visit, t.messageLanguage);
 }
 
-async function processVisit(visit: ReminderVisit, now: Date, deps: ReminderDeps, dryRun: boolean): Promise<Outcome> {
+async function processVisit(visit: ReminderVisit, now: Date, deps: ReminderDeps, dryRun: boolean, canSend: boolean): Promise<Outcome> {
   const t = visit.tenant;
   const plan = planReminder({
     apptStart: visit.appointmentDate,
@@ -162,9 +188,38 @@ async function processVisit(visit: ReminderVisit, now: Date, deps: ReminderDeps,
   if (visit.reminderSentAt || !due || !(plan.requestConfirmation || plan.sendPlain)) return { type: "none" };
   if (!visit.customerPhone) return { type: "skipped" };
 
+  // Ban-prevention gate: strict consent and opt-out. A blocked visit sends nothing and (since reminderSentAt
+  // stays null) is never released — it counts as confirmed.
+  const mode: MessagingPolicyMode = t.messagingPolicyMode === "ENFORCE" ? "ENFORCE" : "SHADOW";
+  const consent = mayStartMessage({
+    optedOutAt: visit.optedOutAt ?? null,
+    consentAt: visit.whatsappConsentAt ?? null,
+    createdAt: visit.createdAt,
+    enforcedAt: t.messagingEnforcedAt ?? null,
+    mode,
+  });
+  if (!consent.allowed) return { type: "blocked", shadow: consent.shadow };
+
+  // Quiet hours (business local clock): hold a night-time reminder for the morning when the visit allows it.
+  const localMin = minutesOfDay(clinicTimeOf(now, t.timeZone));
+  const minutesUntilAppt = Math.round((visit.appointmentDate.getTime() - now.getTime()) / 60000);
+  if (
+    shouldHoldForQuietHours({
+      localMin,
+      minutesUntilAppt,
+      quietStartMin: t.quietHoursStartMin ?? DEFAULT_QUIET_START_MIN,
+      quietEndMin: t.quietHoursEndMin ?? DEFAULT_QUIET_END_MIN,
+    })
+  ) {
+    return { type: "deferred" };
+  }
+
   if (dryRun) {
     return { type: "planned", action: { action: "remind", appointmentId: visit.id, confirmation: asksToConfirm, sendAt: plan.sendAt.toISOString() } };
   }
+
+  // Per-instance cap: spread sends across runs so the number never sends a burst.
+  if (!canSend) return { type: "deferred" };
 
   const sent = await deps.send(visit, reminderText(visit, asksToConfirm, asksToConfirm ? plan.releaseAt : null));
   if (!sent.success) {
@@ -175,7 +230,7 @@ async function processVisit(visit: ReminderVisit, now: Date, deps: ReminderDeps,
   }
   await deps.markSent(visit.id, now);
   await deps.charge(visit.tenantId);
-  return { type: "sent" };
+  return { type: "sent", shadowWouldBlock: consent.shadow };
 }
 
 function errorReason(error: unknown): string {
@@ -190,9 +245,15 @@ export async function runReminderBatch(
   options: { dryRun: boolean },
 ): Promise<ReminderBatchResult> {
   const outcomes: Outcome[] = [];
+  // Per-instance cap: a tenant (one WhatsApp number) sends at most MAX_SENDS_PER_INSTANCE_PER_RUN this run.
+  const sentPerTenant = new Map<string, number>();
   for (const visit of visits) {
     try {
-      outcomes.push(await processVisit(visit, now, deps, options.dryRun));
+      const used = sentPerTenant.get(visit.tenantId) ?? 0;
+      const canSend = options.dryRun || underSendCap(used, MAX_SENDS_PER_INSTANCE_PER_RUN);
+      const outcome = await processVisit(visit, now, deps, options.dryRun, canSend);
+      if (outcome.type === "sent" || outcome.type === "released") sentPerTenant.set(visit.tenantId, used + 1);
+      outcomes.push(outcome);
     } catch (error: unknown) {
       outcomes.push({ type: "failed", failure: failure(visit, "exception", errorReason(error)) });
     }
@@ -203,6 +264,9 @@ export async function runReminderBatch(
     released: outcomes.filter((o) => o.type === "released").length,
     skipped: outcomes.filter((o) => o.type === "skipped").length,
     failed: outcomes.filter((o) => o.type === "failed").length,
+    blocked: outcomes.filter((o) => o.type === "blocked").length,
+    shadowWouldBlock: outcomes.filter((o) => o.type === "sent" && o.shadowWouldBlock).length,
+    deferred: outcomes.filter((o) => o.type === "deferred").length,
     failures: outcomes.flatMap((o) => (o.type === "failed" || o.type === "released" ? (o.failure ? [o.failure] : []) : [])),
     actions: outcomes.flatMap((o) => (o.type === "planned" ? [o.action] : [])),
   };

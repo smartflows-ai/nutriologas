@@ -345,7 +345,7 @@ test("booking for someone else requires the appointments.book permission and goe
 test("appointment PATCH validates status first, lets only a CUSTOMER owner act without agenda rights, and hides reminder errors", () => {
   const src = read("appointments/[id]/route.ts");
   const statusCheck = src.indexOf('apiError("status_invalid", 400)');
-  const edit = src.indexOf("return editFromPanel(");
+  const edit = src.indexOf("editFromPanel({");
   assert.ok(statusCheck > 0 && statusCheck < edit, "status must be validated before an edit runs");
   assert.match(src, /isOwnerCustomer = role === "CUSTOMER" && appointment\.userId === userId/);
   assert.match(src, /omitClinicalNotes\(role, omitReminderError\(updated\)\)/);

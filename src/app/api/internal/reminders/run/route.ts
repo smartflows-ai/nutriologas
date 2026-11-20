@@ -10,6 +10,7 @@ import { syncCalendarDelete } from "@/lib/calendar-sync";
 import { reminderRunStatus, runReminderBatch } from "@/lib/reminder-run";
 import { detectUnanswered, escalateDueChats, remindAssignees } from "@/lib/help-requests";
 import { realAssignmentDeps, realEscalationDeps, realHelpDeps, realUnansweredSource } from "@/lib/help-data";
+import { runHeldDrain } from "@/lib/messaging/drain";
 
 const STUCK_CALENDAR_BATCH = 20;
 
@@ -70,6 +71,8 @@ export async function POST(req: NextRequest) {
   if (calendar.errors.length > 0) console.error("[reminders/run] calendar cleanup errors", calendar.errors);
 
   const help = dryRun ? null : await runHelpChecks(now);
+  // Ban prevention: messages held for quiet hours whose window has opened (never in a dry run).
+  const held = dryRun ? null : await runHeldDrain(now);
 
   const status = reminderRunStatus(batch, dryRun);
   return Response.json(
@@ -79,6 +82,7 @@ export async function POST(req: NextRequest) {
       dryRun,
       calendarRemoved: calendar.removed,
       help,
+      held,
       ...batch,
     },
     { status },
