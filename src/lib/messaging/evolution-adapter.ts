@@ -147,6 +147,8 @@ interface RawInstance {
   ownerJid?: string;
   number?: string;
   token?: string;
+  /** Older Evolution answers nest the instance data. */
+  instance?: { ownerJid?: string; number?: string };
 }
 
 /** Server-only lookup with the global key: state, owner phone and the instance's own token. */
@@ -159,7 +161,8 @@ export async function fetchInstanceInfo(cfg: EvolutionConfig, instance: string):
   const list = Array.isArray(res.data) ? res.data : [res.data];
   const inst = list.find((i) => i?.name === instance || i?.id === instance);
   if (!inst) return null;
-  const rawPhone = inst.ownerJid ?? inst.number ?? null;
+  // Only the matched instance is read: never another one from the list (it may belong to another business).
+  const rawPhone = inst.ownerJid ?? inst.number ?? inst.instance?.ownerJid ?? inst.instance?.number ?? null;
   return {
     state: stateOf(inst.connectionStatus ?? inst.state),
     phone: rawPhone ? rawPhone.replace(/@.*$/, "").replace(/\D/g, "") || null : null,

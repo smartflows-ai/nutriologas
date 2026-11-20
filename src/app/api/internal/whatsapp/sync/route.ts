@@ -122,8 +122,8 @@ export async function POST(req: NextRequest) {
     const isBotRecord = fromMe && keyId.startsWith("bot-");
     let isEcho = false;
     if (fromMe && !isBotRecord) {
-      const alreadyStored = await (prisma as any).whatsAppMessage.findUnique({
-        where: { keyId },
+      const alreadyStored = await prisma.whatsAppMessage.findUnique({
+        where: { tenantId_keyId: { tenantId, keyId } },
         select: { id: true },
       });
       // A bot reply is stored under the phone JID, while an @lid contact's echo arrives under the raw JID.
@@ -151,20 +151,27 @@ export async function POST(req: NextRequest) {
     const ownerWroteToContact = fromMe && !isBotRecord && !isEcho && !isReaction;
 
     if (!isEcho) {
-      await (prisma as any).whatsAppMessage.upsert({
-        where: { keyId },
-        update: {}, // Si ya existe no hacemos nada (evitar duplicados de upsert retry)
-        create: {
-          chatId: chat.id,
-          tenantId,
-          remoteJid,
-          keyId,
-          content,
-          fromMe,
-          timestamp,
-          type: data.message?.imageMessage ? "image" : "text",
-        }
-      });
+      // One row per business and WhatsApp id (a retry does nothing). Until 35-message-key-drop-global is applied,
+      // the old global index can still refuse a message another business stored: log it, keep the sync going.
+      await prisma.whatsAppMessage
+        .upsert({
+          where: { tenantId_keyId: { tenantId, keyId } },
+          update: {},
+          create: {
+            chatId: chat.id,
+            tenantId,
+            remoteJid,
+            keyId,
+            content,
+            fromMe,
+            timestamp,
+            type: data.message?.imageMessage ? "image" : "text",
+          },
+        })
+        .catch((error: unknown) => {
+          if ((error as { code?: string })?.code !== "P2002") throw error;
+          console.warn("[whatsapp/sync] message id already stored by another business; skipped until migration 35");
+        });
     }
 
     if (ownerWroteToContact && chat.botEnabled) {

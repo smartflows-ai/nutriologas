@@ -882,6 +882,7 @@ export const en: Translations = {
     whatsapp: {
       title: "WhatsApp Management",
       connected: "Connected:",
+      connectedNoNumber: "Connected",
       showList: "Show list",
       hideList: "Hide list",
       tabChats: "Conversations",

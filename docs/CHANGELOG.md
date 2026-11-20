@@ -4,6 +4,12 @@ All notable changes to Presto AI are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased] — 2026-11-20 (second round)
+
+### Fixed
+- The WhatsApp screen showed "Conectado:" with no number: the screen now fills a missing line number from Evolution and saves it; an open connection event also saves it; with no number the header reads "Conectado".
+- A message did not show in a chat when both numbers of the conversation are on the platform (the other business had stored the same WhatsApp id first). Message ids are now unique per business. Migration `prisma/sql/34-message-key-per-tenant` is applied to production; `prisma/sql/35-message-key-drop-global` goes after this code is deployed.
+
 ## [Unreleased] — 2026-11-20
 
 ### Fixed (QA of PR #130: opt-out, quiet hours, agenda)

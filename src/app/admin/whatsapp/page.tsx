@@ -386,7 +386,7 @@ function WhatsAppPageContent() {
           <MessageSquare className="text-primary shrink-0" size={26} />
           <div>
             <h1 className="text-xl font-semibold text-gray-900 dark:text-white leading-none">{t.crm.whatsapp.title}</h1>
-            <p className="text-sm text-primary font-medium mt-1">● {t.crm.whatsapp.connected} {config.waPhoneNumber}</p>
+            <p className="text-sm text-primary font-medium mt-1">● {config.waPhoneNumber ? `${t.crm.whatsapp.connected} ${config.waPhoneNumber}` : t.crm.whatsapp.connectedNoNumber}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
