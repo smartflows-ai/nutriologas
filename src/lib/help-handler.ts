@@ -10,12 +10,16 @@ import { shouldAlertOwner } from "@/lib/owner-alert";
 import { raiseHelpOnChat, type HelpChatRow, type HelpTenant } from "@/lib/help-requests";
 import { HELP_CHAT_SELECT, HELP_TENANT_SELECT, realHelpDeps } from "@/lib/help-data";
 
+// Reasons only the server raises. "opted_out" comes from the inbound detection in whatsapp/sync, which also records
+// the opt-out; raised by the bot it would show "Pidió no recibir mensajes" without any opt-out behind it (QA 2026-11-20).
+const SERVER_ONLY_REASONS: ReadonlySet<HelpReason> = new Set<HelpReason>(["opted_out"]);
+
 export async function handleHelpRequest(req: NextRequest, defaultReason: HelpReason | null): Promise<Response> {
   if (!isInternalKeyValid(req)) return Response.json({ error: "No autorizado" }, { status: 401 });
 
   const { instance, customerPhone, remoteJid, remoteJidAlt, reason: rawReason } = await req.json().catch(() => ({}));
   const reason = rawReason === undefined || rawReason === null || rawReason === "" ? defaultReason : rawReason;
-  if (!isHelpReason(reason)) return Response.json({ error: "reason_invalid" }, { status: 400 });
+  if (!isHelpReason(reason) || SERVER_ONLY_REASONS.has(reason)) return Response.json({ error: "reason_invalid" }, { status: 400 });
 
   const bot = await resolveBotTenant(instance);
   if (!bot) return Response.json({ error: "Instancia de WhatsApp no encontrada" }, { status: 404 });

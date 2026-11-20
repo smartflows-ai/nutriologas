@@ -23,9 +23,10 @@ const BARE_COMMANDS = new Set(["baja", "stop", "unsubscribe", "unsuscribe", "des
 
 // Unambiguous "stop messaging me" phrases. None mentions "cita", so they stand on their own.
 const STOP_PHRASES: RegExp[] = [
-  /\bno me escrib/, // no me escriban / escribas
-  /\bya no me escrib/,
-  /\bno me (manden|mande|mandes|envien|envie|envies|mandar|enviar)\b/,
+  // "no me escriban / escribas / escriba": a request. The past ("no me escribieron el link") is a complaint, not a stop.
+  /\bno me escrib(an|as|a|ir)\b/,
+  // "no me manden" alone or followed by more/nothing/messages. "No me manden la ubicacion" is about one thing, not a stop.
+  /\bno me (manden|mande|mandes|envien|envie|envies|mandar|enviar)(?: (mas|nada|ningun\w*|mensajes?|whatsapps?|whats|promociones|publicidad)\b|$)/,
   /\bdej[ae](r|n|s|me|nme|los)? de (escribir|enviar|mandar|molestar|contactar)/,
   /\bno (quiero|deseo)(?: recibir)?(?: mas)? mensaj/,
   /\bno me (contacten|contacte|contactes|contactar)/,

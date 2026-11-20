@@ -63,3 +63,29 @@ test("accents and extra spaces do not change the result", () => {
 test("a long message that merely contains 'baja' is not an opt-out", () => {
   assert.equal(isOptOut("vivo en baja y quiero una cita el lunes"), false);
 });
+
+// QA 2026-11-20: complaints and everyday requests that look like a stop but are not. A false positive blocks the
+// patient's reminders, turns the bot off and stops the team's own replies, so these must not trigger.
+const complaintsNotOptOut = [
+  "No me escribieron el link de la videollamada",
+  "el doctor ya no me escribió",
+  "no me escribio nadie",
+  "No me manden la ubicación, ya sé dónde es",
+  "No me envíe recordatorio, ya lo tengo anotado",
+  "no me mandaron la confirmación",
+  "no me enviaron el link",
+  "no me manden audio, mejor texto",
+];
+
+for (const text of complaintsNotOptOut) {
+  test(`complaint, not opt-out: "${text}"`, () => {
+    assert.equal(isOptOut(text), false);
+  });
+}
+
+const stillOptOut = ["no me escriban", "ya no me manden nada", "no me envien mas mensajes", "no me manden whatsapp"];
+for (const text of stillOptOut) {
+  test(`still an opt-out: "${text}"`, () => {
+    assert.equal(isOptOut(text), true);
+  });
+}

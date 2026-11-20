@@ -207,6 +207,7 @@ async function processVisit(visit: ReminderVisit, now: Date, deps: ReminderDeps,
     shouldHoldForQuietHours({
       localMin,
       minutesUntilAppt,
+      minutesUntilDeadline: asksToConfirm ? Math.round((deadline.getTime() - now.getTime()) / 60000) : null,
       quietStartMin: t.quietHoursStartMin ?? DEFAULT_QUIET_START_MIN,
       quietEndMin: t.quietHoursEndMin ?? DEFAULT_QUIET_END_MIN,
     })

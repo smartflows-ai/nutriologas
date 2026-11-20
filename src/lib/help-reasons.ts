@@ -16,7 +16,8 @@ export type HelpReason =
   | "online_link_missing"
   | "tool_loop"
   | "reminder_failed"
-  | "urgency";
+  | "urgency"
+  | "opted_out";
 
 interface HelpReasonInfo {
   readonly priority: HelpPriority;
@@ -42,6 +43,10 @@ export const HELP_REASONS: Readonly<Record<HelpReason, HelpReasonInfo>> = {
   tool_loop: { priority: HELP_PRIORITY.MEDIUM, labelKey: "toolLoop", enabled: false, pausesBot: false, tenantWide: false },
   reminder_failed: { priority: HELP_PRIORITY.MEDIUM, labelKey: "reminderFailed", enabled: false, pausesBot: false, tenantWide: false },
   urgency: { priority: HELP_PRIORITY.CRITICAL, labelKey: "urgency", enabled: false, pausesBot: true, tenantWide: false },
+  // The patient asked to stop messages (wa-optout.ts). The sync route already turns the bot off with its own pause
+  // reason, so this reason does not count as a hand-off pause: marking the chat handled keeps the bot off. Only
+  // "Reactivar mensajes" (after a person confirms with the patient) lifts it.
+  opted_out: { priority: HELP_PRIORITY.MEDIUM, labelKey: "optedOut", enabled: true, pausesBot: false, tenantWide: false },
 };
 
 export function isHelpReason(value: unknown): value is HelpReason {

@@ -4,6 +4,7 @@
 // The purpose is fixed to CUSTOMER_REPLY: a reply inside a conversation the customer started.
 import { isInternalKeyValid, resolveBotTenant } from "@/lib/bot";
 import { sendWhatsAppMessage } from "@/lib/whatsapp";
+import { botSendResponse } from "@/lib/messaging/bot-send-response";
 import { NextRequest } from "next/server";
 
 export async function POST(req: NextRequest) {
@@ -28,5 +29,7 @@ export async function POST(req: NextRequest) {
     purpose: "CUSTOMER_REPLY",
     idempotencyKey: messageKey ? `${messageKey}` : undefined,
   });
-  return Response.json({ success: result.success, reason: result.reason ?? null }, { status: result.success ? 200 : 502 });
+  // A reply the policy stopped on purpose answers 200 (blocked: true), so n8n does not alert the owner (QA 2026-11-20).
+  const answer = botSendResponse(result);
+  return Response.json(answer.body, { status: answer.status });
 }

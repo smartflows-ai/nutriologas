@@ -30,6 +30,7 @@ export async function GET(req: NextRequest) {
         helpRequestedAt: true,
         helpTakenAt: true,
         helpCustomerWroteAt: true,
+        optedOutAt: true,
         assignedToId: true,
         assignedTo: { select: { name: true, email: true } },
       }

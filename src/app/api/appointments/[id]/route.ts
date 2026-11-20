@@ -5,7 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { sendWhatsAppMessage } from "@/lib/whatsapp";
 import { apiError } from "@/lib/api-errors";
-import { cancelAppointment, softDeleteAppointment } from "@/lib/appointments-service";
+import { removeMirrorEvent, softDeleteAppointment } from "@/lib/appointments-service";
 import { findNonEditableField, parseNotesField, trailRoleOf } from "@/lib/appointment-admin-rules";
 import { editFromPanel, isPanelEdit, reopenFromPanel } from "@/lib/panel-appointments";
 import { notifyCancelledFromPanel, notifyMovedFromPanel, ownerConfirmationText } from "@/lib/reminder-actions";
@@ -121,11 +121,6 @@ export async function PATCH(
       dataToUpdate.notes = parsedNotes.data;
     }
 
-    // Cancellation removes the mirror event. (A new time goes through editFromPanel above.)
-    if (status === "CANCELLED" || status === "NO_SHOW") {
-      await cancelAppointment(tenantId, appointment, status);
-    }
-
     // Only a visit that is still not deleted: a delete in between wins (security review S2).
     const written = await prisma.appointment.updateMany({
       where: { id: params.id, tenantId, deletedAt: null },
@@ -143,12 +138,25 @@ export async function PATCH(
         : null;
     if (!updated) return apiError("appointment_not_found", 404);
 
-    // Hole 1: a visit cancelled from the panel tells the patient (same text as the release; best effort).
-    if (status === "CANCELLED") {
-      await notifyCancelledFromPanel(params.id, tenantId).catch((error: unknown) =>
-        console.error("[panel] cancel notice failed", error instanceof Error ? error.name : "error"),
+    // After the status is written: the mirror event goes away and (on a cancellation) the patient is told, at the
+    // same time. They used to run one after the other (calendar up to 8 s, WhatsApp up to 15 s) and the panel looked
+    // frozen (QA 2026-11-20). Both are best effort and never fail the cancellation.
+    const followUps: Promise<unknown>[] = [];
+    if (status === "CANCELLED" || status === "NO_SHOW") {
+      followUps.push(
+        removeMirrorEvent(tenantId, appointment).catch((error: unknown) =>
+          console.error("[panel] calendar event removal failed", error instanceof Error ? error.name : "error"),
+        ),
       );
     }
+    if (status === "CANCELLED") {
+      followUps.push(
+        notifyCancelledFromPanel(params.id, tenantId).catch((error: unknown) =>
+          console.error("[panel] cancel notice failed", error instanceof Error ? error.name : "error"),
+        ),
+      );
+    }
+    await Promise.all(followUps);
 
     // The visit's note also goes into the patient's history (one row per visit).
     if (canNotes && internalNotes !== undefined) {

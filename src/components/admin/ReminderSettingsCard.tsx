@@ -9,6 +9,8 @@ import { useTranslation } from "@/i18n";
 import { translateApiError } from "@/i18n/validation";
 import { fill } from "@/lib/utils";
 import NumberField from "@/components/ui/NumberField";
+import type { BusinessHours } from "@/lib/business-hours";
+import { clockOf, reminderQuietConflict } from "@/lib/reminder-quiet-hours";
 
 interface TimingSettings {
   remindersEnabled: boolean;
@@ -19,6 +21,8 @@ interface TimingSettings {
   messagingPolicyMode: "SHADOW" | "ENFORCE";
   quietHoursStartMin: number | null;
   quietHoursEndMin: number | null;
+  /** The weekly hours (read-only here, edited in /admin/negocio): used to check reminders against quiet hours. */
+  businessHours?: BusinessHours;
 }
 
 // Quiet-hours defaults when the tenant has not set them (same as src/lib/wa-pacing.ts).
@@ -98,7 +102,19 @@ export default function ReminderSettingsCard() {
   const leadOk = settings.reminderLeadMinutes >= 60 && settings.reminderLeadMinutes <= 4320 && settings.reminderLeadMinutes % 30 === 0;
   const deadlineOk =
     settings.confirmationDeadlineMinutes >= 30 && settings.confirmationDeadlineMinutes <= 2880 && settings.confirmationDeadlineMinutes % 30 === 0;
-  const settingsValid = leadOk && deadlineOk && settings.confirmationDeadlineMinutes < settings.reminderLeadMinutes;
+  // No reminder inside the quiet hours (QA 2026-11-20): the same rule the API checks on save.
+  const quietConflict =
+    settings.remindersEnabled && settings.businessHours
+      ? reminderQuietConflict(
+          settings.businessHours,
+          settings.reminderLeadMinutes,
+          settings.quietHoursStartMin ?? DEFAULT_QUIET_START_HOUR * 60,
+          settings.quietHoursEndMin ?? DEFAULT_QUIET_END_HOUR * 60,
+        )
+      : null;
+  const settingsValid =
+    leadOk && deadlineOk && settings.confirmationDeadlineMinutes < settings.reminderLeadMinutes && quietConflict === null;
+  const timingValid = leadOk && deadlineOk && settings.confirmationDeadlineMinutes < settings.reminderLeadMinutes;
 
   // Time the customer has between the reminder and the release.
   const windowMinutes = settings.reminderLeadMinutes - settings.confirmationDeadlineMinutes;
@@ -168,7 +184,7 @@ export default function ReminderSettingsCard() {
         </div>
       )}
 
-      {!settingsValid && (
+      {!timingValid && (
         <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 flex items-center gap-3 text-red-700 dark:text-red-300 text-sm">
           <AlertCircle size={16} className="shrink-0" />
           <span>{tx.reminderWindowInvalid}</span>
@@ -207,6 +223,16 @@ export default function ReminderSettingsCard() {
             </label>
           </div>
         </div>
+
+        {quietConflict && (
+          <div
+            role="alert"
+            className="p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 flex items-start gap-3 text-red-700 dark:text-red-300 text-sm"
+          >
+            <AlertCircle size={16} className="shrink-0 mt-0.5" />
+            <span>{fill(tx.reminderQuietConflict, { visit: clockOf(quietConflict.visitMin), reminder: clockOf(quietConflict.reminderMin) })}</span>
+          </div>
+        )}
 
         <div className="space-y-1.5">
           <label className="flex items-center justify-between gap-4">

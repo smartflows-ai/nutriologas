@@ -1,11 +1,13 @@
 // src/app/api/apps/whatsapp/chats/[id]/help/route.ts
 // POST: The team acts on a chat that needs help. `action`: "take" (I am in charge, the escalation stops),
 // "resolve" (handled) or "assign" (the owner puts an assistant in charge, `assigneeId` null leaves it unassigned).
+// "reactivate": the patient had asked to stop messages and a person confirmed they want them again; clears the
+// opt-out and records who and when (QA 2026-11-20).
 // The tenant and the person come from the session, never from the body.
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/permission-guard";
 import { apiError } from "@/lib/api-errors";
-import { assignPatch, canAssignHelp, resolvePatch, resumeBotPatch, takePatch } from "@/lib/help-actions";
+import { assignPatch, canAssignHelp, reactivateMessagingPatch, resolvePatch, resumeBotPatch, takePatch } from "@/lib/help-actions";
 
 const CHAT_SELECT = {
   id: true,
@@ -16,6 +18,7 @@ const CHAT_SELECT = {
   helpRequestedAt: true,
   helpTakenAt: true,
   assignedToId: true,
+  optedOutAt: true,
 } as const;
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
@@ -27,16 +30,22 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
   const body = await req.json().catch(() => null);
   const action = body?.action;
-  if (action !== "take" && action !== "resolve" && action !== "assign") {
+  if (action !== "take" && action !== "resolve" && action !== "assign" && action !== "reactivate") {
     return apiError("whatsapp_invalid_body", 400);
   }
 
-  const chat = await prisma.whatsAppChat.findFirst({ where: { id: params.id, tenantId }, select: { id: true, botEnabled: true, botPausedReason: true } });
+  const chat = await prisma.whatsAppChat.findFirst({
+    where: { id: params.id, tenantId },
+    select: { id: true, botEnabled: true, botPausedReason: true, helpReason: true, optedOutAt: true },
+  });
   if (!chat) return apiError("whatsapp_chat_not_found", 404);
 
   let data: Record<string, unknown>;
   let warning: string | null = null;
-  if (action === "take") {
+  if (action === "reactivate") {
+    if (!chat.optedOutAt) return apiError("whatsapp_not_opted_out", 409);
+    data = { ...reactivateMessagingPatch(userId, new Date(), chat.botPausedReason, chat.helpReason) };
+  } else if (action === "take") {
     data = takePatch(userId, new Date(), chat.botEnabled);
   } else if (action === "resolve") {
     // Handled: if the hand-off is what paused the bot, the bot answers this contact again.

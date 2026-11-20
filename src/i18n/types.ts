@@ -632,6 +632,7 @@ export interface Translations {
       reminderWindowLine: string;
       reminderWindowShort: string;
       reminderWindowInvalid: string;
+      reminderQuietConflict: string;
       quietHoursLabel: string;
       quietHoursHint: string;
       quietHoursFrom: string;
@@ -799,6 +800,7 @@ export interface Translations {
           toolLoop: string;
           reminderFailed: string;
           urgency: string;
+          optedOut: string;
         };
         needsHelp: string;
         waiting: string;
@@ -814,6 +816,10 @@ export interface Translations {
         actionError: string;
         pausedForPerson: string;
         pausedByTake: string;
+        optedOutNote: string;
+        reactivate: string;
+        reactivateConfirm: string;
+        reactivated: string;
         assignedTitle: string;
         assignedUrgent: string;
         assignedPlain: string;
@@ -1437,6 +1443,8 @@ export interface Translations {
     toastConfirmed: string;
     toastCompleted: string;
     toastCancelled: string;
+    cancelling: string;
+    working: string;
     toastNoShow: string;
     toastUpdateError: string;
     toastUpdateErrorNet: string;
@@ -1855,6 +1863,9 @@ export interface Translations {
     slot_unavailable: string;
     calendar_sync_failed: string;
     whatsapp_chat_not_found: string;
+    whatsapp_not_opted_out: string;
+    whatsapp_chat_opted_out: string;
+    reminder_in_quiet_hours: string;
     whatsapp_message_required: string;
     whatsapp_send_failed: string;
     whatsapp_invalid_body: string;
