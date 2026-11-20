@@ -480,6 +480,13 @@ export const en: Translations = {
   },
   crm: {
     waRisk: {
+      noPermissionBadge: "No WhatsApp permission",
+      noPermissionHint: "No WhatsApp permission is recorded for reminders. If the visit is not confirmed, call the patient.",
+      optedOutBadge: "Opted out of WhatsApp",
+      optedOutHint: "Asked not to receive WhatsApp messages. If they do not come to the visit, call the patient.",
+      bannerTitle: "WhatsApp sending is paused",
+      bannerDesc: "While it is paused, no reminder or notice leaves this business. Check the cause in WhatsApp settings.",
+      bannerLink: "Open WhatsApp settings",
       title: "WhatsApp sending status",
       desc: "How this business's WhatsApp sending stands. The safeguards reduce the risk of restrictions; none guarantees that WhatsApp will not restrict the number.",
       stateNormal: "Sending normally",

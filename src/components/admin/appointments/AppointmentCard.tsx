@@ -17,6 +17,7 @@ import {
   Trash2,
   User,
   Video,
+  ShieldAlert,
 } from "lucide-react";
 import { useTranslation } from "@/i18n";
 import { fill } from "@/lib/utils";
@@ -26,6 +27,7 @@ import { isSyntheticEmail } from "@/lib/patient-intake";
 import type { AppointmentItem, TrailEntry, VisitStatus } from "./types";
 import { useBusinessTimeZone } from "@/components/shared/BusinessTimeZone";
 import { clinicDateKeyOf } from "@/lib/clinic-time";
+import { needsPermissionBadge } from "@/lib/whatsapp-permission";
 import { canOfferReopen, canOfferRestore } from "@/lib/appointment-admin-rules";
 
 // Status colors are semantic (pending, confirmed, cancelled), so they stay fixed and do not follow the tenant theme.
@@ -132,6 +134,17 @@ export default function AppointmentCard({ appt, locale, canNotes, busy, onStatus
             >
               <AlertTriangle size={12} strokeWidth={2} aria-hidden="true" />
               {t.agenda.reminderNotDelivered}
+            </span>
+          )}
+
+          {/* Holes 4 and 5: no WhatsApp permission, or the patient asked not to receive messages. Icon and word, neutral. */}
+          {needsPermissionBadge(appt.whatsappPermission ?? "YES", { status: appt.status, customerPhone: appt.customerPhone, deleted: isDeleted }) && (
+            <span
+              title={appt.whatsappPermission === "OPTED_OUT" ? t.crm.waRisk.optedOutHint : t.crm.waRisk.noPermissionHint}
+              className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200"
+            >
+              <ShieldAlert size={12} strokeWidth={2} aria-hidden="true" />
+              {appt.whatsappPermission === "OPTED_OUT" ? t.crm.waRisk.optedOutBadge : t.crm.waRisk.noPermissionBadge}
             </span>
           )}
 

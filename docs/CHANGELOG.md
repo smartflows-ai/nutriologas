@@ -6,6 +6,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased] — 2026-11-19
 
+### Added (WhatsApp continuity: panel notices, paused-line banner, permission badges)
+- Cancelling or moving a visit from the panel now tells the patient (same cancellation text as the release; the new time for a move). Both go through the messaging policy, keyed per visit.
+- A paused line (or a business or global kill switch) shows a notice at the top of the panel, so the owner learns it without WhatsApp.
+- The agenda shows a neutral badge with an icon and a word when a visit has no WhatsApp permission recorded, or when the patient asked not to receive messages (`src/lib/whatsapp-permission.ts`).
+- Still open: bot replies from n8n, and the paused-line notice in WhatsApp (the owner's alerts also stop while the line is paused).
+
 ### Added (WhatsApp anti-ban core: one send path, policy, delivery rules, circuit breaker, status card)
 - One send path for every outbound WhatsApp message: `sendWhatsAppMessage` now calls the messaging service (`src/lib/messaging/service.ts`) with the production gateway (`gateway.ts`). Purposes: CUSTOMER_REPLY, TRANSACTIONAL and INTERNAL. Reminders and cancellations use idempotency keys.
 - Pure, tested rules: `policy.ts` (kill switches, risk states, opt-out, consent by mode, quiet hours, internal notices only to the team), `delivery.ts` (no resend of SENT or UNKNOWN, retry classes, circuit breaker, kill switch scope), `connection.ts` (connection events; a logout or forbidden is a possible restriction, never a confirmed ban). Tests: `tests/messaging-*.test.ts`.

@@ -18,6 +18,7 @@ import { parseBusinessHours, slotWithinHours } from "@/lib/business-hours";
 import { isBookable } from "@/lib/bookable";
 import { dropLinkedExternal, fetchExternalAppointments } from "@/lib/external-calendar";
 import { omitReminderError } from "@/lib/reminder-state";
+import { digitsOfJid, whatsappPermissionOf } from "@/lib/whatsapp-permission";
 import { can, omitClinicalNotes } from "@/lib/permissions";
 import { buildCalendarText } from "@/lib/appointment-calendar-text";
 import { guestEmailFor, parseAge, resolveModality } from "@/lib/patient-intake";
@@ -88,10 +89,15 @@ async function getAdminAgenda(req: NextRequest, tenantId: string, role: string) 
       : Promise.resolve([]),
   ]);
 
+  // Holes 4 and 5: the patients who asked not to receive WhatsApp messages, for the permission badge.
+  const optedOutChats = await prisma.whatsAppChat.findMany({ where: { tenantId, optedOutAt: { not: null } }, select: { remoteJid: true } });
+  const optedOutDigits = new Set(optedOutChats.map((c) => digitsOfJid(c.remoteJid)));
+
   // Clinical notes only reach roles with "appointments.notes" (STAFF sees the agenda without them).
   const format = (a: (typeof nativeAppointments)[number]) => ({
     ...omitClinicalNotes(role, omitReminderError(a)),
     source: "native" as const,
+    whatsappPermission: whatsappPermissionOf(a, a.customerPhone?.replace(/D/g, "") ?? null, optedOutDigits),
     customerName: a.customerName || a.user?.name || "Paciente",
     customerPhone: a.customerPhone || null,
     customerEmail: a.customerEmail || a.user?.email || null,

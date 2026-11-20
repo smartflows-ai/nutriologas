@@ -480,6 +480,13 @@ export const es: Translations = {
   },
   crm: {
     waRisk: {
+      noPermissionBadge: "Sin permiso de WhatsApp",
+      noPermissionHint: "No hay permiso registrado para recordatorios por WhatsApp. Si la cita no se confirma, conviene llamar al paciente.",
+      optedOutBadge: "Dio de baja de WhatsApp",
+      optedOutHint: "Pidió no recibir mensajes de WhatsApp. Si no viene a la cita, conviene llamar al paciente.",
+      bannerTitle: "Los envíos de WhatsApp están pausados",
+      bannerDesc: "Mientras esté pausado, ningún recordatorio ni aviso sale de este negocio. Revisa la causa en Configuración de WhatsApp.",
+      bannerLink: "Ver Configuración de WhatsApp",
       title: "Estado del envío de WhatsApp",
       desc: "Cómo está el envío de mensajes de este negocio. Las medidas reducen el riesgo de restricciones; ninguna garantiza que WhatsApp no restrinja el número.",
       stateNormal: "Enviando con normalidad",

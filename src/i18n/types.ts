@@ -362,6 +362,13 @@ export interface Translations {
   };
   crm: {
     waRisk: {
+      noPermissionBadge: string;
+      noPermissionHint: string;
+      optedOutBadge: string;
+      optedOutHint: string;
+      bannerTitle: string;
+      bannerDesc: string;
+      bannerLink: string;
       title: string;
       desc: string;
       stateNormal: string;

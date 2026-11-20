@@ -50,6 +50,8 @@ export interface AppointmentItem {
   pet?: { name: string } | null;
   reminderSentAt?: string | null;
   reminderAttempts?: number;
+  /** WhatsApp permission of the visit's patient (holes 4 and 5). */
+  whatsappPermission?: "YES" | "NONE" | "OPTED_OUT";
   /** Only in the "Eliminadas" list. */
   deletedAt?: string | null;
   trail?: TrailEntry[];

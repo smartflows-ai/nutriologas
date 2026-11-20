@@ -34,7 +34,7 @@ test("the tenant of a panel booking comes from the session, never from the body"
 
 test("an edit refuses the phone first, then runs the panel rules", () => {
   const phone = PATCH.indexOf("findNonEditableField(body)");
-  const edit = PATCH.indexOf("return editFromPanel(");
+  const edit = PATCH.indexOf("editFromPanel({");
   assert.ok(phone > 0 && phone < edit, "the phone must be refused before an edit runs");
   assert.match(CORE, /isEditableStatus\(appointment\.status\)/);
   assert.match(CORE, /deps\.updateVisit\(tenantId, appointment, changes, checks\.conflicts\)/);
