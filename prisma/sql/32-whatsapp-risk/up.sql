@@ -23,4 +23,4 @@ CREATE TABLE "platform_flags" (
   "updatedAt" TIMESTAMP(3) NOT NULL,
   CONSTRAINT "platform_flags_pkey" PRIMARY KEY ("id")
 );
-INSERT INTO "platform_flags" ("id") VALUES ('global') ON CONFLICT ("id") DO NOTHING;
+INSERT INTO "platform_flags" ("id", "updatedAt") VALUES ('global', CURRENT_TIMESTAMP) ON CONFLICT ("id") DO NOTHING;
