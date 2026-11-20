@@ -189,7 +189,7 @@ const INSTANCE_SETTINGS = {
 } as const;
 
 function webhookConfig(url: string, headers: Record<string, string>) {
-  return { enabled: true, url, headers, byEvents: false, base64: true, events: ["MESSAGES_UPSERT"] };
+  return { enabled: true, url, headers, byEvents: false, base64: true, events: ["MESSAGES_UPSERT", "CONNECTION_UPDATE"] };
 }
 
 export type CreateInstanceResult =

@@ -19,10 +19,13 @@ export type AttemptError =
   | { kind: "server"; status: number }
   | { kind: "client"; status: number }
   | { kind: "auth"; status: number }
-  | { kind: "logged_out" };
+  | { kind: "logged_out" }
+  /** The instance is not configured here (missing URL, key or instance name): a setup problem, not a provider signal. */
+  | { kind: "unavailable" };
 
-/** A failure that proves the message did not leave: safe to retry later. */
+/** A failure that proves the message did not leave: safe to retry later. A missing setup is retried once it is fixed. */
 export function isRetryable(error: AttemptError): boolean {
+  if (error.kind === "unavailable") return true;
   if (error.kind === "network") return true;
   if (error.kind === "server") return error.status >= 500;
   if (error.kind === "timeout") return !error.requestLeft;
@@ -54,6 +57,8 @@ export function breakerAfterSuccess(state: BreakerState): BreakerState {
 
 export function breakerAfterFailure(state: BreakerState, error: AttemptError, threshold = BREAKER_THRESHOLD): BreakerState {
   if (state.open) return state;
+  // A missing setup is not a provider signal: it never counts toward the breaker.
+  if (error.kind === "unavailable") return state;
   if (isRestrictionSignal(error)) {
     return { consecutiveFailures: state.consecutiveFailures + 1, open: true, reason: error.kind };
   }

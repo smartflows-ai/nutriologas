@@ -17,7 +17,16 @@ import { usableTimeZone } from "@/lib/tenant-time-zone";
 export const LOOKAHEAD_HOURS = 96; // covers reminders up to 72 h before a visit, plus a day of margin
 
 export const realReminderDeps: ReminderDeps = {
-  send: (visit, text) => sendWhatsAppMessage({ tenantId: visit.tenantId, to: visit.customerPhone as string, text }),
+  // The strict-consent and quiet-hours gate ran in reminder-run before this call, so consent is passed as given.
+  send: (visit, text) =>
+    sendWhatsAppMessage({
+      tenantId: visit.tenantId,
+      to: visit.customerPhone as string,
+      text,
+      purpose: "TRANSACTIONAL",
+      consent: "YES",
+      idempotencyKey: `reminder:${visit.id}`,
+    }),
   markSent: async (id, now) => {
     await prisma.appointment.update({ where: { id }, data: sentState(now) });
   },

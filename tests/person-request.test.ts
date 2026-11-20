@@ -9,7 +9,7 @@ import path from "node:path";
 import { asksForPerson, PERSON_REQUEST_PATTERN } from "../src/lib/person-request";
 
 const ROOT = path.resolve(__dirname, "..");
-const WORKFLOW = path.join(ROOT, "n8n", "workflows", "n8n-chat-workflow-v3.json");
+const WORKFLOW = path.join(ROOT, "n8n", "workflows", "NewAigent - WhatsApp Bot (Chat).json");
 const hasWorkflow = existsSync(WORKFLOW);
 const skip = hasWorkflow ? false : "local n8n workflow not present";
 

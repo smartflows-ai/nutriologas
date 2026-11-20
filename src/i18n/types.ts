@@ -361,6 +361,31 @@ export interface Translations {
     allRights: string;
   };
   crm: {
+    waRisk: {
+      title: string;
+      desc: string;
+      stateNormal: string;
+      stateObservation: string;
+      stateDegraded: string;
+      statePaused: string;
+      stateReview: string;
+      stateSuspended: string;
+      reasonRestriction: string;
+      reasonAuth: string;
+      reasonFailures: string;
+      reasonDisconnected: string;
+      businessPause: string;
+      businessPauseDesc: string;
+      platformPaused: string;
+      resumeTitle: string;
+      resumeNeed: string;
+      resumeConfirm: string;
+      resumeBtn: string;
+      saved: string;
+      saveError: string;
+      loading: string;
+      loadError: string;
+    };
     dashboard: {
       title: string;
       subtitle: string;

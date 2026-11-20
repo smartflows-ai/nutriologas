@@ -820,3 +820,11 @@ Correction of the two entries above: Google's Gmail API page lists `gmail.send` 
 Decision: the connection asks for `calendar.events`, `calendar.calendarlist.readonly`, `gmail.send`, `userinfo.email` and `userinfo.profile`, and nothing else. The calendar list is read again, because `calendarList.list` does not accept `calendar.events`: without `calendar.calendarlist.readonly` the readers fell back to the primary calendar, silently. `spreadsheets.readonly` stays removed.
 
 Consequences: accounts connected before this change read only the primary calendar until they connect again. The consent screen needs the review of three sensitive scopes, with one justification and one demonstration per scope.
+
+## 2026-11-20 — Anti-ban core: one send path, policy, circuit breaker (branch feat/whatsapp-antiban-core)
+
+Decision: every outbound WhatsApp message goes through one service with a pure policy and pure delivery rules. Kill switches and risk states stop every purpose; opt-out blocks in both modes; consent is measured in SHADOW and blocked in ENFORCE; a missing setup is retried, never counted as an attempt; a timeout after the request left is UNKNOWN and is never resent blindly; a logout or forbidden on close is a possible restriction that pauses the instance until a person reviews it.
+
+Why: a ban is the most expensive failure for the business, and the preventable causes are known (bursts, loops, cold messages, retries after unknown outcomes, sending on a logged-out session). The safeguards reduce that risk. They are not a guarantee, and no text in the product says they are.
+
+Consequences: the migrations 31 (outbox) and 32 (risk) are not in production. The code that uses them must not be deployed before them. The n8n header secret, the chat workflow and a drain job for held messages are still open. Privacy text: opt-out only, not consent, until ENFORCE is on.

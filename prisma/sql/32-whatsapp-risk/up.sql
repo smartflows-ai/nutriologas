@@ -20,7 +20,7 @@ ALTER TABLE "tenants" ADD COLUMN "whatsappKillSwitch" BOOLEAN NOT NULL DEFAULT F
 CREATE TABLE "platform_flags" (
   "id" TEXT NOT NULL DEFAULT 'global',
   "globalKillSwitch" BOOLEAN NOT NULL DEFAULT FALSE,
-  "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP(3) NOT NULL,
   CONSTRAINT "platform_flags_pkey" PRIMARY KEY ("id")
 );
 INSERT INTO "platform_flags" ("id") VALUES ('global') ON CONFLICT ("id") DO NOTHING;

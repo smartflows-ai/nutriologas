@@ -31,7 +31,8 @@ export async function POST(
   const recipient = chat.remoteJid.endsWith("@s.whatsapp.net")
     ? chat.remoteJid.split("@")[0]
     : chat.remoteJid;
-  const sent = await sendWhatsAppMessage({ tenantId, to: recipient, text });
+  // The owner answers a conversation the customer started: a customer reply, no visit consent needed.
+  const sent = await sendWhatsAppMessage({ tenantId, to: recipient, text, purpose: "CUSTOMER_REPLY" });
   if (!sent.success) {
     console.error("[whatsapp/send] Owner message failed:", sent.reason);
     return apiError("whatsapp_send_failed", 502);

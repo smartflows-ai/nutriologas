@@ -168,6 +168,7 @@ export function getPrivacyPolicy(lang: Lang, subject?: LegalSubject): LegalDocum
           ? [
               "Agendar, confirmar, reprogramar y cancelar tus citas, y procesar tus pedidos y pagos.",
               "Enviarte recordatorios y confirmaciones por WhatsApp.",
+              "Si ya no quieres recibir mensajes de WhatsApp de este negocio, responde BAJA o STOP: dejaremos de enviarte recordatorios y mensajes, y el negocio lo verá en su panel.",
               "Responder tus mensajes por medio de un asistente automático, y pasarte con una persona cuando sea necesario.",
               "Cancelación automática: si el negocio pide confirmar la cita y no respondes antes de la hora límite que se te indica, la cita se cancela y el horario queda libre. Recibirás un aviso.",
               "Prevenir fraudes y accesos no autorizados.",
@@ -374,6 +375,7 @@ export function getPrivacyPolicy(lang: Lang, subject?: LegalSubject): LegalDocum
         ? [
             "Scheduling, confirming, rescheduling and cancelling your appointments, and processing your orders and payments.",
             "Sending you reminders and confirmations on WhatsApp.",
+            "If you no longer want WhatsApp messages from this business, reply STOP: we will stop sending you reminders and messages, and the business will see it in its panel.",
             "Answering your messages through an automated assistant, and passing you to a person when needed.",
             "Automatic cancellation: if the business asks you to confirm the appointment and you do not reply before the deadline you are given, the appointment is cancelled and the slot is freed. You will receive a notice.",
             "Preventing fraud and unauthorized access.",

@@ -6,6 +6,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased] — 2026-11-19
 
+### Added (WhatsApp anti-ban core: one send path, policy, delivery rules, circuit breaker, status card)
+- One send path for every outbound WhatsApp message: `sendWhatsAppMessage` now calls the messaging service (`src/lib/messaging/service.ts`) with the production gateway (`gateway.ts`). Purposes: CUSTOMER_REPLY, TRANSACTIONAL and INTERNAL. Reminders and cancellations use idempotency keys.
+- Pure, tested rules: `policy.ts` (kill switches, risk states, opt-out, consent by mode, quiet hours, internal notices only to the team), `delivery.ts` (no resend of SENT or UNKNOWN, retry classes, circuit breaker, kill switch scope), `connection.ts` (connection events; a logout or forbidden is a possible restriction, never a confirmed ban). Tests: `tests/messaging-*.test.ts`.
+- Routes: `GET/PATCH /api/apps/whatsapp/risk` (status and business pause), `POST /api/apps/whatsapp/risk/resume` (after a confirmation), `POST /api/internal/whatsapp/connection` (connection events). The Evolution webhook subscribes to `CONNECTION_UPDATE`.
+- Status card in the WhatsApp settings tab (`WhatsAppRiskCard.tsx`). Business privacy text: a patient can stop messages by replying BAJA or STOP (ES and EN; needs a human legal review).
+- Schema: `prisma/sql/31-whatsapp-outbox` and `prisma/sql/32-whatsapp-risk`, additive, verified up and down on the local demo database. **Not applied to production.**
+- Bot replies: `POST /api/internal/whatsapp/send` (internal key, purpose fixed to CUSTOMER_REPLY, idempotent on the bot's own "bot-" key). The n8n workflow still calls Evolution directly until it is switched to this route (needs approval and an import).
+- Not done: the n8n header-secret check and a drain job for held messages.
+
 ### Added (WhatsApp ban prevention: strict consent, opt-out, quiet hours, send pacing)
 - Three pure, tested decision modules: `src/lib/wa-optout.ts` (detects "baja/stop/ya no me escribas" and never fires on "cancelar mi cita"), `src/lib/wa-pacing.ts` (quiet hours with midnight wrap, and a per-instance per-run send cap), `src/lib/wa-consent.ts` (strict consent with SHADOW/ENFORCE and a grandfather cutover). Tests: `tests/wa-optout.test.ts`, `wa-pacing.test.ts`, `wa-consent.test.ts`, plus new gate cases in `reminder-run.test.ts`.
 - The reminder job (`src/lib/reminder-run.ts`, `reminder-data.ts`) applies the gates: a visit blocked by consent (ENFORCE only) sends no reminder and is never released (counts as confirmed); opt-out blocks in both modes; a night-time reminder is held for the morning when the visit allows it; at most 3 messages per WhatsApp number per 15-minute run, the rest deferred. The run response adds `blocked`, `shadowWouldBlock` and `deferred` counts. SHADOW (the default) measures what would be blocked without blocking anything.

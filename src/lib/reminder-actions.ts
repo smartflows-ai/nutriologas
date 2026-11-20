@@ -19,6 +19,8 @@ export interface VisitForAction {
   productName: string;
   tenantName: string;
   ownerName?: string | null;
+  /** Consent captured for this visit (ban prevention). Missing = no consent recorded. */
+  whatsappConsentAt?: Date | null;
   messageLanguage: string;
   /** The business time zone (IANA, ticket #111). */
   timeZone: string;
@@ -58,6 +60,10 @@ export async function releaseVisit(
   const sent = await sendWhatsAppMessage({
     tenantId: visit.tenantId,
     to: visit.customerPhone,
+    // The release gate already ran for this visit (a visit without consent is never released in ENFORCE).
+    purpose: "TRANSACTIONAL",
+    consent: "YES",
+    idempotencyKey: `cancel:${visit.id}`,
     text: cancellationText(visit.cancellationTemplate, visitValues(visit), visit.messageLanguage, (problem) =>
       console.warn(`[reminders] stored cancellation text ignored (${problem}) for tenant ${visit.tenantId}; default used`),
     ),
@@ -89,6 +95,8 @@ export async function confirmVisit(visit: VisitForAction, now: Date = new Date()
       tenantId: visit.tenantId,
       to: visit.customerPhone,
       text: ownerConfirmationText(visit),
+      purpose: "TRANSACTIONAL",
+      consent: visit.whatsappConsentAt ? "YES" : "NO",
     });
   }
 }

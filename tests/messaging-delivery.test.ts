@@ -28,7 +28,8 @@ test("a QUEUED message can be attempted; a FAILED one only while attempts remain
   assert.equal(canAttempt({ status: "FAILED", attempts: 3, maxAttempts: 3 }), false);
 });
 
-test("network and 5xx errors are retryable; a 4xx client error is not", () => {
+test("a missing setup is retryable once fixed; network and 5xx errors too; a 4xx client error is not", () => {
+  assert.equal(isRetryable({ kind: "unavailable" }), true);
   assert.equal(isRetryable({ kind: "network" }), true);
   assert.equal(isRetryable({ kind: "server", status: 503 }), true);
   assert.equal(isRetryable({ kind: "client", status: 400 }), false);

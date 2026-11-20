@@ -20,7 +20,7 @@ CREATE TABLE "whatsapp_outbox" (
   "body" TEXT,
   "sentAt" TIMESTAMP(3),
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP(3) NOT NULL,
   CONSTRAINT "whatsapp_outbox_pkey" PRIMARY KEY ("id"),
   CONSTRAINT "whatsapp_outbox_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );

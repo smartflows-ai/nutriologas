@@ -155,7 +155,7 @@ test("createInstance sends the required flags and webhook headers, and returns t
   assert.equal(body.rejectCall, true);
   assert.equal(body.groupsIgnore, true);
   assert.equal(body.syncFullHistory, false);
-  assert.deepEqual(body.webhook.events, ["MESSAGES_UPSERT"]);
+  assert.deepEqual(body.webhook.events, ["MESSAGES_UPSERT", "CONNECTION_UPDATE"]);
   assert.deepEqual(body.webhook.headers, { jwt_key: "S" });
 });
 

@@ -62,7 +62,8 @@ export const realHelpDeps: HelpDeps = {
       select: { whatsappNumber: true },
     });
     if (!user?.whatsappNumber) return false;
-    return (await sendWhatsAppMessage({ tenantId, to: user.whatsappNumber, text })).success;
+    // A hand-off notice to the assistant's own number: internal, no customer consent.
+    return (await sendWhatsAppMessage({ tenantId, to: user.whatsappNumber, text, purpose: "INTERNAL", recipientIsTeam: true })).success;
   },
 
   sendToOwner: (tenantId, text) => notifyTenantOwner(tenantId, text),

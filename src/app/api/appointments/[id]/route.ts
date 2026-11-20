@@ -184,10 +184,13 @@ export async function PATCH(
           tenant.messageLanguage
         );
 
+        // A visit confirmation to the patient: transactional, consent taken from the visit (ENFORCE blocks without it).
         const waRes = await sendWhatsAppMessage({
           tenantId,
           to: patientPhone,
           text: message,
+          purpose: "TRANSACTIONAL",
+          consent: updated.whatsappConsentAt ? "YES" : "NO",
         });
 
         whatsappSent = waRes.success;
