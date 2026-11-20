@@ -103,18 +103,19 @@ export const prismaGateway: Gateway = {
     };
   },
 
-  async sendText(tenantId, to, text): Promise<SendTextOutcome> {
+  async sendText(tenantId, to, text, options): Promise<SendTextOutcome> {
     const cfg = evolutionConfigFromEnv();
     const app = await instanceOf(tenantId);
     const instance = app?.waInstanceName ?? app?.waInstanceId ?? null;
     if (!cfg || !app || !instance) return { ok: false, error: { kind: "unavailable" } };
 
+    // The typing pause makes Evolution hold the request for 1.5 to 8 seconds: only the bot's replies use it.
     const res = await evolutionSendText(cfg, {
       instance,
       apiKey: instanceKeyOf(app.accessToken, cfg.globalKey),
       number: to,
       text,
-      delayMs: typingDelayMs(text),
+      delayMs: options?.typing ? typingDelayMs(text) : undefined,
     });
     if (res.ok) return { ok: true, messageId: res.messageId };
     return { ok: false, error: attemptErrorOf(res) };

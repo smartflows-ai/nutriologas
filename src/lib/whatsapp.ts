@@ -37,6 +37,8 @@ export interface SendWhatsAppParams {
   urgent?: boolean;
   /** True when `to` is one of the business's own numbers. */
   recipientIsTeam?: boolean;
+  /** The bot's replies pause like a person typing; the owner's panel messages do not wait. Defaults to false. */
+  typing?: boolean;
   /** Same key = same message: a retry of the same send is never delivered twice. Without it, every call is new. */
   idempotencyKey?: string;
 }
@@ -64,6 +66,7 @@ export async function sendWhatsAppMessage({
   consent = "NO",
   urgent = false,
   recipientIsTeam = false,
+  typing = false,
   idempotencyKey,
 }: SendWhatsAppParams): Promise<SendWhatsAppResult> {
   try {
@@ -82,6 +85,7 @@ export async function sendWhatsAppMessage({
         consent,
         urgent,
         recipientIsTeam,
+        typing,
       },
       { store: prismaOutboxStore, gateway: prismaGateway, now: () => new Date() },
     );

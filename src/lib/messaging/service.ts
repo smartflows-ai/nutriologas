@@ -22,6 +22,8 @@ export type OutboundRequest = {
   urgent?: boolean;
   /** True when `to` is one of the business's own numbers. */
   recipientIsTeam?: boolean;
+  /** Bot replies pause like a person typing before they are sent; an owner's panel message does not wait. */
+  typing?: boolean;
   maxAttempts?: number;
 };
 
@@ -86,7 +88,7 @@ export type SendTextOutcome = { ok: true; messageId: string | null } | { ok: fal
 
 export interface Gateway {
   context(tenantId: string, to: string): Promise<GatewayContext>;
-  sendText(tenantId: string, to: string, text: string): Promise<SendTextOutcome>;
+  sendText(tenantId: string, to: string, text: string, options?: { typing: boolean }): Promise<SendTextOutcome>;
   /** Persists the result of an attempt: the breaker and the risk state live with the instance. */
   recordAttempt(tenantId: string, outcome: { ok: true } | { ok: false; error: AttemptError }): Promise<void>;
 }
@@ -201,7 +203,7 @@ export async function sendOutbound(
   const attemptsUsed = row.attempts + 1;
   await deps.store.update(row.id, { attempts: attemptsUsed, policyDecision: verdict.decision });
 
-  const result = await deps.gateway.sendText(req.tenantId, req.to, req.text);
+  const result = await deps.gateway.sendText(req.tenantId, req.to, req.text, { typing: req.typing === true });
   if (result.ok) {
     await deps.store.update(row.id, {
       status: "SENT",

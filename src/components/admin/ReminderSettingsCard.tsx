@@ -137,7 +137,7 @@ export default function ReminderSettingsCard() {
           type="checkbox"
           checked={settings.remindersEnabled}
           onChange={(e) => update({ remindersEnabled: e.target.checked })}
-          className="w-5 h-5 accent-primary"
+          className="check-themed w-5 h-5 mt-0"
         />
       </label>
 
@@ -162,7 +162,7 @@ export default function ReminderSettingsCard() {
           type="checkbox"
           checked={settings.confirmationRequired}
           onChange={(e) => update({ confirmationRequired: e.target.checked })}
-          className="w-5 h-5 accent-primary"
+          className="check-themed w-5 h-5 mt-0"
         />
       </label>
       {settings.confirmationRequired && (
@@ -239,7 +239,7 @@ export default function ReminderSettingsCard() {
             <span className="text-sm font-medium text-gray-900 dark:text-white">{tx.strictConsentLabel}</span>
             <input
               type="checkbox"
-              className="w-5 h-5 accent-primary shrink-0"
+              className="check-themed w-5 h-5 mt-0"
               checked={settings.messagingPolicyMode === "ENFORCE"}
               onChange={(e) => update({ messagingPolicyMode: e.target.checked ? "ENFORCE" : "SHADOW" })}
             />

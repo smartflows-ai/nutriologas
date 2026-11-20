@@ -4,6 +4,25 @@ All notable changes to Presto AI are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased] — 2026-11-20 (third round)
+
+### Changed
+- Messages the owner sends from the panel no longer wait for the typing pause (1.5 to 8 seconds). Only the bot's replies keep it (`typing` option in `sendOutbound`, the gateway and `sendWhatsAppMessage`). The internal send route used by n8n sets it.
+- "Reactivar mensajes" is confirmed inside the screen with a checkbox ("Confirmé con el paciente…") instead of the browser's confirm dialog. The button stays disabled until it is ticked.
+- The business send switch in "Estado del envío de WhatsApp" is a checkbox row, like the reminders card. Its label is "Envíos de WhatsApp de este negocio"; unchecking pauses every outgoing message of the business.
+- Checkboxes of the WhatsApp status card, the reminders card and the reactivate band use the shared class `check-themed`, so unchecked boxes show the neutral border and checked boxes take the tenant's primary color (`accent-primary` only painted the checked state).
+- The schedule header has one calendar entry point: the sync state with the account ("Google Calendar sincronizado" or "Outlook Calendar sincronizado", a link to App Store) or "Conectar calendario" when nothing is connected. The separate "Integrations" and "Connect Google Calendar" buttons are gone. Refresh and "Nueva cita" are at the right; "Nueva cita" is the last one.
+- The service duration tag in Products is neutral gray, as the appointment tags in the agenda.
+
+### Fixed
+- The "Asignar a" label in the help band no longer wraps onto two lines.
+- Production database check (read-only, 2026-11-20): migration `prisma/sql/35-message-key-drop-global` is applied (the global `keyId` index is gone). The order against the deploy of PR #134 was not verified.
+- The "Saved" message of the sending switch sits beside the checkbox, on the same edge.
+- `.env.example` names the internal key `INTERNAL_API_KEY`, the name the code reads (it said `INTERNAL_API_SECRET`).
+
+### Tests
+- `tests/messaging-typing.test.ts`, `tests/reactivate-confirm-wiring.test.ts`, `tests/wa-risk-card-wiring.test.ts`. The suite passes (1153 tests).
+
 ## [Unreleased] — 2026-11-20 (second round)
 
 ### Fixed

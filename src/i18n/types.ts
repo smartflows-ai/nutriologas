@@ -381,7 +381,7 @@ export interface Translations {
       reasonAuth: string;
       reasonFailures: string;
       reasonDisconnected: string;
-      businessPause: string;
+      businessSends: string;
       businessPauseDesc: string;
       platformPaused: string;
       resumeTitle: string;
@@ -819,7 +819,7 @@ export interface Translations {
         pausedByTake: string;
         optedOutNote: string;
         reactivate: string;
-        reactivateConfirm: string;
+        reactivateCheck: string;
         reactivated: string;
         assignedTitle: string;
         assignedUrgent: string;
@@ -1382,9 +1382,9 @@ export interface Translations {
     title: string;
     subtitle: string;
     gcalSynced: string;
+    connectCalendar: string;
     outlookSynced: string;
     calendarAccount: string;
-    connectGcal: string;
     reload: string;
     integrations: string;
     kpiTotal: string;

@@ -87,7 +87,7 @@ N8N_API_KEY=                     # n8n > Settings > n8n API. Without Enterprise 
 # ─── Internal APIs (n8n → Next.js) ──────────────────────────────────────────────
 # IMPORTANT: All endpoints under /api/internal/ verify this header: x-internal-key
 INTERNAL_API_KEY=                # openssl rand -hex 32
-# Note: in .env.example it may appear as INTERNAL_API_SECRET — they must be the same value
+# Note: .env.example names it INTERNAL_API_KEY (the name the code reads). Do not use INTERNAL_API_SECRET
 
 # ─── WhatsApp Evolution API ─────────────────────────────────────────────────────
 EVOLUTION_API_URL=              # https with a valid certificate (the app no longer accepts invalid certs)

@@ -557,7 +557,7 @@ export default function ProductosPage() {
                   <div className="flex gap-2 mt-1">
                     <span className={`badge text-xs ${p.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>{p.isActive ? t.crm.products.active : t.crm.products.inactive}</span>
                     {p.itemType === "SERVICE" ? (
-                      <span className="badge text-xs bg-gray-100 dark:bg-gray-800 text-primary dark:bg-gray-800 dark:text-primary flex items-center gap-1">
+                      <span className="badge text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 flex items-center gap-1">
                         <Clock size={11} /> {p.durationMinutes ? fill(t.productUi.minutesShort, { minutes: p.durationMinutes }) : t.productUi.service}
                       </span>
                     ) : (
