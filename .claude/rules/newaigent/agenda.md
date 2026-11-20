@@ -20,6 +20,7 @@ paths:
   - Located on the left for quick navigation by month and day.
   - Shows indicator dots on days that have appointments (from any source).
   - Clicking a day instantly filters the unified list to that date.
+- **Header**: the title with its icon on the left. On the right: one calendar control (the sync state with the account, linked to App Store; or "Conectar calendario" when nothing is connected), the refresh button and "Nueva cita" as the last, primary action. There is no separate "Integrations" button: the sidebar's App Store covers it. The sync state is hidden on phones.
 - **No duplicate grids**: The separate FullCalendar view at the bottom of the page was removed to avoid numeric discrepancies and ensure all appointments share the same list and KPI metrics (`TOTAL`, `POR CONFIRMAR` (to confirm), `CONFIRMADAS` (confirmed), `COMPLETADAS` (completed)). The page opens on today's appointments; the date chips (Hoy, a picked day, Todas las fechas) and the status chips are two labeled rows. The KPI cards and the status chip counts follow the chosen day (the whole month when no day is chosen) and ignore the status and search filters (`GET /api/appointments`); the calendar dots always cover the month.
 - **Badges and actions by source**:
   - Google Calendar appointments: Show the official `Google Calendar` badge, event data and a direct **"Abrir en Calendar ↗"** (Open in Calendar) button.

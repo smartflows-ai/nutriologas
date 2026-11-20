@@ -5,6 +5,22 @@
 
 ---
 
+## 2026-11-20 — Claude — Panel messages skip the typing pause; only bot replies keep it
+
+Decision: Evolution's `delay` (the 1.5 to 8 seconds of "typing") is sent only for the bot's replies. The owner's message from the panel goes out at once. Reason: the request waits for Evolution to finish the pause, so the owner saw the screen freeze after pressing Enter. The bot keeps its human-like pause through `/api/internal/whatsapp/send` (`typing: true`).
+
+## 2026-11-20 — Claude — Switches are checkboxes; actions with a consequence confirm inside the screen, not with a native dialog
+
+Decision: an on/off setting uses a checkbox row (the label on the left, the control on the right, saved on change), like the reminders card. The business send switch is a checkbox, not a button, because a button whose label changes with the state shows two things at once. Reactivating messages after an opt-out (a consent) is confirmed with a ticked checkbox that enables the button; no `confirm()` dialog, which blocks the tab and does not match the rest of the screens. Reanudar envíos keeps its own confirmation.
+
+## 2026-11-20 — Claude — Checkboxes take the tenant's color in both states (`check-themed`)
+
+Decision: `accent-primary` only paints the checked box; unchecked boxes kept the browser's gray. The shared class `check-themed` (`src/app/globals.css`) gives a neutral border unchecked and the tenant's primary checked, with a white check mark. Use it for every new checkbox. Existing checkboxes in business and products are not migrated yet.
+
+## 2026-11-20 — Claude — One calendar entry point in the schedule header
+
+Decision: "Google Calendar sincronizado" / "Outlook Calendar sincronizado" (with the account and a check icon) is the only calendar control in the header, and it links to App Store. When nothing is connected the same control reads "Conectar calendario". The separate "Integrations" button was removed: the sidebar already has App Store, and both buttons led to the same page. The text is generic because Outlook is also supported, not only Google.
+
 ## 2026-11-18 — Claude — Keep Evolution/Baileys, harden it (D1), do not migrate to Meta Cloud API
 
 Decision: stay on Evolution API + Baileys. Meta Cloud API was priced (since Oct 2026 it also charges bot replies after 1,000/number/month; a full Pro tenant ≈ MXN 1,425/month) and deferred on cost. Evolution must not sit in front of Meta either. The owner's master prompt sets the goal: reduce preventable risk, keep the provider replaceable, never claim ban protection, never evade (no number rotation, no artificial warm-up). Plan in four deliveries (security; central messaging service + outbox + shadow policy; strict consent + opt-out + quiet hours; risk states + circuit breaker + kill switches).
