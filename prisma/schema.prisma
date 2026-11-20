@@ -780,7 +780,8 @@ model WhatsAppOutbox {
   id                String    @id @default(uuid())
   tenantId          String
   tenant            Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  recipientKey      String    // last four digits only: the full number is never stored here
+  recipientKey      String    // last four digits only, for the audit
+  recipient         String?   // full number, ONLY while the message is held for quiet hours; cleared when sent or closed
   purpose           String    // CUSTOMER_REPLY | TRANSACTIONAL | INTERNAL | MARKETING
   kind              String    @default("immediate")
   status            String    @default("QUEUED") // QUEUED | SENT | FAILED | UNKNOWN | BLOCKED

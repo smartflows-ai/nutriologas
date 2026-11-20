@@ -7,6 +7,7 @@ CREATE TABLE "whatsapp_outbox" (
   "id" TEXT NOT NULL,
   "tenantId" TEXT NOT NULL,
   "recipientKey" TEXT NOT NULL,
+  "recipient" TEXT,
   "purpose" TEXT NOT NULL,
   "kind" TEXT NOT NULL DEFAULT 'immediate',
   "status" TEXT NOT NULL DEFAULT 'QUEUED',

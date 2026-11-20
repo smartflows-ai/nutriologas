@@ -13,7 +13,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Status card in the WhatsApp settings tab (`WhatsAppRiskCard.tsx`). Business privacy text: a patient can stop messages by replying BAJA or STOP (ES and EN; needs a human legal review).
 - Schema: `prisma/sql/31-whatsapp-outbox` and `prisma/sql/32-whatsapp-risk`, additive, verified up and down on the local demo database. **Not applied to production.**
 - Bot replies: `POST /api/internal/whatsapp/send` (internal key, purpose fixed to CUSTOMER_REPLY, idempotent on the bot's own "bot-" key). The n8n workflow still calls Evolution directly until it is switched to this route (needs approval and an import).
-- Not done: the n8n header-secret check and a drain job for held messages.
+- Held messages (quiet hours) are sent later by the reminder job (`drainHeld`), still under the policy and the breaker.
+- Webhook secret: the first guard of both workflows drops events whose `jwt_key` header is not the secret of that environment.
+- Consent: confirmations and releases pass the visit's consent into the policy.
+- Platform line: the global kill switch stops the platform sender.
+- Not done: the bot send node switch in n8n, the per-instance key migration for existing instances, and applying migrations 30 to 32 in production.
 
 ### Added (WhatsApp ban prevention: strict consent, opt-out, quiet hours, send pacing)
 - Three pure, tested decision modules: `src/lib/wa-optout.ts` (detects "baja/stop/ya no me escribas" and never fires on "cancelar mi cita"), `src/lib/wa-pacing.ts` (quiet hours with midnight wrap, and a per-instance per-run send cap), `src/lib/wa-consent.ts` (strict consent with SHADOW/ENFORCE and a grandfather cutover). Tests: `tests/wa-optout.test.ts`, `wa-pacing.test.ts`, `wa-consent.test.ts`, plus new gate cases in `reminder-run.test.ts`.

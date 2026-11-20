@@ -13,11 +13,14 @@ import {
   type SendTextOutcome,
 } from "../src/lib/messaging/service";
 import type { AttemptError, OutboxStatus } from "../src/lib/messaging/delivery";
+import type { MessagePurpose } from "../src/lib/messaging/policy";
+import { drainHeld } from "../src/lib/messaging/service";
 
 const NOW = new Date("2026-11-20T15:00:00Z");
 
 function fakeStore() {
-  const rows = new Map<string, OutboxRow & { key: string; tenantId: string; body: string | null; lastError: string | null; providerMessageId: string | null }>();
+  type Stored = OutboxRow & { key: string; tenantId: string; body: string | null; lastError: string | null; providerMessageId: string | null; recipient: string | null; scheduledAt: Date | null; purpose: MessagePurpose };
+  const rows = new Map<string, Stored>();
   let seq = 0;
   const store: OutboxStore = {
     async find(tenantId, key) {
@@ -36,6 +39,9 @@ function fakeStore() {
         body: input.body,
         lastError: null,
         providerMessageId: null,
+        recipient: input.recipient,
+        scheduledAt: input.scheduledAt,
+        purpose: input.purpose,
       });
       return { id, status: input.status, attempts: 0, maxAttempts: input.maxAttempts };
     },
@@ -43,6 +49,12 @@ function fakeStore() {
       const row = rows.get(id);
       if (!row) throw new Error("no row " + id);
       Object.assign(row, Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined)));
+    },
+    async listHeld(now, limit) {
+      return Array.from(rows.values())
+        .filter((r) => r.status === "QUEUED" && r.scheduledAt !== null && r.scheduledAt.getTime() <= now.getTime() && r.recipient && r.body)
+        .slice(0, limit)
+        .map((r) => ({ id: r.id, tenantId: r.tenantId, idempotencyKey: r.key, purpose: r.purpose, recipient: r.recipient as string, body: r.body as string }));
     },
   };
   return { store, rows };
@@ -230,6 +242,7 @@ test("the outbox receives only the last four digits of the recipient, never the 
   const spy: OutboxStore = {
     find: store.find,
     update: store.update,
+    listHeld: store.listHeld,
     async create(input) {
       received.push(input.recipientKey);
       return store.create(input);
@@ -247,4 +260,60 @@ test("a shadow-blocked message is still sent, and the outbox records the decisio
   await sendOutbound({ ...base, consent: "NO" }, { store, gateway, now: () => NOW });
   const row = Array.from(rows.values())[0];
   assert.equal(row.status as OutboxStatus, "SENT");
+});
+
+test("a held message is sent once the quiet hours end, with the same key and the stored text", async () => {
+  const { store } = fakeStore();
+  const { gateway, calls, context } = fakeGateway({ context: { quietHours: true } });
+  await sendOutbound({ ...base }, { store, gateway, now: () => NOW });
+  assert.equal(calls.length, 0);
+  context.quietHours = false;
+  const drained = await drainHeld({ store, gateway, now: () => NOW });
+  assert.deepEqual(drained, { checked: 1, sent: 1, held: 0, failed: 0 });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0], base.to);
+});
+
+test("a second drain never sends a held message twice", async () => {
+  const { store } = fakeStore();
+  const { gateway, calls, context } = fakeGateway({ context: { quietHours: true } });
+  await sendOutbound({ ...base }, { store, gateway, now: () => NOW });
+  context.quietHours = false;
+  await drainHeld({ store, gateway, now: () => NOW });
+  const again = await drainHeld({ store, gateway, now: () => NOW });
+  assert.equal(again.checked, 0);
+  assert.equal(calls.length, 1);
+});
+
+test("a message still in quiet hours stays held when drained", async () => {
+  const { store } = fakeStore();
+  const { gateway, calls } = fakeGateway({ context: { quietHours: true } });
+  await sendOutbound({ ...base }, { store, gateway, now: () => NOW });
+  const drained = await drainHeld({ store, gateway, now: () => NOW });
+  assert.deepEqual(drained, { checked: 1, sent: 0, held: 1, failed: 0 });
+  assert.equal(calls.length, 0);
+});
+
+test("a kill switch turned on while a message is held stops it from going out", async () => {
+  const { store } = fakeStore();
+  const { gateway, calls, context } = fakeGateway({ context: { quietHours: true } });
+  await sendOutbound({ ...base }, { store, gateway, now: () => NOW });
+  context.quietHours = false;
+  context.killSwitch = { global: true, tenant: false, instance: false };
+  const drained = await drainHeld({ store, gateway, now: () => NOW });
+  assert.equal(drained.sent, 0);
+  assert.equal(calls.length, 0);
+});
+
+test("a sent message keeps no recipient and no text in the outbox", async () => {
+  const { store, rows } = fakeStore();
+  const { gateway } = fakeGateway({ context: { quietHours: true } });
+  await sendOutbound({ ...base }, { store, gateway, now: () => NOW });
+  assert.equal(Array.from(rows.values())[0].recipient, base.to);
+  gateway.context = async () => ({ riskState: "NORMAL", killSwitch: { global: false, tenant: false, instance: false }, optedOut: false, mode: "ENFORCE", quietHours: false });
+  await drainHeld({ store, gateway, now: () => NOW });
+  const row = Array.from(rows.values())[0];
+  assert.equal(row.status, "SENT");
+  assert.equal(row.recipient, null);
+  assert.equal(row.body, null);
 });

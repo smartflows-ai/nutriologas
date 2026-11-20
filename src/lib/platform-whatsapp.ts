@@ -1,6 +1,7 @@
 // src/lib/platform-whatsapp.ts
 // Sends WhatsApp messages from NewAigent's own line (the platform instance), not from a tenant's line.
 // Used for account messages such as the owner's password reset code. It never reads a tenant.
+import { prisma } from "@/lib/db";
 import { formatWhatsAppNumber } from "@/lib/whatsapp";
 import { evolutionConfigFromEnv, instanceKeyOf, sendText } from "@/lib/messaging/evolution-adapter";
 
@@ -33,6 +34,10 @@ export async function sendPlatformWhatsAppMessage({ to, text }: SendPlatformWhat
   if (!recipient || recipient.length < 8) {
     return { success: false, reason: "invalid_number" };
   }
+
+  // Ban prevention: the global kill switch stops the platform line too (set by an operator in platform_flags).
+  const flags = await prisma.platformFlag.findUnique({ where: { id: "global" }, select: { globalKillSwitch: true } });
+  if (flags?.globalKillSwitch) return { success: false, reason: "paused" };
 
   // The platform instance's own token when configured; the global key otherwise.
   const apiKey = instanceKeyOf(process.env.PLATFORM_WA_INSTANCE_TOKEN, cfg.globalKey);

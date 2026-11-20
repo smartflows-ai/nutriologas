@@ -26,6 +26,7 @@ export const prismaOutboxStore: OutboxStore = {
       data: {
         tenantId: input.tenantId,
         recipientKey: input.recipientKey,
+        recipient: input.recipient,
         purpose: input.purpose,
         idempotencyKey: input.idempotencyKey,
         status: input.status,
@@ -40,6 +41,15 @@ export const prismaOutboxStore: OutboxStore = {
   },
   async update(id, patch) {
     await prisma.whatsAppOutbox.update({ where: { id }, data: patch as never });
+  },
+  async listHeld(now, limit) {
+    const rows = await prisma.whatsAppOutbox.findMany({
+      where: { status: "QUEUED", scheduledAt: { lte: now }, recipient: { not: null }, body: { not: null } },
+      orderBy: { scheduledAt: "asc" },
+      take: limit,
+      select: { id: true, tenantId: true, idempotencyKey: true, purpose: true, recipient: true, body: true },
+    });
+    return rows.map((r) => ({ ...r, purpose: r.purpose as never, recipient: r.recipient ?? "", body: r.body ?? "" }));
   },
 };
 

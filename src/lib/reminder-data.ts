@@ -51,6 +51,7 @@ export const realReminderDeps: ReminderDeps = {
         tenantId: visit.tenantId,
         customerPhone: visit.customerPhone,
         customerName: visit.customerName,
+        whatsappConsentAt: visit.whatsappConsentAt,
         appointmentDate: visit.appointmentDate,
         externalProvider: visit.externalProvider,
         externalEventId: visit.externalEventId,
