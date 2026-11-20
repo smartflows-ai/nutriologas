@@ -31,7 +31,7 @@ test("the panel shows the opt-out band with the reactivate action, confirmed by 
   const page = read("src/app/admin/whatsapp/page.tsx");
   assert.match(page, /selectedChat\.optedOutAt && \(/);
   assert.match(page, /helpAction\("reactivate"\)/);
-  assert.match(page, /confirm\(t\.crm\.whatsapp\.help\.reactivateConfirm\)/);
+  assert.match(page, /reactivateChecked/, "a person ticks a checkbox before the reactivate button works");
   assert.match(read("src/app/api/apps/whatsapp/chats/route.ts"), /optedOutAt: true/);
 });
 

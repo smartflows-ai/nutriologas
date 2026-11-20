@@ -27,6 +27,8 @@ export async function POST(req: NextRequest) {
     to,
     text,
     purpose: "CUSTOMER_REPLY",
+    // The bot replies like a person typing (the same pause the workflow used before).
+    typing: true,
     idempotencyKey: messageKey ? `${messageKey}` : undefined,
   });
   // A reply the policy stopped on purpose answers 200 (blocked: true), so n8n does not alert the owner (QA 2026-11-20).

@@ -73,7 +73,7 @@ export default function HelpBanner(props: Props) {
         </button>
         {props.canAssign && (
           <label className="inline-flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
-            {help.assign}
+            <span className="whitespace-nowrap">{help.assign}</span>
             <select
               className="input py-1.5 text-sm"
               disabled={props.busy}

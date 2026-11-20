@@ -30,6 +30,7 @@ export default function WhatsAppRiskCard() {
   const [loadError, setLoadError] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [sendsMessage, setSendsMessage] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState(false);
 
   const load = async () => {
@@ -70,7 +71,7 @@ export default function WhatsAppRiskCard() {
   const toggleBusiness = async () => {
     if (!data) return;
     setSaving(true);
-    setMessage(null);
+    setSendsMessage(null);
     try {
       const res = await fetch("/api/apps/whatsapp/risk", {
         method: "PATCH",
@@ -78,10 +79,10 @@ export default function WhatsAppRiskCard() {
         body: JSON.stringify({ businessKillSwitch: !data.businessKillSwitch }),
       });
       if (!res.ok) throw new Error("save");
-      setMessage(w.saved);
+      setSendsMessage(w.saved);
       await load();
     } catch {
-      setMessage(w.saveError);
+      setSendsMessage(w.saveError);
     } finally {
       setSaving(false);
     }
@@ -143,19 +144,21 @@ export default function WhatsAppRiskCard() {
       </div>
 
       <div className="flex items-center justify-between gap-4 border-t border-gray-200 dark:border-gray-800 pt-4">
-        <div>
-          <p className="text-sm font-medium text-gray-900 dark:text-white">{w.businessPause}</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400">{w.businessPauseDesc}</p>
+        <label htmlFor="wa-business-sends" className="min-w-0">
+          <span className="block text-sm font-medium text-gray-900 dark:text-white">{w.businessSends}</span>
+          <span className="block text-xs text-gray-500 dark:text-gray-400">{w.businessPauseDesc}</span>
+        </label>
+        <div className="flex items-center gap-3 shrink-0">
+          {sendsMessage && <span className="text-sm text-gray-600 dark:text-gray-300">{sendsMessage}</span>}
+          <input
+            id="wa-business-sends"
+            type="checkbox"
+            checked={!data.businessKillSwitch}
+            onChange={toggleBusiness}
+            disabled={saving}
+            className="check-themed mt-0"
+          />
         </div>
-        <button
-          type="button"
-          onClick={toggleBusiness}
-          disabled={saving}
-          aria-pressed={data.businessKillSwitch}
-          className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 text-sm text-gray-900 dark:text-white disabled:opacity-50"
-        >
-          {w.businessPause}
-        </button>
       </div>
 
       {canResume && (
@@ -171,7 +174,7 @@ export default function WhatsAppRiskCard() {
               type="button"
               onClick={resume}
               disabled={saving || !confirmed}
-              className="px-3 py-2 rounded-lg bg-primary text-[color:var(--on-primary)] text-sm disabled:opacity-50"
+              className="btn-primary"
             >
               {w.resumeBtn}
             </button>

@@ -3,7 +3,7 @@
 // Centralized Agenda & Scheduling Hub: one unified view with all appointments
 // (native CRM bookings, WhatsApp reservations, and Google / Outlook Calendar events combined)
 import { useState, useEffect, useRef, Suspense, useMemo } from "react";
-import { Calendar as CalendarIcon, Clock, Search, RefreshCw, Plug, Plus } from "lucide-react";
+import { Calendar as CalendarIcon, Clock, Search, RefreshCw, CheckCircle2, Plus } from "lucide-react";
 import { localeFor, fill } from "@/lib/utils";
 import { useTranslation } from "@/i18n";
 import { useCalendarAccount } from "@/hooks/useCalendarAccount";
@@ -391,22 +391,56 @@ function CitasContent() {
     <div className="space-y-6">
       {/* ── HEADER ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-gray-100 dark:bg-gray-800 text-primary flex items-center justify-center">
-            <CalendarIcon size={24} />
-          </div>
-          <div>
-            <h1 className="text-2xl font-semibold text-gray-900 dark:text-white tracking-tight">
-              {t.agenda.title}
-            </h1>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              {t.agenda.subtitle}
-            </p>
-          </div>
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white flex items-center gap-2.5">
+            <CalendarIcon className="text-primary" size={26} aria-hidden="true" />
+            {t.agenda.title}
+          </h1>
+          <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
+            {t.agenda.subtitle}
+          </p>
         </div>
 
         {/* Header actions */}
         <div className="flex items-center gap-2 flex-wrap">
+          {/* One entry point to the calendar connection: it shows the state and opens App Store > Integrations. */}
+          {canOpenApps ? (
+            <Link
+              href="/admin/apps"
+              title={calendarAccount?.email ? fill(t.agenda.calendarAccount, { email: calendarAccount.email }) : undefined}
+              className={
+                hasCalendarIntegration
+                  ? "hidden sm:inline-flex items-center gap-2 max-w-sm px-3 py-2 rounded-lg bg-primary/10 hover:bg-primary/15 text-sm font-medium text-gray-800 dark:text-gray-100 transition-colors duration-150"
+                  : "btn-secondary hidden sm:inline-flex items-center gap-2 shrink-0"
+              }
+            >
+              {hasCalendarIntegration ? (
+                <>
+                  <CheckCircle2 size={16} className="text-primary shrink-0" aria-hidden="true" />
+                  <span className="shrink-0">{calendarAccount?.provider === "MICROSOFT" ? t.agenda.outlookSynced : t.agenda.gcalSynced}</span>
+                  {calendarAccount?.email && (
+                    <span className="min-w-0 truncate font-normal text-gray-600 dark:text-gray-300">{calendarAccount.email}</span>
+                  )}
+                </>
+              ) : (
+                <span>{t.agenda.connectCalendar}</span>
+              )}
+            </Link>
+          ) : hasCalendarIntegration ? (
+            <span className="hidden sm:inline-flex items-center gap-1.5 max-w-sm px-3 py-1.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 text-xs font-semibold border border-gray-200 dark:border-gray-800">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+              <span className="shrink-0">{calendarAccount?.provider === "MICROSOFT" ? t.agenda.outlookSynced : t.agenda.gcalSynced}</span>
+            </span>
+          ) : null}
+
+          <button
+            onClick={() => setRefreshKey((k) => k + 1)}
+            title={t.agenda.reload}
+            aria-label={t.agenda.reload}
+            className="btn-secondary inline-flex items-center justify-center min-h-11 sm:min-h-0 shrink-0 px-3"
+          >
+            <RefreshCw size={16} aria-hidden="true" />
+          </button>
           {canBook && isBookingEnabled && (
             <button
               onClick={() => setFormTarget({ mode: "create" })}
@@ -415,43 +449,6 @@ function CitasContent() {
               <Plus size={18} aria-hidden="true" />
               {t.agenda.newAppointment}
             </button>
-          )}
-          {hasCalendarIntegration ? (
-            <span
-              className="hidden sm:inline-flex items-center gap-1.5 max-w-sm px-3 py-1.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 text-xs font-semibold border border-gray-200 dark:border-gray-800"
-              title={calendarAccount?.email ? fill(t.agenda.calendarAccount, { email: calendarAccount.email }) : undefined}
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-              <span className="shrink-0">{calendarAccount?.provider === "MICROSOFT" ? t.agenda.outlookSynced : t.agenda.gcalSynced}</span>
-              {calendarAccount?.email && (
-                <span className="min-w-0 truncate font-normal text-gray-600 dark:text-gray-300">{calendarAccount.email}</span>
-              )}
-            </span>
-          ) : canOpenApps && (
-            <Link
-              href="/admin/apps"
-              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs font-semibold transition-colors"
-            >
-              <span>{t.agenda.connectGcal}</span>
-            </Link>
-          )}
-
-          <button
-            onClick={() => setRefreshKey((k) => k + 1)}
-            title={t.agenda.reload}
-            aria-label={t.agenda.reload}
-            className="p-2.5 rounded-xl border border-gray-200 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300 transition-colors"
-          >
-            <RefreshCw size={15} />
-          </button>
-          {canOpenApps && (
-            <Link
-              href="/admin/apps"
-              className="px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200 text-xs font-semibold flex items-center gap-1.5 transition-colors"
-            >
-              <Plug size={14} className="text-primary" />
-              {t.agenda.integrations}
-            </Link>
           )}
         </div>
       </div>

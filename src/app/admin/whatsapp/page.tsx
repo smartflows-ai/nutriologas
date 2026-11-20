@@ -86,6 +86,8 @@ function WhatsAppPageContent() {
   }, [chats, chatParam, linkKey]);
   const [assistants, setAssistants] = useState<HelpAssistant[]>([]);
   const [helpBusy, setHelpBusy] = useState(false);
+  // Bringing messages back after an opt-out is the patient's new consent: a person ticks this before the button works.
+  const [reactivateChecked, setReactivateChecked] = useState(false);
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 30_000);
@@ -241,8 +243,6 @@ function WhatsAppPageContent() {
   // Take, mark handled or assign the open chat. The list is refreshed afterwards so the assistant's name shows.
   const helpAction = async (action: "take" | "resolve" | "assign" | "reactivate", assigneeId?: string | null) => {
     if (!selectedChat || helpBusy) return;
-    // Bringing messages back after an opt-out is the patient's new consent: a person confirms it first.
-    if (action === "reactivate" && !confirm(t.crm.whatsapp.help.reactivateConfirm)) return;
     setHelpBusy(true);
     try {
       const res = await fetch(`/api/apps/whatsapp/chats/${selectedChat.id}/help`, {
@@ -254,7 +254,10 @@ function WhatsAppPageContent() {
       if (!res.ok) throw new Error(data.error);
       mergeChatState(data.chat);
       if (data.warning === "assignee_no_whatsapp") toast(t.crm.whatsapp.help.assignWarning);
-      if (action === "reactivate") toast(t.crm.whatsapp.help.reactivated);
+      if (action === "reactivate") {
+        setReactivateChecked(false);
+        toast(t.crm.whatsapp.help.reactivated);
+      }
       const fresh = await fetch("/api/apps/whatsapp/chats");
       if (fresh.ok) {
         const list = await fresh.json();
@@ -575,15 +578,27 @@ function WhatsAppPageContent() {
                       <BellOff size={16} className="shrink-0 mt-0.5" aria-hidden="true" />
                       {t.crm.whatsapp.help.optedOutNote}
                     </span>
-                    <button
-                      type="button"
-                      disabled={helpBusy}
-                      onClick={() => void helpAction("reactivate")}
-                      className="btn-secondary inline-flex items-center justify-center gap-1.5 min-h-11 sm:min-h-0 text-sm disabled:opacity-50"
-                    >
-                      <Bell size={14} aria-hidden="true" />
-                      {t.crm.whatsapp.help.reactivate}
-                    </button>
+                    <div className="flex flex-col items-end gap-2">
+                      <label className="inline-flex items-start gap-2 text-sm text-gray-700 dark:text-gray-200">
+                        <input
+                          type="checkbox"
+                          checked={reactivateChecked}
+                          onChange={(e) => setReactivateChecked(e.target.checked)}
+                          disabled={helpBusy}
+                          className="check-themed"
+                        />
+                        {t.crm.whatsapp.help.reactivateCheck}
+                      </label>
+                      <button
+                        type="button"
+                        disabled={helpBusy || !reactivateChecked}
+                        onClick={() => void helpAction("reactivate")}
+                        className={`${reactivateChecked ? "btn-primary" : "btn-secondary"} inline-flex items-center justify-center gap-1.5 min-h-11 sm:min-h-0 text-sm`}
+                      >
+                        <Bell size={14} aria-hidden="true" />
+                        {t.crm.whatsapp.help.reactivate}
+                      </button>
+                    </div>
                   </div>
                 )}
 
@@ -595,7 +610,7 @@ function WhatsAppPageContent() {
                 >
                   {messages.map((msg, i) => (
                     <div key={msg.id || i} className={`flex ${msg.fromMe ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[85%] md:max-w-[75%] px-4 py-2 rounded-xl text-sm shadow-sm ${msg.fromMe ? 'bg-primary text-white rounded-tr-none' : 'bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 rounded-tl-none border border-gray-100'}`}>
+                      <div className={`max-w-[85%] md:max-w-[75%] px-4 py-2 rounded-xl text-sm shadow-sm ${msg.fromMe ? 'bg-primary text-[color:var(--on-primary)] rounded-tr-none' : 'bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 rounded-tl-none border border-gray-100'}`}>
                         <div className="prose-chat break-words">
                           <ReactMarkdown 
                             remarkPlugins={[remarkGfm]}
@@ -616,7 +631,7 @@ function WhatsAppPageContent() {
                             {parseWhatsAppToMarkdown(msg.content)}
                           </ReactMarkdown>
                         </div>
-                        <p className={`text-xs mt-1 text-right ${msg.fromMe ? 'text-primary' : 'text-gray-400'}`}>
+                        <p className={`text-xs mt-1 text-right ${msg.fromMe ? 'text-[color:var(--on-primary)] opacity-80' : 'text-gray-400'}`}>
                           {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </p>
                       </div>
