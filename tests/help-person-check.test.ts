@@ -20,6 +20,26 @@ test("booking for someone else, even with the sender's own number, is not a requ
   assert.equal(personRequestAllowed("person_requested", lines), false);
 });
 
+test("production cases the fixed words do not match are handed off (angry customer, a named person)", () => {
+  const angry = [customer("Estoy molesta porque no me estás generando una cita")];
+  const named = [customer("Hola me puedes comunicar con Laura")];
+  const payment = [customer("necesito que alguien me ayude con mi pago")];
+  for (const lines of [angry, named, payment]) {
+    assert.equal(personRequestAllowed("person_requested", lines), true);
+  }
+});
+
+test("booking for someone else plus an explicit request, a named person or anger is handed off", () => {
+  const cases = [
+    "Quiero agendar para mi hija, mejor pásame con un asesor",
+    "Es para mi hija, me puedes comunicar con Laura",
+    "Es para mi hija y estoy muy molesta, es un mal servicio",
+  ];
+  for (const text of cases) {
+    assert.equal(personRequestAllowed("person_requested", [customer(text)]), true, text);
+  }
+});
+
 test("an explicit request in the current turn is accepted", () => {
   assert.equal(personRequestAllowed("person_requested", [customer("Quiero hablar con una persona"), bot("Hola")]), true);
 });

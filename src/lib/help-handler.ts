@@ -41,8 +41,8 @@ export async function handleHelpRequest(req: NextRequest, defaultReason: HelpRea
     : [];
   if (chats.length === 0) return Response.json({ raised: false, reason: "no_chat" });
 
-  // Ticket #129: "the customer asked for a person" is believed only when their latest messages say so; otherwise the
-  // bot keeps the chat and nobody is told. Read before anything is paused.
+  // Ticket #129: refused only when the customer's current turn is booking for someone else and has no request, named
+  // person or complaint (rule in help-person-check.ts); anything else is accepted. Read before anything is paused.
   if (reason === "person_requested") {
     const lines = await prisma.whatsAppMessage.findMany({
       where: { tenantId: bot.tenantId, chatId: { in: chats.map((chat) => chat.id) } },

@@ -1,6 +1,14 @@
 # Plan: ola del lunes 23-nov (#113, #116, #128, #127, #74, #129)
 
-**Versión:** v5 (20-nov, 22:30) · **Complejidad:** media · **Rama única:** `fix/ola-23-nov`, desde `main` (`3b7aa40`) · **Negocio de prueba:** `newy` · **Entrega:** lunes 23-nov
+**Versión:** v6 (21-nov) · **Complejidad:** media · **Rama única:** `fix/ola-23-nov`, desde `main` (`3b7aa40`) · **Negocio de prueba:** `newy` · **Entrega:** lunes 23-nov
+
+## Cambios en v6
+
+| # | Qué cambió | Dónde |
+|---|---|---|
+| 1 | [v6] La regla de C4 era demasiado estricta: producción pasó bien dos chats que las palabras fijas no reconocen. Decisión (21-nov): **se conserva el comportamiento de producción y solo se arregla el caso de la hija** | C4, sección "[v6] Corrección" |
+| 2 | [v6] Las notas de n8n ya **no** piden quitar "molesto o enojado" del prompt; solo no prometer una persona si la app responde `not_requested` | `n8n/docs/cambios-n8n-2026-11-23.md`, sección 3 |
+| 3 | [v6] Pruebas nuevas de C4 (C4-0b) | Set de pruebas |
 
 ## Cambios en v5
 
@@ -207,7 +215,7 @@ Si algo falla en producción y no en local, quiere decir que `2b89146` **no est�
 
 ## C4 · #129: no pasar a una persona si nadie la pidió
 
-**Regla:** `bot/help` acepta `person_requested` solo si el último mensaje del cliente pide una persona, con la misma regla del filtro de n8n (`asksForPerson`, `src/lib/person-request.ts`).
+**Regla:** ~~`bot/help` acepta `person_requested` solo si el último mensaje del cliente pide una persona, con la misma regla del filtro de n8n (`asksForPerson`, `src/lib/person-request.ts`).~~ **[v6] `bot/help` rechaza `person_requested` solo cuando el turno actual del cliente es una cita para otra persona (para mi hija/hijo/mamá/papá/esposo…, "se llama…", "tiene N años", "su número es…") y no trae petición explícita (`asksForPerson`), ni nombra a alguien ("comunícame con…"), ni una queja (molest, enoj, mal servicio, pésim, queja…). Todo lo demás se acepta, como en producción; sin mensaje del cliente, también.**
 
 > Metáfora: solo llamas a la maestra si el niño levanta la mano, no porque dijo "es para mi hermana".
 
@@ -215,10 +223,21 @@ Si algo falla en producción y no en local, quiere decir que `2b89146` **no est�
 |---|---|---|
 | `src/lib/help-person-check.ts` | CREATE | Regla pura `personRequestAllowed(reason, lastInboundText)` |
 | `src/lib/help-handler.ts` | UPDATE | Con `person_requested`, leer el último mensaje entrante del chat (`whatsapp_messages`, `fromMe: false`, mismo `tenantId`) y responder `{ raised: false, reason: "not_requested" }`, sin pausar el bot |
-| `tests/help-person-check.test.ts` | CREATE | "quiero hablar con una persona" sí; "es para mi hija, su número es…" no; sin mensaje no |
+| `tests/help-person-check.test.ts` | CREATE | ~~"quiero hablar con una persona" sí; "es para mi hija, su número es…" no; sin mensaje no~~ **[v6] Pasan: los dos mensajes de doctorgcenter, "necesito que alguien me ayude con mi pago", hija + petición, hija + enojo. Se rechaza: el caso original de la hija** |
 
 - **Riesgo:** si n8n llama a la herramienta antes de que `Write Customer Message` guarde el mensaje, el servidor no lo encuentra y rechaza. Lo reviso en solo lectura (`/n8n`) antes de dar C4 por bueno. Si hay carrera, se acepta la petición cuando no hay mensaje (falla abierta).
 - **Validar:** `curl` local a `bot/help` con el chat de prueba: un mensaje con petición explícita y otro sin ella.
+
+### [v6] Corrección: la regla de C4 era demasiado estricta
+
+**Evidencia de producción (solo lectura, doctorgcenter, sin C4).** Anoche el agente pasó bien a una persona dos chats que las palabras fijas no reconocen: (1) "Estoy molesta porque no me estás generando una cita"; (2) "Hola me puedes comunicar con <nombre>" (ese chat sigue pausado esperando al equipo; no se toca). Con la regla de v5 la app habría rechazado los dos.
+
+**Decisión (21-nov).** Se conserva lo de producción: un cliente enojado o que pide a alguien por su nombre sí recibe a una persona. Lo único que se arregla es #129: el agente pasó el chat mientras un cliente agendaba para su hija.
+
+~~**Tu decisión (20-nov): el chat pasa a una persona solo cuando el cliente la pide con palabras reconocibles; el enojo solo no basta.**~~ **[v6] El chat se rechaza solo en el caso de "cita para otra persona" sin petición, sin nombre y sin queja.**
+
+> Metáfora: la maestra sigue viniendo cuando alguien la llama por su nombre o está llorando de coraje. Solo no viene cuando el niño dice "es para mi hermana", que era un dato y no una llamada.
+> Ejemplo: "Es para mi hija, se llama Sofía, tiene 8 años" → el bot sigue y agenda. "Es para mi hija, pásame con un asesor" → pasa a una persona. "Estoy molesta porque no me generan la cita" → pasa a una persona.
 
 ### [v5] Explicación: quién decide pasar el chat a una persona (y por qué un cliente enojado ya no basta)
 
@@ -362,6 +381,7 @@ Para C1-W hace falta que en producción tu número tenga guardado un nombre de u
 |---|---|---|---|---|---|
 | C4-W1 | WhatsApp (hoy, evidencia del antes) | `Quiero agendar una cita para mi hija` → `Se llama <Nombre> <Apellido>, tiene 8 años, su número es <tu número>` | A veces "Un miembro de nuestro equipo te dará seguimiento…" y el bot se pausa (21864) | — | |
 | [v4] C4-0 | Pruebas | — | — | `help-person-check` (6): agendar para la hija con el mismo número no cuenta; una petición explícita sí; cuenta todo el lote del turno; una petición de un turno ya contestado no; sin mensaje que leer, se acepta. Prueba de cableado: la revisión va **antes** de pausar. Suite: 1178 OK, `tsc` limpio | **OK** |
+| [v6] C4-0b | Pruebas | — | — | `help-person-check` (8): pasan los dos mensajes de doctorgcenter, "necesito que alguien me ayude con mi pago", hija + petición explícita, hija + nombre, hija + enojo; se rechaza el caso original de la hija; las otras razones no se revisan; sin mensaje se acepta | **OK** |
 | C4-1 | Lo hago yo: `curl` a `bot/help` local, `person_requested`, último mensaje = el de la hija | — | Pausa el bot y avisa | `raised: false`, `not_requested`; el bot sigue | [v4] **No se corrió.** En el chat de `…2968` la última línea es del bot, así que la regla no tiene mensaje del cliente que leer y acepta (por diseño): la llamada local **pausaría el bot y avisaría al dueño**. En el flujo real el agente llama la herramienta antes de guardar su respuesta. Se prueba el lunes con C4-W |
 | C4-2 | WhatsApp, luego `curl` local | `Quiero hablar con una persona` | Pausa y aviso | Igual: pausa y aviso (petición real) | |
 | C4-3 | `/admin/whatsapp` | Volver a encender el bot de tu chat después de C4-2 | — | Bot encendido | |
