@@ -64,3 +64,12 @@ test("two periods after a tag are checked on save, not at send time (#74)", () =
   assert.match(read("src/app/api/tenants/reminders/route.ts"), /validatePunctuation\(text\)/);
   assert.doesNotMatch(read("src/lib/reminder-messages.ts"), /punctuationIssues|saveIssues/);
 });
+
+test("bot/help checks a person_requested call against the chat before pausing the bot (#129)", () => {
+  const src = read("src/lib/help-handler.ts");
+  const check = src.indexOf("personRequestAllowed(reason, lines)");
+  const pause = src.indexOf("if (pausesBot(reason))");
+  assert.ok(check > 0 && pause > check, "the check runs before the pause");
+  assert.match(src, /where: \{ tenantId: bot\.tenantId, chatId: \{ in: chats\.map\(\(chat\) => chat\.id\) \} \}/);
+  assert.match(src, /reason: "not_requested"/);
+});
