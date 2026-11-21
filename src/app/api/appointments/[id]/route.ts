@@ -8,7 +8,7 @@ import { apiError } from "@/lib/api-errors";
 import { removeMirrorEvent, softDeleteAppointment } from "@/lib/appointments-service";
 import { findNonEditableField, parseNotesField, trailRoleOf } from "@/lib/appointment-admin-rules";
 import { editFromPanel, isPanelEdit, reopenFromPanel } from "@/lib/panel-appointments";
-import { notifyCancelledFromPanel, notifyMovedFromPanel, ownerConfirmationText } from "@/lib/reminder-actions";
+import { TENANT_PLACE_SELECT, notifyCancelledFromPanel, notifyMovedFromPanel, ownerConfirmationText, placeTextOf } from "@/lib/reminder-actions";
 import { saveVisitNote } from "@/lib/appointment-notes";
 import { can, omitClinicalNotes } from "@/lib/permissions";
 import { requirePermission } from "@/lib/permission-guard";
@@ -177,7 +177,7 @@ export async function PATCH(
       const tenant = patientPhone
         ? await prisma.tenant.findUnique({
             where: { id: tenantId },
-            select: { name: true, slug: true, customDomain: true, ownerName: true, messageLanguage: true, timeZone: true, cancellationTemplate: true },
+            select: { ...TENANT_PLACE_SELECT, name: true, ownerName: true, timeZone: true, cancellationTemplate: true },
           })
         : null;
 
@@ -201,6 +201,8 @@ export async function PATCH(
             cancellationTemplate: tenant.cancellationTemplate,
             modality: updated.modality,
             meetUrl: customerMeetUrl({ meetUrl: updated.meetUrl, meetShortCode: updated.meetShortCode }, tenant) || null,
+            // In person: the address with its directions link (ticket #74).
+            locationText: placeTextOf(tenant),
           }),
           updated,
           tenant.messageLanguage

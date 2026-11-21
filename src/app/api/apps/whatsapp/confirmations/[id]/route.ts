@@ -6,7 +6,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/permission-guard";
 import { apiError } from "@/lib/api-errors";
-import { confirmVisit, releaseVisit } from "@/lib/reminder-actions";
+import { TENANT_PLACE_SELECT, confirmVisit, placeTextOf, releaseVisit } from "@/lib/reminder-actions";
 import { planLockResponse } from "@/lib/capability-guard";
 import { AWAITING_CONFIRMATION } from "@/lib/reminders";
 import { customerMeetUrl } from "@/lib/short-links";
@@ -44,7 +44,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       meetShortCode: true,
       whatsappConsentAt: true,
       product: { select: { name: true } },
-      tenant: { select: { name: true, slug: true, customDomain: true, messageLanguage: true, timeZone: true, cancellationTemplate: true } },
+      tenant: { select: { ...TENANT_PLACE_SELECT, name: true, timeZone: true, cancellationTemplate: true } },
     },
   });
   if (!visit) return apiError("appointment_not_found", 404);
@@ -66,6 +66,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     modality: visit.modality,
     // The customer gets the short video link of this visit (the real one when the visit has no code).
     meetUrl: customerMeetUrl({ meetUrl: visit.meetUrl, meetShortCode: visit.meetShortCode }, visit.tenant) || null,
+    // In person: the address with its directions link (ticket #74).
+    locationText: placeTextOf(visit.tenant),
   };
 
   if (parsed.data.action === "confirm") await confirmVisit(action);

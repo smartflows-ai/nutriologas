@@ -79,6 +79,8 @@ export function renderTemplate(template: string, values: ReminderValues): string
       LABEL_TO_KEY.get(label.trim().toLowerCase()) === "responsable" ? "" : whole,
     );
   }
+  // Two periods typed after a tag ("[Hora límite].."): the customer reads one (ticket #74).
+  template = template.replace(/(\[[^\[\]]+\][*_~]*)\.\.(?!\.)/g, "$1.");
   // The same when WhatsApp bold or italic markers sit between the tag and that period ("*[Deadline time]*."):
   // the value keeps its own period inside the markers and the template's period is dropped.
   template = template.replace(/(\[[^\[\]]+\])([*_~]+)\./g, (whole, tag: string, marks: string) => {

@@ -7,7 +7,34 @@ import { sendWhatsAppMessage } from "@/lib/whatsapp";
 import { cancelAppointment } from "@/lib/appointments-service";
 import { customerMeetUrl } from "@/lib/short-links";
 import { timeZoneLabel } from "@/lib/time-zones";
-import { cancellationText, clinicLongDate, clinicTime, customerTexts, renderTemplate, withMeetingLink } from "@/lib/reminder-messages";
+import { cancellationText, clinicLongDate, clinicTime, customerTexts, renderTemplate, withLocation, withMeetingLink } from "@/lib/reminder-messages";
+import { locationTextForBot } from "@/lib/location";
+
+/** The tenant fields the place line needs (ticket #74); add them to any tenant select that builds a confirmation. */
+export const TENANT_PLACE_SELECT = {
+  slug: true,
+  customDomain: true,
+  messageLanguage: true,
+  hasPhysicalLocation: true,
+  address: true,
+  placeId: true,
+  latitude: true,
+  longitude: true,
+} as const;
+
+/** Address plus the short directions link, or "" when the business has no physical place. */
+export function placeTextOf(tenant: {
+  slug: string;
+  customDomain: string | null;
+  messageLanguage: string;
+  hasPhysicalLocation: boolean;
+  address: string | null;
+  placeId: string | null;
+  latitude: number | null;
+  longitude: number | null;
+}): string {
+  return locationTextForBot(tenant);
+}
 
 export interface VisitForAction {
   id: string;
@@ -29,6 +56,8 @@ export interface VisitForAction {
   /** Online visits carry their video call link in the confirmation. Optional: older callers have neither. */
   modality?: "IN_PERSON" | "ONLINE" | null;
   meetUrl?: string | null;
+  /** Address plus directions link (placeTextOf); empty or missing when the business has no physical place (#74). */
+  locationText?: string | null;
 }
 
 function visitValues(visit: VisitForAction) {
@@ -77,9 +106,11 @@ export async function releaseVisit(
  * video link of an online visit. Shared by the Confirmaciones tab and the Confirmar button in Citas (ticket #103).
  */
 export function ownerConfirmationText(visit: VisitForAction): string {
-  return withMeetingLink(
-    renderTemplate(customerTexts(visit.messageLanguage).ownerConfirmedText, visitValues(visit)),
+  // Online: the video link; in person: the address with its directions link (ticket #74). Never both.
+  return withLocation(
+    withMeetingLink(renderTemplate(customerTexts(visit.messageLanguage).ownerConfirmedText, visitValues(visit)), visit, visit.messageLanguage),
     visit,
+    visit.locationText,
     visit.messageLanguage,
   );
 }
@@ -119,7 +150,7 @@ async function loadNoticeVisit(visitId: string, tenantId: string): Promise<Visit
       meetUrl: true,
       meetShortCode: true,
       product: { select: { name: true } },
-      tenant: { select: { name: true, slug: true, customDomain: true, ownerName: true, messageLanguage: true, timeZone: true, cancellationTemplate: true } },
+      tenant: { select: { ...TENANT_PLACE_SELECT, name: true, ownerName: true, timeZone: true, cancellationTemplate: true } },
     },
   });
   if (!row) return null;
@@ -140,6 +171,7 @@ async function loadNoticeVisit(visitId: string, tenantId: string): Promise<Visit
     cancellationTemplate: row.tenant.cancellationTemplate,
     modality: row.modality,
     meetUrl: row.meetUrl ? customerMeetUrl({ meetUrl: row.meetUrl, meetShortCode: row.meetShortCode }, row.tenant) || null : null,
+    locationText: placeTextOf(row.tenant),
   };
 }
 

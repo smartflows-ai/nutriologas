@@ -144,6 +144,30 @@ export function templateIssues(template: string, kind: TemplateKind): TemplateIs
   return issues;
 }
 
+// Two periods right after a tag (optionally behind bold or italic markers), not an ellipsis: "[Hora límite].." read
+// "11:30 a.m.." in production (ticket #74).
+const DOUBLE_PERIOD_AFTER_TAG = /\[[^\[\]]+\][*_~]*\.\.(?!\.)/g;
+
+/**
+ * Punctuation the owner should fix before saving (ticket #74). Kept out of templateIssues on purpose: that check
+ * also runs at send time (usableTemplate), and a stored text with ".." must keep being sent (renderTemplate shows
+ * one period) instead of falling back to the default.
+ */
+export function punctuationIssues(template: string): TemplateIssue[] {
+  const fragments = template.match(DOUBLE_PERIOD_AFTER_TAG) ?? [];
+  return fragments.length > 0 ? [{ code: "template_double_period", fragments }] : [];
+}
+
+/** Everything the settings card and the save route check: the send-time rules plus the punctuation ones. */
+export function saveIssues(template: string, kind: TemplateKind): TemplateIssue[] {
+  return [...templateIssues(template, kind), ...punctuationIssues(template)];
+}
+
+/** Save-time check for the API: "template_double_period" or null. */
+export function validatePunctuation(template: string): string | null {
+  return punctuationIssues(template)[0]?.code ?? null;
+}
+
 /** The first problem a text has for its kind, or null when it can be saved and sent as written. */
 export function templateProblem(template: string, kind: TemplateKind): string | null {
   return templateIssues(template, kind)[0]?.code ?? null;
@@ -179,7 +203,7 @@ export function validateConfirmationTemplate(template: string): string | null {
   return siRequests(template).length === 0 ? "confirmation_missing_si" : null;
 }
 
-export type FixAction = "replace_time" | "remove_paragraph" | "remove_fragment";
+export type FixAction = "replace_time" | "remove_paragraph" | "remove_fragment" | "fix_punctuation";
 
 export interface TemplateFix {
   action: FixAction;
@@ -206,6 +230,12 @@ function removeParagraphsWith(template: string, fragments: string[]): string | n
  */
 export function suggestFix(template: string, issue: TemplateIssue, kind: TemplateKind, timeLabel: string): TemplateFix | null {
   if (issue.fragments.length === 0) return null;
+
+  if (issue.code === "template_double_period") {
+    // Only the extra period goes: the tag and its markers stay.
+    const text = issue.fragments.reduce((current, fragment) => current.split(fragment).join(fragment.slice(0, -1)), template);
+    return { action: "fix_punctuation", text };
+  }
 
   if (issue.code === "template_deadline_not_allowed" && kind === "cancellation") {
     const text = issue.fragments.reduce((current, fragment) => current.split(fragment).join(`[${timeLabel}]`), template);

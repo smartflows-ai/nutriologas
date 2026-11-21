@@ -8,7 +8,7 @@ import { useTranslation } from "@/i18n";
 import { translateApiError } from "@/i18n/validation";
 import { es } from "@/i18n/es";
 import { en } from "@/i18n/en";
-import { suggestFix, templateIssues, unfilledFields, type TemplateIssue, type TemplateKind } from "@/lib/reminder-template-rules";
+import { saveIssues, suggestFix, unfilledFields, type TemplateIssue, type TemplateKind } from "@/lib/reminder-template-rules";
 
 interface MessageSettings {
   messageLanguage: "es" | "en";
@@ -94,9 +94,9 @@ export default function ReminderMessagesCard() {
 
   // The same checks the server runs, while the owner types: a text with a problem cannot be saved.
   const issuesByKind: Record<TemplateKind, TemplateIssue[]> = {
-    reminder: settings?.reminderTemplate?.trim() ? templateIssues(settings.reminderTemplate.trim(), "reminder") : [],
-    confirmation: settings?.confirmationTemplate?.trim() ? templateIssues(settings.confirmationTemplate.trim(), "confirmation") : [],
-    cancellation: settings?.cancellationTemplate?.trim() ? templateIssues(settings.cancellationTemplate.trim(), "cancellation") : [],
+    reminder: settings?.reminderTemplate?.trim() ? saveIssues(settings.reminderTemplate.trim(), "reminder") : [],
+    confirmation: settings?.confirmationTemplate?.trim() ? saveIssues(settings.confirmationTemplate.trim(), "confirmation") : [],
+    cancellation: settings?.cancellationTemplate?.trim() ? saveIssues(settings.cancellationTemplate.trim(), "cancellation") : [],
   };
   // Fields a text uses that the business has not filled in: the save is refused and the error names the field.
   const fieldsData = { ownerName: settings?.ownerName, hasLocation: Boolean(settings?.locationReady) };
@@ -364,7 +364,9 @@ function TemplateField({
                     ? tx.fixReplaceWithTime.replace("{tag}", tx.tokenTime)
                     : fix.action === "remove_paragraph"
                       ? tx.fixRemoveParagraph
-                      : tx.fixRemoveFragment;
+                      : fix.action === "fix_punctuation"
+                        ? tx.fixKeepOnePeriod
+                        : tx.fixRemoveFragment;
                 return (
                   <button
                     type="button"

@@ -6,7 +6,8 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { isInternalKeyValid, resolveBotTenant, ACTIVE_APPOINTMENT_STATUSES } from "@/lib/bot";
 import { patientKeyOf } from "@/lib/patient-key";
-import { clinicLongDate, clinicTime, customerTexts, renderTemplate, withMeetingLink } from "@/lib/reminder-messages";
+import { clinicLongDate, clinicTime, customerTexts, renderTemplate, withLocation, withMeetingLink } from "@/lib/reminder-messages";
+import { TENANT_PLACE_SELECT, placeTextOf } from "@/lib/reminder-actions";
 import { isClearConfirmation } from "@/lib/confirmation-words";
 import { customerMeetUrl } from "@/lib/short-links";
 import { timeZoneLabel } from "@/lib/time-zones";
@@ -49,9 +50,9 @@ export async function POST(req: NextRequest) {
     data: { customerConfirmedAt: now, status: "CONFIRMED" },
   });
 
-  const tenant = await prisma.tenant.findUnique({ where: { id: bot.tenantId }, select: { name: true, slug: true, customDomain: true, ownerName: true, messageLanguage: true } });
+  const tenant = await prisma.tenant.findUnique({ where: { id: bot.tenantId }, select: { ...TENANT_PLACE_SELECT, name: true, ownerName: true } });
   const language = tenant?.messageLanguage ?? "es";
-  const reply = withMeetingLink(
+  const confirmed = withMeetingLink(
     renderTemplate(customerTexts(language).confirmedReply, {
       servicio: appointment.product.name,
       fecha: clinicLongDate(appointment.appointmentDate, language, bot.timeZone),
@@ -64,6 +65,8 @@ export async function POST(req: NextRequest) {
     tenant ? { ...appointment, meetUrl: customerMeetUrl({ meetUrl: appointment.meetUrl, meetShortCode: appointment.meetShortCode }, tenant) || null } : appointment,
     language,
   );
+  // In person: the address with its directions link, like the reminder (ticket #74).
+  const reply = withLocation(confirmed, appointment, tenant ? placeTextOf(tenant) : null, language);
 
   return Response.json({ handled: true, confirmed: true, reply, appointmentId: appointment.id });
 }

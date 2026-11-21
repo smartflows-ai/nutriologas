@@ -43,3 +43,24 @@ test("/admin/negocio shows the shifted visits and sends the owner's confirmation
   assert.match(page, /<TimeZoneMismatchNotice/);
   assert.match(page, /confirmZoneShift: zoneShiftConfirmed/);
 });
+
+test("every confirmation the customer gets carries the place of an in person visit (#74)", () => {
+  const confirm = read("src/app/api/internal/bot/confirm/route.ts");
+  assert.match(confirm, /withLocation\(confirmed, appointment, tenant \? placeTextOf\(tenant\) : null, language\)/);
+  assert.match(confirm, /\.\.\.TENANT_PLACE_SELECT/);
+  for (const rel of ["src/app/api/apps/whatsapp/confirmations/[id]/route.ts", "src/app/api/appointments/[id]/route.ts"]) {
+    const src = read(rel);
+    assert.match(src, /\.\.\.TENANT_PLACE_SELECT/, rel);
+    assert.match(src, /locationText: placeTextOf\(/, rel);
+  }
+  const actions = read("src/lib/reminder-actions.ts");
+  assert.match(actions, /locationText: placeTextOf\(row\.tenant\)/);
+});
+
+test("two periods after a tag are checked on save, not at send time (#74)", () => {
+  const card = read("src/components/admin/ReminderMessagesCard.tsx");
+  assert.match(card, /saveIssues\(settings\.confirmationTemplate\.trim\(\), "confirmation"\)/);
+  assert.doesNotMatch(card, /templateIssues\(/);
+  assert.match(read("src/app/api/tenants/reminders/route.ts"), /validatePunctuation\(text\)/);
+  assert.doesNotMatch(read("src/lib/reminder-messages.ts"), /punctuationIssues|saveIssues/);
+});
