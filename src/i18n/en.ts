@@ -1572,6 +1572,14 @@ export const en: Translations = {
     sending: "Sending...",
     publishReview: "Publish review"
   },
+  confirmUi: {
+    deleteTitle: "Confirm deletion",
+    deleteAction: "Delete",
+    cancelOrderTitle: "Cancel order",
+    cancelOrderAction: "Cancel order",
+    cancelVisitTitle: "Cancel appointment",
+    cancelVisitAction: "Cancel appointment",
+  },
   agenda: {
     title: "Schedule and appointments",
     subtitle: "Centralized management of consultations and bookings",

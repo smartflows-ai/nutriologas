@@ -5,6 +5,7 @@ import { Trash2, Plus, GripVertical, ImageIcon, UploadCloud, X, Check } from "lu
 import Image from "next/image";
 import ImageCropperModal from "@/components/admin/ImageCropperModal";
 import FormPanel from "@/components/admin/FormPanel";
+import ConfirmModal from "@/components/shared/ConfirmModal";
 import { useTranslation } from "@/i18n";
 
 interface CarouselImage { id: string; url: string; alt: string | null; sortOrder: number; }
@@ -20,6 +21,8 @@ export default function CarruselPage() {
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchImages = async () => {
     const res = await fetch(`/api/carousel?t=${Date.now()}`);
@@ -69,10 +72,16 @@ export default function CarruselPage() {
     }
   };
 
-  const deleteImage = async (id: string) => {
-    if (!confirm(t.crm.carousel.deleteConfirm)) return;
-    await fetch(`/api/carousel/${id}`, { method: "DELETE" });
-    fetchImages();
+  const confirmDeleteImage = async () => {
+    if (!deletingId || isDeleting) return;
+    setIsDeleting(true);
+    try {
+      await fetch(`/api/carousel/${deletingId}`, { method: "DELETE" });
+      await fetchImages();
+    } finally {
+      setIsDeleting(false);
+      setDeletingId(null);
+    }
   };
 
   // Drag & drop reorder
@@ -264,7 +273,7 @@ export default function CarruselPage() {
                   <p className="text-xs text-gray-400 truncate font-mono mt-0.5">{img.url}</p>
                 </div>
                 <button
-                  onClick={() => deleteImage(img.id)}
+                  onClick={() => setDeletingId(img.id)}
                   className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
                 >
                   <Trash2 size={16} />
@@ -285,6 +294,17 @@ export default function CarruselPage() {
             setPendingFile(null);
             uploadFromComputer(cropped);
           }}
+        />
+      )}
+      {deletingId && (
+        <ConfirmModal
+          title={t.confirmUi.deleteTitle}
+          message={t.crm.carousel.deleteConfirm}
+          confirmLabel={t.confirmUi.deleteAction}
+          variant="danger"
+          isBusy={isDeleting}
+          onConfirm={() => void confirmDeleteImage()}
+          onCancel={() => setDeletingId(null)}
         />
       )}
     </>

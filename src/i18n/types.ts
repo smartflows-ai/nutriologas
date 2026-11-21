@@ -1387,6 +1387,14 @@ export interface Translations {
     sending: string;
     publishReview: string;
   };
+  confirmUi: {
+    deleteTitle: string;
+    deleteAction: string;
+    cancelOrderTitle: string;
+    cancelOrderAction: string;
+    cancelVisitTitle: string;
+    cancelVisitAction: string;
+  };
   agenda: {
     title: string;
     subtitle: string;

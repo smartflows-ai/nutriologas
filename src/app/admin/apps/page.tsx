@@ -12,7 +12,7 @@ import { useTranslation } from "@/i18n";
 import { fill, localeFor } from "@/lib/utils";
 import { toast } from "@/hooks/useToast";
 import { useCalendarAccount } from "@/hooks/useCalendarAccount";
-import ConfirmModal from "@/components/admin/ConfirmModal";
+import ConfirmModal from "@/components/shared/ConfirmModal";
 
 // ── Feature definitions ─────────────────────────────────────────
 interface FeatureDef {

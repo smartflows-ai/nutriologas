@@ -202,7 +202,7 @@ export default function BusinessProfilePage() {
     if (!file) return;
 
     if (file.size > 5 * 1024 * 1024) {
-      alert(t.businessUi.fileTooLarge);
+      setError(t.businessUi.fileTooLarge);
       return;
     }
 
