@@ -17,7 +17,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `/agendar`: the optional email label no longer carries "*".
 
 ### Docs
-- n8n changes to paste by hand: `n8n/docs/cambios-n8n-2026-11-23.md` (zone next to each time, tool messages, hand-off only on request, stage zone).
+- n8n changes to paste by hand: `n8n/docs/cambios-n8n-2026-11-23.md` (zone next to each time, tool messages, no hand-off promise after `raised: false`; production workflow only, stage is not used).
 
 ### Tests
 - `tests/time-zone-change.test.ts`, `tests/template-double-period.test.ts`, `tests/help-person-check.test.ts`, `tests/ola-23-nov-wiring.test.ts`; new cases in `patient-intake`, `time-zone-tag`, `location-line-text`, `theme-vars`. The suite passes (1181 tests).
