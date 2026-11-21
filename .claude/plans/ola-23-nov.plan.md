@@ -1,6 +1,43 @@
 # Plan: ola del lunes 23-nov (#113, #116, #128, #127, #74, #129)
 
-**Versión:** v6 (21-nov) · **Complejidad:** media · **Rama única:** `fix/ola-23-nov`, desde `main` (`3b7aa40`) · **Negocio de prueba:** `newy` · **Entrega:** lunes 23-nov
+**Versión:** v8 (21-nov) · **Complejidad:** media · **Rama única:** `fix/ola-23-nov`, desde `main` (`3b7aa40`) · **Negocio de prueba:** `newy` · **Entrega:** lunes 23-nov
+
+## Cambios en v8
+
+| # | Qué cambió | Dónde |
+|---|---|---|
+| 1 | [v8] C7 (#138) terminado y en commit: `3ab6f7c` (sin push). 10 capturas de evidencia | C7, set de pruebas C7 |
+| 2 | [v8] Verificación de la rama completa: 1186 pruebas OK, 0 fallas; `tsc` limpio. Falta el build (el servidor de desarrollo está encendido) | "Siguiente" |
+| 3 | [v8] Datos de prueba que quedaron en newy (no se borraron) | C7, "Datos de prueba" |
+| 4 | [v8] Pregunta abierta: el botón "Cancel" junto a "Cancel appointment" en la tienda | C7 |
+| 5 | [v8] "Siguiente" actualizado | Arriba |
+
+## Cambios en v7
+
+| # | Qué cambió | Dónde |
+|---|---|---|
+| 1 | [v7] La corrección de C4 ya está en un commit: `4ce285c` (sin push) | C4, set de pruebas C4-0b |
+| 2 | [v7] Ticket nuevo **#138**: los 5 `confirm()` nativos del navegador pasan al modal compartido `ConfirmModal`. Lo trabaja otra sesión (chalan2) en esta misma rama, sin tocar los archivos de C4 | Nueva sección C7 |
+| 3 | [v7] El diálogo nativo de "Reactivar mensajes" de tu captura **ya no existe en `main`** (`274fe94`, casilla "Confirmé con el paciente…"). Producción lo sigue mostrando porque corre un deploy anterior de `main` | C7 |
+| 4 | [v7] Dos pruebas nuevas para el lunes: un cliente enojado y uno que pide a alguien por su nombre **sí** pasan a una persona | Set de pruebas C4, "Lunes" |
+| 5 | [v7] Respuesta a tus dos notas del canvas sobre C4 | "Respuestas a tus notas" |
+| 6 | [v7] Sección "Siguiente": qué falta, en orden | Abajo |
+
+## [v8] Siguiente
+
+| # | Paso | Quién | Estado |
+|---|---|---|---|
+| 1 | Corregir C4 (#129) y hacer commit | chalan | **Hecho** (`4ce285c`) |
+| 2 | C7 (#138): modal compartido, prueba guardián, capturas y commit | chalan2 | **Hecho** (`3ab6f7c`) |
+| ~~[v8] 2b~~ | ~~Commit de este plan (v8)~~ | Yo | **Hecho (21-nov)**, sin push |
+| ~~[v8] 2c~~ | ~~`npm run build` de la rama completa, con el servidor de desarrollo apagado (luego `rm -rf .next && npm run dev`)~~ | Yo | **OK (21-nov)**: build limpio, sin errores ni avisos; servidor de desarrollo reiniciado |
+| 3 | Push de la rama (`4ce285c`, `3ab6f7c` y el plan) y actualizar la descripción del PR #137 con #138 y sus capturas (tu captura original como el "antes") | Yo, con tu aprobación | Pendiente |
+| 4 | Pegar a mano los cambios de n8n (`n8n/docs/cambios-n8n-2026-11-23.md`), con respaldo antes en `~/.n8n-backups/` | Tú | Pendiente |
+| 5 | Revisar el PR #137 y aprobar el deploy (merge a `main` = deploy). Con el deploy también llega la casilla de "Reactivar mensajes" | Tú | Pendiente |
+| 6 | Humo con WhatsApp real desde `…2968` (C1-W, C2-W, C3 SI, C4-W, C4-W2, C4-W3) y tacharlo aquí | Tú + yo | Lunes |
+| 7 | Marcar el PR #137 listo para revisión | Yo, con tu aprobación | Lunes |
+
+**Cabos sueltos que decides tú:** la cita de prueba de `…2968` (mar 24-nov 16:00) mandará un recordatorio real el martes ~13:00; el chat de doctorgcenter que pidió a <nombre> sigue pausado esperando al equipo (no lo toqué).
 
 ## Cambios en v6
 
@@ -50,6 +87,8 @@
 | "Ayer modificamos los nodos y el prompt de n8n para la zona" (#127) | Confirmado en solo lectura. Detalle en C2, parte n8n [v2]. El prompt en vivo es **idéntico** a tu copia local la copia local de `~/.n8n-backups/` (archivo `chat-…-modificado-20261120-001455.json`). No cambié nada |
 | "Con newy se puede probar en producción sin riesgo" [v3] | De acuerdo para **los datos de newy**: citas, zona, textos, confirmaciones y el nombre de una palabra de C1-W. Lo que no se puede encerrar en newy: un cambio de esquema o un deploy pega también a doctorgcenter (misma base y misma app), y n8n es un solo flujo para los dos. Esos siguen con su propia aprobación. Los WhatsApp a tu número te los sigo avisando |
 | [v5] "Explica el punto con contexto, no solo ids" (sobre C4 y el cliente enojado) | Sección "[v5] Explicación" dentro de C4: los dos caminos que pasan el chat a una persona, qué pasó en #129, qué cambia C4, tu decisión y qué falta en n8n |
+| [v7] "¿Lo podemos dar por cerrado o qué otras condiciones dependen de este contexto?" (sobre la decisión del 20-nov) | No se podía cerrar: en producción (solo lectura) el agente pasó bien dos chats de doctorgcenter que la regla de v5 habría rechazado. Por eso se corrigió C4 (v6, commit `4ce285c`). Lo que depende de esto: la nota de n8n (sección 3, ya **no** quita "molesto o enojado") y las pruebas del lunes C4-W2 y C4-W3 |
+| [v7] "Eso es lo esperado: si dice que mal servicio pasa a una persona (ya está en prod, valida); no se cambia" | Validado en producción: "Estoy molesta porque no me estás generando una cita" pasó a una persona. Con `4ce285c` sigue así. Solo se frena "cita para otra persona" sin petición, sin nombre y sin queja |
 | "No cierres el canvas; agrega el set de pruebas y ve tachando" | Hecho: el canvas sigue abierto y la sección "Set de pruebas por ronda" tiene casillas. Tacho cada caso cuando lo validemos [v2] |
 
 ## Resumen
@@ -309,6 +348,35 @@ No se regeneraron los codemaps (`/ecc:update-codemaps`): queda opcional, despué
 - `n8n/docs/cambios-n8n-2026-11-23.md`: cambios del prompt para pegar a mano (#127, #128, #129). **Sin escribir en n8n.**
 - Capturas elegidas en `docs/screenshots/ola-23-nov/<ticket>/`, **sin nombres ni teléfonos reales** (el repo es público): solo el usuario de prueba, con el teléfono tapado.
 
+## C7 · [v7] #138: un solo modal para confirmar (sin `confirm()` del navegador)
+
+**Qué pasa.** Algunas confirmaciones usan el diálogo nativo del navegador: caja gris con "newy.newaigent.com says", botones Cancel/OK en inglés y sin los colores del negocio. El resto del CRM ya usa el modal compartido `ConfirmModal` (Citas, Apps, Equipo).
+
+**Tu captura ("Reactivar mensajes").** Ese diálogo ya no está en `main`: `274fe94` (de un compañero) lo cambió por una casilla "Confirmé con el paciente…". Producción lo sigue mostrando porque no tiene ese deploy. **La casilla no se cambia.**
+
+| Pantalla | Archivo | Acción |
+|---|---|---|
+| Preguntas frecuentes | `src/app/admin/faq/page.tsx` | Borrar una pregunta |
+| Carrusel | `src/app/admin/carrusel/page.tsx` | Borrar una imagen |
+| Productos | `src/app/admin/productos/page.tsx` | Borrar un producto |
+| Pedido | `src/app/admin/pedidos/[id]/OrderStatusSelect.tsx` | Cancelar un pedido |
+| Tienda (cliente) | `src/components/shop/CustomerAppointmentsList.tsx` | El cliente cancela su cita |
+
+**Regla.** Toda confirmación usa `ConfirmModal` (si la tienda lo necesita, se mueve a una carpeta compartida). Borrar o cancelar = `variant="danger"`; el botón se desactiva mientras corre la acción. Una prueba en `tests/` falla si alguien vuelve a usar `confirm()`, `alert()` o `prompt()`.
+
+> Metáfora: en una escuela todos los avisos salen con el mismo sello y el mismo papel. Si un salón manda una nota en una servilleta, los papás dudan que sea de la escuela.
+> Ejemplo: borrar una pregunta frecuente hoy abre la caja gris del navegador; después abre el mismo modal que ya ves al borrar una cita.
+
+**Quién y dónde.** Otra sesión (chalan2), en esta misma rama. No toca los archivos de C4. Ticket #138 en "In progress".
+
+**[v8] Hecho (`3ab6f7c`).** `ConfirmModal` se movió a `src/components/shared/` (la tienda también lo usa) y se cambiaron sus 4 imports (Citas, Apps, Equipo, Negocio). Los 5 `confirm()` pasaron al modal, y también un `alert()` de `/admin/negocio` (archivo muy grande): ahora sale el error en la página. Prueba guardián nueva: `tests/no-native-dialogs-guard.test.ts`.
+
+**[v8] Datos de prueba en newy** (se dejaron; tú decides si se borran): un cliente de prueba, un pedido PENDING, una cita PENDING **sin teléfono** (no se mandó nada) y una imagen neutra del carrusel. El script está en `local-utils/ola-23-nov/` (no se sube) y el acceso del cliente solo está en la ventana de chalan2.
+
+**[v8] Pregunta abierta.** En la tienda los dos botones dicen "Cancel" y "Cancel appointment" (en español, "Cancelar" y "Cancelar cita"): un cliente los puede confundir. Propuesta: el primero dice "Volver". Es una llave de i18n. ¿Entra en esta ola?
+
+> Metáfora: si una puerta dice "Salir" y la de al lado "Salir del edificio", la gente duda cuál abrir. "Volver" y "Cancelar cita" no se confunden.
+
 ## Set de pruebas por ronda [v2]
 
 Cómo leer las tablas:
@@ -375,25 +443,38 @@ Para C1-W hace falta que en producción tu número tenga guardado un nombre de u
 | C3-4 | Cita en línea (si newy la permite) | Confirmar | Enlace de videollamada | Igual, **sin** ubicación | |
 | C3-F | `/local-wa-test default texts, reply SI` (espejo) | Lo escribes tú | Recordatorio sin ubicación | Recordatorio y respuesta al SI con la ubicación | |
 
+### [v7] C7 · #138 modal compartido
+
+| Caso | Dónde | Tú | Hoy | Después | Res. |
+|---|---|---|---|---|---|
+| C7-0 | Pruebas | — | — | La prueba guardián falla antes del cambio y pasa después; suite, `tsc` y build limpios | [v8] **OK**: suite 1186 OK, 0 fallas; `tsc` limpio. Build: **OK** (21-nov) |
+| C7-1 | `/admin/faq`, `/admin/carrusel`, `/admin/productos` | Borrar una pregunta, una imagen y un producto de prueba de newy | Caja gris del navegador | `ConfirmModal` rojo con los textos en español; Cancelar no borra | [v8] **OK** (solo Cancelar; admin en inglés): `138-faq-*`, `138-carrusel-*`, `138-productos-*` |
+| C7-2 | `/admin/pedidos/<id>` | Cambiar un pedido de prueba a Cancelado | Caja gris | `ConfirmModal`; Cancelar deja el estado igual | [v8] **OK**: `138-pedido-escritorio-claro.png` |
+| C7-3 | Tienda, "Mis citas" | Cancelar una cita de prueba como cliente | Caja gris | ~~`ConfirmModal` con el color del negocio~~ **[v8] `ConfirmModal` con botón rojo (estilo "peligro", igual que en Citas)** | [v8] **OK**: `138-tienda-mis-citas-escritorio-claro.png` |
+| C7-4 | Las mismas pantallas | Modo oscuro, color del negocio muy claro y muy oscuro, celular | — | Se lee bien en todos | [v8] **OK**: `138-faq-escritorio-oscuro`, `138-faq-telefono-oscuro`, `138-faq-telefono-color-muy-claro`, `138-faq-telefono-color-muy-oscuro`, `138-negocio-error-en-pagina` |
+
 ### C4 · #129 traspaso sin pedirlo
 
 | Caso | Dónde | Tú | Hoy | Después | Res. |
 |---|---|---|---|---|---|
 | C4-W1 | WhatsApp (hoy, evidencia del antes) | `Quiero agendar una cita para mi hija` → `Se llama <Nombre> <Apellido>, tiene 8 años, su número es <tu número>` | A veces "Un miembro de nuestro equipo te dará seguimiento…" y el bot se pausa (21864) | — | |
 | [v4] C4-0 | Pruebas | — | — | `help-person-check` (6): agendar para la hija con el mismo número no cuenta; una petición explícita sí; cuenta todo el lote del turno; una petición de un turno ya contestado no; sin mensaje que leer, se acepta. Prueba de cableado: la revisión va **antes** de pausar. Suite: 1178 OK, `tsc` limpio | **OK** |
-| [v6] C4-0b | Pruebas | — | — | `help-person-check` (8): pasan los dos mensajes de doctorgcenter, "necesito que alguien me ayude con mi pago", hija + petición explícita, hija + nombre, hija + enojo; se rechaza el caso original de la hija; las otras razones no se revisan; sin mensaje se acepta | **OK** |
+| [v6] C4-0b | Pruebas | — | — | `help-person-check` (8): pasan los dos mensajes de doctorgcenter, "necesito que alguien me ayude con mi pago", hija + petición explícita, hija + nombre, hija + enojo; se rechaza el caso original de la hija; las otras razones no se revisan; sin mensaje se acepta. [v7] Commit `4ce285c`; suite 1183 OK | **OK** |
 | C4-1 | Lo hago yo: `curl` a `bot/help` local, `person_requested`, último mensaje = el de la hija | — | Pausa el bot y avisa | `raised: false`, `not_requested`; el bot sigue | [v4] **No se corrió.** En el chat de `…2968` la última línea es del bot, así que la regla no tiene mensaje del cliente que leer y acepta (por diseño): la llamada local **pausaría el bot y avisaría al dueño**. En el flujo real el agente llama la herramienta antes de guardar su respuesta. Se prueba el lunes con C4-W |
 | C4-2 | WhatsApp, luego `curl` local | `Quiero hablar con una persona` | Pausa y aviso | Igual: pausa y aviso (petición real) | |
 | C4-3 | `/admin/whatsapp` | Volver a encender el bot de tu chat después de C4-2 | — | Bot encendido | |
 | C4-W (lunes) | WhatsApp | El guion de C4-W1 | — | Agenda a la hija, sin pausa ni aviso | |
+| [v7] C4-W2 (lunes) | WhatsApp | `Estoy molesta porque no me estás generando una cita` | Pasa a una persona | Igual: pasa a una persona | |
+| [v7] C4-W3 (lunes) | WhatsApp | `Hola, me puedes comunicar con <nombre del equipo>` | Pasa a una persona | Igual: pasa a una persona | |
 
 ## Lunes: envío y humo (cada paso con aprobación aparte)
 
-1. Push de `fix/ola-23-nov` y `/ecc:pr` (un PR con los 6 commits).
+1. ~~Push de `fix/ola-23-nov` y `/ecc:pr` (un PR con los 6 commits).~~ **[v7] El PR #137 ya existe (borrador). Falta el push de `4ce285c` (C4 corregido) y ~~del commit de C7~~ **[v8] `3ab6f7c` (C7)**.**
 2. Deploy a producción: lo apruebas y lo ejecutas tú.
 3. Humo con WhatsApp real sobre newy (te aviso antes de cada mensaje):
    - #128: nombre de una sola palabra, 3 veces; las 3 piden el apellido.
-   - #129: agendar para la hija con el mismo número; el bot no se pausa y nadie recibe aviso.
+   - #129: agendar para la hija con el mismo número; el bot no se pausa y nadie recibe aviso. [v7] Y un cliente enojado o que pide a alguien por su nombre **sí** pasa a una persona (C4-W2, C4-W3).
+   - [v7] #138 / `274fe94`: "Reactivar mensajes" muestra la casilla, no la caja gris del navegador.
    - #74: respuesta al SI con ubicación.
    - #127: el texto con la zona.
    - #116: vista previa del enlace.
