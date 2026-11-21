@@ -89,6 +89,7 @@ export function renderTemplate(template: string, values: ReminderValues): string
   let nameWasEmpty = false;
   let placeWasEmpty = false;
   let ownerWasEmpty = false;
+  let zoneWasEmpty = false;
   const filled = template.replace(/\[([^\[\]]+)\]/g, (match, label: string, offset: number, whole: string) => {
     const key = LABEL_TO_KEY.get(label.trim().toLowerCase());
     if (!key) return match;
@@ -103,6 +104,12 @@ export function renderTemplate(template: string, values: ReminderValues): string
       return name;
     }
     const value = values[key];
+    // A caller that does not know the zone drops the tag: the default texts carry it since ticket #127, and a
+    // bracket must never reach the customer.
+    if (key === "zona" && !value?.trim()) {
+      zoneWasEmpty = true;
+      return "";
+    }
     if (value === undefined) return match;
     if (key === "ubicacion" && !value.trim()) placeWasEmpty = true;
     // "a.m." and "p.m." already end with a period: when the template closes its sentence right after the tag,
@@ -111,7 +118,14 @@ export function renderTemplate(template: string, values: ReminderValues): string
     return value.endsWith(".") && nextChar === "." ? value.slice(0, -1) : value;
   });
   // An unknown name or place leaves its tag empty: close the gap ("Hola , te" -> "Hola, te", "de  la" -> "de la").
-  return nameWasEmpty || placeWasEmpty || ownerWasEmpty ? filled.replace(/[ \t]+([,.;:!?])/g, "$1").replace(/[ \t]{2,}/g, " ") : filled;
+  // An empty zone leaves "()" behind its time: remove it with the space before it.
+  // "a.m. ()." would then read "a.m..": the period of "a.m." closes the sentence.
+  const unwrapped = zoneWasEmpty
+    ? filled.replace(/[ \t]*\(\s*\)/g, "").replace(/([ap]\.\s?m\.)\.(?!\.)/gi, "$1")
+    : filled;
+  return nameWasEmpty || placeWasEmpty || ownerWasEmpty || zoneWasEmpty
+    ? unwrapped.replace(/[ \t]+([,.;:!?])/g, "$1").replace(/[ \t]{2,}/g, " ")
+    : unwrapped;
 }
 
 /**

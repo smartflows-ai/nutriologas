@@ -20,6 +20,14 @@ export interface Translations {
     timeZoneProposed: string;
     timeZoneDetectFailed: string;
     timeZoneChangeNotice: string;
+    timeZoneShiftTitle: string;
+    timeZoneShiftRow: string;
+    timeZoneShiftOutside: string;
+    timeZoneShiftConfirm: string;
+    timeZoneShiftMore: string;
+    timeZoneShiftLoading: string;
+    timeZoneMismatch: string;
+    timeZoneUseAddress: string;
     physicalLocationLabel: string;
     physicalLocationHint: string;
     addressLabel: string;
@@ -1903,6 +1911,7 @@ export interface Translations {
     template_needs_location: string;
     owner_name_required: string;
     time_zone_invalid: string;
+    time_zone_shift_unconfirmed: string;
     template_repeats_confirmation: string;
     template_unknown_tag: string;
     template_too_long: string;

@@ -4,7 +4,7 @@
 // Run with: npx tsx --test tests/time-zone-tag.test.ts
 import test from "node:test";
 import assert from "node:assert/strict";
-import { clinicLongDate, clinicTime, renderTemplate } from "../src/lib/reminder-messages";
+import { clinicLongDate, clinicTime, customerTexts, renderTemplate } from "../src/lib/reminder-messages";
 import { templateIssues, type TemplateKind } from "../src/lib/reminder-template-rules";
 import { timeZoneLabel } from "../src/lib/time-zones";
 
@@ -35,4 +35,26 @@ test("the date and time of a message are read on the business clock", () => {
   assert.equal(clinicLongDate(instant, "es", "America/Mexico_City"), "martes, 17 de noviembre");
   // Madrid is already Wednesday.
   assert.equal(clinicLongDate(instant, "es", "Europe/Madrid"), "miércoles, 18 de noviembre");
+});
+
+// Ticket #127: a patient in another state, or a business whose zone changed, reads the hour with its zone.
+test("the default texts with a time name the business zone, in Spanish and English", () => {
+  for (const language of ["es", "en"]) {
+    const texts = customerTexts(language);
+    for (const key of ["reminderTemplate", "cancellationTemplate", "confirmedReply", "ownerConfirmedText"] as const) {
+      const rendered = renderTemplate(texts[key], { ...VALUES, zona: timeZoneLabel("America/Cancun", language) });
+      assert.match(rendered, language === "en" ? /Cancun time/ : /hora de Cancún/, `${language} ${key}`);
+    }
+  }
+  for (const kind of KINDS) {
+    const key = kind === "reminder" ? "reminderTemplate" : kind === "confirmation" ? "confirmationTemplate" : "cancellationTemplate";
+    assert.deepEqual(templateIssues(customerTexts("es")[key], kind), [], `es ${kind}`);
+    assert.deepEqual(templateIssues(customerTexts("en")[key], kind), [], `en ${kind}`);
+  }
+});
+
+test("a text rendered without a zone drops the tag and its parentheses (#127)", () => {
+  assert.equal(renderTemplate("Tu cita es a las [Hora] ([Zona horaria]).", VALUES), "Tu cita es a las 08:30 p.m.");
+  assert.equal(renderTemplate("*Hora:* [Hora] ([Zona horaria])", VALUES), "*Hora:* 08:30 p.m.");
+  assert.equal(renderTemplate("A las [Hora] ([Zona horaria]) en *[Nombre del negocio]*.", VALUES), "A las 08:30 p.m. en *Clinica Ejemplo*.");
 });

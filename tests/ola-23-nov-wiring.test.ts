@@ -15,3 +15,31 @@ test("bot/context shows the patient through contextPatientView, so a name withou
   assert.doesNotMatch(src, /name: known\.name/);
   assert.match(src, /intake: intakeNeeds\(known\)/);
 });
+
+test("saving a new zone that shifts booked visits needs the owner's confirmation, on the server (#127)", () => {
+  const src = read("src/app/api/tenants/business/route.ts");
+  assert.match(src, /confirmZoneShift: z\.boolean\(\)\.optional\(\)/);
+  assert.match(src, /parsed\.data\.confirmZoneShift !== true/);
+  assert.match(src, /loadZoneShift\(tenantId, zone\.timeZone\)/);
+  assert.match(src, /apiErrorWith\("time_zone_shift_unconfirmed", 409/);
+});
+
+test("the zone impact reads only future active visits of the session's business (#127)", () => {
+  const data = read("src/lib/time-zone-change-data.ts");
+  assert.match(data, /deletedAt: null/);
+  assert.match(data, /status: \{ in: \["PENDING", "CONFIRMED"\] \}/);
+  assert.match(data, /appointmentDate: \{ gt: now \}/);
+  for (const rel of ["src/app/api/tenants/business/time-zone-impact/route.ts", "src/app/api/tenants/business/time-zone-check/route.ts"]) {
+    const route = read(rel);
+    assert.match(route, /session\.user\.role !== "ADMIN"/, rel);
+    assert.match(route, /session\.user\.tenantId/, rel);
+  }
+});
+
+test("/admin/negocio shows the shifted visits and sends the owner's confirmation (#127)", () => {
+  const page = read("src/app/admin/negocio/page.tsx");
+  assert.match(page, /useZoneShift\(savedTimeZone, timeZone\)/);
+  assert.match(page, /<TimeZoneShiftReview /);
+  assert.match(page, /<TimeZoneMismatchNotice/);
+  assert.match(page, /confirmZoneShift: zoneShiftConfirmed/);
+});
