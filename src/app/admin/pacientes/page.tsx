@@ -72,7 +72,7 @@ export default function PacientesPage() {
             {patients.map(patient => (
               <div key={patient.id} className="card transition-shadow bg-white dark:bg-gray-900 overflow-hidden relative">
                 {patient.isTriageComplete && (
-                  <div className="absolute top-0 right-0 bg-primary text-white text-xs font-semibold px-3 py-1 rounded-bl-lg ">
+                  <div className="absolute top-0 right-0 bg-primary text-[color:var(--on-primary)] text-xs font-semibold px-3 py-1 rounded-bl-lg ">
                     {t.crm.triage.complete}
                   </div>
                 )}

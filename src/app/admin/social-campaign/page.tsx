@@ -550,7 +550,7 @@ export default function SocialCampaignPage() {
                   onClick={() => { setFilterPlatform(f.value); setHistPage(1); }}
                   className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                     filterPlatform === f.value
-                      ? "bg-primary text-white"
+                      ? "bg-primary text-[color:var(--on-primary)]"
                       : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
                   }`}
                 >
@@ -750,7 +750,7 @@ export default function SocialCampaignPage() {
                           <p className="text-xs text-white font-medium truncate leading-tight">{item.productName}</p>
                         </div>
                         {isSelected && (
-                          <div className="absolute top-1.5 right-1.5 w-6 h-6 bg-primary text-white rounded-full flex items-center justify-center ">
+                          <div className="absolute top-1.5 right-1.5 w-6 h-6 bg-primary text-[color:var(--on-primary)] rounded-full flex items-center justify-center ">
                             <Check size={14} className="stroke-[3]" />
                           </div>
                         )}

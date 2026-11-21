@@ -355,7 +355,7 @@ export default function CalendarView({ hideStats = false }: { hideStats?: boolea
                             toast.error(t.calendarUi.confirmError);
                           }
                         }}
-                        className="px-4 py-2.5 rounded-xl bg-primary hover:bg-secondary text-white font-semibold text-xs flex items-center gap-1.5 transition-all "
+                        className="px-4 py-2.5 rounded-xl bg-primary hover:bg-secondary text-[color:var(--on-primary)] font-semibold text-xs flex items-center gap-1.5 transition-all "
                       >
                         <Check size={15} />
                         {t.calendarUi.confirmNotify}

@@ -1500,7 +1500,7 @@ export const es: Translations = {
     phone: "Teléfono de WhatsApp *",
     phonePlaceholder: "Ej. 55 1234 5678",
     countryCode: "Código de país",
-    email: "Correo electrónico *",
+    email: "Correo electrónico",
     emailPlaceholder: "ejemplo@correo.com",
     emailOptional: "(opcional)",
     age: "Edad",

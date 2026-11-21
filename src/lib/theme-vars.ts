@@ -32,11 +32,14 @@ export function readableTextOn(rgbChannels: string): string {
 }
 
 export function themeColorVars(colors: { primaryColor?: string | null; secondaryColor?: string | null; accentColor?: string | null }) {
+  const primaryRgb = hexToRgbChannels(colors.primaryColor);
   return {
     "--color-primary": colors.primaryColor || "#16a34a",
-    "--color-primary-rgb": hexToRgbChannels(colors.primaryColor),
+    "--color-primary-rgb": primaryRgb,
     // Text and icons placed on a primary fill (bg-primary): use text-[color:var(--on-primary)], never text-white.
-    "--on-primary": "#ffffff", // product decision (2026-11-11): white text on every primary fill
+    // Dark on a light business color, white on a dark one (decision of 2026-11-20; it replaced "always white" of
+    // 2026-11-11, which read at 1.8:1 on a pale pink).
+    "--on-primary": readableTextOn(primaryRgb),
     "--color-secondary": colors.secondaryColor || "#15803d",
     "--color-secondary-rgb": hexToRgbChannels(colors.secondaryColor || "#15803d"),
     "--color-accent": colors.accentColor || "#4ade80",

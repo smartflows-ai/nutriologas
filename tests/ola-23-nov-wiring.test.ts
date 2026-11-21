@@ -73,3 +73,20 @@ test("bot/help checks a person_requested call against the chat before pausing th
   assert.match(src, /where: \{ tenantId: bot\.tenantId, chatId: \{ in: chats\.map\(\(chat\) => chat\.id\) \} \}/);
   assert.match(src, /reason: "not_requested"/);
 });
+
+test("the optional email of /agendar has no required mark (#116 follow-up)", async () => {
+  const { es } = await import("../src/i18n/es");
+  const { en } = await import("../src/i18n/en");
+  assert.doesNotMatch(es.booking.email, /\*/);
+  assert.doesNotMatch(en.booking.email, /\*/);
+  assert.match(read("src/components/shop/BookingFlow.tsx"), /\{t\.booking\.email\}\{" "\}/);
+});
+
+test("no screen puts fixed white text on the business primary color (readable --on-primary instead)", async () => {
+  const { execSync } = await import("node:child_process");
+  const hits = execSync("grep -rn 'bg-primary' src || true", { cwd: path.join(__dirname, ".."), encoding: "utf8" })
+    .split("\n")
+    .filter((line) => /(?<![:\w/-])bg-primary(?![\w/-])/.test(line) && /(?<![:\w/[-])text-white(?![\w/-])/.test(line))
+    .filter((line) => !line.startsWith("src/lib/theme-vars.ts"));
+  assert.deepEqual(hits, []);
+});
