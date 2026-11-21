@@ -5,6 +5,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  contextPatientView,
   guestEmailFor,
   intakeNeeds,
   isOtherPersonsName,
@@ -55,10 +56,36 @@ test("ages are whole numbers from 0 to 120, typed as a number or as text", () =>
   assert.equal(parseAge(200), null);
 });
 
-test("a known patient is never asked anything", () => {
+test("a known patient with a full name is never asked anything", () => {
   const known = { name: "Ana Lopez", email: null, age: null };
   assert.deepEqual(intakeNeeds(known), { askName: false, askAge: false, askEmail: false });
   assert.deepEqual(missingIntake(known, {}), []);
+});
+
+// Ticket #128: a registered name without a surname is asked again before booking, so bot/book never has to
+// answer full_name_required after the patient already confirmed their data.
+test("a known patient whose stored name has no surname is asked for the name", () => {
+  for (const name of ["Ana", "Paciente", "", null, "  ", "asdf"]) {
+    assert.deepEqual(intakeNeeds({ name, email: null, age: 30 }), { askName: true, askAge: false, askEmail: false }, String(name));
+  }
+});
+
+test("a stored full name with a title or particles is not asked again", () => {
+  for (const name of ["Dra. Ana López", "María de la Luz", "José Ángel Núñez"]) {
+    assert.equal(intakeNeeds({ name, email: null, age: 30 }).askName, false, name);
+  }
+});
+
+test("bot/context shows a stored name only when it is a full name", () => {
+  assert.deepEqual(contextPatientView(null), { known: false });
+  assert.deepEqual(contextPatientView({ name: "Ana Lopez", email: "ana@example.com", age: 30 }), {
+    known: true,
+    name: "Ana Lopez",
+    age: 30,
+    email: "ana@example.com",
+  });
+  assert.deepEqual(contextPatientView({ name: "Ana", email: null, age: 30 }), { known: true, name: null, age: 30, email: null });
+  assert.deepEqual(contextPatientView({ name: "Paciente", email: null, age: null }), { known: true, name: null, age: null, email: null });
 });
 
 test("a new patient is asked for name and age, and offered the optional email", () => {
