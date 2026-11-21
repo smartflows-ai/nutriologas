@@ -28,6 +28,7 @@ import AddressSearch from "@/components/shared/AddressSearch";
 import { DEFAULT_TIME_ZONE } from "@/lib/clinic-time";
 import { fill } from "@/lib/utils";
 import { timeZoneLabel, timeZoneOptionsFor } from "@/lib/time-zones";
+import { TimeZoneMismatchNotice, TimeZoneShiftReview, useZoneShift } from "@/components/admin/business/TimeZoneReview";
 import PasswordFields, {
   EMPTY_PASSWORD_VALUES,
   isPasswordFormTouched,
@@ -115,6 +116,9 @@ export default function BusinessProfilePage() {
   const [timeZone, setTimeZone] = useState<string>(DEFAULT_TIME_ZONE);
   const [savedTimeZone, setSavedTimeZone] = useState<string>(DEFAULT_TIME_ZONE);
   const [timeZoneNotice, setTimeZoneNotice] = useState<string | null>(null);
+  // Ticket #127: visits that will read another hour on the picked zone, and the owner's acceptance of it.
+  const zoneShift = useZoneShift(savedTimeZone, timeZone);
+  const [zoneShiftConfirmed, setZoneShiftConfirmed] = useState(false);
   const [location, setLocation] = useState<BusinessLocation | null>(null);
   const [hours, setHours] = useState<BusinessHours>(DEFAULT_BUSINESS_HOURS);
 
@@ -272,6 +276,11 @@ export default function BusinessProfilePage() {
       setError(t.crm.business.hoursOverlap);
       return;
     }
+    // Ticket #127: a new zone that moves booked visits on the clock waits for the owner's tick (the server checks too).
+    if (timeZone !== savedTimeZone && (zoneShift.loading || (zoneShift.count > 0 && !zoneShiftConfirmed))) {
+      setError(translateApiError(t, "time_zone_shift_unconfirmed") ?? t.crm.business.saveError);
+      return;
+    }
 
     // The password section is checked before anything is saved, so a bad password saves nothing.
     const passwordTouched = isPasswordFormTouched(passwordValues);
@@ -332,6 +341,7 @@ export default function BusinessProfilePage() {
           hasPhysicalLocation,
           serviceModes,
           timeZone,
+          confirmZoneShift: zoneShiftConfirmed,
           address: hasPhysicalLocation ? location?.address : null,
           placeId: hasPhysicalLocation ? location?.placeId ?? null : null,
           latitude: hasPhysicalLocation ? location?.latitude ?? null : null,
@@ -348,6 +358,7 @@ export default function BusinessProfilePage() {
         setTimeZone(savedData.timeZone);
         setSavedTimeZone(savedData.timeZone);
       }
+      setZoneShiftConfirmed(false);
       setTimeZoneNotice(
         savedData.timeZoneDetection === "detected"
           ? fill(t.locationUi.timeZoneDetected, { zona: timeZoneLabel(savedData.timeZone, lang) })
@@ -717,6 +728,7 @@ export default function BusinessProfilePage() {
                   // The zone Google gives for the picked place (ticket #111) is proposed right away; saving keeps it.
                   if (next?.timeZone) {
                     setTimeZone(next.timeZone);
+                    setZoneShiftConfirmed(false);
                     setTimeZoneNotice(fill(t.locationUi.timeZoneProposed, { zona: timeZoneLabel(next.timeZone, lang) }));
                   }
                 }}
@@ -755,6 +767,7 @@ export default function BusinessProfilePage() {
               onChange={(e) => {
                 setTimeZone(e.target.value);
                 setTimeZoneNotice(null);
+                setZoneShiftConfirmed(false);
               }}
               className="select-themed w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
             >
@@ -768,6 +781,16 @@ export default function BusinessProfilePage() {
               <p className="text-xs text-gray-500 dark:text-gray-400">{t.locationUi.timeZoneChangeNotice}</p>
             )}
             {timeZoneNotice && <p role="status" className="text-xs text-gray-600 dark:text-gray-300">{timeZoneNotice}</p>}
+            <TimeZoneShiftReview shift={zoneShift} confirmed={zoneShiftConfirmed} onConfirmedChange={setZoneShiftConfirmed} />
+            <TimeZoneMismatchNotice
+              savedZone={savedTimeZone}
+              selectedZone={timeZone}
+              onUseAddressZone={(zone) => {
+                setTimeZone(zone);
+                setTimeZoneNotice(null);
+                setZoneShiftConfirmed(false);
+              }}
+            />
           </div>
         </div>
 
@@ -882,7 +905,7 @@ export default function BusinessProfilePage() {
           <button
             type="submit"
             disabled={saving || uploadingLogo || !ownerNameIsFilled(ownerName)}
-            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-white bg-primary hover:bg-primary/90 focus:outline-hidden focus:ring-2 focus:ring-primary/30 transition-all disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-[color:var(--on-primary)] bg-primary hover:bg-primary/90 focus:outline-hidden focus:ring-2 focus:ring-primary/30 transition-all disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
           >
             {saving ? (
               <>

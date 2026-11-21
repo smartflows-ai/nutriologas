@@ -4,6 +4,24 @@ All notable changes to Presto AI are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased] — wave of 2026-11-23 (branch `fix/ola-23-nov`)
+
+### Fixed
+- #128: a registered patient whose stored name has no surname is asked for it before booking. `bot/context` sends `patient.name: null` and `intake.askName: true` (`contextPatientView`, `intakeNeeds` in `src/lib/patient-intake.ts`), so the current prompt asks for it and `bot/book` no longer answers `full_name_required` after the patient confirmed their data. No n8n change.
+- #127: changing the business time zone in `/admin/negocio` lists the future pending and confirmed visits that will read another hour (and those that fall outside the hours) and saves only after the owner ticks the box. `PATCH /api/tenants/business` answers 409 `time_zone_shift_unconfirmed` otherwise. A saved zone that does not tell the hour of the address shows a notice with "Usar la zona de la dirección"; names with the same clock all year (Monterrey and Mexico City) do not count (`sameClock`). Visits and calendar events are not moved. New routes `GET /api/tenants/business/time-zone-impact` and `GET /api/tenants/business/time-zone-check` (owner only).
+- #127: the default reminder, cancellation, reply to SI and owner confirmation name the business zone ("02:30 p.m. (hora de Monterrey)"). A caller with no zone drops the tag and its parentheses.
+- #74: the reply to SI and the owner's confirmation (Confirmaciones, Confirmar in Citas, a move from the panel) add the business address with its directions link for an in person visit, like the reminder.
+- #74: two periods typed after a tag ("[Hora límite]..") are sent as one. The settings card and `PATCH /api/tenants/reminders` flag them (`template_double_period`) with a "Dejar un solo punto" fix. The send-time check is unchanged, so a stored text with ".." never falls back to the default.
+- #129: `POST /api/internal/bot/help` accepts `person_requested` only when a customer message since the business's last reply asks for a person (the rule of the n8n guard). Otherwise it answers `not_requested`, does not pause the bot and tells nobody. Business decision: being upset alone does not hand the chat over.
+- The text on the business primary color is readable: `--on-primary` is dark on a light color and white on a dark one (`readableTextOn`); it replaces the 2026-11-11 "always white" rule (1.8:1 on newy's and doctorgcenter's pink, 9.87:1 now). The 32 class lists with fixed white text on `bg-primary` use `--on-primary`.
+- `/agendar`: the optional email label no longer carries "*".
+
+### Docs
+- n8n changes to paste by hand: `n8n/docs/cambios-n8n-2026-11-23.md` (zone next to each time, tool messages, hand-off only on request, stage zone).
+
+### Tests
+- `tests/time-zone-change.test.ts`, `tests/template-double-period.test.ts`, `tests/help-person-check.test.ts`, `tests/ola-23-nov-wiring.test.ts`; new cases in `patient-intake`, `time-zone-tag`, `location-line-text`, `theme-vars`. The suite passes (1181 tests).
+
 ## [Unreleased] — 2026-11-20 (third round)
 
 ### Changed

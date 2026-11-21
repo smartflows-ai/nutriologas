@@ -4,7 +4,8 @@ import { getAppSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
-import { apiError } from "@/lib/api-errors";
+import { apiError, apiErrorWith } from "@/lib/api-errors";
+import { loadZoneShift } from "@/lib/time-zone-change-data";
 import { locationSchema } from "@/lib/location";
 import { ownerNameIsFilled } from "@/lib/owner-name";
 import { isSameWhatsAppNumber } from "@/lib/whatsapp-number";
@@ -35,6 +36,8 @@ const updateBusinessSchema = z.object({
   serviceModes: z.enum(["IN_PERSON", "ONLINE", "BOTH"]).optional(),
   // The business time zone (IANA). Checked below with isValidTimeZone: answers time_zone_invalid.
   timeZone: z.string().trim().max(64).optional(),
+  // Ticket #127: the owner saw the visits that will show another hour on the new zone and accepts it.
+  confirmZoneShift: z.boolean().optional(),
 });
 
 export async function GET() {
@@ -174,6 +177,14 @@ export async function PATCH(req: Request) {
         ? await lookupTimeZone(locationData.latitude, locationData.longitude, realTimeZoneLookupDeps)
         : null;
     const zone = chooseTimeZone({ ...zoneInput, detected });
+
+    // Ticket #127: a new zone that makes booked visits read another hour is saved only after the owner saw them.
+    if (zone.timeZone !== zoneInput.current.timeZone && parsed.data.confirmZoneShift !== true) {
+      const shift = await loadZoneShift(tenantId, zone.timeZone);
+      if (shift.visits.length > 0) {
+        return apiErrorWith("time_zone_shift_unconfirmed", 409, { count: shift.visits.length, toZone: zone.timeZone });
+      }
+    }
 
     // Stored as NULL when it equals the default schedule, so later default changes still apply.
     const hoursData =

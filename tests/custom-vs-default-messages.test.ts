@@ -204,7 +204,7 @@ test("an online visit with no link yet never shows an empty place label", async 
 
 // --- Cancellation text -------------------------------------------------------------------------------------------
 
-const cancelValues = { servicio: "Colposcopía", fecha: "miércoles, 11 de noviembre", hora: "10:00 a.m.", negocio: "Doctor G Center", nombre: "Scarllet" };
+const cancelValues = { servicio: "Colposcopía", fecha: "miércoles, 11 de noviembre", hora: "10:00 a.m.", zona: "hora de Ciudad de México", negocio: "Doctor G Center", nombre: "Scarllet" };
 
 test("cancellation: the custom text is sent, the default only when there is none", () => {
   const custom = cancellationText("Hola [Nombre], liberamos tu cita de [Servicio].", cancelValues, "es");
@@ -279,6 +279,7 @@ test("default reminder + custom confirmation: when the visit is released the def
     .replace("[Servicio]", cancelValues.servicio)
     .replace("[Fecha]", cancelValues.fecha)
     .replace("[Hora]", cancelValues.hora)
+    .replace("[Zona horaria]", cancelValues.zona)
     .replace("[Nombre del negocio]", cancelValues.negocio));
   assert.ok(!text.includes("DoctorG Center"), "nothing of the custom confirmation leaks into the cancellation");
 });

@@ -5,7 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/permission-guard";
 import { apiError } from "@/lib/api-errors";
-import { unfilledFields } from "@/lib/reminder-template-rules";
+import { unfilledFields, validatePunctuation } from "@/lib/reminder-template-rules";
 import { parseBusinessHours } from "@/lib/business-hours";
 import { reminderQuietConflict } from "@/lib/reminder-quiet-hours";
 import { DEFAULT_QUIET_END_MIN, DEFAULT_QUIET_START_MIN } from "@/lib/wa-pacing";
@@ -120,6 +120,11 @@ export async function PATCH(req: Request) {
   if (placeInCancellation) return apiError(placeInCancellation as "template_location_not_allowed", 400);
   const repeats = data.reminderTemplate ? validateReminderNoConfirmation(data.reminderTemplate) : null;
   if (repeats) return apiError(repeats as "template_repeats_confirmation", 400);
+  // Ticket #74: two periods after a tag read "a.m.." to the customer; checked on save only (not at send time).
+  for (const text of [data.reminderTemplate, data.confirmationTemplate, data.cancellationTemplate]) {
+    const punctuation = text ? validatePunctuation(text) : null;
+    if (punctuation) return apiError(punctuation as "template_double_period", 400);
+  }
   if (data.confirmationTemplate) {
     const problem = validateConfirmationTemplate(data.confirmationTemplate);
     if (problem) return apiError(problem as "confirmation_missing_si", 400);

@@ -9,7 +9,7 @@ import { isBookable } from "@/lib/bookable";
 import { productKindOf } from "@/lib/product-kind";
 import { getCreditStatus } from "@/lib/credits";
 import { INTRO_WINDOW_HOURS, buildGreetingReply, introRequired } from "@/lib/greeting";
-import { effectiveModes, intakeNeeds, modalityModeFor, modalityModeOf } from "@/lib/patient-intake";
+import { contextPatientView, effectiveModes, intakeNeeds, modalityModeFor, modalityModeOf } from "@/lib/patient-intake";
 import { patientKeyOf } from "@/lib/patient-key";
 import { getKnownPatient } from "@/lib/patients";
 import { currencyForTimeZone } from "@/lib/currency";
@@ -104,7 +104,8 @@ export async function POST(req: NextRequest) {
     // Patient registry for this number: what to ask (intake) and how the business sees patients (modalityMode:
     // IN_PERSON, ONLINE, or ASK when the patient chooses). The stored name, age and email are shown to the patient
     // (it is their own number) so they confirm them before booking; email is null when they gave none.
-    patient: known ? { known: true, name: known.name, age: known.age, email: known.email } : { known: false },
+    // A stored name without a surname goes out as null (ticket #128): the prompt then asks for it before booking.
+    patient: contextPatientView(known),
     intake: intakeNeeds(known),
     modalityMode: modalityModeOf(bot.serviceModes),
     // Read-only catalog: the agent may quote these prices but cannot change them.

@@ -285,7 +285,7 @@ export default function ProductosPage() {
                       onClick={() => selectType(type)}
                       className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-semibold transition-all ${
                         selectedItemType === type
-                          ? "bg-primary text-white "
+                          ? "bg-primary text-[color:var(--on-primary)] "
                           : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 border border-gray-200 dark:border-gray-700"
                       }`}
                     >

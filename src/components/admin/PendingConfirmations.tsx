@@ -145,7 +145,7 @@ export default function PendingConfirmations() {
                   type="button"
                   onClick={() => act(visit.id, "confirm")}
                   disabled={busyId === visit.id}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-white bg-primary hover:bg-primary/90 disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-[color:var(--on-primary)] bg-primary hover:bg-primary/90 disabled:opacity-50"
                 >
                   {busyId === visit.id ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
                   {tx.confirmationsConfirm}

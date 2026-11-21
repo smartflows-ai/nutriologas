@@ -3,6 +3,17 @@
 > Movido desde `CLAUDE.md` el 2026-11-20 para que no se cargue en cada mensaje. No lo lee Claude por sí solo: ábrelo cuando la tarea toque pendientes, producción o QA.
 
 
+### Pending after the wave of 2026-11-23 (branch `fix/ola-23-nov`, plan `.claude/plans/ola-23-nov.plan.md`)
+
+- **Deploy and real WhatsApp checks (Monday 23-nov)**: the bot changes (#128 `bot/context`, #129 `bot/help`, #74 reply to SI) only reach WhatsApp after the deploy, because n8n calls the deployed app. Checks C1-W, C2-W, C4-W of the plan, from the test number `…2968` (never `…1960`, which is newy's own line).
+- **n8n by hand**: `n8n/docs/cambios-n8n-2026-11-23.md`. Most urgent: #129, because the agent still promises "una persona del equipo te dará seguimiento" in the same reply when the app now answers `not_requested`.
+- **#127 not done**: recalculating booked visits and moving calendar events when the zone changes. Only the review, the confirmation and the address check shipped.
+- **#128 friction left**: a patient stored as a nickname ("Anita") who gives a full name with another first word ("Ana Garza") still gets `patient_phone_required` (#72 compares first names).
+- **newy data, left as is**: its saved cancellation text starts with `[Zona horaria]` glued to "Hola" ("hora de MonterreyHola…"). Its zone moved Cancún → America/Monterrey on 2026-11-20 (approved test of C2).
+- **Test visits on newy**: `…2968`, Tue 24-nov 16:00, in person, confirmed (C3); it gets a real reminder on Tuesday about 13:00. The R0 visit on `…1960` is soft-deleted.
+- **Improvement, not a bug**: `/ubicacion` shows no WhatsApp preview card (it redirects straight to Google Maps).
+- **Admin dark mode**: the panel does not follow the system dark mode (`<html class="light">`); not checked whether it is by design.
+
 ### Pending after QA 2026-11-20
 
 - **`prisma/sql/33-chat-messaging-reactivation` is applied** (2026-11-20). Keep the rule for later changes: the sync route upserts `whatsapp_chats` without a `select`, so Prisma reads every column of the schema, and a column the code knows but the database lacks makes every incoming WhatsApp message fail to sync.

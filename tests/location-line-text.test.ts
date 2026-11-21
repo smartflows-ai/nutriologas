@@ -5,6 +5,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { withLocation } from "../src/lib/reminder-messages";
+import { ownerConfirmationText } from "../src/lib/reminder-actions";
 import { runReminderBatch, type ReminderDeps, type ReminderVisit } from "../src/lib/reminder-run";
 
 const PLACE = "Av. Reforma 100, CDMX (https://www.google.com/maps/dir/?api=1&destination=19.4,-99.1)";
@@ -93,4 +94,35 @@ test("the reminder job sends the video call link, not the address, of an online 
 test("the reminder job sends no location line when the business has no physical location", async () => {
   const [text] = await sentTexts(visit({ modality: "IN_PERSON" }, ""));
   assert.ok(!text.includes("Ubicación"));
+});
+
+// Ticket #74: the owner's confirmation (Confirmaciones tab, Confirmar in Citas, a move from the panel) carries the
+// place like the reminder does.
+const OWNER_VISIT = {
+  id: "v1",
+  tenantId: "t1",
+  customerPhone: "525500000001",
+  customerName: "Ana Garza",
+  appointmentDate: new Date("2026-11-23T20:30:00Z"),
+  externalProvider: null,
+  externalEventId: null,
+  productName: "Consulta",
+  tenantName: "Newy",
+  messageLanguage: "es",
+  timeZone: "America/Monterrey",
+  cancellationTemplate: null,
+};
+
+test("the owner's confirmation of an in person visit names the place (#74)", () => {
+  const text = ownerConfirmationText({ ...OWNER_VISIT, modality: "IN_PERSON", locationText: PLACE });
+  assert.ok(text.endsWith(`\n\nUbicación: ${PLACE}`), text);
+  assert.ok(text.includes("02:30 p.m. (hora de Monterrey)"), text);
+});
+
+test("the owner's confirmation of an online visit keeps only the video link, and no place means no line (#74)", () => {
+  const online = ownerConfirmationText({ ...OWNER_VISIT, modality: "ONLINE", meetUrl: "https://newy.newaigent.com/online/abcd1234", locationText: PLACE });
+  assert.ok(online.includes("Videollamada: https://newy.newaigent.com/online/abcd1234"), online);
+  assert.ok(!online.includes("Ubicación:"), online);
+  const nowhere = ownerConfirmationText({ ...OWNER_VISIT, modality: "IN_PERSON", locationText: "" });
+  assert.ok(!nowhere.includes("Ubicación:"), nowhere);
 });
