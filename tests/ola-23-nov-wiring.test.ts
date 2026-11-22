@@ -90,3 +90,12 @@ test("no screen puts fixed white text on the business primary color (readable --
     .filter((line) => !line.startsWith("src/lib/theme-vars.ts"));
   assert.deepEqual(hits, []);
 });
+
+test("no screen puts fixed white text on bg-[var(--color-primary)] (same rule, arbitrary-value form)", async () => {
+  const { execSync } = await import("node:child_process");
+  const hits = execSync("grep -rnF 'bg-[var(--color-primary)]' src || true", { cwd: path.join(__dirname, ".."), encoding: "utf8" })
+    .split("\n")
+    .filter((line) => /(?<![:\w/[-])text-white(?![\w/-])/.test(line))
+    .filter((line) => !line.startsWith("src/lib/theme-vars.ts"));
+  assert.deepEqual(hits, []);
+});
