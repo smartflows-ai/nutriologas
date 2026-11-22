@@ -55,6 +55,7 @@ export interface Translations {
     confirmationLanguageName: string;
     greetingIntro: string;
     greetingPrivacy: string;
+    mediaNotSupported: string;
     meetingLine: string;
     locationLine: string;
     bookedByLine: string;
@@ -812,6 +813,7 @@ export interface Translations {
           urgency: string;
           optedOut: string;
           bookingLimit: string;
+          unsupportedMedia: string;
         };
         needsHelp: string;
         waiting: string;

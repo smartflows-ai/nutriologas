@@ -5,6 +5,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { contactJids, isInternalKeyValid, normalizeCustomerPhone, resolveBotTenant } from "@/lib/bot";
 import { isTeamNumber } from "@/lib/team-numbers";
+import { loadTeamNumbers } from "@/lib/team-numbers-data";
 import { detectRunaway } from "@/lib/wa-loop-guard";
 import { notifyTenantOwner } from "@/lib/whatsapp";
 
@@ -23,11 +24,7 @@ export async function POST(req: NextRequest) {
 
   // The people of the business (the owner and the staff) are never answered as customers: an assistant who
   // replies to a help notice on the business number would otherwise get the bot's reply.
-  const [tenant, staff] = await Promise.all([
-    prisma.tenant.findUnique({ where: { id: bot.tenantId }, select: { whatsappNumber: true } }),
-    prisma.user.findMany({ where: { tenantId: bot.tenantId, role: "STAFF", isActive: true, whatsappNumber: { not: null } }, select: { whatsappNumber: true } }),
-  ]);
-  if (isTeamNumber(digits, [tenant?.whatsappNumber, ...staff.map((user) => user.whatsappNumber)])) {
+  if (isTeamNumber(digits, await loadTeamNumbers(bot.tenantId))) {
     return Response.json({ botEnabled: false, reason: "team_member" });
   }
 

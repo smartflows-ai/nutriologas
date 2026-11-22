@@ -13,8 +13,9 @@ import { personRequestAllowed } from "@/lib/help-person-check";
 
 // Reasons only the server raises. "opted_out" comes from the inbound detection in whatsapp/sync, which also records
 // the opt-out; raised by the bot it would show "Pidió no recibir mensajes" without any opt-out behind it (QA 2026-11-20).
-// "booking_limit" is raised by bot/book and bot/reschedule when the daily visit limit is reached (#141), not by the model.
-const SERVER_ONLY_REASONS: ReadonlySet<HelpReason> = new Set<HelpReason>(["opted_out", "booking_limit"]);
+// "booking_limit" is raised by bot/book and bot/reschedule when the daily visit limit is reached (#141), and
+// "unsupported_media" by bot/media when a patient sends a file the bot cannot read (#139): not by the model.
+const SERVER_ONLY_REASONS: ReadonlySet<HelpReason> = new Set<HelpReason>(["opted_out", "booking_limit", "unsupported_media"]);
 
 /** Latest chat lines read to check a person_requested call: enough for one batched turn of the flow. */
 const RECENT_LINES = 10;
@@ -47,7 +48,15 @@ export type HelpContactResult =
   | { status: "no_chat" }
   | { status: "not_requested" }
   | { status: "tenant_missing" }
-  | { status: "done"; raised: boolean; paused: boolean; notified: Awaited<ReturnType<typeof raiseHelpOnChat>>["notified"] };
+  | {
+      status: "done";
+      raised: boolean;
+      paused: boolean;
+      notified: Awaited<ReturnType<typeof raiseHelpOnChat>>["notified"];
+      /** The contact's chat rows and the help state the newest one had before this call (bot/media reads it). */
+      chatIds: string[];
+      before: { helpReason: string | null; helpRequestedAt: Date | null };
+    };
 
 /**
  * Finds the contact's chat, pauses the bot when the reason needs a person and raises the help request. Shared by the
@@ -112,5 +121,12 @@ export async function raiseHelpForContact(bot: BotTenant, contact: HelpContact, 
   }
 
   const outcome = await raiseHelpOnChat(realHelpDeps, tenant as HelpTenant, row as HelpChatRow, reason, now, { quiet });
-  return { status: "done", raised: outcome.raised, paused, notified: outcome.notified };
+  return {
+    status: "done",
+    raised: outcome.raised,
+    paused,
+    notified: outcome.notified,
+    chatIds: chats.map((chat) => chat.id),
+    before: { helpReason: row.helpReason, helpRequestedAt: row.helpRequestedAt },
+  };
 }

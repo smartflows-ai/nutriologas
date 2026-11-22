@@ -18,7 +18,8 @@ export type HelpReason =
   | "reminder_failed"
   | "urgency"
   | "opted_out"
-  | "booking_limit";
+  | "booking_limit"
+  | "unsupported_media";
 
 interface HelpReasonInfo {
   readonly priority: HelpPriority;
@@ -51,6 +52,9 @@ export const HELP_REASONS: Readonly<Record<HelpReason, HelpReasonInfo>> = {
   // A person asked for more visits in one day than the limit (booking-limit.ts, #141): the server raises it from bot/book
   // and bot/reschedule, and a person decides, so the bot steps aside.
   booking_limit: { priority: HELP_PRIORITY.MEDIUM, labelKey: "bookingLimit", enabled: true, pausesBot: true, tenantWide: false },
+  // The patient sent an audio, image, video or document the bot cannot read (#139): the server raises it from bot/media.
+  // The bot keeps answering (the patient was asked to write it), so it does not pause.
+  unsupported_media: { priority: HELP_PRIORITY.MEDIUM, labelKey: "unsupportedMedia", enabled: true, pausesBot: false, tenantWide: false },
 };
 
 export function isHelpReason(value: unknown): value is HelpReason {
