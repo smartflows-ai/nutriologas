@@ -73,7 +73,7 @@ export default function ProductCard({ product, bookingEnabled }: { product: Prod
           {isBooking ? (
             <button
               onClick={handleBooking}
-              className="w-full bg-primary hover:opacity-90 text-white font-semibold py-3.5 rounded-xl hover:brightness-110 transition-all text-sm flex items-center justify-center gap-2"
+              className="w-full bg-primary hover:opacity-90 text-[color:var(--on-primary)] font-semibold py-3.5 rounded-xl hover:brightness-110 transition-all text-sm flex items-center justify-center gap-2"
             >
               <Calendar size={18} />
               {t.productUi.bookAppointment} {product.durationMinutes ? `(${product.durationMinutes}m)` : ""}
@@ -82,7 +82,7 @@ export default function ProductCard({ product, bookingEnabled }: { product: Prod
             <button
               onClick={handleAdd}
               disabled={product.stock === 0}
-              className="w-full bg-primary text-white font-semibold py-3.5 rounded-xl hover:brightness-110 transition-all text-sm flex items-center justify-center gap-2"
+              className="w-full bg-primary text-[color:var(--on-primary)] font-semibold py-3.5 rounded-xl hover:brightness-110 transition-all text-sm flex items-center justify-center gap-2"
             >
               <ShoppingCart size={18} />
               {product.stock === 0 ? t.productUi.soldOut : t.productUi.addToCart}
@@ -114,7 +114,7 @@ export default function ProductCard({ product, bookingEnabled }: { product: Prod
           {isBooking ? (
             <button
               onClick={handleBooking}
-              className="w-full bg-primary text-white hover:brightness-110 font-semibold py-2.5 px-4 rounded-xl transition-all text-sm flex items-center justify-center gap-2"
+              className="w-full bg-primary text-[color:var(--on-primary)] hover:brightness-110 font-semibold py-2.5 px-4 rounded-xl transition-all text-sm flex items-center justify-center gap-2"
             >
               <Calendar size={16} />
               {t.productUi.bookShort}
@@ -123,7 +123,7 @@ export default function ProductCard({ product, bookingEnabled }: { product: Prod
             <button
               onClick={handleAdd}
               disabled={product.stock === 0}
-              className="w-full bg-primary text-white hover:brightness-110 font-semibold py-2.5 px-4 rounded-xl transition-all text-sm flex items-center justify-center gap-2"
+              className="w-full bg-primary text-[color:var(--on-primary)] hover:brightness-110 font-semibold py-2.5 px-4 rounded-xl transition-all text-sm flex items-center justify-center gap-2"
             >
               <ShoppingCart size={16} />
               {product.stock === 0 ? t.productUi.soldOut : t.productUi.addShort}

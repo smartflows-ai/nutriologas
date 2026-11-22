@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { Trash2, Plus, GripVertical, Check, Pencil, Eye, EyeOff, HelpCircle } from "lucide-react";
 import { useTranslation } from "@/i18n";
 import FormPanel from "@/components/admin/FormPanel";
+import ConfirmModal from "@/components/shared/ConfirmModal";
 
 interface FAQ {
   id: string;
@@ -25,6 +26,8 @@ export default function FAQPage() {
   const [editQuestion, setEditQuestion] = useState("");
   const [editAnswer, setEditAnswer] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchFaqs = async () => {
     const res = await fetch(`/api/faqs?t=${Date.now()}`);
@@ -54,10 +57,16 @@ export default function FAQPage() {
     }
   };
 
-  const deleteFaq = async (id: string) => {
-    if (!confirm(t.crm.faq.deleteConfirm)) return;
-    await fetch(`/api/faqs/${id}`, { method: "DELETE" });
-    fetchFaqs();
+  const confirmDeleteFaq = async () => {
+    if (!deletingId || isDeleting) return;
+    setIsDeleting(true);
+    try {
+      await fetch(`/api/faqs/${deletingId}`, { method: "DELETE" });
+      await fetchFaqs();
+    } finally {
+      setIsDeleting(false);
+      setDeletingId(null);
+    }
   };
 
   const toggleActive = async (faq: FAQ) => {
@@ -274,7 +283,7 @@ export default function FAQPage() {
                       <Pencil size={16} />
                     </button>
                     <button
-                      onClick={() => deleteFaq(faq.id)}
+                      onClick={() => setDeletingId(faq.id)}
                       title={t.adminUi.faqDelete}
                       className="p-2 rounded-lg hover:bg-red-50 text-gray-500 hover:text-red-500 transition-colors flex justify-center"
                     >
@@ -287,6 +296,17 @@ export default function FAQPage() {
           </div>
         )}
       </div>
+      {deletingId && (
+        <ConfirmModal
+          title={t.confirmUi.deleteTitle}
+          message={t.crm.faq.deleteConfirm}
+          confirmLabel={t.confirmUi.deleteAction}
+          variant="danger"
+          isBusy={isDeleting}
+          onConfirm={() => void confirmDeleteFaq()}
+          onCancel={() => setDeletingId(null)}
+        />
+      )}
     </div>
   );
 }

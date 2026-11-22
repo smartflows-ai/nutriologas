@@ -4,7 +4,7 @@
 // Everything it shows comes from /api/admin/users, which only answers the owner of the business.
 import { useState } from "react";
 import { UserPlus, Users } from "lucide-react";
-import ConfirmModal from "@/components/admin/ConfirmModal";
+import ConfirmModal from "@/components/shared/ConfirmModal";
 import FormPanel from "@/components/admin/FormPanel";
 import { useTenantMeta } from "@/components/admin/TenantMeta";
 import { toast } from "@/hooks/useToast";

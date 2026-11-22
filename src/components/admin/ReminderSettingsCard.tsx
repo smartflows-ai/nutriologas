@@ -269,7 +269,7 @@ export default function ReminderSettingsCard() {
           type="button"
           onClick={handleSave}
           disabled={saving || !settingsValid}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-primary hover:bg-primary/90 transition-all disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-[color:var(--on-primary)] bg-primary hover:bg-primary/90 transition-all disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
         >
           {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
           <span>{tx.saveRemindersBtn}</span>

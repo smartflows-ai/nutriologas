@@ -56,7 +56,7 @@ function MessageBubble({
         className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm relative ${
           isUser
             ? "bg-gray-900 text-white dark:bg-gray-800 border border-gray-700"
-            : "bg-primary text-white"
+            : "bg-primary text-[color:var(--on-primary)]"
         }`}
       >
         {isUser ? (
@@ -626,7 +626,7 @@ export default function ChatAssistant({
             <button
               onClick={() => sendMessage(input)}
               disabled={!input.trim() || loading || creditStatus?.isExhausted}
-              className="w-11 h-11 flex-shrink-0 bg-primary hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl flex items-center justify-center transition-colors shadow-sm"
+              className="w-11 h-11 flex-shrink-0 bg-primary hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed text-[color:var(--on-primary)] rounded-xl flex items-center justify-center transition-colors shadow-sm"
             >
               <Send size={18} />
             </button>

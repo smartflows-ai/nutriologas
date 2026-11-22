@@ -12,7 +12,7 @@ import { useTranslation } from "@/i18n";
 import { fill, localeFor } from "@/lib/utils";
 import { toast } from "@/hooks/useToast";
 import { useCalendarAccount } from "@/hooks/useCalendarAccount";
-import ConfirmModal from "@/components/admin/ConfirmModal";
+import ConfirmModal from "@/components/shared/ConfirmModal";
 
 // ── Feature definitions ─────────────────────────────────────────
 interface FeatureDef {
@@ -234,7 +234,7 @@ function WhatsAppConnectModal({
             </p>
             <button
               onClick={startConnect}
-              className="w-full py-3 text-white text-sm font-semibold rounded-xl bg-primary hover:opacity-90 transition shadow-sm"
+              className="w-full py-3 text-[color:var(--on-primary)] text-sm font-semibold rounded-xl bg-primary hover:opacity-90 transition shadow-sm"
             >
               {t.crm.apps.whatsappModal.generateBtn}
             </button>
@@ -452,7 +452,7 @@ export default function AppsPage() {
                   {/* Icon + Name */}
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-white shrink-0`}>
+                      <div className={`w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-[color:var(--on-primary)] shrink-0`}>
                         {feat.icon}
                       </div>
                       <div>
@@ -567,7 +567,7 @@ export default function AppsPage() {
                           }
                         }}
                         disabled={togglingAssistant}
-                        className={`w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg transition-colors disabled:opacity-50 ${isAssistantEnabled ? "border border-transparent text-red-600 hover:border-red-200 hover:bg-red-50" : "bg-primary text-white hover:bg-primary/90"}`}
+                        className={`w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg transition-colors disabled:opacity-50 ${isAssistantEnabled ? "border border-transparent text-red-600 hover:border-red-200 hover:bg-red-50" : "bg-primary text-[color:var(--on-primary)] hover:bg-primary/90"}`}
                       >
                         {togglingAssistant ? <Loader2 size={14} className="animate-spin" /> : (isAssistantEnabled ? <X size={14} /> : <Check size={14} />)}
                         {isAssistantEnabled ? t.crm.apps.disableAssistant : t.crm.apps.enableAssistant}
@@ -589,7 +589,7 @@ export default function AppsPage() {
                       <button
                         onClick={() => toggleTool(feat.capabilityId!, !toolActive)}
                         disabled={togglingTool === feat.capabilityId}
-                        className={`w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg transition-colors disabled:opacity-50 ${toolActive ? "border border-transparent text-red-600 hover:border-red-200 hover:bg-red-50" : "bg-primary text-white hover:bg-primary/90"}`}
+                        className={`w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg transition-colors disabled:opacity-50 ${toolActive ? "border border-transparent text-red-600 hover:border-red-200 hover:bg-red-50" : "bg-primary text-[color:var(--on-primary)] hover:bg-primary/90"}`}
                       >
                         {togglingTool === feat.capabilityId ? <Loader2 size={14} className="animate-spin" /> : (toolActive ? <X size={14} /> : <Check size={14} />)}
                         {toolActive ? t.crm.apps.toolDeactivate : t.crm.apps.toolActivate}
@@ -667,7 +667,7 @@ export default function AppsPage() {
             <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">{notificationState.title}</h3>
             <p className="text-gray-500 mb-8 max-w-[280px] mx-auto">{notificationState.message}</p>
             <button
-              className="px-6 py-3 w-full text-sm font-semibold text-white bg-primary hover:opacity-90 rounded-xl transition-opacity"
+              className="px-6 py-3 w-full text-sm font-semibold text-[color:var(--on-primary)] bg-primary hover:opacity-90 rounded-xl transition-opacity"
               onClick={() => setNotificationState(null)}
             >
               {t.integrationsUi.understood}

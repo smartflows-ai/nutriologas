@@ -9,10 +9,14 @@ import { isHelpReason, isTenantWide, pausesBot, type HelpReason } from "@/lib/he
 import { shouldAlertOwner } from "@/lib/owner-alert";
 import { raiseHelpOnChat, type HelpChatRow, type HelpTenant } from "@/lib/help-requests";
 import { HELP_CHAT_SELECT, HELP_TENANT_SELECT, realHelpDeps } from "@/lib/help-data";
+import { personRequestAllowed } from "@/lib/help-person-check";
 
 // Reasons only the server raises. "opted_out" comes from the inbound detection in whatsapp/sync, which also records
 // the opt-out; raised by the bot it would show "Pidió no recibir mensajes" without any opt-out behind it (QA 2026-11-20).
 const SERVER_ONLY_REASONS: ReadonlySet<HelpReason> = new Set<HelpReason>(["opted_out"]);
+
+/** Latest chat lines read to check a person_requested call: enough for one batched turn of the flow. */
+const RECENT_LINES = 10;
 
 export async function handleHelpRequest(req: NextRequest, defaultReason: HelpReason | null): Promise<Response> {
   if (!isInternalKeyValid(req)) return Response.json({ error: "No autorizado" }, { status: 401 });
@@ -36,6 +40,18 @@ export async function handleHelpRequest(req: NextRequest, defaultReason: HelpRea
       })
     : [];
   if (chats.length === 0) return Response.json({ raised: false, reason: "no_chat" });
+
+  // Ticket #129: refused only when the customer's current turn is booking for someone else and has no request, named
+  // person or complaint (rule in help-person-check.ts); anything else is accepted. Read before anything is paused.
+  if (reason === "person_requested") {
+    const lines = await prisma.whatsAppMessage.findMany({
+      where: { tenantId: bot.tenantId, chatId: { in: chats.map((chat) => chat.id) } },
+      orderBy: { timestamp: "desc" },
+      take: RECENT_LINES,
+      select: { fromMe: true, content: true },
+    });
+    if (!personRequestAllowed(reason, lines)) return Response.json({ raised: false, reason: "not_requested" });
+  }
 
   // The bot steps aside for every chat row of this contact when a person has to take over.
   let paused = false;

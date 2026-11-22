@@ -1,6 +1,8 @@
 "use client";
-// src/components/admin/ConfirmModal.tsx
-// Confirmation dialog for destructive or important CRM actions. Uses the tenant tokens and the shared button classes.
+// src/components/shared/ConfirmModal.tsx
+// Confirmation dialog for destructive or important actions, in the CRM and in the store. Uses the tenant tokens and the shared
+// button classes. Escape or a click outside closes it without confirming; focus moves into it when it opens.
+import { useEffect, useRef } from "react";
 import { AlertTriangle } from "lucide-react";
 import { useTranslation } from "@/i18n";
 
@@ -17,6 +19,20 @@ interface Props {
 
 export default function ConfirmModal({ title, message, confirmLabel, onConfirm, onCancel, variant = "primary", isBusy = false }: Props) {
   const { t } = useTranslation();
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  // The latest onCancel, so callers can pass an inline function without re-subscribing the key listener.
+  const onCancelRef = useRef(onCancel);
+  onCancelRef.current = onCancel;
+
+  useEffect(() => {
+    dialogRef.current?.focus();
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onCancelRef.current();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   return (
     <div
@@ -24,10 +40,13 @@ export default function ConfirmModal({ title, message, confirmLabel, onConfirm, 
       onClick={onCancel}
     >
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-labelledby="confirm-modal-title"
-        className="bg-white dark:bg-gray-950 rounded-xl shadow-lg w-full max-w-md p-6 border border-gray-200 dark:border-gray-800 animate-in duration-200"
+        style={{ fontFamily: "var(--font-family-base), system-ui, sans-serif" }}
+        className="outline-none bg-white dark:bg-gray-950 rounded-xl shadow-lg w-full max-w-md p-6 border border-gray-200 dark:border-gray-800 animate-in duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start gap-4">
@@ -35,8 +54,8 @@ export default function ConfirmModal({ title, message, confirmLabel, onConfirm, 
             <AlertTriangle size={20} />
           </div>
           <div className="min-w-0">
-            <h3 id="confirm-modal-title" className="text-lg font-semibold text-gray-900 dark:text-white">{title}</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 leading-relaxed">{message}</p>
+            <h3 id="confirm-modal-title" className="text-lg break-words font-semibold text-gray-900 dark:text-white">{title}</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 leading-relaxed break-words">{message}</p>
           </div>
         </div>
         <div className="flex flex-col-reverse sm:flex-row gap-2.5 sm:justify-end mt-6">

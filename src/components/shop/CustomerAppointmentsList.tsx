@@ -9,6 +9,7 @@ import { clinicDateKeyOf } from "@/lib/clinic-time";
 import { timeZoneLabel } from "@/lib/time-zones";
 import { useBusinessTimeZone } from "@/components/shared/BusinessTimeZone";
 import Link from "next/link";
+import ConfirmModal from "@/components/shared/ConfirmModal";
 
 interface AppointmentData {
   id: string;
@@ -45,6 +46,7 @@ export default function CustomerAppointmentsList({
   const locale = localeFor(lang);
   const [appointments, setAppointments] = useState(initialAppointments);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
   const STATUS_LABEL: Record<string, string> = {
     PENDING: t.myAppointments.statusPending,
@@ -55,7 +57,7 @@ export default function CustomerAppointmentsList({
   };
 
   const handleCancel = async (id: string) => {
-    if (!confirm(t.myAppointments.confirmCancel)) return;
+    if (cancellingId) return;
     setCancellingId(id);
     try {
       const res = await fetch(`/api/appointments/${id}`, {
@@ -72,6 +74,7 @@ export default function CustomerAppointmentsList({
       console.error("Error cancelling appointment:", e);
     } finally {
       setCancellingId(null);
+      setConfirmingId(null);
     }
   };
 
@@ -155,7 +158,7 @@ export default function CustomerAppointmentsList({
             {canCancel && (
               <div className="w-full md:w-auto flex justify-end pt-3 md:pt-0 border-t md:border-t-0 border-gray-100 dark:border-gray-800">
                 <button
-                  onClick={() => handleCancel(item.id)}
+                  onClick={() => setConfirmingId(item.id)}
                   disabled={cancellingId === item.id}
                   className="px-4 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl transition-all"
                 >
@@ -166,6 +169,17 @@ export default function CustomerAppointmentsList({
           </div>
         );
       })}
+      {confirmingId && (
+        <ConfirmModal
+          title={t.confirmUi.cancelVisitTitle}
+          message={t.myAppointments.confirmCancel}
+          confirmLabel={t.confirmUi.cancelVisitAction}
+          variant="danger"
+          isBusy={cancellingId !== null}
+          onConfirm={() => void handleCancel(confirmingId)}
+          onCancel={() => setConfirmingId(null)}
+        />
+      )}
     </div>
   );
 }

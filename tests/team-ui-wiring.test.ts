@@ -98,7 +98,7 @@ test("a team action cannot run twice at once, and the confirm button is disabled
   const hook = readRoot("src/components/admin/team/useTeam.ts");
   assert.match(hook, /if \(isRunning\.current\) return \{ isDone: false \};/);
   assert.match(readRoot("src/components/admin/team/TeamManager.tsx"), /isBusy=\{isBusy\}/);
-  assert.match(readRoot("src/components/admin/ConfirmModal.tsx"), /disabled=\{isBusy\}/);
+  assert.match(readRoot("src/components/shared/ConfirmModal.tsx"), /disabled=\{isBusy\}/);
 });
 
 test("the temporary password dialog announces itself and takes the focus", () => {

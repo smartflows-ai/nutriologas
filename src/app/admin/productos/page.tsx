@@ -11,6 +11,7 @@ import { getProductFormProfile, type ProductFormType } from "@/lib/product-form-
 import { Plus, Pencil, Trash2, X, Check, Package, UploadCloud, ImageIcon, Calendar, Clock, AlertTriangle } from "lucide-react";
 import ImageCropperModal from "@/components/admin/ImageCropperModal";
 import FormPanel from "@/components/admin/FormPanel";
+import ConfirmModal from "@/components/shared/ConfirmModal";
 import Pagination from "@/components/admin/Pagination";
 import { useTenantMeta } from "@/components/admin/TenantMeta";
 import { useTranslation } from "@/i18n";
@@ -60,6 +61,8 @@ export default function ProductosPage() {
   // Longest open block of the business week, in minutes. Null until the hours load.
   const [longestBlock, setLongestBlock] = useState<number | null>(null);
   const [saveError, setSaveError] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<ProductInput>({
     resolver: zodResolver(productSchema),
@@ -242,10 +245,16 @@ export default function ProductosPage() {
     }
   };
 
-  const deleteProduct = async (id: string) => {
-    if (!confirm(t.crm.products.modal.deleteConfirm)) return;
-    await fetch(`/api/products/${id}`, { method: "DELETE" });
-    fetchProducts(page);
+  const confirmDeleteProduct = async () => {
+    if (!deletingId || isDeleting) return;
+    setIsDeleting(true);
+    try {
+      await fetch(`/api/products/${deletingId}`, { method: "DELETE" });
+      await fetchProducts(page);
+    } finally {
+      setIsDeleting(false);
+      setDeletingId(null);
+    }
   };
 
   return (
@@ -285,7 +294,7 @@ export default function ProductosPage() {
                       onClick={() => selectType(type)}
                       className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-semibold transition-all ${
                         selectedItemType === type
-                          ? "bg-primary text-white "
+                          ? "bg-primary text-[color:var(--on-primary)] "
                           : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 border border-gray-200 dark:border-gray-700"
                       }`}
                     >
@@ -567,7 +576,7 @@ export default function ProductosPage() {
                 </div>
                 <div className="flex flex-col gap-1 flex-shrink-0">
                   <button onClick={() => openEdit(p)} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-primary transition-colors"><Pencil size={16} /></button>
-                  <button onClick={() => deleteProduct(p.id)} className="p-2 rounded-lg hover:bg-red-50 text-gray-500 hover:text-red-500 transition-colors"><Trash2 size={16} /></button>
+                  <button onClick={() => setDeletingId(p.id)} aria-label={t.confirmUi.deleteAction} className="p-2 rounded-lg hover:bg-red-50 text-gray-500 hover:text-red-500 transition-colors"><Trash2 size={16} /></button>
                 </div>
               </div>
             ))}
@@ -619,7 +628,7 @@ export default function ProductosPage() {
                     <td className="px-4 py-3">
                       <div className="flex gap-2 justify-end">
                         <button onClick={() => openEdit(p)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 hover:text-primary transition-colors"><Pencil size={16} /></button>
-                        <button onClick={() => deleteProduct(p.id)} className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-500 hover:text-red-500 transition-colors"><Trash2 size={16} /></button>
+                        <button onClick={() => setDeletingId(p.id)} aria-label={t.confirmUi.deleteAction} className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-500 hover:text-red-500 transition-colors"><Trash2 size={16} /></button>
                       </div>
                     </td>
                   </tr>
@@ -647,6 +656,17 @@ export default function ProductosPage() {
             setPendingFile(null);
             uploadFromComputer(cropped);
           }}
+        />
+      )}
+      {deletingId && (
+        <ConfirmModal
+          title={t.confirmUi.deleteTitle}
+          message={t.crm.products.modal.deleteConfirm}
+          confirmLabel={t.confirmUi.deleteAction}
+          variant="danger"
+          isBusy={isDeleting}
+          onConfirm={() => void confirmDeleteProduct()}
+          onCancel={() => setDeletingId(null)}
         />
       )}
     </div>

@@ -10,7 +10,7 @@ import { useCalendarAccount } from "@/hooks/useCalendarAccount";
 import { translateApiError } from "@/i18n/validation";
 import Pagination from "@/components/admin/Pagination";
 import VisitNoteDialog from "@/components/admin/VisitNoteDialog";
-import ConfirmModal from "@/components/admin/ConfirmModal";
+import ConfirmModal from "@/components/shared/ConfirmModal";
 import { useCan, useCanOpen, useTenantMeta } from "@/components/admin/TenantMeta";
 import AppointmentCard from "@/components/admin/appointments/AppointmentCard";
 import AppointmentFormPanel from "@/components/admin/appointments/AppointmentFormPanel";

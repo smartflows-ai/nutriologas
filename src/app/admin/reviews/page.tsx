@@ -70,7 +70,7 @@ export default function ReviewsPage() {
             onClick={() => handleFilterChange(f)} 
             className={`px-3.5 py-1.5 rounded-xl text-sm font-medium border transition-all ${
               filter === f 
-                ? "bg-primary text-white border-primary shadow-sm " 
+                ? "bg-primary text-[color:var(--on-primary)] border-primary shadow-sm " 
                 : "border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 hover:border-primary/50 hover:text-gray-900 dark:hover:text-white"
             }`}
           >

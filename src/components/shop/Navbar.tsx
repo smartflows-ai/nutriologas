@@ -44,7 +44,7 @@ export default function Navbar({ storeName, logoUrl, isEcommerce = true }: Navba
               className="w-10 h-10 object-contain rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm"
             />
           ) : (
-            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-white font-semibold text-lg shadow-sm shrink-0 transition-transform duration-200 ">
+            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-[color:var(--on-primary)] font-semibold text-lg shadow-sm shrink-0 transition-transform duration-200 ">
               {storeName.charAt(0).toUpperCase()}
             </div>
           )}
@@ -93,7 +93,7 @@ export default function Navbar({ storeName, logoUrl, isEcommerce = true }: Navba
           >
             <ShoppingCart size={21} className="transition-transform duration-200 " />
             {mounted && itemCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-primary text-white text-xs min-w-[20px] h-5 px-1.5 rounded-full flex items-center justify-center font-extrabold border-2 border-white dark:border-gray-950 animate-in ">
+              <span className="absolute -top-1 -right-1 bg-primary text-[color:var(--on-primary)] text-xs min-w-[20px] h-5 px-1.5 rounded-full flex items-center justify-center font-extrabold border-2 border-white dark:border-gray-950 animate-in ">
                 {itemCount}
               </span>
             )}
@@ -145,7 +145,7 @@ export default function Navbar({ storeName, logoUrl, isEcommerce = true }: Navba
           ) : (
             <Link
               href="/login"
-              className="hidden sm:inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-xs font-semibold hover:opacity-95 shadow-sm transition-all hover:shadow "
+              className="hidden sm:inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-[color:var(--on-primary)] text-xs font-semibold hover:opacity-95 shadow-sm transition-all hover:shadow "
             >
               <User size={14} />
               <span>{t.shop.enter}</span>
@@ -209,7 +209,7 @@ export default function Navbar({ storeName, logoUrl, isEcommerce = true }: Navba
               {t.shop.cart}
             </span>
             {mounted && itemCount > 0 && (
-              <span className="bg-primary text-white text-xs px-2.5 py-0.5 rounded-full font-semibold">
+              <span className="bg-primary text-[color:var(--on-primary)] text-xs px-2.5 py-0.5 rounded-full font-semibold">
                 {itemCount} {t.shop.cartItems}
               </span>
             )}

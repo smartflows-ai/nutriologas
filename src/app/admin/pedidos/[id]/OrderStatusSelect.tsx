@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Check, X, RefreshCw, AlertCircle } from "lucide-react";
 import { useTranslation } from "@/i18n";
 import { fill } from "@/lib/utils";
+import ConfirmModal from "@/components/shared/ConfirmModal";
 
 
 export default function OrderStatusSelect({
@@ -24,12 +25,21 @@ export default function OrderStatusSelect({
   ];
   const [status, setStatus] = useState(currentStatus);
   const [saving, setSaving] = useState(false);
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
   const [notificationState, setNotificationState] = useState<{ title: string; message: string; type: "error" | "success" } | null>(null);
   const router = useRouter();
 
-  const handleChange = async (newStatus: string) => {
+  const handleSelect = (newStatus: string) => {
     if (newStatus === status) return;
-    if (newStatus === "CANCELLED" && !confirm(t.orderDetail.cancelConfirm)) return;
+    if (newStatus === "CANCELLED") {
+      setConfirmingCancel(true);
+      return;
+    }
+    void handleChange(newStatus);
+  };
+
+  const handleChange = async (newStatus: string) => {
+    if (newStatus === status || saving) return;
 
     setSaving(true);
     try {
@@ -56,6 +66,7 @@ export default function OrderStatusSelect({
       router.refresh();
     } finally {
       setSaving(false);
+      setConfirmingCancel(false);
     }
   };
 
@@ -66,7 +77,7 @@ export default function OrderStatusSelect({
         <div className="relative flex-1">
           <select
             value={status}
-            onChange={(e) => handleChange(e.target.value)}
+            onChange={(e) => handleSelect(e.target.value)}
             disabled={saving}
             className="w-full bg-white dark:bg-gray-900 border-none rounded-xl py-2 px-3 text-sm font-semibold text-gray-900 dark:text-white focus:ring-2 focus:ring-primary/20 appearance-none pr-8 cursor-pointer shadow-sm"
           >
@@ -79,6 +90,18 @@ export default function OrderStatusSelect({
           </div>
         </div>
       </div>
+
+      {confirmingCancel && (
+        <ConfirmModal
+          title={t.confirmUi.cancelOrderTitle}
+          message={t.orderDetail.cancelConfirm}
+          confirmLabel={t.confirmUi.cancelOrderAction}
+          variant="danger"
+          isBusy={saving}
+          onConfirm={() => void handleChange("CANCELLED")}
+          onCancel={() => setConfirmingCancel(false)}
+        />
+      )}
 
        {/* Custom Notification Modal (Inline style simple) */}
        {notificationState && (

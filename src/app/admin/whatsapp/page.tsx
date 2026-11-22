@@ -370,7 +370,7 @@ function WhatsAppPageContent() {
           <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">{t.crm.whatsapp.notConnected}</h1>
           <p className="text-gray-600 dark:text-gray-400 mb-8">{t.crm.whatsapp.notConnectedDesc}</p>
           {canOpenApps ? (
-            <a href="/admin/apps" className="inline-flex items-center gap-2 bg-primary text-white px-6 py-3 rounded-lg font-medium hover:bg-secondary transition-colors">
+            <a href="/admin/apps" className="inline-flex items-center gap-2 bg-primary text-[color:var(--on-primary)] px-6 py-3 rounded-lg font-medium hover:bg-secondary transition-colors">
               {t.crm.whatsapp.goToApps}
             </a>
           ) : (
@@ -691,7 +691,7 @@ function WhatsAppPageContent() {
                       disabled={sending || !draft.trim()}
                       aria-label={t.crm.whatsapp.sendMessage}
                       title={t.crm.whatsapp.sendMessage}
-                      className="p-2.5 rounded-lg bg-primary text-white disabled:opacity-50"
+                      className="p-2.5 rounded-lg bg-primary text-[color:var(--on-primary)] disabled:opacity-50"
                     >
                       <Send className="w-4 h-4" />
                     </button>

@@ -99,7 +99,7 @@ export default async function PedidosPage({
             href={f.value === "ALL" ? "/admin/pedidos" : `/admin/pedidos?status=${f.value}`}
             className={`px-3.5 py-1.5 rounded-xl text-sm font-medium transition-all ${
               activeFilter === f.value
-                ? "bg-primary text-white shadow-sm "
+                ? "bg-primary text-[color:var(--on-primary)] shadow-sm "
                 : "bg-gray-100 dark:bg-gray-800/80 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
             }`}
           >

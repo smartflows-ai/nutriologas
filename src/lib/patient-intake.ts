@@ -3,7 +3,7 @@
 // (in person or online). Pure functions, no I/O: the routes load the data and call these.
 
 import { patientKeyOf } from "@/lib/patient-key";
-import { isFillerName } from "@/lib/full-name";
+import { isFillerName, isPlausibleFullName } from "@/lib/full-name";
 
 // A "known patient" is a WhatsApp number that already has an appointment in the business. Its name, email and
 // age come from the latest visit (see getKnownPatient in patients.ts), so the bot never asks them twice.
@@ -87,10 +87,32 @@ function cleanText(value: unknown): string {
   return typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
 }
 
-/** What the bot still has to ask. A known patient is never asked; the email is only offered to a new one. */
+/** True when the stored name of a known patient is a first name and a surname (ticket #128). */
+function hasFullName(known: KnownPatient): boolean {
+  return isPlausibleFullName(known.name);
+}
+
+/**
+ * What the bot still has to ask. A new patient is asked name and age and offered the email. A known patient is
+ * asked only for the name, and only when the stored one has no surname (ticket #128): bot/book refuses such a
+ * name with full_name_required, so asking before the data is confirmed avoids a failed booking.
+ */
 export function intakeNeeds(known: KnownPatient | null): { askName: boolean; askAge: boolean; askEmail: boolean } {
-  const isNew = known === null;
-  return { askName: isNew, askAge: isNew, askEmail: isNew };
+  if (known === null) return { askName: true, askAge: true, askEmail: true };
+  return { askName: !hasFullName(known), askAge: false, askEmail: false };
+}
+
+export type ContextPatientView =
+  | { known: false }
+  | { known: true; name: string | null; age: number | null; email: string | null };
+
+/**
+ * The patient as bot/context shows it to the agent (ticket #128). A stored name without a surname goes out as
+ * null, so the current prompt reads "Nombre: no registrado" and asks for it instead of confirming it.
+ */
+export function contextPatientView(known: KnownPatient | null): ContextPatientView {
+  if (known === null) return { known: false };
+  return { known: true, name: hasFullName(known) ? known.name : null, age: known.age, email: known.email };
 }
 
 /** Required fields still missing in a booking request. The email is optional, so it never appears here. */
