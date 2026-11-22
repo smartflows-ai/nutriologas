@@ -23,6 +23,8 @@ import { getKnownPatient } from "@/lib/patients";
 import { isPlausibleFullName } from "@/lib/full-name";
 import { cleanSenderName, guestEmailFor, isOtherPersonsName, maskPhone, mergePatient, missingIntake, referralOf, resolveBookingPhone, resolveModality, effectiveModes, type Modality } from "@/lib/patient-intake";
 import { customerMeetUrl } from "@/lib/short-links";
+import { checkDailyLimit, handOffOverLimit } from "@/lib/booking-limit-data";
+import { dailyLimitBody } from "@/lib/booking-limit";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -184,6 +186,23 @@ export async function POST(req: NextRequest) {
   }
   if (slot.start.getTime() <= Date.now()) {
     return Response.json({ success: false, error: "La fecha y hora ya pasaron" }, { status: 400 });
+  }
+
+  // Daily limit (ticket #141): a person has at most 3 active visits on one day; the next one is not booked and the chat
+  // goes to a person. Counted by the patient of the visit and by the person writing. The server raises the hand-off so
+  // it does not depend on the model calling a tool.
+  if (patientKey) {
+    const limit = await checkDailyLimit({
+      tenantId: bot.tenantId,
+      patientKey,
+      writerKey: patientKeyOf(String(customerPhone)),
+      dateKey: date,
+      zone: bot.timeZone,
+    });
+    if (!limit.allowed) {
+      const handedOff = await handOffOverLimit(bot, customerPhone);
+      return Response.json(dailyLimitBody(handedOff, limit.max), { status: 409 });
+    }
   }
 
   // Guest account per patient: by email when there is one, otherwise a stable placeholder per phone number.

@@ -4,7 +4,7 @@
 // Auth: x-internal-key. The tenant comes from the WhatsApp instance, never from the body.
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import { contactJids, isInternalKeyValid, normalizeCustomerPhone, resolveBotTenant } from "@/lib/bot";
+import { contactJids, isInternalKeyValid, normalizeCustomerPhone, resolveBotTenant, type BotTenant } from "@/lib/bot";
 import { isHelpReason, isTenantWide, pausesBot, type HelpReason } from "@/lib/help-reasons";
 import { shouldAlertOwner } from "@/lib/owner-alert";
 import { raiseHelpOnChat, type HelpChatRow, type HelpTenant } from "@/lib/help-requests";
@@ -13,7 +13,8 @@ import { personRequestAllowed } from "@/lib/help-person-check";
 
 // Reasons only the server raises. "opted_out" comes from the inbound detection in whatsapp/sync, which also records
 // the opt-out; raised by the bot it would show "Pidió no recibir mensajes" without any opt-out behind it (QA 2026-11-20).
-const SERVER_ONLY_REASONS: ReadonlySet<HelpReason> = new Set<HelpReason>(["opted_out"]);
+// "booking_limit" is raised by bot/book and bot/reschedule when the daily visit limit is reached (#141), not by the model.
+const SERVER_ONLY_REASONS: ReadonlySet<HelpReason> = new Set<HelpReason>(["opted_out", "booking_limit"]);
 
 /** Latest chat lines read to check a person_requested call: enough for one batched turn of the flow. */
 const RECENT_LINES = 10;
@@ -28,6 +29,33 @@ export async function handleHelpRequest(req: NextRequest, defaultReason: HelpRea
   const bot = await resolveBotTenant(instance);
   if (!bot) return Response.json({ error: "Instancia de WhatsApp no encontrada" }, { status: 404 });
 
+  const result = await raiseHelpForContact(bot, { customerPhone, remoteJid, remoteJidAlt }, reason);
+  if (result.status === "no_chat") return Response.json({ raised: false, reason: "no_chat" });
+  if (result.status === "not_requested") return Response.json({ raised: false, reason: "not_requested" });
+  if (result.status === "tenant_missing") return Response.json({ error: "Tenant not found" }, { status: 404 });
+  return Response.json({ raised: result.raised, paused: result.paused, notified: result.notified });
+}
+
+/** Who the help request is about: the contact's phone and the JIDs the webhook sent. */
+export interface HelpContact {
+  customerPhone?: unknown;
+  remoteJid?: string | null;
+  remoteJidAlt?: string | null;
+}
+
+export type HelpContactResult =
+  | { status: "no_chat" }
+  | { status: "not_requested" }
+  | { status: "tenant_missing" }
+  | { status: "done"; raised: boolean; paused: boolean; notified: Awaited<ReturnType<typeof raiseHelpOnChat>>["notified"] };
+
+/**
+ * Finds the contact's chat, pauses the bot when the reason needs a person and raises the help request. Shared by the
+ * internal help routes (the tenant comes from the WhatsApp instance, resolved by the caller) and by the bot routes that
+ * raise a reason themselves (booking_limit, #141). Every query is limited to the tenant of `bot`.
+ */
+export async function raiseHelpForContact(bot: BotTenant, contact: HelpContact, reason: HelpReason): Promise<HelpContactResult> {
+  const { customerPhone, remoteJid, remoteJidAlt } = contact;
   const digits =
     normalizeCustomerPhone(remoteJid, remoteJidAlt) ??
     (customerPhone ? String(customerPhone).replace(/\D/g, "") : null);
@@ -39,7 +67,7 @@ export async function handleHelpRequest(req: NextRequest, defaultReason: HelpRea
         orderBy: { updatedAt: "desc" },
       })
     : [];
-  if (chats.length === 0) return Response.json({ raised: false, reason: "no_chat" });
+  if (chats.length === 0) return { status: "no_chat" };
 
   // Ticket #129: refused only when the customer's current turn is booking for someone else and has no request, named
   // person or complaint (rule in help-person-check.ts); anything else is accepted. Read before anything is paused.
@@ -50,7 +78,7 @@ export async function handleHelpRequest(req: NextRequest, defaultReason: HelpRea
       take: RECENT_LINES,
       select: { fromMe: true, content: true },
     });
-    if (!personRequestAllowed(reason, lines)) return Response.json({ raised: false, reason: "not_requested" });
+    if (!personRequestAllowed(reason, lines)) return { status: "not_requested" };
   }
 
   // The bot steps aside for every chat row of this contact when a person has to take over.
@@ -67,7 +95,7 @@ export async function handleHelpRequest(req: NextRequest, defaultReason: HelpRea
   }
 
   const tenant = await prisma.tenant.findUnique({ where: { id: bot.tenantId }, select: HELP_TENANT_SELECT });
-  if (!tenant) return Response.json({ error: "Tenant not found" }, { status: 404 });
+  if (!tenant) return { status: "tenant_missing" };
   const { botEnabled: _botEnabled, ...row } = chats[0];
   const now = new Date();
 
@@ -84,5 +112,5 @@ export async function handleHelpRequest(req: NextRequest, defaultReason: HelpRea
   }
 
   const outcome = await raiseHelpOnChat(realHelpDeps, tenant as HelpTenant, row as HelpChatRow, reason, now, { quiet });
-  return Response.json({ raised: outcome.raised, paused, notified: outcome.notified });
+  return { status: "done", raised: outcome.raised, paused, notified: outcome.notified };
 }

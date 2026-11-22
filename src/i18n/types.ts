@@ -811,6 +811,7 @@ export interface Translations {
           reminderFailed: string;
           urgency: string;
           optedOut: string;
+          bookingLimit: string;
         };
         needsHelp: string;
         waiting: string;

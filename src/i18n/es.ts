@@ -936,6 +936,7 @@ export const es: Translations = {
           reminderFailed: "Recordatorio no entregado",
           urgency: "Posible urgencia",
           optedOut: "Pidió no recibir mensajes",
+          bookingLimit: "Pasó el límite de citas del día",
         },
         needsHelp: "Necesita ayuda",
         waiting: "Espera",

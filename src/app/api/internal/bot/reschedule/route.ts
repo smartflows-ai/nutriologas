@@ -7,6 +7,9 @@ import { botSlotTakenBody } from "@/lib/free-slots";
 import { ACTIVE_APPOINTMENT_STATUSES, buildSlot, isInternalKeyValid, resolveBotTenant } from "@/lib/bot";
 import { botVisitView } from "@/lib/bot-visit-view";
 import { visitsOfSender } from "@/lib/patient-intake";
+import { patientKeyOf } from "@/lib/patient-key";
+import { checkDailyLimit, handOffOverLimit } from "@/lib/booking-limit-data";
+import { dailyLimitBody } from "@/lib/booking-limit";
 
 export async function POST(req: NextRequest) {
   if (!isInternalKeyValid(req)) return Response.json({ error: "No autorizado" }, { status: 401 });
@@ -50,6 +53,24 @@ export async function POST(req: NextRequest) {
   }
   if (slot.start.getTime() <= Date.now()) {
     return Response.json({ success: false, error: "La nueva fecha y hora ya pasaron" }, { status: 400 });
+  }
+
+  // Daily limit (ticket #141): moving a visit to a full day is the same as booking a fourth one. The visit that moves
+  // does not count against its new day.
+  const visitKey = appointment.patientKey ?? patientKeyOf(appointment.customerPhone);
+  if (visitKey) {
+    const limit = await checkDailyLimit({
+      tenantId: bot.tenantId,
+      patientKey: visitKey,
+      writerKey: patientKeyOf(String(customerPhone)),
+      dateKey: date,
+      zone: bot.timeZone,
+      excludeAppointmentId: appointment.id,
+    });
+    if (!limit.allowed) {
+      const handedOff = await handOffOverLimit(bot, customerPhone);
+      return Response.json(dailyLimitBody(handedOff, limit.max), { status: 409 });
+    }
   }
 
   const result = await rescheduleAppointment({

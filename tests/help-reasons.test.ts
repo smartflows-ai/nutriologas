@@ -47,6 +47,15 @@ test("every reason has a priority above none and a label key", () => {
   }
 });
 
+test("a booking over the daily limit is medium priority, needs a person and pauses the bot (ticket #141)", () => {
+  assert.equal(isHelpReason("booking_limit"), true);
+  assert.equal(priorityOf("booking_limit"), HELP_PRIORITY.MEDIUM);
+  assert.equal(isReasonEnabled("booking_limit"), true);
+  assert.equal(pausesBot("booking_limit"), true);
+  assert.equal(isTenantWide("booking_limit"), false);
+  assert.equal(HELP_REASONS.booking_limit.labelKey, "bookingLimit");
+});
+
 test("a long unanswered wait shares the label of the unanswered one", () => {
   assert.equal(HELP_REASONS.unanswered_long.labelKey, HELP_REASONS.unanswered.labelKey);
 });
