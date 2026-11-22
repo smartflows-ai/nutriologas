@@ -167,7 +167,9 @@ where t.slug = 'newy' and u.role = 'CUSTOMER' and u.name is not null
 
 **Mensajes, en orden:**
 1. `Quiero agendar una cita para mi hija`
-2. `Se llama <Nombre> <Apellido>, tiene 8 años, su número es <el mismo número …2968>` (nombre inventado de prueba, el mismo número de prueba).
+2. `Se llama <Nombre> <Apellido>, tiene 8 años, su número es <otro número de prueba>` (nombre inventado de prueba).
+
+> **Corregido después del humo del 22-nov:** la hija necesita un **número distinto** de `…2968`, autorizado por el dueño, y **nunca** el número del propio negocio (#148). Con el mismo `…2968` y otro nombre, la regla #72 contesta `patient_phone_required` y la cita no se crea (pasó en la ejecución 22766). Sin un segundo número, el caso solo puede probar la mitad que importa a #129: que el chat no se pause ni se avise a nadie.
 
 **Resultado esperado:** el bot agenda la cita de la niña; el chat **no se pausa** y **nadie recibe aviso**.
 
