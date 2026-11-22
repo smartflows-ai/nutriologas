@@ -43,6 +43,8 @@ export function availabilityMessage(date: string, query: SlotQueryResult, ctx: A
 
   if (ctx.closedDay) return `El negocio no atiende el ${date}. Ofrece otro día.`;
   if (query.edgeTime !== null) return `La hora libre de ese día es ${query.edgeTime} el ${date}.`;
-  if (query.availableSlots.length === 0) return `No hay mas horarios disponibles el ${date} para este servicio.`;
+  if (query.availableSlots.length === 0) {
+    return `Ese dia ya no hay horarios libres para este servicio (${date}). No es un error: dile al cliente que ese dia no hay lugares y ofrece otro dia.`;
+  }
   return `Hay horarios disponibles el ${date}. Ofrece solo estos ${query.availableSlots.length}.`;
 }

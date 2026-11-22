@@ -24,6 +24,8 @@ import { isPlausibleFullName } from "@/lib/full-name";
 import { cleanSenderName, guestEmailFor, isOtherPersonsName, maskPhone, mergePatient, missingIntake, referralOf, resolveBookingPhone, resolveModality, effectiveModes, type Modality } from "@/lib/patient-intake";
 import { customerMeetUrl } from "@/lib/short-links";
 import { checkDailyLimit, handOffOverLimit } from "@/lib/booking-limit-data";
+import { serviceNotFoundBody } from "@/lib/service-ref";
+import { findServiceForBot } from "@/lib/service-ref-data";
 import { dailyLimitBody } from "@/lib/booking-limit";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -39,13 +41,13 @@ export async function POST(req: NextRequest) {
   if (!isInternalKeyValid(req)) return Response.json({ error: "No autorizado" }, { status: 401 });
 
   const body = await req.json().catch(() => ({}));
-  const { instance, productId, date, time, customerName, customerPhone, customerEmail, customerAge, modality, notes, petName, petSpecies, intake, patientPhone, senderName } = body;
+  const { instance, productId, date, time, customerName, customerPhone, customerEmail, customerAge, modality, notes, petName, petSpecies, intake, patientPhone, senderName, serviceName } = body;
   const isV2 = intake === "v2";
 
   const bot = await resolveBotTenant(instance);
   if (!bot) return Response.json({ error: "Instancia de WhatsApp no encontrada" }, { status: 404 });
 
-  if (!productId || !date || !time || !customerPhone || (!isV2 && !customerName)) {
+  if ((!productId && !serviceName) || !date || !time || !customerPhone || (!isV2 && !customerName)) {
     return Response.json(
       { success: false, error: "Faltan datos: productId, date, time, customerName, customerPhone" },
       { status: 400 }
@@ -73,11 +75,11 @@ export async function POST(req: NextRequest) {
   const referral = referralOf(forOther, String(customerPhone), sender?.name ?? cleanSenderName(senderName));
 
   // The service is loaded first: how it is delivered (in person, online or both) decides what the patient is asked.
-  const product = await prisma.product.findFirst({
-    where: { id: productId, tenantId: bot.tenantId, isActive: true, deletedAt: null },
-    select: { id: true, tenantId: true, name: true, durationMinutes: true, requiresBooking: true, visitModes: true, priceMode: true, assessmentProductId: true },
-  });
-  if (!product) return Response.json({ success: false, error: "Servicio no encontrado" }, { status: 404 });
+  // The agent retypes the id by hand and can change its end (#140): the exact id first, then a tolerant search, and the
+  // list of services when it cannot resolve (src/lib/service-ref-data.ts).
+  const resolved = await findServiceForBot(bot, { productId, serviceName });
+  if (!resolved.ok) return Response.json(serviceNotFoundBody(resolved.options), { status: 404 });
+  const product = resolved.service;
   if (!isBookable(product, bot)) {
     // A service whose price is defined at another one (the injury that points to the general consultation) is not
     // booked itself: tell the agent which service to offer and book instead.
@@ -272,8 +274,13 @@ export async function POST(req: NextRequest) {
   return Response.json(
     {
       success: true,
+      // Explicit: the visit exists. The agent says it is booked only after this.
+      confirmed: true,
       appointmentId: appointment.id,
+      // The service the app resolved and how: the name to say to the customer and the id to reuse.
+      productId: product.id,
       serviceName: product.name,
+      resolvedVia: resolved.via,
       date,
       time: formatSlotTime(slot.start, bot.timeZone),
       weekday: clinicWeekdayOf(slot.start, bot.timeZone),

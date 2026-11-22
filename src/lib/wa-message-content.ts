@@ -18,7 +18,7 @@ export function messageContentOf(message: WaMessage | null | undefined): string 
   if (message?.imageMessage) return "[Imagen]";
   if (message?.audioMessage) return "[Audio]";
   if (message?.videoMessage) return "[Video]";
-  if (message?.documentMessage) return "[Documento]";
+  if (message?.documentMessage || message?.documentWithCaptionMessage) return "[Documento]";
   if (message?.reactionMessage) {
     const emoji = message.reactionMessage.text;
     return emoji ? `Reacción ${emoji}` : "Reacción eliminada";

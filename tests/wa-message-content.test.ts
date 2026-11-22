@@ -20,6 +20,7 @@ test("audio, video and document keep their markers", () => {
   assert.equal(messageContentOf({ audioMessage: {} }), "[Audio]");
   assert.equal(messageContentOf({ videoMessage: {} }), "[Video]");
   assert.equal(messageContentOf({ documentMessage: {} }), "[Documento]");
+  assert.equal(messageContentOf({ documentWithCaptionMessage: {} }), "[Documento]");
 });
 
 test("a payload with only the type key, no file, gives the same marker as one with the file", () => {
