@@ -35,7 +35,7 @@
 | # | Qué cambió | Por qué |
 |---|---|---|
 | 1 | Nueva §1b: lo que prueba tu chat de WhatsApp con newy y la captura de doctorgcenter | Me compartiste el chat y dos capturas |
-| 2 | **No hubo fuga entre negocios**: la cita de "Ana Barajas" está en **newy**. Lo que pasa es otra cosa: `/admin` muestra el negocio **de la sesión**, aunque la URL sea de otro negocio (nuevo ticket T1) | Revisado en la base y en `src/app/admin/layout.tsx` |
+| 2 | **No hubo fuga entre negocios**: la cita de un familiar de prueba está en **newy**. Lo que pasa es otra cosa: `/admin` muestra el negocio **de la sesión**, aunque la URL sea de otro negocio (nuevo ticket T1) | Revisado en la base y en `src/app/admin/layout.tsx` |
 | 3 | 6 tickets nuevos propuestos (T1–T6) y comentarios con evidencia para #141, #140 y #129 | Hallazgos del chat |
 | 4 | P3 del humo ahora está **❌**: el chat de `…2968` en newy está pausado a mano y con "Necesita ayuda" | Lo dejó así tu prueba de hoy |
 | 5 | Q3 cambia de recomendación: copiar **solo citas pasadas** (ya no "opcional futuras") | doctorgcenter tiene muchas citas futuras de prueba que llenarían la agenda de newy |
@@ -88,7 +88,7 @@ Tenemos dos casitas de muñecas: la del **doctor** (doctorgcenter, la de verdad)
 
 | Comprobación (solo lectura) | Resultado |
 |---|---|
-| ¿En qué negocio está la cita de "Ana Barajas", 30-nov 16:30? | **newy** (`bookingChannel = WHATSAPP`, recomendada por `NewyTestIII PruebApellido`) |
+| ¿En qué negocio está la cita de un familiar de prueba, 30-nov 16:30? | **newy** (`bookingChannel = WHATSAPP`, recomendada por `NewyTestIII PruebApellido`) |
 | ¿Y la de "Cliente Prueba" (Colposcopía, 30-nov 16:00)? | **newy** (es la del ticket #138) |
 | ¿Qué muestra la captura? | La URL es `doctorgcenter.newaigent.com/admin/...`, pero el menú lateral dice **Newy**, el número conectado es el de newy (`…1714`) y el calendario es el de newy |
 | ¿Por qué? | `src/app/admin/layout.tsx` toma el negocio de `session.user.tenantId` y **nunca lo compara** con el subdominio (`getTenantSlug()`). La cookie de sesión sirve para todos los subdominios (ya anotado en `docs/STATUS.md`, revisión de seguridad del 10-nov) |
@@ -165,7 +165,7 @@ Lo bueno: **no se mezclan datos entre negocios**. Cada pantalla filtra por el ne
 | H5 | Para la prima, el bot aceptó como número de paciente el **número del propio negocio** (`…1960`, el del perfil de newy). El recordatorio del 30-nov irá a ese número | Mandarte una carta a tu propia casa como si fuera de un paciente | **T3 (nuevo, P2)**: `bot/book` no acepta como teléfono del paciente los números del negocio (perfil y línea conectada) |
 | H6 | Pregunta médica ("olor fétido…") → "No tengo esa información, puedes contactarnos directamente" | El recepcionista dice "llame al consultorio"… cuando ya estás hablando con el consultorio | **T4 (nuevo, P2, prompt n8n)**: sin diagnóstico, pero ofrece agendar una consulta y, si suena urgente, pasa a una persona |
 | H7 | El aviso de privacidad sale dos veces (saludo y otra vez al empezar a agendar), y el bot propuso los datos del paciente antes de elegir servicio y hora | Te leen el reglamento dos veces antes de sentarte | **T5 (nuevo, P3)**: un solo aviso por conversación; primero servicio y hora, luego datos |
-| H8 | El bot se presenta como "asistente virtual de Dr. Gonzalo Soto" en newy | — | Esperado: la copia del 18-nov trajo el texto del doctor (decisión D6). No es ticket |
+| H8 | El bot se presenta como "asistente virtual del doctor de doctorgcenter" en newy | — | Esperado: la copia del 18-nov trajo el texto del doctor (decisión D6). No es ticket |
 | H9 | **doctorgcenter tiene ~37 citas de WhatsApp creadas el 20 y 21-nov**, con nombres de prueba y con los números de prueba `…2968` y `…1960`. Las futuras (23 al 27-nov) recibirán **recordatorios reales** | El consultorio de verdad tiene la agenda llena de muñequitos | **No lo toco.** Pregunta **Q6**: ¿fue a propósito? Recuerda que pediste dejar doctorgcenter "como está" |
 
 **T6 (nuevo, docs):** corregir `docs/STATUS.md` (deploy ya hecho; la línea de newy es `…1714`).
