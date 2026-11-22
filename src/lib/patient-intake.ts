@@ -4,6 +4,7 @@
 
 import { patientKeyOf } from "@/lib/patient-key";
 import { isFillerName, isPlausibleFullName } from "@/lib/full-name";
+import { isTeamNumber } from "@/lib/team-numbers";
 
 // A "known patient" is a WhatsApp number that already has an appointment in the business. Its name, email and
 // age come from the latest visit (see getKnownPatient in patients.ts), so the bot never asks them twice.
@@ -138,19 +139,25 @@ export function mergePatient(
 
 export type BookingPhoneResult =
   | { ok: true; phone: string; forOther: boolean }
-  | { ok: false; error: "invalid_patient_phone" };
+  | { ok: false; error: "invalid_patient_phone" | "business_phone" };
 
 /**
  * The phone the visit is saved under. Normally the number that writes to the bot; when the customer books for
  * someone else the bot sends that person's number, so the history, the reminder and the confirmation reply go to
- * them. The sender's own number written in another format is still the sender.
+ * them. The sender's own number written in another format is still the sender. A number of the business itself
+ * (its profile number or its connected line) is never a patient: the reminders would go to the business (ticket #148).
  */
-export function resolveBookingPhone(senderPhone: string, patientPhone: unknown): BookingPhoneResult {
+export function resolveBookingPhone(
+  senderPhone: string,
+  patientPhone: unknown,
+  businessPhones: readonly (string | null | undefined)[] = [],
+): BookingPhoneResult {
   const typed = typeof patientPhone === "string" ? patientPhone.trim() : "";
   if (!typed) return { ok: true, phone: senderPhone, forOther: false };
   const key = patientKeyOf(typed);
   if (!key) return { ok: false, error: "invalid_patient_phone" };
   if (key === patientKeyOf(senderPhone)) return { ok: true, phone: senderPhone, forOther: false };
+  if (isTeamNumber(key, businessPhones)) return { ok: false, error: "business_phone" };
   return { ok: true, phone: key, forOther: true };
 }
 

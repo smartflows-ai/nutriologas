@@ -54,12 +54,13 @@ export async function POST(req: NextRequest) {
   // someone else (intake v2). The visit, the history and the reminders follow that number.
   let visitPhone = String(customerPhone);
   if (isV2) {
-    const booking = resolveBookingPhone(String(customerPhone), patientPhone);
+    const booking = resolveBookingPhone(String(customerPhone), patientPhone, bot.businessPhones);
     if (!booking.ok) {
-      return Response.json(
-        { success: false, error: booking.error, message: "El numero de WhatsApp del paciente no parece valido: pidelo de nuevo con lada." },
-        { status: 400 }
-      );
+      const message =
+        booking.error === "business_phone"
+          ? "Ese es el numero del negocio, no del paciente: pide el numero de WhatsApp del paciente con lada."
+          : "El numero de WhatsApp del paciente no parece valido: pidelo de nuevo con lada.";
+      return Response.json({ success: false, error: booking.error, message }, { status: 400 });
     }
     visitPhone = booking.phone;
   }
