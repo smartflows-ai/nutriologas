@@ -53,8 +53,8 @@ export const HELP_REASONS: Readonly<Record<HelpReason, HelpReasonInfo>> = {
   // and bot/reschedule, and a person decides, so the bot steps aside.
   booking_limit: { priority: HELP_PRIORITY.MEDIUM, labelKey: "bookingLimit", enabled: true, pausesBot: true, tenantWide: false },
   // The patient sent an audio, image, video or document the bot cannot read (#139): the server raises it from bot/media.
-  // The bot keeps answering (the patient was asked to write it), so it does not pause.
-  unsupported_media: { priority: HELP_PRIORITY.MEDIUM, labelKey: "unsupportedMedia", enabled: true, pausesBot: false, tenantWide: false },
+  // Owner decision: a person has to see the file, so the bot steps aside in that chat until it is marked handled.
+  unsupported_media: { priority: HELP_PRIORITY.MEDIUM, labelKey: "unsupportedMedia", enabled: true, pausesBot: true, tenantWide: false },
 };
 
 export function isHelpReason(value: unknown): value is HelpReason {

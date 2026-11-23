@@ -1,6 +1,7 @@
 // src/app/api/internal/bot/media/route.ts
 // POST: the workflow tells the app a patient sent a file (audio, image, video or document) the bot cannot read (#139).
-// The app marks the chat as needing the team (reason unsupported_media, the bot is NOT paused) and returns the answer
+// The app marks the chat as needing the team (reason unsupported_media, which pauses the bot until a person marks it
+// handled) and returns the answer
 // to send, or `ignore` for a type that stays silent or a second file in the same burst. It never receives the file:
 // only the message type. Auth: x-internal-key. The tenant comes from the WhatsApp instance, never from the body.
 import { NextRequest } from "next/server";
