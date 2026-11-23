@@ -188,21 +188,44 @@ Solo si no hay message, di algo como: \"No pude completar esa accion en este mom
 const reply = String($json.output || '');
 const DONE_ES = '(agendad|confirmad|reagendad|reservad|programad)[ao]s?';
 const DONE_EN = '(booked|scheduled|confirmed|rescheduled)';
-const CLAIMS = [
-  // Spanish: "quedó agendada", "ya está programada", "ha sido confirmada", "he reservado", "te agendé", "agendé tu cita".
-  new RegExp('\\b(ya\\s+)?(qued[oó]|quedaron|est[aá]n?|queda|fue|fueron)\\s+' + DONE_ES + '\\b', 'gi'),
-  new RegExp('\\b(ha|han)\\s+sido\\s+' + DONE_ES + '\\b', 'gi'),
+// First person: the bot says what it did. Always a claim.
+const FIRST_PERSON = [
   /\b(he|hemos)\s+(agendado|confirmado|reagendado|reservado|programado)\b/gi,
   /\bte\s+(agend|reserv|program)é(?![a-záéíóúñ])/gi,
   /\b(agend|reserv|program)[eé]\s+(tu|su|la)\s+(cita|visita|consulta)\b/gi,
-  // English, for businesses whose messages are in English. "is not booked", "isn't confirmed" and "couldn't book" do not match.
+  new RegExp('\\bI(\'ve|’ve|\\s+have)\\s+' + DONE_EN + '\\b', 'gi'),
+];
+// Status: "quedó agendada", "has been booked", "is confirmed". Also said about a TIME that is taken ("ese horario ya está
+// reservado"), so it counts only when the visit of the customer is the subject (see subjectIsVisit).
+const STATUS = [
+  new RegExp('\\b(ya\\s+)?(qued[oó]|quedaron|est[aá]n?|queda|fue|fueron)\\s+' + DONE_ES + '\\b', 'gi'),
+  new RegExp('\\b(ha|han)\\s+sido\\s+' + DONE_ES + '\\b', 'gi'),
   new RegExp('\\b(has|have)\\s+been\\s+' + DONE_EN + '\\b', 'gi'),
   new RegExp('\\b(is|are)\\s+' + DONE_EN + '\\b', 'gi'),
-  new RegExp('\\bI(\'ve|’ve|\\s+have)\\s+' + DONE_EN + '\\b', 'gi'),
-  /\byour\s+(appointments?|visits?)\s+(is|are)\s+(booked|confirmed|set)\b/gi,
+  /\byour\s+(appointments?|visits?|bookings?|reservations?)\s+(is|are)\s+(booked|confirmed|set)\b/gi,
 ];
+const VISIT_WORD = /\b(citas?|visitas?|consultas?|reservas?|reservaci[oó]n|reservaciones|appointments?|visits?|bookings?|reservations?)\b/gi;
+const SLOT_WORD = /\b(horarios?|horas?|espacios?|lugar(es)?|slots?|times?)\b/gi;
 const NEGATION = /\b(no|not|never|todav[ií]a no|a[uú]n no|yet)\s*$/i;
-const claims = CLAIMS.some((re) => Array.from(reply.matchAll(re)).some((m) => !NEGATION.test(reply.slice(Math.max(0, m.index - 14), m.index))));
+const lastEnd = (text, re) => Array.from(text.matchAll(re)).reduce((end, m) => m.index + m[0].length, -1);
+// The subject is the nearest visit or time word before the claim in its sentence (or the first one after it).
+const subjectIsVisit = (m) => {
+  if (m[0].search(VISIT_WORD) >= 0) return true;
+  const start = Math.max(reply.lastIndexOf('?', m.index), reply.lastIndexOf('!', m.index), reply.lastIndexOf('¿', m.index), reply.lastIndexOf('¡', m.index), reply.lastIndexOf('\n', m.index)) + 1;
+  const tail = reply.slice(m.index + m[0].length);
+  const stop = tail.search(/[?!\n]/);
+  const before = reply.slice(start, m.index);
+  const after = stop < 0 ? tail : tail.slice(0, stop);
+  const visitBefore = lastEnd(before, VISIT_WORD);
+  const slotBefore = lastEnd(before, SLOT_WORD);
+  if (visitBefore >= 0 || slotBefore >= 0) return visitBefore > slotBefore;
+  const visitAfter = after.search(VISIT_WORD);
+  const slotAfter = after.search(SLOT_WORD);
+  return visitAfter >= 0 && (slotAfter < 0 || visitAfter < slotAfter);
+};
+const denied = (m) => NEGATION.test(reply.slice(Math.max(0, m.index - 14), m.index));
+const found = (patterns) => patterns.flatMap((re) => Array.from(reply.matchAll(re))).filter((m) => !denied(m));
+const claims = found(FIRST_PERSON).length > 0 || found(STATUS).some(subjectIsVisit);
 // A tool succeeded: success true, or (list_my_appointments only, which has no success field) a non-empty appointments list.
 const succeeded = (name) => {
   try {

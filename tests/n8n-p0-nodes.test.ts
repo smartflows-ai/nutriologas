@@ -104,8 +104,8 @@ test("Booking Claim marks nothing when book_appointment, reschedule, list or con
 
 test("Booking Claim: a tool that did not run counts as not succeeded, and never throws", () => {
   const run = guard();
-  assert.equal(run({ output: "Ya quedó agendada." }, {})[0].json.claimUnbacked, true);
-  assert.equal(run({ output: "Ya quedó agendada." }, { book_appointment: "missing" })[0].json.claimUnbacked, true);
+  assert.equal(run({ output: "Ya quedó agendada tu cita." }, {})[0].json.claimUnbacked, true);
+  assert.equal(run({ output: "Ya quedó agendada tu cita." }, { book_appointment: "missing" })[0].json.claimUnbacked, true);
 });
 
 test("Booking Claim does not mark replies that do not claim a booking, or that deny it", () => {
@@ -172,6 +172,31 @@ test("Booking Claim does not mark denials, questions or offers, in Spanish and E
     "Once confirmed you will get a reminder.",
   ];
   for (const reply of replies) assert.equal(run({ output: reply }, { book_appointment: failed })[0].json.claimUnbacked, false, reply);
+});
+
+test("Booking Claim does not mark a reply that says a TIME is taken (the slot is the subject, not the customer's visit)", () => {
+  const run = guard();
+  const replies = [
+    "Ese horario ya está reservado, ¿te ofrezco las 5:00?",
+    "Esa hora ya está agendada por otra persona. ¿Te sirve las 6?",
+    "El espacio de las 5 ya fue reservado, tengo las 6.",
+    "That time is booked, how about 5 pm?",
+    "That slot is already booked. Would 6 pm work?",
+  ];
+  for (const reply of replies) assert.equal(run({ output: reply }, { book_appointment: failed })[0].json.claimUnbacked, false, reply);
+});
+
+test("Booking Claim marks a status claim about the customer's visit, for any kind of business, even after a taken time", () => {
+  const run = guard();
+  const replies = [
+    "Tu cita ha sido agendada.",
+    "Your appointment has been booked.",
+    "Tu reservación quedó confirmada.",
+    "Your booking is confirmed!",
+    "Ya quedó confirmada tu cita.",
+    "Ese horario estaba ocupado. Tu cita ha sido agendada para las 6.",
+  ];
+  for (const reply of replies) assert.equal(run({ output: reply }, { book_appointment: failed })[0].json.claimUnbacked, true, reply);
 });
 
 test("Booking Claim: a denial does not hide a claim that comes later in the same reply", () => {
