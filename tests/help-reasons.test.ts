@@ -56,11 +56,11 @@ test("a booking over the daily limit is medium priority, needs a person and paus
   assert.equal(HELP_REASONS.booking_limit.labelKey, "bookingLimit");
 });
 
-test("a file the bot cannot read is medium priority, needs the team and does not pause the bot (ticket #139)", () => {
+test("a file the bot cannot read is medium priority, needs the team and pauses the bot until it is handled (ticket #139)", () => {
   assert.equal(isHelpReason("unsupported_media"), true);
   assert.equal(priorityOf("unsupported_media"), HELP_PRIORITY.MEDIUM);
   assert.equal(isReasonEnabled("unsupported_media"), true);
-  assert.equal(pausesBot("unsupported_media"), false);
+  assert.equal(pausesBot("unsupported_media"), true);
   assert.equal(isTenantWide("unsupported_media"), false);
   assert.equal(HELP_REASONS.unsupported_media.labelKey, "unsupportedMedia");
 });
