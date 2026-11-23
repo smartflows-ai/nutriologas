@@ -7,6 +7,8 @@ import { prisma } from "@/lib/db";
 import { buildSlot, isInternalKeyValid, resolveBotTenant } from "@/lib/bot";
 import { blocksForDate, daySlots, insideBusinessHours, longestBlockMinutes, slotWithinHours } from "@/lib/business-hours";
 import { isBookable } from "@/lib/bookable";
+import { serviceNotFoundBody } from "@/lib/service-ref";
+import { findServiceForBot } from "@/lib/service-ref-data";
 import { modalityModeFor } from "@/lib/patient-intake";
 import { getBusyPeriods, isSlotFree } from "@/lib/calendar-sync";
 import { clinicDateKeyOf, clinicDateTime, clinicOffsetOf, isRealClinicTime } from "@/lib/clinic-time";
@@ -27,7 +29,7 @@ function invalid(error: string, message: string) {
 export async function POST(req: NextRequest) {
   if (!isInternalKeyValid(req)) return Response.json({ error: "No autorizado" }, { status: 401 });
 
-  const { instance, productId, date, after, time: timeParam, edge: edgeParam } = await req.json().catch(() => ({}));
+  const { instance, productId, serviceName, date, after, time: timeParam, edge: edgeParam } = await req.json().catch(() => ({}));
   // The agent sends empty strings for optional fields it leaves out: they count as not sent.
   const wantedTime = timeParam === "" || timeParam === null ? undefined : timeParam;
   const wantedEdge = edgeParam === "" || edgeParam === null ? undefined : edgeParam;
@@ -35,8 +37,8 @@ export async function POST(req: NextRequest) {
   const bot = await resolveBotTenant(instance);
   if (!bot) return Response.json({ error: "Instancia de WhatsApp no encontrada" }, { status: 404 });
 
-  if (typeof productId !== "string" || typeof date !== "string") {
-    return Response.json({ error: "productId y date son requeridos" }, { status: 400 });
+  if ((typeof productId !== "string" && typeof serviceName !== "string") || typeof date !== "string") {
+    return Response.json({ error: "productId (o serviceName) y date son requeridos" }, { status: 400 });
   }
   if (weekdayNameEs(date) === null) return invalid("date_invalid", "La fecha debe ser AAAA-MM-DD y existir en el calendario.");
 
@@ -57,11 +59,11 @@ export async function POST(req: NextRequest) {
   const afterTime = wantedAfter !== undefined ? normalizeClock(wantedAfter as string) : null;
   const edgeAsked = wantedEdge === "first" || wantedEdge === "last" ? wantedEdge : null;
 
-  const product = await prisma.product.findFirst({
-    where: { id: productId, tenantId: bot.tenantId, isActive: true, deletedAt: null },
-    select: { name: true, durationMinutes: true, requiresBooking: true, visitModes: true },
-  });
-  if (!product) return Response.json({ error: "Servicio no encontrado" }, { status: 404 });
+  // The agent retypes the id by hand and can change its end (#140): the exact id first, then a tolerant search, and the
+  // list of services when it cannot resolve (src/lib/service-ref-data.ts).
+  const resolved = await findServiceForBot(bot, { productId, serviceName });
+  if (!resolved.ok) return Response.json(serviceNotFoundBody(resolved.options), { status: 404 });
+  const product = resolved.service;
   if (!isBookable(product, bot)) {
     return Response.json(
       { success: false, error: "not_bookable", message: "Este artículo no se agenda con cita." },
@@ -115,7 +117,10 @@ export async function POST(req: NextRequest) {
 
   return Response.json({
     success: true,
+    // The service the app resolved and how: the id to reuse in the next call, and the name to say to the customer.
+    productId: product.id,
     serviceName: product.name,
+    resolvedVia: resolved.via,
     date,
     // The day of the week of the date asked: the agent says it, so a wrong weekday ("sabado 15") shows up.
     weekday: weekdayNameEs(date),

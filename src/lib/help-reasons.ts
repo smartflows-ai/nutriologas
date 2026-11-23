@@ -17,7 +17,9 @@ export type HelpReason =
   | "tool_loop"
   | "reminder_failed"
   | "urgency"
-  | "opted_out";
+  | "opted_out"
+  | "booking_limit"
+  | "unsupported_media";
 
 interface HelpReasonInfo {
   readonly priority: HelpPriority;
@@ -47,6 +49,12 @@ export const HELP_REASONS: Readonly<Record<HelpReason, HelpReasonInfo>> = {
   // reason, so this reason does not count as a hand-off pause: marking the chat handled keeps the bot off. Only
   // "Reactivar mensajes" (after a person confirms with the patient) lifts it.
   opted_out: { priority: HELP_PRIORITY.MEDIUM, labelKey: "optedOut", enabled: true, pausesBot: false, tenantWide: false },
+  // A person asked for more visits in one day than the limit (booking-limit.ts, #141): the server raises it from bot/book
+  // and bot/reschedule, and a person decides, so the bot steps aside.
+  booking_limit: { priority: HELP_PRIORITY.MEDIUM, labelKey: "bookingLimit", enabled: true, pausesBot: true, tenantWide: false },
+  // The patient sent an audio, image, video or document the bot cannot read (#139): the server raises it from bot/media.
+  // The bot keeps answering (the patient was asked to write it), so it does not pause.
+  unsupported_media: { priority: HELP_PRIORITY.MEDIUM, labelKey: "unsupportedMedia", enabled: true, pausesBot: false, tenantWide: false },
 };
 
 export function isHelpReason(value: unknown): value is HelpReason {

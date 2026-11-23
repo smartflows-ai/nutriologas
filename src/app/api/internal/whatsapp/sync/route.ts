@@ -2,6 +2,7 @@
 import { prisma } from "@/lib/db";
 import { ownerTookOverPatch, resolvePatch } from "@/lib/help-actions";
 import { isOptOut } from "@/lib/wa-optout";
+import { messageContentOf } from "@/lib/wa-message-content";
 import { OPTED_OUT_PAUSE } from "@/lib/help-actions";
 import { raiseHelpOnChat, type HelpChatRow, type HelpTenant } from "@/lib/help-requests";
 import { HELP_CHAT_SELECT, HELP_TENANT_SELECT, realHelpDeps } from "@/lib/help-data";
@@ -47,21 +48,7 @@ export async function POST(req: NextRequest) {
     const timestamp = data.messageTimestamp ? new Date(data.messageTimestamp * 1000) : new Date();
 
     // Extraer contenido del mensaje
-    let content = "";
-    if (data.message?.conversation) content = data.message.conversation;
-    else if (data.message?.extendedTextMessage?.text) content = data.message.extendedTextMessage.text;
-    else if (data.message?.imageMessage?.caption) content = data.message.imageMessage.caption;
-    else if (data.message?.audioMessage) content = "[Audio]";
-    else if (data.message?.videoMessage) content = "[Video]";
-    else if (data.message?.documentMessage) content = "[Documento]";
-    else if (data.message?.reactionMessage) {
-      const emoji = data.message.reactionMessage.text;
-      content = emoji ? `Reacción ${emoji}` : "Reacción eliminada";
-    }
-    else if (data.message?.stickerMessage) content = "[Sticker]";
-    else if (data.message?.locationMessage) content = "[Ubicación]";
-    else if (data.message?.contactMessage) content = "[Contacto]";
-    else content = "[Mensaje Multimedia]";
+    const content = messageContentOf(data.message);
 
     // A bot reply to a patient who opted out was blocked by the send route and never delivered: it is not stored, so
     // the chat history and the last message do not show it (QA 2026-11-20).

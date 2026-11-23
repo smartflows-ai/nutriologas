@@ -43,6 +43,8 @@ export interface BotTenant {
   timeZone: string;
   /** How the customer reads that zone in the business language: "hora de Cancún". */
   timeZoneLabel: string;
+  /** The business's own WhatsApp numbers (profile number and connected line): never a patient's phone (#148). */
+  businessPhones: (string | null)[];
 }
 
 export function isInternalKeyValid(req: NextRequest): boolean {
@@ -60,6 +62,7 @@ export async function resolveBotTenant(instance: unknown): Promise<BotTenant | n
     select: {
       waContext: true,
       waTemperature: true,
+      waPhoneNumber: true,
       tenant: {
         select: {
           id: true,
@@ -79,6 +82,7 @@ export async function resolveBotTenant(instance: unknown): Promise<BotTenant | n
           businessHours: true,
           serviceModes: true,
           timeZone: true,
+          whatsappNumber: true,
         },
       },
     },
@@ -108,6 +112,7 @@ export async function resolveBotTenant(instance: unknown): Promise<BotTenant | n
     calendarText: upcomingCalendarText(businessHours, timeZone),
     timeZone,
     timeZoneLabel: timeZoneLabel(timeZone, app.tenant.messageLanguage),
+    businessPhones: [app.tenant.whatsappNumber, app.waPhoneNumber],
   };
 }
 

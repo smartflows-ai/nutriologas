@@ -146,6 +146,40 @@ test("a phone that is not a phone is refused", () => {
   assert.deepEqual(resolveBookingPhone("5218446683688", "mi mama"), { ok: false, error: "invalid_patient_phone" });
 });
 
+// Ticket #148: the business's own numbers (Tenant.whatsappNumber and the connected line) are never a patient.
+const SENDER = "5218446683688";
+const BUSINESS_PHONES = ["+52 81 1181 3540", "521 844 123 4567"];
+
+test("a number of the business is refused as the patient's phone, with or without the country code or the 1", () => {
+  for (const typed of ["8111813540", "+52 81 1181 3540", "528111813540", "5218111813540"]) {
+    assert.deepEqual(resolveBookingPhone(SENDER, typed, BUSINESS_PHONES), { ok: false, error: "business_phone" }, typed);
+  }
+});
+
+test("the connected line of the business is refused too, not only the profile number", () => {
+  for (const typed of ["8441234567", "528441234567", "5218441234567"]) {
+    assert.deepEqual(resolveBookingPhone(SENDER, typed, BUSINESS_PHONES), { ok: false, error: "business_phone" }, typed);
+  }
+});
+
+test("any other number still means a visit for someone else", () => {
+  assert.deepEqual(resolveBookingPhone(SENDER, "8112223344", BUSINESS_PHONES), { ok: true, phone: "528112223344", forOther: true });
+});
+
+test("no business numbers, or empty or missing ones, refuse nothing", () => {
+  assert.deepEqual(resolveBookingPhone(SENDER, "8111813540"), { ok: true, phone: "528111813540", forOther: true });
+  assert.deepEqual(resolveBookingPhone(SENDER, "8111813540", []), { ok: true, phone: "528111813540", forOther: true });
+  assert.deepEqual(resolveBookingPhone(SENDER, "8111813540", [null, undefined, ""]), { ok: true, phone: "528111813540", forOther: true });
+});
+
+test("the sender writing from a business number is still the sender, not a refusal", () => {
+  assert.deepEqual(resolveBookingPhone(SENDER, "844 668 3688", ["8446683688"]), { ok: true, phone: SENDER, forOther: false });
+});
+
+test("a number that is not a phone keeps its own error before the business check", () => {
+  assert.deepEqual(resolveBookingPhone(SENDER, "123", BUSINESS_PHONES), { ok: false, error: "invalid_patient_phone" });
+});
+
 test("a visit booked for someone else is an automatic recommendation by the person writing", () => {
   assert.deepEqual(referralOf(true, "5218446683688", "Ana Lopez"), { referredByKey: "528446683688", referredByName: "Ana Lopez" });
   assert.deepEqual(referralOf(true, "5218446683688", null), { referredByKey: "528446683688", referredByName: null });
