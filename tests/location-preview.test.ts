@@ -32,7 +32,7 @@ test("normal browsers and a missing user agent are not crawlers", () => {
   assert.equal(isPreviewCrawler(undefined), false);
 });
 
-const base = { name: "Clínica Sol", address: "Av. Juárez 100, Monterrey", logoUrl: "https://res.cloudinary.com/x/logo.png", language: "es" };
+const base = { name: "Clínica Sol", address: "Av. Juárez 100, Monterrey", logoUrl: "https://res.cloudinary.com/x/logo.png", language: "es", directionsUrl: "https://www.google.com/maps/dir/?api=1&destination=25.6,-100.3" };
 
 test("preview carries name, address and logo as og tags", () => {
   const html = buildLocationPreviewHtml(base);
@@ -60,4 +60,15 @@ test("business text is escaped and an unsafe logo address is dropped", () => {
 test("preview never includes a phone or provider name", () => {
   const html = buildLocationPreviewHtml(base);
   assert.doesNotMatch(html, /tel:|whatsapp\.com|n8n|evolution|claude|openai/i);
+});
+
+test("the body links to the same Maps directions (escaped) and has no meta refresh", () => {
+  const html = buildLocationPreviewHtml(base);
+  assert.match(html, /<a href="https:\/\/www\.google\.com\/maps\/dir\/\?api=1&amp;destination=25\.6,-100\.3">Cómo llegar<\/a>/);
+  assert.doesNotMatch(html, /http-equiv/i);
+  assert.match(buildLocationPreviewHtml({ ...base, language: "en" }), />Directions<\/a>/);
+});
+
+test("a directions link that is not https is dropped", () => {
+  assert.doesNotMatch(buildLocationPreviewHtml({ ...base, directionsUrl: "javascript:alert(1)" }), /<a /);
 });

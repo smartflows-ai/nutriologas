@@ -29,14 +29,15 @@ export async function GET(req: Request) {
   if (!tenant || !tenant.hasPhysicalLocation || !tenant.address?.trim()) {
     return shortLinkUnavailable(NO_PLACE.titulo, NO_PLACE.mensaje);
   }
+  const destination = directionsUrl({ address: tenant.address, placeId: tenant.placeId, latitude: tenant.latitude, longitude: tenant.longitude });
   // Link-preview crawlers (WhatsApp and similar) get og: tags; people keep the direct redirect (ticket #142).
   if (isPreviewCrawler(req.headers.get("user-agent"))) {
     return new NextResponse(
-      buildLocationPreviewHtml({ name: tenant.name, address: tenant.address, logoUrl: tenant.logoUrl, language: tenant.messageLanguage }),
+      buildLocationPreviewHtml({ name: tenant.name, address: tenant.address, logoUrl: tenant.logoUrl, directionsUrl: destination, language: tenant.messageLanguage }),
       { status: 200, headers: { ...SHORT_LINK_HEADERS, Vary: "User-Agent", "Content-Type": "text/html; charset=utf-8" } },
     );
   }
-  return NextResponse.redirect(directionsUrl({ address: tenant.address, placeId: tenant.placeId, latitude: tenant.latitude, longitude: tenant.longitude }), {
+  return NextResponse.redirect(destination, {
     status: 302,
     headers: { ...SHORT_LINK_HEADERS, Vary: "User-Agent" },
   });

@@ -1,7 +1,8 @@
 // src/lib/location-preview.ts
 // Link preview of <tenant>.newaigent.com/ubicacion (ticket #142). Chat apps build their card from the page they reach;
 // a bare 302 to Google Maps made WhatsApp show a generic map. Preview crawlers get a short page with og: tags (business
-// name, address, logo); everyone else keeps the redirect. A crawler we do not list simply gets today's redirect.
+// name, address, logo); everyone else keeps the redirect. A crawler we do not list simply gets today's redirect. The body links to Maps and has no meta refresh (a crawler
+// that follows it would land on the generic map again).
 
 const CRAWLER_RE = /whatsapp|facebookexternalhit|facebot|twitterbot|telegrambot|slackbot|linkedinbot|discordbot|signal|skypeuripreview/i;
 
@@ -19,6 +20,8 @@ export interface LocationPreviewInput {
   name: string;
   address: string;
   logoUrl?: string | null;
+  /** Same Google Maps directions link the redirect uses; gives a person who gets this page a way out. */
+  directionsUrl: string;
   /** Business language (`es` or `en`); Spanish when missing. */
   language?: string | null;
 }
@@ -29,6 +32,8 @@ export function buildLocationPreviewHtml(input: LocationPreviewInput): string {
   const name = escapeHtml(input.name.trim());
   const address = escapeHtml(input.address.trim());
   const logo = input.logoUrl && /^https:\/\//i.test(input.logoUrl.trim()) ? escapeHtml(input.logoUrl.trim()) : null;
+  const maps = /^https:\/\//i.test(input.directionsUrl.trim()) ? escapeHtml(input.directionsUrl.trim()) : null;
+  const label = maps ? `<a href="${maps}">${LABEL[lang]}</a>` : LABEL[lang];
   const tags = [
     `<meta property="og:type" content="website">`,
     `<meta property="og:title" content="${name}">`,
@@ -37,6 +42,6 @@ export function buildLocationPreviewHtml(input: LocationPreviewInput): string {
   ].join("");
   return (
     `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><title>${name}</title>${tags}</head>` +
-    `<body><h1>${name}</h1><p>${LABEL[lang]}: ${address}</p></body></html>`
+    `<body><h1>${name}</h1><p>${label}: ${address}</p></body></html>`
   );
 }
