@@ -1881,6 +1881,7 @@ export interface Translations {
     service_and_date_required: string;
     date_invalid: string;
     status_invalid: string;
+    visit_limit_reached: string;
     slot_unavailable: string;
     calendar_sync_failed: string;
     whatsapp_chat_not_found: string;

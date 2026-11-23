@@ -14,6 +14,7 @@ import { rateLimited } from "@/lib/rate-limit";
 import { dateKeyInClinicZone, linkedEventKeys } from "@/lib/calendar-sync";
 import { clinicDateKeyOf, clinicDateTime, clinicTimeOf } from "@/lib/clinic-time";
 import { patientKeyOf } from "@/lib/patient-key";
+import { checkWebVisitLimit } from "@/lib/booking-limit-data";
 import { parseBusinessHours, slotWithinHours } from "@/lib/business-hours";
 import { isBookable } from "@/lib/bookable";
 import { dropLinkedExternal, fetchExternalAppointments } from "@/lib/external-calendar";
@@ -349,6 +350,16 @@ export async function POST(req: NextRequest) {
     if (!isBookable(product, tenant)) {
       return apiError("not_bookable", 400);
     }
+
+    // Visit limit (ticket #141): at most 3 active future visits per person, counted by the phone of the visit and, with a
+    // customer session, by their account. Before any account or visit is created. No chat on the web: nothing is paused.
+    const limit = await checkWebVisitLimit({
+      tenantId,
+      patientKey: patientKeyOf(clientPhone) as string,
+      userId,
+      now: new Date(),
+    });
+    if (!limit.allowed) return apiError("visit_limit_reached", 409);
 
     // Resolver usuario: si está logueado usar su cuenta, sino crear o buscar usuario cliente
     if (!userId) {
