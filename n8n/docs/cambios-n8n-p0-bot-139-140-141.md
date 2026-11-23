@@ -194,9 +194,12 @@ const FIRST_PERSON = [
   /\bte\s+(agend|reserv|program)é(?![a-záéíóúñ])/gi,
   /\b(agend|reserv|program)[eé]\s+(tu|su|la)\s+(cita|visita|consulta)\b/gi,
   new RegExp('\\bI(\'ve|’ve|\\s+have)\\s+' + DONE_EN + '\\b', 'gi'),
+  // The short forms of the original report: "ya quedó a las 12", "ya quedó para el lunes", "you're all set for Tuesday".
+  /\bya\s+qued[oó]\s+(para\s+(el|las?)\b|a\s+las?\b|el\s+(lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)\b)/gi,
+  /\byou(['’]re|\s+are)\s+(all\s+)?set\s+for\b/gi,
 ];
 // Status: "quedó agendada", "has been booked", "is confirmed". Also said about a TIME that is taken ("ese horario ya está
-// reservado"), so it counts only when the visit of the customer is the subject (see subjectIsVisit).
+// reservado"), so it does not count when a time is the subject (see subjectIsVisit); a visit word or no subject does.
 const STATUS = [
   new RegExp('\\b(ya\\s+)?(qued[oó]|quedaron|est[aá]n?|queda|fue|fueron)\\s+' + DONE_ES + '\\b', 'gi'),
   new RegExp('\\b(ha|han)\\s+sido\\s+' + DONE_ES + '\\b', 'gi'),
@@ -219,9 +222,10 @@ const subjectIsVisit = (m) => {
   const visitBefore = lastEnd(before, VISIT_WORD);
   const slotBefore = lastEnd(before, SLOT_WORD);
   if (visitBefore >= 0 || slotBefore >= 0) return visitBefore > slotBefore;
+  // No subject before it: a visit word after it, or no subject at all (an elliptical "Ya quedó agendada."), is a claim.
   const visitAfter = after.search(VISIT_WORD);
   const slotAfter = after.search(SLOT_WORD);
-  return visitAfter >= 0 && (slotAfter < 0 || visitAfter < slotAfter);
+  return slotAfter < 0 || (visitAfter >= 0 && visitAfter < slotAfter);
 };
 const denied = (m) => NEGATION.test(reply.slice(Math.max(0, m.index - 14), m.index));
 const found = (patterns) => patterns.flatMap((re) => Array.from(reply.matchAll(re))).filter((m) => !denied(m));

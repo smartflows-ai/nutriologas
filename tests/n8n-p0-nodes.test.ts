@@ -199,6 +199,33 @@ test("Booking Claim marks a status claim about the customer's visit, for any kin
   for (const reply of replies) assert.equal(run({ output: reply }, { book_appointment: failed })[0].json.claimUnbacked, true, reply);
 });
 
+test("Booking Claim marks the elliptical forms of the original report (ya quedó a las 12) and short status replies", () => {
+  const run = guard();
+  const replies = [
+    "Ya quedó agendada.",
+    "Listo, ya quedó a las 12.",
+    "Listo, ya quedó para el lunes.",
+    "Ya quedó para las 5.",
+    "Ya quedó el martes.",
+    "Ya está confirmada.",
+    "You're all set for Tuesday at 5.",
+    "You’re set for Friday!",
+  ];
+  for (const reply of replies) assert.equal(run({ output: reply }, { book_appointment: failed })[0].json.claimUnbacked, true, reply);
+});
+
+test("Booking Claim does not mark 'ya quedó claro', 'ya quedó ocupado' or a taken time, even without a visit word", () => {
+  const run = guard();
+  const replies = [
+    "Ya quedó claro, gracias.",
+    "Ese horario ya quedó ocupado.",
+    "Ese horario ya quedó reservado por otra persona.",
+    "La de las 5 ya está reservada, ¿te sirve otra hora?",
+    "Ya quedó claro que no hay lugar el lunes.",
+  ];
+  for (const reply of replies) assert.equal(run({ output: reply }, { book_appointment: failed })[0].json.claimUnbacked, false, reply);
+});
+
 test("Booking Claim: a denial does not hide a claim that comes later in the same reply", () => {
   const run = guard();
   assert.equal(run({ output: "No pude agendar el lunes. Pero tu cita ha sido agendada para el martes." }, {})[0].json.claimUnbacked, true);
