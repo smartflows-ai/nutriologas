@@ -179,20 +179,37 @@ Solo si no hay message, di algo como: \"No pude completar esa accion en este mom
 
 **Dónde:** un nodo Code nuevo **`Guard: Booking Claim`** entre **`Clean Reply`** y **`Send WhatsApp Reply`**. Va **después** de `Clean Reply` para no tocar la cadena `Bot Agent → Collect Token Usage → Report Token Usage → Clean Reply`; los nodos que siguen leen `Clean Reply` por nombre, así que no cambia nada. **No cambia la conexión de error de `Bot Agent`.**
 
-**Qué hace:** si la respuesta dice que una cita quedó agendada, confirmada o movida y **ninguna** herramienta devolvió `success: true` en esta ejecución (`book_appointment`, `reschedule_appointment`, `list_my_appointments` o `confirm_appointment`), agrega `claimUnbacked: true` al dato. **Nunca cambia `output`.** Una negación ("no quedó agendada") no cuenta.
+**Qué hace:** si la respuesta dice que una cita quedó agendada, confirmada o movida y **ninguna** herramienta devolvió `success: true` en esta ejecución (`book_appointment`, `reschedule_appointment`, `list_my_appointments` o `confirm_appointment`), agrega `claimUnbacked: true` al dato. **Nunca cambia `output`.** Una negación ("no quedó agendada", "has not been booked") no cuenta. Reconoce español e inglés ("ha sido agendada", "te agendé", "has been booked"). `list_my_appointments` no trae `success`: cuenta como respaldo si trae al menos una cita en `appointments`.
 
 <!-- guard-booking-claim:start -->
 ```js
 // Guard: Booking Claim (SHADOW MODE). Marks a reply that says a visit is booked, moved or confirmed when no tool succeeded
 // in this run. It never changes the reply. A tool node that did not run has no data: that counts as "did not succeed".
 const reply = String($json.output || '');
-const CLAIM = /\b(ya\s+)?(qued[oó]|est[aá]|queda|fue)\s+(agendad[ao]|confirmad[ao]|reagendad[ao])\b|\b(he|hemos)\s+(agendado|confirmado|reagendado)\b|\bagend[eé]\s+(tu|su|la)\s+cita\b/i;
-const NEGATION = /\b(no|todav[ií]a no|a[uú]n no)\s*$/i;
-const match = CLAIM.exec(reply);
-const claims = !!match && !NEGATION.test(reply.slice(Math.max(0, match.index - 14), match.index));
+const DONE_ES = '(agendad|confirmad|reagendad|reservad|programad)[ao]s?';
+const DONE_EN = '(booked|scheduled|confirmed|rescheduled)';
+const CLAIMS = [
+  // Spanish: "quedó agendada", "ya está programada", "ha sido confirmada", "he reservado", "te agendé", "agendé tu cita".
+  new RegExp('\\b(ya\\s+)?(qued[oó]|quedaron|est[aá]n?|queda|fue|fueron)\\s+' + DONE_ES + '\\b', 'gi'),
+  new RegExp('\\b(ha|han)\\s+sido\\s+' + DONE_ES + '\\b', 'gi'),
+  /\b(he|hemos)\s+(agendado|confirmado|reagendado|reservado|programado)\b/gi,
+  /\bte\s+(agend|reserv|program)é(?![a-záéíóúñ])/gi,
+  /\b(agend|reserv|program)[eé]\s+(tu|su|la)\s+(cita|visita|consulta)\b/gi,
+  // English, for businesses whose messages are in English. "is not booked", "isn't confirmed" and "couldn't book" do not match.
+  new RegExp('\\b(has|have)\\s+been\\s+' + DONE_EN + '\\b', 'gi'),
+  new RegExp('\\b(is|are)\\s+' + DONE_EN + '\\b', 'gi'),
+  new RegExp('\\bI(\'ve|’ve|\\s+have)\\s+' + DONE_EN + '\\b', 'gi'),
+  /\byour\s+(appointments?|visits?)\s+(is|are)\s+(booked|confirmed|set)\b/gi,
+];
+const NEGATION = /\b(no|not|never|todav[ií]a no|a[uú]n no|yet)\s*$/i;
+const claims = CLAIMS.some((re) => Array.from(reply.matchAll(re)).some((m) => !NEGATION.test(reply.slice(Math.max(0, m.index - 14), m.index))));
+// A tool succeeded: success true, or (list_my_appointments only, which has no success field) a non-empty appointments list.
 const succeeded = (name) => {
   try {
-    return $(name).all().some((item) => item.json && item.json.success === true);
+    return $(name).all().some((item) => {
+      const json = item.json || {};
+      return json.success === true || (name === 'list_my_appointments' && Array.isArray(json.appointments) && json.appointments.length > 0);
+    });
   } catch (err) {
     return false;
   }

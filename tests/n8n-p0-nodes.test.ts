@@ -115,6 +115,81 @@ test("Booking Claim does not mark replies that do not claim a booking, or that d
   }
 });
 
+test("Booking Claim marks how the bot really writes it (ha sido agendada) and other common forms in Spanish", () => {
+  const run = guard();
+  const replies = [
+    "Tu cita con Dra. Ana ha sido agendada para el lunes a las 5.",
+    "Tus citas han sido confirmadas.",
+    "Tu cita ha sido reagendada para el martes.",
+    "Tu cita quedó reservada para el lunes.",
+    "Ya está programada tu cita del viernes.",
+    "Te agendé para el lunes a las 5.",
+    "Te reservé el horario de las 10.",
+    "Hemos programado tu cita.",
+  ];
+  for (const reply of replies) {
+    const out = run({ output: reply }, { book_appointment: failed })[0].json;
+    assert.equal(out.claimUnbacked, true, reply);
+    assert.equal(out.output, reply, "the reply is never changed");
+  }
+});
+
+test("Booking Claim marks the same claims written in English", () => {
+  const run = guard();
+  const replies = [
+    "Your appointment has been booked for Monday at 5 pm.",
+    "Your visits have been confirmed.",
+    "Your appointment has been rescheduled to Tuesday.",
+    "Your appointment is booked for Monday.",
+    "Your appointments are confirmed.",
+    "I've booked you for Monday at 5.",
+    "I have scheduled your visit.",
+    "Your appointment is set for Friday at 10.",
+    "Your appointment is confirmed!",
+  ];
+  for (const reply of replies) assert.equal(run({ output: reply }, { book_appointment: failed })[0].json.claimUnbacked, true, reply);
+});
+
+test("Booking Claim does not mark denials, questions or offers, in Spanish and English", () => {
+  const run = guard();
+  const replies = [
+    "Tu cita no ha sido agendada, ese horario está ocupado.",
+    "Todavía no ha sido confirmada.",
+    "La cita aún no está programada.",
+    "No pude agendar tu cita.",
+    "Tengo el lunes a las 5, ¿te lo reservo?",
+    "¿Quieres que te agende el lunes?",
+    "Your appointment has not been booked.",
+    "Your appointment has not been booked yet.",
+    "It has not been booked, that time is taken.",
+    "Your appointment isn't confirmed yet.",
+    "That time is not booked.",
+    "I couldn't book that time.",
+    "I could not book your appointment.",
+    "I haven't booked anything yet.",
+    "Would you like me to book you on Monday at 5?",
+    "I have Monday at 5 or Tuesday at 10 available.",
+    "Once confirmed you will get a reminder.",
+  ];
+  for (const reply of replies) assert.equal(run({ output: reply }, { book_appointment: failed })[0].json.claimUnbacked, false, reply);
+});
+
+test("Booking Claim: a denial does not hide a claim that comes later in the same reply", () => {
+  const run = guard();
+  assert.equal(run({ output: "No pude agendar el lunes. Pero tu cita ha sido agendada para el martes." }, {})[0].json.claimUnbacked, true);
+});
+
+test("Booking Claim: list_my_appointments backs the claim with a non-empty list even without success; an empty list does not", () => {
+  const run = guard();
+  const reply = "Tu cita ha sido agendada para el lunes.";
+  const withVisits: Item[] = [{ json: { appointments: [{ id: "a1" }] } }];
+  const empty: Item[] = [{ json: { appointments: [] } }];
+  assert.equal(run({ output: reply }, { list_my_appointments: withVisits })[0].json.claimUnbacked, false);
+  assert.equal(run({ output: reply }, { list_my_appointments: empty })[0].json.claimUnbacked, true);
+  assert.equal(run({ output: reply }, { list_my_appointments: [{ json: { appointments: "x" } }] })[0].json.claimUnbacked, true);
+  assert.equal(run({ output: reply }, { book_appointment: [{ json: { appointments: [{ id: "a1" }] } }] })[0].json.claimUnbacked, true, "only the list tool is read this way");
+});
+
 // The ```text blocks of section N1, in document order: the n8n proposal is generated from them, so their order is fixed.
 function n1TextBlocks(): string[] {
   const start = DOC.indexOf("## N1.");
