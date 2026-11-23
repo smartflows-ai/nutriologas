@@ -5,7 +5,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { alreadyRaisedBody, serverReasonOpen } from "../src/lib/help-already-raised";
+import { alreadyOpenBody, alreadyRaisedBody, requestAlreadyOpen, serverReasonOpen } from "../src/lib/help-already-raised";
+import type { HelpState } from "../src/lib/help-state";
 
 const SERVER = new Set(["opted_out", "booking_limit", "unsupported_media"]);
 const chat = (helpReason: string | null, helpPriority: number) => ({ helpReason, helpPriority });
@@ -57,4 +58,57 @@ test("the booking limit message tells the agent the team was already told and no
   const { visitLimitBody } = await import("../src/lib/booking-limit");
   assert.match(visitLimitBody(true).message, /equipo ya fue avisado/i);
   assert.match(visitLimitBody(true).message, /no llames a request_human_help/i);
+});
+
+// ---- Ticket #143 (execution 23110): the guard raised person_requested, then the model asked again ----
+
+const NOW = new Date("2026-11-23T20:27:30Z");
+const open = (reason: HelpState["reason"], priority: number): HelpState => ({ reason, priority, requestedAt: new Date("2026-11-23T20:27:25Z") });
+const NONE: HelpState = { reason: null, priority: 0, requestedAt: null };
+
+test("the guard raised person_requested first, then the model asks for the same reason: already open", () => {
+  assert.equal(requestAlreadyOpen(open("person_requested", 2), "person_requested", NOW), true);
+});
+
+test("the model asks first: nothing is open, the request goes on as today", () => {
+  assert.equal(requestAlreadyOpen(NONE, "person_requested", NOW), false);
+});
+
+test("a reason of higher priority over an open one still goes up, so it is not 'already open'", () => {
+  assert.equal(requestAlreadyOpen(open("purchase_intent", 1), "person_requested", NOW), false);
+});
+
+test("a reason of lower or equal priority over an open one changes nothing: already open", () => {
+  assert.equal(requestAlreadyOpen(open("person_requested", 2), "purchase_intent", NOW), true);
+});
+
+test("a handled request (priority 0) is not open", () => {
+  assert.equal(requestAlreadyOpen(open("person_requested", 0), "person_requested", NOW), false);
+});
+
+test("a reason that is turned off never counts as already open", () => {
+  assert.equal(requestAlreadyOpen(open("person_requested", 2), "tool_loop", NOW), false);
+});
+
+test("the already-open answer is raised: true, so the prompt rule for raised: false does not apply", () => {
+  const body = alreadyOpenBody(false);
+  assert.equal(body.raised, true);
+  assert.equal(body.alreadyOpen, true);
+  assert.equal(body.reason, "already_open");
+  assert.equal(body.paused, false);
+  assert.equal(body.notified, null);
+  assert.match(body.message, /ya fue avisada/i);
+  assert.match(body.message, /seguimiento/i);
+  assert.doesNotMatch(body.message, /claude|anthropic|openai|gpt|openrouter|evolution|n8n|baileys/i);
+  assert.doesNotMatch(body.message, /minuto|hora|segundo|pronto/i, "no promised times");
+});
+
+test("not_requested and no_chat keep answering raised: false, and the route uses the already-open body only on the model path", () => {
+  const handler = readFileSync("src/lib/help-handler.ts", "utf8");
+  assert.match(handler, /reason: "no_chat"/);
+  assert.match(handler, /reason: "not_requested"/);
+  assert.match(handler, /alreadyOpenBody\(/);
+  assert.match(handler, /requestAlreadyOpen\(/);
+  // the pause and the notice happen before the check reads the answer; nothing changes when the request was already open
+  assert.ok(handler.indexOf("requestAlreadyOpen(") < handler.indexOf("raiseHelpOnChat(realHelpDeps"), "decided from the state before raising");
 });

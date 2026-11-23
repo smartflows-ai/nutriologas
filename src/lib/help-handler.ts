@@ -10,7 +10,7 @@ import { shouldAlertOwner } from "@/lib/owner-alert";
 import { raiseHelpOnChat, type HelpChatRow, type HelpTenant } from "@/lib/help-requests";
 import { HELP_CHAT_SELECT, HELP_TENANT_SELECT, realHelpDeps } from "@/lib/help-data";
 import { personRequestAllowed } from "@/lib/help-person-check";
-import { alreadyRaisedBody, serverReasonOpen } from "@/lib/help-already-raised";
+import { alreadyOpenBody, alreadyRaisedBody, requestAlreadyOpen, serverReasonOpen } from "@/lib/help-already-raised";
 
 // Reasons only the server raises. "opted_out" comes from the inbound detection in whatsapp/sync, which also records
 // the opt-out; raised by the bot it would show "Pidió no recibir mensajes" without any opt-out behind it (QA 2026-11-20).
@@ -37,6 +37,8 @@ export async function handleHelpRequest(req: NextRequest, defaultReason: HelpRea
   if (result.status === "no_chat") return Response.json({ raised: false, reason: "no_chat" });
   if (result.status === "not_requested") return Response.json({ raised: false, reason: "not_requested" });
   if (result.status === "tenant_missing") return Response.json({ error: "Tenant not found" }, { status: 404 });
+  // Ticket #143: the request was already open (the n8n guard raised it first): say so, instead of a bare raised: false.
+  if (result.alreadyOpen) return Response.json(alreadyOpenBody(result.paused));
   return Response.json({ raised: result.raised, paused: result.paused, notified: result.notified });
 }
 
@@ -57,6 +59,8 @@ export type HelpContactResult =
       raised: boolean;
       paused: boolean;
       notified: Awaited<ReturnType<typeof raiseHelpOnChat>>["notified"];
+      /** The request was already open with this reason or a higher one, so this call changed nothing (ticket #143). */
+      alreadyOpen: boolean;
       /** The contact's chat rows and the help state the newest one had before this call (bot/media reads it). */
       chatIds: string[];
       before: { helpReason: string | null; helpRequestedAt: Date | null };
@@ -133,12 +137,19 @@ export async function raiseHelpForContact(
     quiet = !shouldAlertOwner(now, lastNotice);
   }
 
+  // Read before raising: true when the request is already open with this reason or a higher one.
+  const alreadyOpen = requestAlreadyOpen(
+    { reason: isHelpReason(row.helpReason) ? row.helpReason : null, priority: row.helpPriority, requestedAt: row.helpRequestedAt },
+    reason,
+    now,
+  );
   const outcome = await raiseHelpOnChat(realHelpDeps, tenant as HelpTenant, row as HelpChatRow, reason, now, { quiet });
   return {
     status: "done",
     raised: outcome.raised,
     paused,
     notified: outcome.notified,
+    alreadyOpen: alreadyOpen && !outcome.raised,
     chatIds: chats.map((chat) => chat.id),
     before: { helpReason: row.helpReason, helpRequestedAt: row.helpRequestedAt },
   };
