@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { messageContentOf } from "../src/lib/wa-message-content";
+import { classifyInbound } from "../src/lib/unsupported-media";
 
 const DOC = readFileSync(path.join(__dirname, "..", "n8n/docs/cambios-n8n-p0-bot-139-140-141.md"), "utf8");
 
@@ -112,6 +113,83 @@ test("Booking Claim does not mark replies that do not claim a booking, or that d
   for (const reply of ["¿Te agendo el lunes a las 5?", "Hay horarios el lunes.", "La cita no quedó agendada, ese horario está ocupado.", "Todavía no está confirmada.", ""]) {
     assert.equal(run({ output: reply }, { book_appointment: failed })[0].json.claimUnbacked, false, reply);
   }
+});
+
+// The ```text blocks of section N1, in document order: the n8n proposal is generated from them, so their order is fixed.
+function n1TextBlocks(): string[] {
+  const start = DOC.indexOf("## N1.");
+  const end = DOC.indexOf("## N2.");
+  assert.ok(start > 0 && end > start, "the document has the N1 and N2 sections");
+  return Array.from(DOC.slice(start, end).matchAll(/```text\n([\s\S]*?)```/g)).map((match) => match[1].trim());
+}
+
+test("the ```text blocks of N1 keep their order: file copy body, Media Decision, Send Media Reply, Write Media Reply", () => {
+  const blocks = n1TextBlocks();
+  assert.ok(blocks.length >= 5, `N1 has at least 5 text blocks (${blocks.length})`);
+  assert.match(blocks[0], /data: \$json\.data/, "1st: body of Write Customer Message (File)");
+  assert.match(blocks[1], /messageType:/, "2nd: body of Media Decision");
+  assert.match(blocks[2], /text: \$\('Media Decision'\)\.first\(\)\.json\.reply/, "3rd: body of Send Media Reply");
+  assert.match(blocks[3], /message: \{ conversation: \$\('Media Decision'\)/, "4th: body of Write Media Reply");
+});
+
+test("Send Media Reply carries the same message key as Write Media Reply, from the incoming message id", () => {
+  const [, , send, write] = n1TextBlocks();
+  const key = "'bot-media-' + ($('Extract Message').first().json.eventData?.key?.id || $execution.id)";
+  assert.ok(send.includes(`messageKey: ${key}`), "Send Media Reply has the messageKey");
+  assert.ok(write.includes(`id: ${key}`), "Write Media Reply uses the same key as its id");
+});
+
+const guardExpression = (): string => {
+  const block = n1TextBlocks()[4];
+  assert.match(block, /^=\{\{[\s\S]*\}\}$/, "the 5th text block is exactly the expression pasted in Guard: Is File Message");
+  return block.replace(/^=\{\{/, "").replace(/\}\}$/, "");
+};
+
+function isFile(type: unknown, phone: unknown = "5218111813540"): boolean {
+  const run = new Function("$", `return (${guardExpression()});`) as (stub: (name: string) => unknown) => unknown;
+  return run(() => ({ first: () => ({ json: { customerPhone: phone, eventData: { messageType: type } } }) })) === true;
+}
+
+test("Guard: Is File Message lets through only the five file types, the same list the app uses", () => {
+  for (const type of ["audioMessage", "imageMessage", "videoMessage", "documentMessage", "documentWithCaptionMessage"]) {
+    assert.equal(isFile(type), true, type);
+    assert.equal(classifyInbound(type), "file", `${type} is a file for the app too`);
+  }
+});
+
+test("Guard: Is File Message keeps stickers, reactions, location, contacts and the rest as they are today", () => {
+  for (const type of ["stickerMessage", "reactionMessage", "protocolMessage", "locationMessage", "liveLocationMessage", "contactMessage", "contactsArrayMessage", "pollCreationMessage", "somethingNewMessage", "", undefined, null, 5]) {
+    assert.equal(isFile(type), false, String(type));
+    assert.equal(classifyInbound(type), "silent", `${String(type)} is silent for the app too`);
+  }
+});
+
+test("Guard: Is File Message needs a phone to answer: no phone, no branch", () => {
+  assert.equal(isFile("imageMessage", ""), false);
+  assert.equal(isFile("imageMessage", null), false);
+});
+
+test("the guard expression and the app agree on every message type the app knows", () => {
+  for (const type of ["audioMessage", "imageMessage", "videoMessage", "documentMessage", "documentWithCaptionMessage", "stickerMessage", "reactionMessage", "protocolMessage", "locationMessage", "contactMessage", "x"]) {
+    assert.equal(isFile(type), classifyInbound(type) === "file", type);
+  }
+});
+
+test("the two new If nodes are written in loose mode, so an odd value goes to false instead of failing", () => {
+  const start = DOC.indexOf("## N1.");
+  const n1 = DOC.slice(start, DOC.indexOf("## N2."));
+  for (const guardName of ["Guard: Is File Message", "Guard: Media Reply"]) {
+    const at = n1.indexOf(guardName);
+    assert.ok(at > 0, `${guardName} is described`);
+    assert.match(n1.slice(at, at + 900), /typeValidation[^\n]*loose[\s\S]{0,200}looseTypeValidation/i, `${guardName} says loose + looseTypeValidation`);
+  }
+});
+
+test("N3 is checked in smoke test H12 (a real booking must give claimUnbacked false), not by reading old executions", () => {
+  const n3 = DOC.slice(DOC.indexOf("## N3."));
+  assert.match(n3, /H12/);
+  assert.match(n3, /claimUnbacked[^\n]*false/i);
+  assert.match(n3, /ejecuciones viejas/i);
 });
 
 test("the document says N1 goes only after the deploy and that the guard starts in shadow mode", () => {

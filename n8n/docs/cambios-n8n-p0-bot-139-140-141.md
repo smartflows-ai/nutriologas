@@ -38,7 +38,7 @@ El system message del nodo **Bot Agent** es **una sola expresión de JavaScript*
 
 **Cómo (armar en el editor; sin datos secretos):**
 
-1. Conecta la **salida falsa** de `Guard: Has Text And Phone` a un nodo If nuevo **`Guard: Is File Message`** con dos condiciones unidas por "y": `{{ $('Extract Message').first().json.customerPhone }}` no vacío, y `{{ $('Extract Message').first().json.eventData.messageType }}` no vacío. Salida falsa: sin conexión (igual que hoy).
+1. Conecta la **salida falsa** de `Guard: Has Text And Phone` a un nodo If nuevo **`Guard: Is File Message`**. Solo debe dejar pasar **audio, imagen, video, documento y documento con pie** (la misma lista que usa la app) y exigir que haya teléfono; **no** "cualquier mensaje con tipo". Así los stickers, las ubicaciones, los contactos, las reacciones y los mensajes de protocolo siguen como hoy: no pasan por `sync` ni por `bot/media` (si pasaran, una reacción se guardaría como "Reacción eliminada", se perdería el pie de foto y un sticker contaría como si el cliente hubiera escrito). La condición exacta está en el último bloque de texto de esta sección ("Condiciones de las puertas"). Salida falsa: sin conexión (igual que hoy). Configuración del nodo: **typeValidation `loose` y looseTypeValidation activado** ("Convert types where required"), como `Guard: Greeting Reply`: si llega un dato raro, va a falso en vez de fallar la ejecución.
 2. Salida verdadera → **`Strip File Data`** (nodo Code, "Run Once for All Items"). Quita el archivo antes de mandar nada a la app: en un mensaje de archivo, `eventData` trae el `base64` y un video o documento puede pasar de **4.5 MB, el límite de cuerpo de Vercel** (daría 413 y no se guardaría `[Video]`). Pega este código:
 
 <!-- strip-file-data:start -->
@@ -79,11 +79,11 @@ return [{
 
    Toma sus datos de `Extract Message`, no del nodo anterior. Configura **On Error: Continue (regular output)** y tiempo de espera de 10 s: si falla, el flujo termina como hoy.
 
-5. → **`Guard: Media Reply`** (If): `{{ $json.action }}` es igual a `reply` (comparación de texto).
-6. Verdadero → **`Send Media Reply`**: **copia** de `Send Greeting Reply` (misma URL `/api/internal/whatsapp/send`, mismos encabezados). Cuerpo:
+5. → **`Guard: Media Reply`** (If): `{{ $json.action }}` es igual a `reply` (comparación de texto). Configuración del nodo: **typeValidation `loose` y looseTypeValidation activado**, igual que `Guard: Is File Message`: un dato raro va a falso y no hace fallar la ejecución.
+6. Verdadero → **`Send Media Reply`**: **copia** de `Send Greeting Reply` (misma URL `/api/internal/whatsapp/send`, mismos encabezados). Lleva `messageKey`, con el mismo valor que el id de `Write Media Reply`, como ya hace `Send WhatsApp Reply`: la ruta de envío lo usa como clave de idempotencia y un reintento de n8n no manda la respuesta dos veces. Cuerpo:
 
 ```text
-={{ JSON.stringify({ instance: $('Extract Message').first().json.instance, to: $('Extract Message').first().json.customerPhone, text: $('Media Decision').first().json.reply }) }}
+={{ JSON.stringify({ instance: $('Extract Message').first().json.instance, to: $('Extract Message').first().json.customerPhone, text: $('Media Decision').first().json.reply, messageKey: 'bot-media-' + ($('Extract Message').first().json.eventData?.key?.id || $execution.id) }) }}
 ```
 
 7. → **`Write Media Reply`**: **copia** de `Write Bot Message: Greeting` (misma URL `/api/internal/whatsapp/sync`, "continuar si falla"). Cuerpo:
@@ -93,6 +93,18 @@ return [{
 ```
 
 El id del mensaje usa el del mensaje entrante (como `Write Bot Message`): un reintento de n8n no guarda la respuesta dos veces.
+
+### Condiciones de las puertas
+
+**`Guard: Is File Message`:** una sola condición de tipo **Boolean → is true**, con esta expresión exacta (cópiala completa, incluido `={{`):
+
+```text
+={{ ['audioMessage', 'imageMessage', 'videoMessage', 'documentMessage', 'documentWithCaptionMessage'].includes($('Extract Message').first().json.eventData?.messageType) && !!$('Extract Message').first().json.customerPhone }}
+```
+
+La lista es la misma que `FILE_MESSAGE_TYPES` de `src/lib/unsupported-media.ts`; `tests/n8n-p0-nodes.test.ts` ejecuta esta expresión y comprueba que coincida con la app para cada tipo. Si algún día la app agrega un tipo (por ejemplo, ubicación), se agrega en las dos partes.
+
+**`Guard: Media Reply`:** condición de texto, `{{ $json.action }}` **igual a** `reply`.
 
 **Reglas del flujo:** usa siempre `$('Nodo').first().json`, nunca `.item`. No pegues nada que contenga el `base64` del archivo.
 
@@ -190,7 +202,7 @@ return [{ json: { ...$json, claimUnbacked: claims && !backed } }];
 ```
 <!-- guard-booking-claim:end -->
 
-**A verificar en la primera ejecución de prueba, antes de depender de ello:** que `$('book_appointment').all()` funcione desde un Code node para una herramienta de agente. La evidencia indirecta es que `Collect Token Usage` ya lee `$('OpenRouter Chat Model').all()` de un sub-nodo. Si falla, el `try/catch` devuelve "no tuvo éxito" y la guarda marcaría de más: en ese caso se detiene la revisión y no se pasa a "reemplazar".
+**A verificar en el humo H12 (una cita completa real en newy, avisando al dueño), antes de depender de ello:** que `$('book_appointment').all()` funcione desde un Code node para una herramienta de agente y traiga `json.success`. La señal es esta: en esa cita real, **`claimUnbacked` debe salir `false`**. Si sale `true`, la guarda no está leyendo el resultado de la herramienta (el `try/catch` devuelve "no tuvo éxito" y marcaría de más): se detiene la revisión y no se pasa a "reemplazar". Se comprueba en ese humo, **no leyendo ejecuciones viejas**.
 
 **Cómo revisar:** en las ejecuciones normales (solo lectura), busca `claimUnbacked: true` en la salida de `Guard: Booking Claim`; cada marca se compara con las herramientas de esa ejecución. Al juntar unas 100 conversaciones sin falsos positivos, se decide el siguiente paso con el dueño.
 
