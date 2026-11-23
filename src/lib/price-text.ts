@@ -3,17 +3,29 @@
 // the business language. Server-side counterpart of the screens' priceViewFor. Pure, no I/O.
 import { es } from "@/i18n/es";
 import { en } from "@/i18n/en";
-import { formatPrice } from "@/lib/utils";
 import { priceModeOf, priceTextForBot, type PriceCopy, type PriceMode, type PricedItem } from "@/lib/price-display";
 
 export function priceCopyFor(language: string): PriceCopy {
   return language === "en" ? en.price : es.price;
 }
 
-/** "$500.00", "From $500.00. The final price is ...", or the on-request sentence (no number). */
+/**
+ * An amount for text sent to machines (ticket #167): a whole amount has no decimals ("$2,300"), an amount with cents keeps
+ * two ("$2,300.50"). WhatsApp can mark part of a figure such as "300.00" as a link; the screens keep formatPrice.
+ */
+export function formatPriceForMachines(amount: number, locale: string = "es-MX", currency = "MXN"): string {
+  const whole = Math.round(amount * 100) % 100 === 0;
+  return new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency,
+    ...(whole ? { minimumFractionDigits: 0, maximumFractionDigits: 0 } : {}),
+  }).format(whole ? Math.round(amount) : amount);
+}
+
+/** "$500", "From $500. The final price is ...", or the on-request sentence (no number). */
 export function priceTextFor(item: PricedItem, language: string): string {
   const locale = language === "en" ? "en-US" : "es-MX";
-  return priceTextForBot(item, priceCopyFor(language), (amount) => formatPrice(amount, locale));
+  return priceTextForBot(item, priceCopyFor(language), (amount) => formatPriceForMachines(amount, locale));
 }
 
 /**
