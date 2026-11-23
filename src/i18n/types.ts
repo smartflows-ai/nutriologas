@@ -49,6 +49,7 @@ export interface Translations {
     reminderTemplate: string;
     confirmationTemplate: string;
     cancellationTemplate: string;
+    cancelledNoticeTemplate: string;
     plainFooter: string;
     confirmedReply: string;
     ownerConfirmedText: string;

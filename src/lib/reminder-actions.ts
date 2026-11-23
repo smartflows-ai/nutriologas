@@ -7,7 +7,8 @@ import { sendWhatsAppMessage } from "@/lib/whatsapp";
 import { cancelAppointment } from "@/lib/appointments-service";
 import { customerMeetUrl } from "@/lib/short-links";
 import { timeZoneLabel } from "@/lib/time-zones";
-import { cancellationText, clinicLongDate, clinicTime, customerTexts, renderTemplate, withLocation, withMeetingLink } from "@/lib/reminder-messages";
+import { clinicLongDate, clinicTime, customerTexts, renderTemplate, withLocation, withMeetingLink } from "@/lib/reminder-messages";
+import { cancelNoticeText } from "@/lib/cancel-notice";
 import { locationTextForBot } from "@/lib/location";
 
 /** The tenant fields the place line needs (ticket #74); add them to any tenant select that builds a confirmation. */
@@ -94,9 +95,9 @@ export async function releaseVisit(
     purpose: "TRANSACTIONAL",
     consent: "YES",
     idempotencyKey: `cancel:${visit.id}`,
-    text: cancellationText(visit.cancellationTemplate, visitValues(visit), visit.messageLanguage, (problem) =>
+    text: cancelNoticeText("auto_release", visit.cancellationTemplate, visitValues(visit), visit.messageLanguage, (problem) =>
       console.warn(`[reminders] stored cancellation text ignored (${problem}) for tenant ${visit.tenantId}; default used`),
-    ),
+    ) as string,
   });
   return { customerNotified: sent.success };
 }
@@ -176,7 +177,7 @@ async function loadNoticeVisit(visitId: string, tenantId: string): Promise<Visit
 }
 
 /**
- * Hole 1: the business cancelled a visit from the panel. The patient gets the same cancellation text the release sends.
+ * Hole 1: a visit was cancelled from the panel (by the business, or by the patient in Mis citas, same route). The patient gets the neutral cancellation text (ticket #161), never the release text.
  * It goes through the messaging policy (consent from the visit; opt-out always blocks). Returns whether it was sent.
  */
 export async function notifyCancelledFromPanel(visitId: string, tenantId: string): Promise<boolean> {
@@ -185,9 +186,8 @@ export async function notifyCancelledFromPanel(visitId: string, tenantId: string
   const sent = await sendWhatsAppMessage({
     tenantId,
     to: visit.customerPhone,
-    text: cancellationText(visit.cancellationTemplate, visitValues(visit), visit.messageLanguage, (problem) =>
-      console.warn(`[panel] stored cancellation text ignored (${problem}) for tenant ${tenantId}; default used`),
-    ),
+    // Neutral text (ticket #161): the visit was not released for lack of confirmation, and it does not say who cancelled.
+    text: cancelNoticeText("panel", visit.cancellationTemplate, visitValues(visit), visit.messageLanguage) as string,
     purpose: "TRANSACTIONAL",
     consent: visit.whatsappConsentAt ? "YES" : "NO",
     idempotencyKey: `cancel:${visitId}`,
