@@ -231,8 +231,8 @@ test("the job loads all three saved texts of the business", () => {
   for (const field of ["reminderTemplate: true", "confirmationTemplate: true", "cancellationTemplate: true"]) assert.ok(source.includes(field), field);
 });
 
-test("every cancellation sent to a customer passes the saved cancellation text", () => {
-  assert.ok(read("src/lib/reminder-actions.ts").includes("cancellationText(visit.cancellationTemplate"));
+test("the release (automatic and Liberar ahora) passes the saved cancellation text; a cancellation by the business does not (ticket #161)", () => {
+  assert.ok(read("src/lib/reminder-actions.ts").includes('cancelNoticeText("auto_release", visit.cancellationTemplate'));
   const owner = read("src/app/api/apps/whatsapp/confirmations/[id]/route.ts");
   assert.ok(owner.includes("cancellationTemplate: true") && owner.includes("cancellationTemplate: visit.tenant.cancellationTemplate"));
 });
