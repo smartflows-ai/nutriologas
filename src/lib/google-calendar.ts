@@ -285,16 +285,17 @@ export function prepareEventData(input: {
 
   const summary = `Consulta ${business}: ${topic} - ${client}`;
 
-  const description = `
-<b>Sesión de Consulta - ${business}</b><br>
-<b>Tema:</b> ${topic}
-<b>Cliente:</b> ${client}
-<b>Email:</b> ${attendeeEmail}
-<b>Teléfono:</b> ${phone}<br>
-
-Esta sesión ha sido agendada automáticamente por el Asistente Virtual.<br>
-Se ha generado un enlace de Google Meet para esta reunión.
-`.trim();
+  // Plain text: Google Calendar shows the description as is, so no HTML tags here.
+  const description = [
+    `Sesión de Consulta - ${business}`,
+    `Tema: ${topic}`,
+    `Cliente: ${client}`,
+    `Email: ${attendeeEmail}`,
+    `Teléfono: ${phone}`,
+    "",
+    "Esta sesión ha sido agendada automáticamente por el Asistente Virtual.",
+    "Se ha generado un enlace de Google Meet para esta reunión.",
+  ].join("\n");
 
   return {
     summary,
