@@ -206,9 +206,31 @@ test("the new nodes lead nowhere else: the guard only calls the help route, and 
   assert.deepEqual(edges.filter((edge) => edge.startsWith("Mark Help: Person Request ")), [], "no output: it cannot change the reply");
 });
 
-test("the workflow has exactly the 45 original nodes plus the person guard, and no cycle or dangling link", { skip }, () => {
+// Nodes added after the person guard (47 nodes). When the live flow changes again, add the new names here and say why.
+const NODES_ADDED_AFTER_PERSON_GUARD = [
+  // N1: file branch
+  "Guard: Is File Message",
+  "Strip File Data",
+  "Write Customer Message (File)",
+  "Media Decision",
+  "Guard: Media Reply",
+  "Send Media Reply",
+  "Write Media Reply",
+  // N3: booking claim guard
+  "Guard: Booking Claim",
+];
+const WORKFLOW_NODE_COUNT = 47 + NODES_ADDED_AFTER_PERSON_GUARD.length;
+
+test("the workflow has the person guard and the later file branch and booking claim guard, and no cycle or dangling link", { skip }, () => {
   const w = loadWorkflow();
-  assert.equal(w.nodes.length, 47);
+  for (const name of NODES_ADDED_AFTER_PERSON_GUARD) {
+    assert.ok(w.nodes.some((n) => n.name === name), `missing node: ${name}`);
+  }
+  assert.equal(
+    w.nodes.length,
+    WORKFLOW_NODE_COUNT,
+    `expected ${WORKFLOW_NODE_COUNT} nodes (47 + ${NODES_ADDED_AFTER_PERSON_GUARD.join(", ")}); a node was added or removed: update NODES_ADDED_AFTER_PERSON_GUARD`
+  );
   assert.ok(!w.nodes.some((n) => n.name === "Guard: Webhook Secret"), "the webhook secret guard was removed");
   const names = new Set(w.nodes.map((n) => n.name));
   assert.equal(names.size, w.nodes.length, "names are unique");
