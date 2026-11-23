@@ -63,7 +63,7 @@ export function visitLimitBody(handedOff: boolean, max: number = MAX_ACTIVE_FUTU
     max,
     handedOff,
     message: handedOff
-      ? `No agendes esta cita ni ofrezcas otro horario: el cliente ya tiene ${max} citas activas. Dile al cliente, con tus palabras, que una persona del equipo lo atendera en esta conversacion.`
+      ? `No agendes esta cita ni ofrezcas otro horario: el cliente ya tiene ${max} citas activas. El equipo ya fue avisado: no llames a request_human_help; solo dile esto al cliente con tus palabras: que una persona del equipo lo atendera en esta conversacion.`
       : `No agendes esta cita ni ofrezcas otro horario: el cliente ya tiene ${max} citas activas. No prometas que una persona lo atendera; explica que para agendar otra debe comunicarse con el negocio.`,
   };
 }

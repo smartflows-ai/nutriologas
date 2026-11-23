@@ -10,6 +10,7 @@ import { shouldAlertOwner } from "@/lib/owner-alert";
 import { raiseHelpOnChat, type HelpChatRow, type HelpTenant } from "@/lib/help-requests";
 import { HELP_CHAT_SELECT, HELP_TENANT_SELECT, realHelpDeps } from "@/lib/help-data";
 import { personRequestAllowed } from "@/lib/help-person-check";
+import { alreadyRaisedBody, serverReasonOpen } from "@/lib/help-already-raised";
 
 // Reasons only the server raises. "opted_out" comes from the inbound detection in whatsapp/sync, which also records
 // the opt-out; raised by the bot it would show "Pidió no recibir mensajes" without any opt-out behind it (QA 2026-11-20).
@@ -30,7 +31,9 @@ export async function handleHelpRequest(req: NextRequest, defaultReason: HelpRea
   const bot = await resolveBotTenant(instance);
   if (!bot) return Response.json({ error: "Instancia de WhatsApp no encontrada" }, { status: 404 });
 
-  const result = await raiseHelpForContact(bot, { customerPhone, remoteJid, remoteJidAlt }, reason);
+  // The model path: a request the server already raised (and is still open) is final (guardServerReasons).
+  const result = await raiseHelpForContact(bot, { customerPhone, remoteJid, remoteJidAlt }, reason, { guardServerReasons: true });
+  if (result.status === "already_raised") return Response.json(alreadyRaisedBody());
   if (result.status === "no_chat") return Response.json({ raised: false, reason: "no_chat" });
   if (result.status === "not_requested") return Response.json({ raised: false, reason: "not_requested" });
   if (result.status === "tenant_missing") return Response.json({ error: "Tenant not found" }, { status: 404 });
@@ -47,6 +50,7 @@ export interface HelpContact {
 export type HelpContactResult =
   | { status: "no_chat" }
   | { status: "not_requested" }
+  | { status: "already_raised" }
   | { status: "tenant_missing" }
   | {
       status: "done";
@@ -63,7 +67,12 @@ export type HelpContactResult =
  * internal help routes (the tenant comes from the WhatsApp instance, resolved by the caller) and by the bot routes that
  * raise a reason themselves (booking_limit, #141). Every query is limited to the tenant of `bot`.
  */
-export async function raiseHelpForContact(bot: BotTenant, contact: HelpContact, reason: HelpReason): Promise<HelpContactResult> {
+export async function raiseHelpForContact(
+  bot: BotTenant,
+  contact: HelpContact,
+  reason: HelpReason,
+  options: { guardServerReasons?: boolean } = {},
+): Promise<HelpContactResult> {
   const { customerPhone, remoteJid, remoteJidAlt } = contact;
   const digits =
     normalizeCustomerPhone(remoteJid, remoteJidAlt) ??
@@ -77,6 +86,10 @@ export async function raiseHelpForContact(bot: BotTenant, contact: HelpContact, 
       })
     : [];
   if (chats.length === 0) return { status: "no_chat" };
+
+  // Execution 22960: the server handed the chat over (booking_limit...) and the model asked for help right after. That
+  // must not change the reason, the pause or tell the owner again. Only the model path turns the guard on.
+  if (options.guardServerReasons && serverReasonOpen(chats, SERVER_ONLY_REASONS)) return { status: "already_raised" };
 
   // Ticket #129: refused only when the customer's current turn is booking for someone else and has no request, named
   // person or complaint (rule in help-person-check.ts); anything else is accepted. Read before anything is paused.
