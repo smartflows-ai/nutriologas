@@ -25,6 +25,20 @@ const ASKS_FOR_PERSON = [
   "quiero hablar con alguien real",
   "quiero que me atienda alguien del equipo",
   "hablar con un asesor",
+  // "comunicar con" + any destination (ticket #143), with and without accents
+  "Comunícame con una persona",
+  "comunicame con una persona",
+  "comunícanos con un asesor",
+  "comunicanos con alguien",
+  "me puedes comunicar con una persona",
+  "me pueden comunicar con alguien",
+  "me podrías comunicar con un humano",
+  "quiero que me comuniquen con alguien",
+  "que me comuniquen con el doctor",
+  "me comunicas con la doctora",
+  "me comunican con un asesor?",
+  "Hola, me puedes comunicar con Patricia",
+  "comunícame con el doctor Pérez por favor",
 ];
 
 const DOES_NOT_ASK_FOR_PERSON = [
@@ -50,6 +64,17 @@ const DOES_NOT_ASK_FOR_PERSON = [
   // another person named in a sentence that is not a request for a person
   "quiero hablar con mi esposa sobre la cita",
   "quiero que me atienda el doctor Pérez",
+  // booking for someone else and booking "with" a professional: no "comunicar" verb, so the agent keeps them (#143, #129)
+  "agenda cita para mi mamá",
+  "quiero agendar para otra persona",
+  "es para mi hijo",
+  "quiero cita con el doctor",
+  "quiero una cita con la doctora Ana",
+  "me puedes agendar con el doctor?",
+  "quiero hablar con mi esposa sobre la cita",
+  // the verb alone, with no destination, is not a request for a person
+  "no me he podido comunicar",
+  "gracias por comunicarse",
 ];
 
 test("an explicit request for a person is detected, with or without accents and capitals", () => {
