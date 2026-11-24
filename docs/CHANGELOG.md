@@ -14,6 +14,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Tests
 - `tests/google-signin-disabled.test.ts` (no active provider, no button, credentials intact, Calendar flow intact).
 
+## [Unreleased] — WhatsApp disconnect in two steps (branch `fix/whatsapp-disconnect-diagnostics`)
+
+### Changed
+- Disconnecting WhatsApp is two steps: the logout answers at once and the row is marked `disconnecting`; the screen then checks every 3 seconds (at most 2 minutes, from the click only) and deletes the instance and the row once Evolution reports the session closed. A failed delete keeps the row, marked `disconnect_failed`. Nothing resumes when the screen is opened again (`src/lib/whatsapp-disconnect-service.ts`, `src/lib/whatsapp-disconnect.ts`).
+- The connect modal moved to `src/app/admin/apps/WhatsAppConnectModal.tsx`: three numbered steps with icons, a larger QR, and an accessible dialog (named close button, Escape closes it).
+
+### Fixed
+- A missing Evolution instance is treated as already removed, so its row can be cleared.
+- The owner number is read again (up to 3 times) when the instance opens without it.
+- Disconnect errors name the cause: a timeout while waiting has its own message.
+
+### Tests
+- `tests/whatsapp-disconnect.test.ts`, `tests/whatsapp-owner-phone.test.ts`, `tests/progress-label.test.ts`, updated `tests/evolution-adapter.test.ts`.
 ## [Unreleased] — #146 session vs host (branch `fix/146-tenant-host-guard`)
 
 ### Fixed

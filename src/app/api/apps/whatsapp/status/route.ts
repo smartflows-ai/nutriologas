@@ -6,6 +6,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { MAX_QR_REFRESHES, QR_TTL_MS, fetchEvolutionQr, markQrExpired, qrMetaOf, storeQr } from "@/lib/whatsapp-qr";
 import { connectionState, evolutionConfigFromEnv, fetchInstanceInfo, instanceKeyOf } from "@/lib/messaging/evolution-adapter";
+import { readOwnerPhone } from "@/lib/whatsapp-phone";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -32,6 +33,14 @@ export async function GET(req: NextRequest) {
   const info = await fetchInstanceInfo(cfg, app.waInstanceId);
   if (info?.state === "open") isConnected = true;
   if (info?.phone) phoneNumber = info.phone;
+  // Open but no number yet: Evolution fills it a moment later, so read again a few times (about 2 seconds).
+  if (info?.state === "open" && !phoneNumber && app.waInstanceId) {
+    const instanceId = app.waInstanceId;
+    phoneNumber = await readOwnerPhone(
+      async () => (await fetchInstanceInfo(cfg, instanceId))?.phone ?? null,
+      { tries: 3, wait: () => new Promise((resolve) => setTimeout(resolve, 1000)) },
+    );
+  }
 
   // 2. If that did not say open, ask the instance itself.
   if (!isConnected) {

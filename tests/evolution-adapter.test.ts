@@ -61,7 +61,8 @@ test("request never disables TLS: no custom agent is passed", async () => {
 test("an HTTP error is reported with its status and no body", async () => {
   const f = fakeFetch([{ status: 401, body: { message: "secret detail +5215512345678" } }]);
   const res = await evolutionRequest(cfg(f.impl), { path: "/x", apiKey: "K" });
-  assert.deepEqual(res, { ok: false, status: 401, error: "http" });
+  // Only the short message leaves the adapter, with the phone number masked; the rest of the body never does.
+  assert.deepEqual(res, { ok: false, status: 401, error: "http", detail: "secret detail +***" });
 });
 
 test("a timeout and a network failure are told apart", async () => {
@@ -188,4 +189,31 @@ test("typingDelayMs grows with the text, stays within bounds and uses the jitter
   assert.ok(long <= 8000);
   assert.ok(long > short);
   assert.ok(typingDelayMs("Hola", () => 0.99) > short, "jitter adds time");
+});
+
+test("an error body whose message is a list is joined into the short detail", async () => {
+  const f = fakeFetch([{ status: 400, body: { statusCode: 400, message: ["Instance not found", "check name"] } }]);
+  const res = await evolutionRequest(cfg(f.impl), { path: "/x", apiKey: "K" });
+  assert.deepEqual(res, { ok: false, status: 400, error: "http", detail: "Instance not found | check name" });
+});
+
+test("an error body without a readable message describes its shape only, never its values", async () => {
+  const f = fakeFetch([{ status: 400, body: { statusCode: 400, reason: "owner 5215512345678" } }]);
+  const res = await evolutionRequest(cfg(f.impl), { path: "/x", apiKey: "K" });
+  assert.equal(res.ok, false);
+  assert.equal(res.ok === false && res.detail?.includes("5215512345678"), false);
+  assert.equal(res.ok === false && res.detail?.includes("statusCode:number"), true);
+  assert.equal(res.ok === false && res.detail?.includes("reason:string"), true);
+});
+
+test("an error message that is an object is described by its shape, never printed as [object Object]", async () => {
+  const f = fakeFetch([{ status: 400, body: { status: 400, error: "Bad Request", response: { message: { text: "secret text" } } } }]);
+  const res = await evolutionRequest(cfg(f.impl), { path: "/x", apiKey: "K" });
+  assert.equal(res.ok === false && res.detail, "shape: status:number, error:string, response:object");
+});
+
+test("a list of objects is described by its shape too", async () => {
+  const f = fakeFetch([{ status: 400, body: { message: [{ a: 1 }] } }]);
+  const res = await evolutionRequest(cfg(f.impl), { path: "/x", apiKey: "K" });
+  assert.equal(res.ok === false && res.detail, "shape: message:array");
 });

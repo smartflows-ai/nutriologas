@@ -5,7 +5,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { AppProvider } from "@prisma/client";
-import { disconnectWhatsAppLine } from "@/lib/whatsapp-disconnect-service";
+import { startWhatsAppDisconnect } from "@/lib/whatsapp-disconnect-service";
 
 export async function DELETE(
   _req: NextRequest,
@@ -25,11 +25,12 @@ export async function DELETE(
   }
 
   if (provider === "WHATSAPP") {
-    const result = await disconnectWhatsAppLine(tenantId);
+    // Two steps (see whatsapp-disconnect-service.ts): this call only starts; the client checks until it is removed.
+    const result = await startWhatsAppDisconnect(tenantId);
     if (!result.ok) {
       return NextResponse.json({ error: "No se pudo desconectar la línea de WhatsApp" }, { status: 502 });
     }
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, status: result.status }, { status: result.status === "removed" ? 200 : 202 });
   }
 
   await prisma.connectedApp.deleteMany({

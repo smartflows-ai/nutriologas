@@ -23,3 +23,19 @@ export interface LineRow {
 export function needsPhoneBackfill(app: LineRow): boolean {
   return app.waStatus === "connected" && !app.waPhoneNumber && Boolean(app.waInstanceId);
 }
+
+/**
+ * Reads the owner number right after the connection opens. Evolution fills it a moment later, so the read is repeated
+ * (with a pause between reads) before giving up. Injected read and pause keep it testable.
+ */
+export async function readOwnerPhone(
+  read: () => Promise<string | null>,
+  opts: { tries: number; wait: () => Promise<void> },
+): Promise<string | null> {
+  for (let i = 0; i < opts.tries; i += 1) {
+    const phone = await read();
+    if (phone) return phone;
+    if (i < opts.tries - 1) await opts.wait();
+  }
+  return null;
+}
