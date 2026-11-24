@@ -4,6 +4,15 @@ All notable changes to Presto AI are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased] — #146 session vs host (branch `fix/146-tenant-host-guard`)
+
+### Fixed
+- #146: the session cookie has `Domain=.newaigent.com`, so a session of business A opened the panel and the store of business B under B's URL. The host's business (`resolveTenantSlug`, subdomain or `customDomain`) is now compared with `session.user.tenantId` (`src/lib/tenant-host-guard.ts`, data in `tenant-host-guard-data.ts`). On another business's host the access kind is `other_business`: the NextAuth `session` is empty (`{}`), so every route and page that reads the session sees no user (session-first routes use the host; the store shows the visitor as signed out). `/admin` (`requireCrmSession`) redirects to `https://<slug>.newaigent.com/admin` of the session's business (never the custom domain: the cookie is not sent there); `requirePermission` answers 403. The root domain, `www` and `localhost` are not compared. A business that cannot be read fails closed. The local redirect only keeps a numeric port from the Host header.
+- Not changed: one session per browser (option B) and blind cross-subdomain POSTs.
+
+### Tests
+- `tests/tenant-host-guard.test.ts` (21 cases: same, other, custom domain, root, localhost, no business, unknown host, redirect without loop, forged port, wiring) and a case in `tests/account-state.test.ts`. Manual production plan: `docs/qa/146-sesion-vs-host.md`.
+
 ## [Unreleased] — WhatsApp disconnect (branch `fix/whatsapp-disconnect-evolution`)
 
 ### Fixed

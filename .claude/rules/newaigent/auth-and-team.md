@@ -60,6 +60,8 @@ The owner creates, resets, deactivates and activates the staff of the business w
 - `mustChangePassword = true`: pages go to `/cambiar-contrasena`, APIs answer 401; only `POST /api/auth/password-change` and sign-out work.
 - Otherwise the role comes from the database, not from the token.
 
+**Host check (ticket #146):** a valid session on the host of another business gets access kind `other_business` (rule in `src/lib/tenant-host-guard.ts`, see `tenant-routing.md`): the session is empty (`{}`), `getSessionAccess` returns `{ kind: "other_business", homeUrl }`, `requireCrmSession` redirects to the session business and `requirePermission` answers 403. `signOut` still works there.
+
 For those two locked cases the session object has **no `user`** (`sessionForAccess`), so every route's `!session?.user` guard rejects it. Always guard with `session?.user`, never with `!session` alone: Prisma ignores a filter whose value is `undefined`, so a route that went on with a missing `tenantId` would read every business. A database error fails closed (no access for that request). Cost: one primary-key read per authenticated request, no cache.
 
 `src/middleware.ts` cannot read the database, so it still trusts the token; the real gate for pages is `requireCrmSession` (admin layout and `requireAdminPage`, `src/lib/permission-guard.ts`). Next.js does not run the layout again on client navigation, so `SessionWatch` (`src/components/admin/SessionWatch.tsx`) asks for the session on every section change and sends a locked user out. Known limits: a user who stays on one screen is only stopped at their next click or API call, and a user demoted from ADMIN to STAFF can still load the empty shell of an owner page (its APIs answer 401); no screen changes roles today.

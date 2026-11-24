@@ -6,6 +6,7 @@
 import { cookies } from "next/headers";
 import { decode } from "next-auth/jwt";
 import { readAccountAccess } from "@/lib/account-state-data";
+import { checkRequestHost } from "@/lib/tenant-host-guard-data";
 
 export interface AppSession {
   user: {
@@ -24,6 +25,9 @@ export interface SessionIdentity {
 
 export type SessionAccess =
   | { kind: "none" }
+  // A valid session that arrived on the host of ANOTHER business (the cookie is shared by every subdomain,
+  // ticket #146). It is not usable here: pages treat it as signed out; the CRM sends it to its own business.
+  | { kind: "other_business"; homeUrl: string | null }
   // Signed in with a temporary password: only the change-password screen and its API may use this identity.
   | { kind: "password_change"; identity: SessionIdentity }
   | { kind: "active"; session: AppSession };
@@ -40,6 +44,8 @@ export async function getSessionAccess(): Promise<SessionAccess> {
 
   const access = await readAccountAccess(token.user.tenantId, token.user.id, token.sessionVersion);
   if (access.kind === "none") return { kind: "none" };
+  const host = await checkRequestHost(token.user.tenantId);
+  if (host.kind === "other_business") return { kind: "other_business", homeUrl: host.homeUrl };
   if (access.kind === "password_change") {
     return { kind: "password_change", identity: { id: token.user.id, tenantId: token.user.tenantId } };
   }

@@ -43,6 +43,16 @@ Valid subdomains (`doctor.newaigent.com`) have full access to every route.
 
 > **Not active today:** this block list was in the root `middleware.ts`, which never ran (see above), so these routes answer normally on the root domain. Turning it on (the list now also needs `/recuperar`) is a separate ticket: it changes behavior for every tenant and the Google sign-in callback lands on the root domain.
 
+### Session vs host (ticket #146)
+
+In production the session cookie has `Domain=.newaigent.com`, so one session reaches every business subdomain. The business of the host (`resolveTenantSlug`, subdomain or `customDomain`) must be the business of the session (`session.user.tenantId`):
+
+- Rule: `src/lib/tenant-host-guard.ts` (pure, `tests/tenant-host-guard.test.ts`); data and host read: `tenant-host-guard-data.ts`.
+- The root domain, `www` and `localhost` have no business: they pass (marketing page and the Google and Facebook callbacks).
+- On another business's host the access kind is `other_business`. Applied once in the NextAuth `jwt` callback (`auth.ts`) and in `getSessionAccess` (`session.ts`), so every route and page that reads the session is covered, including new ones. The session arrives EMPTY (`{}`): `session?.user` is false, so the "session first" routes fall back to the host and the store treats the visitor as signed out.
+- `/admin` (`requireCrmSession`) redirects to the session business's subdomain (`/admin`), never to its custom domain (the cookie is not sent there). `requirePermission` answers 403.
+- Not covered (option B, separate ticket): one session per browser still holds, and blind cross-subdomain POSTs.
+
 ### Data isolation
 
 - **All** database tables have `tenantId`

@@ -23,7 +23,7 @@ db.ts (Prisma singleton) -> Postgres
 ## Boundaries
 - Tenant = subdomain slug or customDomain. Root domain = marketing only.
 - Auth: NextAuth v4 JWT carries id, role, tenantId (src/lib/auth.ts).
-- Account state: the user row is re-read on every authenticated request (account-state-data.ts, rules in account-state.ts). An inactive user, or one on a temporary password, gets a session with no `user`. middleware.ts stays token-only.
+- Account state: the user row is re-read on every authenticated request (account-state-data.ts, rules in account-state.ts). An inactive user, or one on a temporary password, gets a session with no `user`. middleware.ts stays token-only. The session is also compared with the host (tenant-host-guard.ts, #146): a session on another business's host gets an empty session; `/admin` redirects to its own business.
 - Internal API (`/api/internal/*`): header `x-internal-key` = INTERNAL_API_KEY; callers are n8n workflows.
 - Public-with-limit: `/api/places/*` (40 req/min/IP, src/lib/rate-limit.ts, in-memory).
 
