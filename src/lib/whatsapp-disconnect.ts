@@ -1,44 +1,50 @@
 // src/lib/whatsapp-disconnect.ts
-// Removes the Evolution instance of a WhatsApp line when the business disconnects it.
-// The app row is deleted only after Evolution confirms the instance is gone (see shouldDeleteRecord), so a
-// failed call leaves the row in place and the business can retry instead of losing the instance's token.
-// Each call reports its HTTP status or error kind, so a failure can be diagnosed from the server log.
+// The two Evolution steps of a WhatsApp disconnect. The steps are sequenced in whatsapp-disconnect-service.ts.
+// Every call goes through the adapter (src/lib/messaging/evolution-adapter.ts), the only Evolution client.
 
-import { type EvolutionConfig, deleteInstance, instanceKeyOf, logoutInstance } from "@/lib/messaging/evolution-adapter";
-import type { EvolutionError } from "@/lib/messaging/evolution-adapter";
-
-export type RemoveOutcome = "removed" | "already_gone" | "failed";
-
-export interface RemoveInstanceResult {
-  outcome: RemoveOutcome;
-  /** HTTP status of the logout call; null when it never got an answer (timeout or network). */
-  logoutStatus: number | null;
-  /** HTTP status of the delete call; null when it never got an answer. */
-  deleteStatus?: number | null;
-  /** Kind of error from the delete call, when it did not succeed. */
-  deleteError?: EvolutionError | null;
-}
+import {
+  type EvolutionConfig,
+  type EvolutionError,
+  deleteInstance,
+  instanceKeyOf,
+  instanceState,
+  logoutInstance,
+  shortDetail,
+} from "@/lib/messaging/evolution-adapter";
 
 const NOT_FOUND = 404;
 
-/**
- * Logs the session out (best effort: a failure does not stop the delete) and then deletes the instance.
- * `instanceToken` is the instance's own key; the global key is used for the delete.
- */
-export async function removeWhatsAppInstance(
+/** Step 1: asks Evolution to close the session, with the instance's own token. It answers at once; the close can come later. */
+export async function requestLogout(
   cfg: EvolutionConfig,
   args: { instance: string; instanceToken: string | null | undefined },
-): Promise<RemoveInstanceResult> {
+): Promise<{ logoutStatus: number | null }> {
   const logout = await logoutInstance(cfg, { instance: args.instance, apiKey: instanceKeyOf(args.instanceToken, cfg.globalKey) });
-  const logoutStatus = logout.status;
-
-  const res = await deleteInstance(cfg, { instance: args.instance });
-  if (res.ok) return { outcome: "removed", logoutStatus, deleteStatus: res.status, deleteError: null };
-  if (res.status === NOT_FOUND) return { outcome: "already_gone", logoutStatus, deleteStatus: res.status, deleteError: null };
-  return { outcome: "failed", logoutStatus, deleteStatus: res.status, deleteError: res.error };
+  return { logoutStatus: logout.status };
 }
 
-/** Only a confirmed removal lets the app delete its row (and with it the stored instance token). */
-export function shouldDeleteRecord(outcome: RemoveOutcome): boolean {
-  return outcome !== "failed";
+/**
+ * True when Evolution answered the logout at all, even with an error (for example, "not connected": the session is
+ * already closed). Null means no answer (timeout or network): the disconnect must not start.
+ */
+export function logoutReachedEvolution(logoutStatus: number | null): boolean {
+  return logoutStatus !== null;
+}
+
+export type RemovalCheck =
+  | { kind: "waiting" }
+  | { kind: "removed" }
+  | { kind: "failed"; deleteStatus: number | null; deleteError: EvolutionError | null; deleteDetail: string | null };
+
+/**
+ * Step 2, repeated by short checks: while the session is open, or its state cannot be read right now, it waits.
+ * Once it is closed, or Evolution no longer has the instance, it deletes the instance with the global key.
+ */
+export async function removeIfClosed(cfg: EvolutionConfig, args: { instance: string }): Promise<RemovalCheck> {
+  const { state, missing } = await instanceState(cfg, { instance: args.instance, apiKey: cfg.globalKey });
+  if (!missing && state !== "close") return { kind: "waiting" };
+
+  const res = await deleteInstance(cfg, { instance: args.instance });
+  if (res.ok || res.status === NOT_FOUND) return { kind: "removed" };
+  return { kind: "failed", deleteStatus: res.status, deleteError: res.error, deleteDetail: shortDetail(res.detail) };
 }

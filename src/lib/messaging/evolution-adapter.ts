@@ -18,7 +18,52 @@ export type EvolutionError = "timeout" | "network" | "http";
 
 export type EvolutionResult<T> =
   | { ok: true; status: number; data: T }
-  | { ok: false; status: number | null; error: EvolutionError };
+  | { ok: false; status: number | null; error: EvolutionError; detail?: string | null };
+
+/**
+ * Only the short `message` text of an error answer, for the server log. Nothing else of the body leaves
+ * this module: the body can echo a phone number or message text, so it is never returned as a whole.
+ */
+const DETAIL_MAX = 120;
+
+/** Cuts the text to 120 characters and masks any run of 6 or more digits (phone numbers). */
+export function shortDetail(text: string | null | undefined): string | null {
+  if (!text) return null;
+  return text.replace(/\d{6,}/g, "***").slice(0, DETAIL_MAX);
+}
+
+/** The text of a message field: a string, or a list of strings joined. */
+function messageText(value: unknown): string | null {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value) && value.every((v) => typeof v === "string")) return value.join(" | ");
+  return null;
+}
+
+/**
+ * When the body has no readable message, only its shape: each top-level key with its JSON type, never a value.
+ * It tells a support engineer the answer's structure without repeating anything the provider wrote.
+ */
+function bodyShape(parsed: unknown): string {
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return `shape: ${Array.isArray(parsed) ? "array" : typeof parsed}`;
+  const parts = Object.entries(parsed as Record<string, unknown>).map(([key, value]) => {
+    const type = Array.isArray(value) ? "array" : value === null ? "null" : typeof value;
+    return `${key}:${type}`;
+  });
+  return `shape: ${parts.join(", ") || "empty"}`;
+}
+
+async function shortProviderMessage(res: Response): Promise<string | null> {
+  const text = await res.text();
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return `shape: not json, ${text.length} characters`;
+  }
+  const body = parsed as { message?: unknown; response?: { message?: unknown } };
+  const message = messageText(body.response?.message) ?? messageText(body.message);
+  return shortDetail(message ?? bodyShape(parsed));
+}
 
 export type ConnectionStateValue = "open" | "connecting" | "close";
 
@@ -84,7 +129,7 @@ export async function evolutionRequest<T = unknown>(
       body: req.body === undefined ? undefined : JSON.stringify(req.body),
       signal: AbortSignal.timeout(cfg.timeoutMs ?? DEFAULT_TIMEOUT_MS),
     });
-    if (!res.ok) return { ok: false, status: res.status, error: "http" };
+    if (!res.ok) return { ok: false, status: res.status, error: "http", detail: await shortProviderMessage(res) };
     const text = await res.text();
     const data = (text ? JSON.parse(text) : {}) as T;
     return { ok: true, status: res.status, data };
@@ -131,6 +176,19 @@ export async function connectionState(
   });
   if (!res.ok) return null;
   return stateOf(res.data?.instance?.state ?? res.data?.state ?? res.data?.connectionStatus);
+}
+
+/** Connection state plus whether Evolution no longer has the instance (404). */
+export async function instanceState(
+  cfg: EvolutionConfig,
+  args: { instance: string; apiKey: string },
+): Promise<{ state: ConnectionStateValue | null; missing: boolean }> {
+  const res = await evolutionRequest<{ instance?: { state?: string }; state?: string }>(cfg, {
+    path: `/instance/connectionState/${seg(args.instance)}`,
+    apiKey: args.apiKey,
+  });
+  if (res.ok) return { state: stateOf(res.data?.instance?.state ?? res.data?.state), missing: false };
+  return { state: null, missing: res.status === 404 };
 }
 
 export interface InstanceInfo {

@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { getAppSession } from "@/lib/session";
 import { revalidatePath } from "next/cache";
 import { AppProvider } from "@prisma/client";
-import { disconnectWhatsAppLine } from "@/lib/whatsapp-disconnect-service";
+import { checkWhatsAppDisconnect, startWhatsAppDisconnect } from "@/lib/whatsapp-disconnect-service";
 
 export async function toggleAssistant(enabled: boolean) {
   const session = await getAppSession();
@@ -30,9 +30,12 @@ export async function disconnectApp(provider: string) {
 
   const upper = provider.toUpperCase() as AppProvider;
   if (upper === "WHATSAPP") {
-    // Removes the Evolution instance first; throws (the page shows its error) if Evolution did not confirm.
-    const result = await disconnectWhatsAppLine(session.user.tenantId);
+    // Step 1 only: sends the logout and returns. The screen then calls checkWhatsAppDisconnectAction until it is removed.
+    const result = await startWhatsAppDisconnect(session.user.tenantId);
     if (!result.ok) throw new Error(result.error);
+    revalidatePath("/admin/apps");
+    revalidatePath("/admin");
+    return { status: result.status };
   } else {
     await prisma.connectedApp.deleteMany({
       where: {
@@ -44,6 +47,21 @@ export async function disconnectApp(provider: string) {
 
   revalidatePath("/admin/apps");
   revalidatePath("/admin"); // Revalidate layout to update sidebar
+}
+
+/** Step 2 of the WhatsApp disconnect: the screen calls it every few seconds until the line is removed. */
+export async function checkWhatsAppDisconnectAction() {
+  const session = await getAppSession();
+  if (!session?.user || session.user.role !== "ADMIN") {
+    throw new Error("No autorizado");
+  }
+  const result = await checkWhatsAppDisconnect(session.user.tenantId);
+  if (!result.ok) throw new Error(result.error);
+  if (result.status === "removed") {
+    revalidatePath("/admin/apps");
+    revalidatePath("/admin");
+  }
+  return { status: result.status };
 }
 
 export async function refreshSidebar() {
