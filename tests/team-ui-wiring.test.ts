@@ -143,3 +143,21 @@ test("the new texts exist in Spanish and English, and the errors too", () => {
     }
   }
 });
+
+// ---- Ticket #176: the phone hint says what the number is for (and what it is not) ----
+
+test("the staff phone hints say the business WhatsApp keeps serving, only help notices arrive, and the bot does not answer it", () => {
+  const rules: Array<[typeof es, RegExp, RegExp, RegExp]> = [
+    [es, /solo recibe los avisos/i, /WhatsApp del negocio sigue atendiendo/i, /no le contesta a este n[uú]mero/i],
+    [en, /only receives/i, /business WhatsApp keeps serving/i, /does not answer this number/i],
+  ];
+  for (const [lang, notices, business, noReply] of rules) {
+    const team = lang.team as Record<string, string>;
+    for (const key of ["phoneHint", "whatsappHint"]) {
+      assert.match(team[key], notices, `${key} says what arrives`);
+      assert.match(team[key], business, `${key} says the business line keeps working`);
+      assert.match(team[key], noReply, `${key} says the automatic reply skips this number`);
+      assert.doesNotMatch(team[key], /claude|anthropic|openai|gpt|openrouter|evolution|n8n|baileys/i, `${key} names no provider`);
+    }
+  }
+});
