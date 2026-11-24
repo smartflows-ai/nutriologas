@@ -16,7 +16,8 @@ test("the phone forms start from the country of the business zone, not a fixed +
   }
   // Negocio keeps a saved number's dial code and uses the zone only when there is none.
   assert.match(read("src/app/admin/negocio/page.tsx"), /setDialCode\(currentWhatsapp \? dial : defaultDialCodeForZone\(tenantData\.timeZone\)\)/);
-  assert.match(read("src/app/api/admin/users/[id]/route.ts"), /normalizeStaffWhatsapp\(raw\.whatsappNumber, defaultDialCodeForZone\(/);
+  assert.match(read("src/app/api/admin/users/[id]/route.ts"), /defaultDialCodeForZone\(await getTenantTimeZone\(guard\.tenantId\)\)/);
+  assert.match(read("src/app/api/admin/users/[id]/route.ts"), /setStaffWhatsapp\(staffDeps\(\), actor, id, raw\.whatsappNumber, dialCode\)/);
 });
 
 test("the bot currency is not fixed to MXN (#120)", () => {

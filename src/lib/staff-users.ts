@@ -5,6 +5,7 @@
 // tenantId always comes from the caller's session, never from the request.
 import type { CapabilityPlan } from "./capabilities";
 import { STAFF_ROLE } from "./permissions";
+import { requireStaffWhatsapp } from "./staff-whatsapp";
 import { USER_LIMIT_BY_PLAN, type UserSeats } from "./user-limits";
 
 // What the team screen may know about a user. Never the password hash.
@@ -34,6 +35,10 @@ export interface StaffActor {
 export interface NewStaffInput {
   readonly email: string;
   readonly name: string;
+  /** Required (ticket #176). Raw on purpose: the rule decides if it is missing or invalid. */
+  readonly whatsappNumber: unknown;
+  /** Country code the business uses for ten local digits (from its time zone). */
+  readonly dialCode: string;
 }
 
 export interface NewStaffRow {
@@ -42,6 +47,8 @@ export interface NewStaffRow {
   readonly name: string;
   readonly passwordHash: string;
   readonly limit: number;
+  /** Normalized, "+" and digits. */
+  readonly whatsappNumber: string;
 }
 
 export interface StaffDeps {
@@ -49,6 +56,10 @@ export interface StaffDeps {
   // Any role: a customer of the business with that email also blocks the creation.
   findUserByEmail: (tenantId: string, email: string) => Promise<{ readonly id: string } | null>;
   findUserById: (tenantId: string, userId: string) => Promise<StaffUser | null>;
+  // False when the number is the business line or the owner's own (a staff member's number is a person's own line).
+  isNumberAllowed: (tenantId: string, number: string) => Promise<boolean>;
+  // Filters by id, tenantId and the STAFF role and reports whether a row changed.
+  saveWhatsapp: (tenantId: string, userId: string, number: string) => Promise<boolean>;
   // Counts the active CRM users and inserts a STAFF user in one transaction, so two requests at once cannot pass
   // the limit. "email_taken" is the unique index (tenantId, email) refusing a second insert of the same email.
   createStaffWithinLimit: (input: NewStaffRow) => Promise<StaffUser | "limit_reached" | "email_taken">;
@@ -63,7 +74,15 @@ export interface StaffDeps {
   generatePassword: () => string;
 }
 
-export type StaffFailure = "email_already_registered" | "user_limit_reached" | "user_not_found";
+export type StaffFailure =
+  | "email_already_registered"
+  | "user_limit_reached"
+  | "user_not_found"
+  | "staff_whatsapp_required"
+  | "staff_whatsapp_invalid"
+  | "staff_number_not_allowed";
+
+type PhoneFailure = "staff_whatsapp_required" | "staff_whatsapp_invalid" | "staff_number_not_allowed";
 
 const NOT_FOUND = { ok: false, reason: "user_not_found" } as const;
 
@@ -72,9 +91,13 @@ type Failed<R extends StaffFailure> = { readonly ok: false; readonly reason: R }
 export type CreateStaffResult =
   // tempPassword is returned once, to show to the owner. It is never stored in clear.
   | { readonly ok: true; readonly user: StaffUser; readonly tempPassword: string }
-  | Failed<"email_already_registered" | "user_limit_reached">;
+  | Failed<"email_already_registered" | "user_limit_reached" | PhoneFailure>;
 
 export type ResetStaffResult = { readonly ok: true; readonly tempPassword: string } | Failed<"user_not_found">;
+
+export type SetWhatsappResult =
+  | { readonly ok: true; readonly whatsappNumber: string }
+  | Failed<"user_not_found" | PhoneFailure>;
 
 export type SetActiveResult = { readonly ok: true } | Failed<"user_not_found" | "user_limit_reached">;
 
@@ -87,7 +110,21 @@ function publicUser(user: StaffUser): StaffUser {
     role: user.role,
     isActive: user.isActive,
     mustChangePassword: user.mustChangePassword,
+    whatsappNumber: user.whatsappNumber ?? null,
   };
+}
+
+// A valid number that is not the business line or the owner's own (ticket #176).
+async function checkedNumber(
+  deps: StaffDeps,
+  tenantId: string,
+  raw: unknown,
+  dialCode: string
+): Promise<{ readonly ok: true; readonly number: string } | Failed<PhoneFailure>> {
+  const phone = requireStaffWhatsapp(raw, dialCode);
+  if (!phone.ok) return { ok: false, reason: phone.reason };
+  if (!(await deps.isNumberAllowed(tenantId, phone.number))) return { ok: false, reason: "staff_number_not_allowed" };
+  return phone;
 }
 
 // The team screen only acts on staff users of the caller's business. The owner's own account, another owner,
@@ -101,6 +138,9 @@ async function findStaffTarget(deps: StaffDeps, actor: StaffActor, userId: strin
 export async function createStaffUser(deps: StaffDeps, actor: StaffActor, input: NewStaffInput): Promise<CreateStaffResult> {
   // Same form sign-in uses to look the user up; otherwise "Ana@x.com" could never sign in.
   const email = input.email.trim().toLowerCase();
+  // The phone is judged first: it needs no database read and a request without one never creates anything.
+  const phone = await checkedNumber(deps, actor.tenantId, input.whatsappNumber, input.dialCode);
+  if (!phone.ok) return phone;
   const existing = await deps.findUserByEmail(actor.tenantId, email);
   if (existing) return { ok: false, reason: "email_already_registered" };
 
@@ -112,6 +152,7 @@ export async function createStaffUser(deps: StaffDeps, actor: StaffActor, input:
     name: input.name.trim(),
     passwordHash: await deps.hashPassword(tempPassword),
     limit,
+    whatsappNumber: phone.number,
   });
   if (created === "limit_reached") return { ok: false, reason: "user_limit_reached" };
   if (created === "email_taken") return { ok: false, reason: "email_already_registered" };
@@ -146,4 +187,18 @@ export async function setStaffActive(
   const outcome = await deps.activateWithinLimit(actor.tenantId, target.id, limit);
   if (outcome === "not_found") return NOT_FOUND;
   return outcome === "activated" ? { ok: true } : { ok: false, reason: "user_limit_reached" };
+}
+
+/** Changes a staff member's number. The number can be replaced, never cleared (ticket #176). */
+export async function setStaffWhatsapp(
+  deps: StaffDeps,
+  actor: StaffActor,
+  userId: string,
+  raw: unknown,
+  dialCode: string
+): Promise<SetWhatsappResult> {
+  const phone = await checkedNumber(deps, actor.tenantId, raw, dialCode);
+  if (!phone.ok) return phone;
+  const saved = await deps.saveWhatsapp(actor.tenantId, userId, phone.number);
+  return saved ? { ok: true, whatsappNumber: phone.number } : NOT_FOUND;
 }

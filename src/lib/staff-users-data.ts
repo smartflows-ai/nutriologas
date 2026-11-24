@@ -9,6 +9,7 @@ import { ADMIN_ROLE, STAFF_ROLE } from "@/lib/permissions";
 import type { NewStaffRow, StaffDeps, StaffUser, TeamOverview } from "@/lib/staff-users";
 import { generateTempPassword } from "@/lib/temp-password";
 import { userSeats } from "@/lib/user-limits";
+import { isSameWhatsAppNumber } from "@/lib/whatsapp-number";
 
 // What the team screen may read. Never the password hash or the reset code.
 const PUBLIC_FIELDS = { id: true, email: true, name: true, role: true, isActive: true, mustChangePassword: true, whatsappNumber: true } as const;
@@ -61,6 +62,7 @@ export async function createStaffTx(tx: SeatTx, input: NewStaffRow): Promise<Sta
       email: input.email,
       name: input.name,
       passwordHash: input.passwordHash,
+      whatsappNumber: input.whatsappNumber,
       role: STAFF_ROLE,
       mustChangePassword: true,
     },
@@ -109,6 +111,20 @@ async function deactivate(tenantId: string, userId: string): Promise<boolean> {
   return count > 0;
 }
 
+// A staff member's number is a person's own line: not the business number the bot writes from, and not the owner's.
+async function isNumberAllowed(tenantId: string, number: string): Promise<boolean> {
+  const [botLine, tenant] = await Promise.all([
+    prisma.connectedApp.findUnique({ where: { tenantId_provider: { tenantId, provider: "WHATSAPP" } }, select: { waPhoneNumber: true } }),
+    prisma.tenant.findUnique({ where: { id: tenantId }, select: { whatsappNumber: true } }),
+  ]);
+  return !isSameWhatsAppNumber(number, botLine?.waPhoneNumber) && !isSameWhatsAppNumber(number, tenant?.whatsappNumber);
+}
+
+async function saveWhatsapp(tenantId: string, userId: string, number: string): Promise<boolean> {
+  const { count } = await prisma.user.updateMany({ where: STAFF_ROW(tenantId, userId), data: { whatsappNumber: number } });
+  return count > 0;
+}
+
 async function saveTempPassword(tenantId: string, userId: string, passwordHash: string): Promise<boolean> {
   const { count } = await prisma.user.updateMany({
     where: STAFF_ROW(tenantId, userId),
@@ -134,6 +150,8 @@ export function staffDeps(): StaffDeps {
     activateWithinLimit,
     deactivate,
     saveTempPassword,
+    isNumberAllowed,
+    saveWhatsapp,
     hashPassword,
     generatePassword: () => generateTempPassword(),
   };

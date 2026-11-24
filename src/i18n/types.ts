@@ -1780,6 +1780,10 @@ export interface Translations {
     whatsappSave: string;
     whatsappSaved: string;
     whatsappEmpty: string;
+    phone: string;
+    phoneHint: string;
+    missingPhone: string;
+    whatsappRequired: string;
   };
   passwordChange: {
     title: string;
@@ -1933,6 +1937,8 @@ export interface Translations {
     reminder_settings_invalid: string;
     help_settings_invalid: string;
     staff_number_not_allowed: string;
+    staff_whatsapp_required: string;
+    staff_whatsapp_invalid: string;
     reminder_window_invalid: string;
     business_hours_invalid: string;
     cart_empty: string;

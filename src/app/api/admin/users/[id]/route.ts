@@ -6,12 +6,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { apiError } from "@/lib/api-errors";
 import { requirePermission } from "@/lib/permission-guard";
-import { prisma } from "@/lib/db";
-import { isSameWhatsAppNumber } from "@/lib/whatsapp-number";
-import { normalizeStaffWhatsapp } from "@/lib/staff-whatsapp";
 import { defaultDialCodeForZone } from "@/lib/phone";
 import { getTenantTimeZone } from "@/lib/tenant-time-zone";
-import { resetStaffPassword, setStaffActive } from "@/lib/staff-users";
+import { resetStaffPassword, setStaffActive, setStaffWhatsapp } from "@/lib/staff-users";
 import { staffDeps } from "@/lib/staff-users-data";
 import { NO_STORE, staffFailure, teamActor, teamWritesExceeded } from "@/lib/team-api";
 
@@ -29,25 +26,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const raw = await req.json().catch(() => null);
     if (!id || id.length > ID_MAX) return apiError("validation_failed", 400);
 
-    // The number the staff member receives "a chat needs help" notices on (null clears it).
+    // The number the staff member receives "a chat needs help" notices on. It can be replaced, never cleared (#176).
     if (raw?.action === "set_whatsapp") {
-      const number = normalizeStaffWhatsapp(raw.whatsappNumber, defaultDialCodeForZone(await getTenantTimeZone(guard.tenantId)));
-      if (number === "invalid") return apiError("validation_failed", 400);
-      if (number) {
-        // It must be a person's own line: not the business number the bot writes from, and not the owner's.
-        const [botLine, tenant] = await Promise.all([
-          prisma.connectedApp.findUnique({ where: { tenantId_provider: { tenantId: guard.tenantId, provider: "WHATSAPP" } }, select: { waPhoneNumber: true } }),
-          prisma.tenant.findUnique({ where: { id: guard.tenantId }, select: { whatsappNumber: true } }),
-        ]);
-        if (isSameWhatsAppNumber(number, botLine?.waPhoneNumber) || isSameWhatsAppNumber(number, tenant?.whatsappNumber)) {
-          return apiError("staff_number_not_allowed", 400);
-        }
-      }
-      const updated = await prisma.user.updateMany({
-        where: { id, tenantId: guard.tenantId, role: "STAFF" },
-        data: { whatsappNumber: number },
-      });
-      return updated.count > 0 ? NextResponse.json({ ok: true, whatsappNumber: number }, NO_STORE) : staffFailure("user_not_found");
+      const dialCode = defaultDialCodeForZone(await getTenantTimeZone(guard.tenantId));
+      const result = await setStaffWhatsapp(staffDeps(), actor, id, raw.whatsappNumber, dialCode);
+      return result.ok ? NextResponse.json({ ok: true, whatsappNumber: result.whatsappNumber }, NO_STORE) : staffFailure(result.reason);
     }
 
     const parsed = actionSchema.safeParse(raw);

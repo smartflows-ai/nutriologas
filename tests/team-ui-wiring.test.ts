@@ -111,3 +111,35 @@ test("the change-password form drops the last error as soon as a field is edited
   const form = readRoot("src/components/auth/ChangePasswordForm.tsx");
   assert.match(form, /onChange=\{\(field, value\) => \{[^}]*setError\(null\);/);
 });
+
+// ---- Ticket #176 ----
+
+test("the new-member form asks for the phone with a country selector and sends + and digits", () => {
+  const form = readRoot("src/components/admin/team/NewTeamUserForm.tsx");
+  assert.match(form, /PHONE_COUNTRIES/);
+  assert.match(form, /buildFullPhone\(/);
+  assert.match(form, /whatsappNumber/);
+  assert.match(form, /required/);
+  assert.doesNotMatch(form, /#[0-9a-fA-F]{3,6}\b|(green|blue)-\d00/, "theme tokens, no hex");
+  assert.match(form, /defaultDialCodeForZone\(zone\)/, "the business country first (#120)");
+});
+
+test("a member without a phone shows the missing-phone mark, and the edit field does not save an empty value", () => {
+  const row = readRoot("src/components/admin/team/TeamUserRow.tsx");
+  assert.match(row, /tx\.missingPhone/);
+  const field = readRoot("src/components/admin/team/StaffWhatsappField.tsx");
+  assert.match(field, /!draft\.trim\(\)/, "save is off for an empty value");
+});
+
+test("the new texts exist in Spanish and English, and the errors too", () => {
+  for (const lang of [es, en]) {
+    const team = lang.team as Record<string, string>;
+    for (const key of ["phone", "phoneHint", "missingPhone", "whatsappRequired"]) {
+      assert.ok(typeof team[key] === "string" && team[key].length > 0, `team.${key}`);
+    }
+    const errors = lang.apiErrors as Record<string, string>;
+    for (const key of ["staff_whatsapp_required", "staff_whatsapp_invalid"]) {
+      assert.ok(typeof errors[key] === "string" && errors[key].length > 0, `apiErrors.${key}`);
+    }
+  }
+});
