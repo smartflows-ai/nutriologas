@@ -6,7 +6,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { activateStaffTx, createStaffTx, type SeatTx } from "../src/lib/staff-users-data";
 
-const INPUT = { tenantId: "t1", email: "ana@example.com", name: "Ana", passwordHash: "hashed", limit: 3 };
+const INPUT = { tenantId: "t1", email: "ana@example.com", name: "Ana", passwordHash: "hashed", limit: 3, whatsappNumber: "+525512345678" };
 const CREATED = { id: "u9", email: "ana@example.com", name: "Ana", role: "STAFF", isActive: true, mustChangePassword: true };
 
 function fakeTx(seatsUsed: number, updated = 1) {
@@ -59,6 +59,7 @@ test("creating inserts a STAFF user of that business that must change its passwo
     email: "ana@example.com",
     name: "Ana",
     passwordHash: "hashed",
+    whatsappNumber: "+525512345678",
     role: "STAFF",
     mustChangePassword: true,
   });

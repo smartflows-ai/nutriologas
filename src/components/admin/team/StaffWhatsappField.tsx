@@ -22,6 +22,7 @@ export default function StaffWhatsappField({ userId, value, disabled, onSaved }:
   const [isSaving, setIsSaving] = useState(false);
   const inputId = `staff-whatsapp-${userId}`;
   const isChanged = draft.trim() !== (value ?? "");
+  const isEmpty = !draft.trim();
 
   const save = async () => {
     if (isSaving) return;
@@ -67,14 +68,14 @@ export default function StaffWhatsappField({ userId, value, disabled, onSaved }:
         />
         <button
           type="button"
-          disabled={disabled || isSaving || !isChanged}
+          disabled={disabled || isSaving || !isChanged || isEmpty}
           onClick={() => void save()}
           className="btn-secondary inline-flex items-center justify-center min-h-11 sm:min-h-0 disabled:opacity-50"
         >
           {tx.whatsappSave}
         </button>
       </div>
-      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{value ? tx.whatsappHint : tx.whatsappEmpty}</p>
+      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{isEmpty ? tx.whatsappRequired : value ? tx.whatsappHint : tx.whatsappEmpty}</p>
     </div>
   );
 }

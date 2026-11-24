@@ -6,6 +6,8 @@ import { z } from "zod";
 import { apiError } from "@/lib/api-errors";
 import { requirePermission } from "@/lib/permission-guard";
 import { createStaffUser } from "@/lib/staff-users";
+import { defaultDialCodeForZone } from "@/lib/phone";
+import { getTenantTimeZone } from "@/lib/tenant-time-zone";
 import { staffDeps, teamOverview } from "@/lib/staff-users-data";
 import { NO_STORE, staffFailure, teamActor, teamWritesExceeded } from "@/lib/team-api";
 
@@ -15,6 +17,8 @@ const EMAIL_MAX = 254;
 const createSchema = z.object({
   name: z.string().trim().min(1).max(NAME_MAX),
   email: z.string().trim().toLowerCase().email().max(EMAIL_MAX),
+  // Required, but judged by the rule (staff_whatsapp_required / staff_whatsapp_invalid), not by a generic 400.
+  whatsappNumber: z.unknown().optional(),
 });
 
 export async function GET() {
@@ -38,7 +42,8 @@ export async function POST(req: Request) {
     const parsed = createSchema.safeParse(await req.json().catch(() => null));
     if (!parsed.success) return apiError("validation_failed", 400);
 
-    const result = await createStaffUser(staffDeps(), actor, parsed.data);
+    const dialCode = defaultDialCodeForZone(await getTenantTimeZone(actor.tenantId));
+    const result = await createStaffUser(staffDeps(), actor, { ...parsed.data, whatsappNumber: parsed.data.whatsappNumber, dialCode });
     if (!result.ok) return staffFailure(result.reason);
 
     // The temporary credential is returned once and stored nowhere in clear.

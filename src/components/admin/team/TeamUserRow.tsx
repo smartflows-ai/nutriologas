@@ -39,6 +39,9 @@ export default function TeamUserRow({ user, roleLabel, isBusy, hasFreeSeat, onRe
         <p className="mt-1.5 flex flex-wrap items-center gap-2">
           <span className="text-xs text-gray-500 dark:text-gray-400">{roleLabel}</span>
           <span className={`${BADGE_CLASS} ${badgeTone}`}>{status}</span>
+          {!user.whatsappNumber && (
+            <span className={`${BADGE_CLASS} bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white font-medium`}>{tx.missingPhone}</span>
+          )}
         </p>
         {user.isActive && (
           <StaffWhatsappField

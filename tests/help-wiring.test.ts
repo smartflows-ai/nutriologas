@@ -57,11 +57,13 @@ test("the help checks run after the reminders, inside their own try/catch, and n
 });
 
 test("the staff number action refuses the business line and the owner's number", () => {
-  const source = read("src/app/api/admin/users/[id]/route.ts");
-  assert.ok(source.includes('raw?.action === "set_whatsapp"'));
+  const route = read("src/app/api/admin/users/[id]/route.ts");
+  assert.ok(route.includes('raw?.action === "set_whatsapp"'));
+  // Ticket #176: the check moved to the shared rule, so creating a member applies it too.
+  const source = read("src/lib/staff-users-data.ts");
   assert.ok(source.includes("isSameWhatsAppNumber(number, botLine?.waPhoneNumber)"));
   assert.ok(source.includes("isSameWhatsAppNumber(number, tenant?.whatsappNumber)"));
-  assert.ok(source.includes('role: "STAFF"'), "only STAFF users of this business can be changed");
+  assert.ok(source.includes("STAFF_ROW(tenantId, userId)"), "only STAFF users of this business can be changed");
 });
 
 test("the sidebar shows the help counter next to WhatsApp", () => {

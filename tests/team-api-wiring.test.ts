@@ -92,3 +92,28 @@ test("the session version travels in the token and is compared on every read", (
   assert.match(auth, /readAccountAccess\(token\.tenantId, token\.id, /);
   assert.match(readRoot("src/lib/session.ts"), /readAccountAccess\([^)]*sessionVersion\)/);
 });
+
+// ---- Ticket #176: the phone of a staff member is required, checked on the server ----
+
+test("POST /api/admin/users sends the phone to the rule with the business dial code, and the form is not the only check", () => {
+  const source = readRoot("src/app/api/admin/users/route.ts");
+  assert.match(source, /whatsappNumber/);
+  assert.match(source, /defaultDialCodeForZone\(/);
+  assert.match(source, /getTenantTimeZone\(/);
+  assert.doesNotMatch(source, /whatsappNumber:\s*z\.string\(\)\.trim\(\)\.min\(1\)/, "presence is judged by the rule (staff_whatsapp_required), not by a zod 400");
+});
+
+test("PATCH set_whatsapp goes through setStaffWhatsapp: an empty number is never written", () => {
+  const source = readRoot("src/app/api/admin/users/[id]/route.ts");
+  assert.match(source, /setStaffWhatsapp\(/);
+  assert.doesNotMatch(source, /data:\s*\{\s*whatsappNumber:\s*number\s*\}/, "no direct write of a possibly empty number");
+});
+
+test("the three new failures have a status and the rule is the only way a staff user is created", () => {
+  const api = readRoot("src/lib/team-api.ts");
+  for (const reason of ["staff_whatsapp_required", "staff_whatsapp_invalid", "staff_number_not_allowed"]) {
+    assert.match(api, new RegExp(reason));
+  }
+  const creators = ["src/lib/staff-users-data.ts"];
+  assert.match(readRoot(creators[0]), /whatsappNumber:\s*input\.whatsappNumber/);
+});

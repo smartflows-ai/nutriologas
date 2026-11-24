@@ -16,6 +16,9 @@ const STATUS_BY_FAILURE: Record<StaffFailure, number> = {
   email_already_registered: 409,
   user_limit_reached: 409,
   user_not_found: 404,
+  staff_whatsapp_required: 400,
+  staff_whatsapp_invalid: 400,
+  staff_number_not_allowed: 400,
 };
 
 // The signed-in owner, from the session only.
