@@ -22,7 +22,15 @@ export async function disconnectWhatsAppLine(tenantId: string): Promise<Disconne
       instance: row.waInstanceName,
       instanceToken: row.accessToken,
     });
-    if (!shouldDeleteRecord(result)) return { ok: false, error: "evolution_unavailable" };
+    if (!shouldDeleteRecord(result.outcome)) {
+      // Server log only: HTTP statuses and the error kind. The provider body and the instance name stay out.
+      console.error("[whatsapp-disconnect] Evolution did not confirm the removal", {
+        logoutStatus: result.logoutStatus,
+        deleteStatus: result.deleteStatus ?? null,
+        deleteError: result.deleteError ?? null,
+      });
+      return { ok: false, error: "evolution_unavailable" };
+    }
   }
 
   await prisma.connectedApp.deleteMany({ where: { tenantId, provider: "WHATSAPP" } });
