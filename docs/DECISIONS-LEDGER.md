@@ -852,3 +852,11 @@ Decision: disconnect calls Evolution first (logout with the instance token, best
 Why: the row holds the instance token. Deleting it before Evolution confirms would leave a live instance with no way to reach it from the app, and the business could not retry. Keeping the row on failure makes the action repeatable.
 
 Consequences: a disconnect that cannot reach Evolution (timeout, 5xx, or no `EVOLUTION_API_URL` / `EVOLUTION_API_KEY` in the environment) fails on purpose. The endpoints and the key each call uses come from third-party docs, because the official Evolution v2 reference was not reachable on 2026-11-24; they must be checked on a test instance before a real disconnect is tested. With two lines in one business, a failure on the second leaves the first row in place; a retry finds the first instance already gone and passes.
+
+## 2026-11-24 — Claude — The WhatsApp disconnect is two steps, not one long request (branch fix/whatsapp-disconnect-diagnostics)
+
+Decision: the logout is sent at once and the removal waits for Evolution to report the session closed, checked from the screen every 3 seconds for at most 2 minutes. The row carries the mark `disconnecting` in `waStatus` (no schema change). Nothing resumes the wait when the screen is opened again.
+
+Why: Evolution answers the logout with 200 and closes the session seconds or minutes later (2026-11-24, `doctorgcenter`); a single request that waits would be cut by the serverless time limit, and the owner would see an error for a removal that did happen. The owner asked for no automatic resume.
+
+Consequences: a disconnect interrupted by a full page reload stays marked until the owner presses disconnect again. A background sweep would finish it without the owner, and is a separate decision (needs an approved scheduler: n8n or a Vercel cron). A failed delete keeps the row and its token so the owner can retry; a logout that gets no answer does not start the disconnect.

@@ -3,6 +3,16 @@
 > Movido desde `CLAUDE.md` el 2026-11-20 para que no se cargue en cada mensaje. No lo lee Claude por sí solo: ábrelo cuando la tarea toque pendientes, producción o QA.
 
 
+### Pending after the WhatsApp disconnect in two steps (2026-11-24, branch `fix/whatsapp-disconnect-diagnostics`, not committed)
+
+- Finish `doctorgcenter`: its instance is `close` in Evolution and its row is still in the database. Press disconnect again on `/admin/apps` without leaving the screen; it deletes a production instance, so it needs explicit approval.
+- Background sweep (option B): finishes disconnects that the owner left half-way. Needs an approved scheduler (n8n workflow or Vercel cron) and a deploy.
+- Browser check not done: the redirect after connecting, the owner number that arrives in time, and a disconnect that continues across pages.
+- Confirm the Evolution logout and delete endpoints and the key each one uses on a test instance (sources so far are third-party).
+- Check that the QR screen and `tenant-context` (read by the bot) do not overwrite or misread `waStatus = disconnecting`.
+- Commit and merge: the changes are not committed; `origin/main` has PR #183 that the branch does not have. Re-run `/ecc:code-review` before committing.
+- Deploy needs approval; the local `.env.local` pointing to the demo is kept outside the repo (restore it to go back to the demo).
+
 ### Pending after the WhatsApp disconnect fix (2026-11-24, branch `fix/whatsapp-disconnect-evolution`, not committed)
 
 - Disconnecting WhatsApp now deletes the Evolution instance before the app row (`src/lib/whatsapp-disconnect-service.ts`). Not yet verified against a real instance: the logout/delete endpoints and the key each uses come from third-party docs (the official Evolution v2 pages returned 404 on 2026-11-24).
