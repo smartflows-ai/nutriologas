@@ -4,6 +4,14 @@ All notable changes to Presto AI are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased] — WhatsApp disconnect (branch `fix/whatsapp-disconnect-evolution`)
+
+### Fixed
+- Disconnecting WhatsApp in `/admin/apps` removes the Evolution instance too (logout with the instance token, best effort, then delete with the global key). The app row is deleted only when Evolution confirms the removal (or 404 = already gone); any other error keeps the row and the button shows an error. Server action `disconnectApp` and `DELETE /api/apps/[provider]` share `disconnectWhatsAppLine` (`src/lib/whatsapp-disconnect-service.ts`). The endpoints come from third-party docs and are pending a check on a test instance.
+
+### Tests
+- `tests/whatsapp-disconnect.test.ts` (7 cases, injected fetch). The full suite has 23 failures that already exist on `main` (`n8n-p0-nodes`, `person-request`), not part of this change.
+
 ## [Unreleased] — wave of 2026-11-23 (branch `fix/ola-23-nov`)
 
 ### Fixed

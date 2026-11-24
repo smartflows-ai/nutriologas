@@ -844,3 +844,11 @@ Decision: every outbound WhatsApp message goes through one service with a pure p
 Why: a ban is the most expensive failure for the business, and the preventable causes are known (bursts, loops, cold messages, retries after unknown outcomes, sending on a logged-out session). The safeguards reduce that risk. They are not a guarantee, and no text in the product says they are.
 
 Consequences: the migrations 31 (outbox) and 32 (risk) are not in production. The code that uses them must not be deployed before them. The n8n header secret, the chat workflow and a drain job for held messages are still open. Privacy text: opt-out only, not consent, until ENFORCE is on.
+
+## 2026-11-24 — Claude — Disconnecting WhatsApp removes the Evolution instance, and the row goes only after Evolution confirms (branch fix/whatsapp-disconnect-evolution)
+
+Decision: disconnect calls Evolution first (logout with the instance token, best effort; then delete with the global key). The `connected_apps` row is deleted only when the removal is confirmed (`removed`, or a 404 meaning it is already gone). Any other failure keeps the row and the button shows an error.
+
+Why: the row holds the instance token. Deleting it before Evolution confirms would leave a live instance with no way to reach it from the app, and the business could not retry. Keeping the row on failure makes the action repeatable.
+
+Consequences: a disconnect that cannot reach Evolution (timeout, 5xx, or no `EVOLUTION_API_URL` / `EVOLUTION_API_KEY` in the environment) fails on purpose. The endpoints and the key each call uses come from third-party docs, because the official Evolution v2 reference was not reachable on 2026-11-24; they must be checked on a test instance before a real disconnect is tested. With two lines in one business, a failure on the second leaves the first row in place; a retry finds the first instance already gone and passes.
