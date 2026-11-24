@@ -3,6 +3,12 @@
 > Movido desde `CLAUDE.md` el 2026-11-20 para que no se cargue en cada mensaje. No lo lee Claude por sí solo: ábrelo cuando la tarea toque pendientes, producción o QA.
 
 
+### Pending after switching off Google sign-in (2026-11-24, branch `fix/disable-google-signin`, not committed)
+
+- Google sign-in (`/login`, `/registro`, NextAuth provider) is commented out until #151 is fixed. Closes the entry point; does not fix #151.
+- #151 still open: read-only query of users with a Google account and their business (to know if any customer already landed in the wrong one). Fix before turning Google back on: business from the host, existing users searched inside that business only.
+- Customers who signed up with Google before cannot sign in now unless they use `/recuperar` to set a password (to verify with a real case).
+
 ### Pending after the #146 fix (2026-11-24, branch `fix/146-tenant-host-guard`, not committed)
 
 - Session vs host guard done in code and tests; **not in production**. After the deploy the owner runs `docs/qa/146-sesion-vs-host.md` with newy (write) and doctorgcenter (read only).

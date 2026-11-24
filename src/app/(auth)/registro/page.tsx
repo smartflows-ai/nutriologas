@@ -56,6 +56,7 @@ export default function RegistroPage() {
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2 text-center">{t.auth.registerTitle}</h1>
         <p className="text-gray-500 text-sm text-center mb-6">{t.auth.registerSubtitle}</p>
 
+        {/* Google sign-up, switched off (ticket #151). Restore with the provider in src/lib/auth.ts.
         <button
           onClick={() => signIn("google", { callbackUrl })}
           className="w-full border border-gray-300 rounded-lg py-2.5 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:bg-gray-950 flex items-center justify-center gap-2 mb-4"
@@ -73,6 +74,7 @@ export default function RegistroPage() {
           <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200" /></div>
           <div className="relative text-center"><span className="bg-white dark:bg-gray-900 px-3 text-xs text-gray-400">{t.auth.orEmail}</span></div>
         </div>
+        */}
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div>
