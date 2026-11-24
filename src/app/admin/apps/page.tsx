@@ -7,12 +7,15 @@ import {
   Plug, Check, X, ExternalLink, Loader2, Calendar as CalendarIcon, CheckCircle2,
   Bot, MessageSquare, Globe, AlertTriangle, Mail, Lock, ClipboardList, UserSearch} from "lucide-react";
 import { useRef } from "react";
-import { toggleAssistant, disconnectApp, refreshSidebar } from "./actions";
+import { toggleAssistant, disconnectApp, refreshSidebar, checkWhatsAppDisconnectAction } from "./actions";
 import { useTranslation } from "@/i18n";
 import { fill, localeFor } from "@/lib/utils";
 import { toast } from "@/hooks/useToast";
 import { useCalendarAccount } from "@/hooks/useCalendarAccount";
 import ConfirmModal from "@/components/shared/ConfirmModal";
+import ProgressLabel from "@/components/ui/ProgressLabel";
+import WhatsAppConnectModal from "./WhatsAppConnectModal";
+import StatusBadge from "@/components/ui/StatusBadge";
 
 // ── Feature definitions ─────────────────────────────────────────
 interface FeatureDef {
@@ -105,184 +108,17 @@ interface ConnectedAppInfo {
   igLinked?: boolean;
 }
 
-function WhatsAppConnectModal({
-  onClose,
-  onSuccess,
-}: {
-  onClose: () => void;
-  onSuccess: () => void;
-}) {
-  const { t } = useTranslation();
-  const [step, setStep] = useState<"idle" | "loading" | "qr" | "expired" | "connected">("idle");
-  const [qrCode, setQrCode] = useState<string | null>(null);
-  const [phone, setPhone] = useState<string | null>(null);
-  const pollRef = useRef<NodeJS.Timeout | null>(null);
+const WA_CHECK_EVERY_MS = 3000;
+const WA_CHECK_MAX = 40; // about two minutes
 
-  const LOADING_MESSAGES = [
-    t.integrationsUi.waLoading1,
-    t.integrationsUi.waLoading2,
-    t.integrationsUi.waLoading3,
-    t.integrationsUi.waLoading4,
-    t.integrationsUi.waLoading5
-  ];
-  const [loadingMsgIdx, setLoadingMsgIdx] = useState(0);
-
-  useEffect(() => {
-    if (step === "loading") {
-      const interval = setInterval(() => {
-        setLoadingMsgIdx((prev) => (prev + 1) % LOADING_MESSAGES.length);
-      }, 2500);
-      return () => clearInterval(interval);
-    }
-  }, [step]);
-
-  const startConnect = async () => {
-    setStep("loading");
-    setLoadingMsgIdx(0);
-    const res = await fetch("/api/apps/connect/whatsapp", { method: "POST" });
-
-    let data;
-    try {
-      data = await res.json();
-    } catch (err) {
-      toast(t.integrationsUi.waErrorNotJson);
-      setStep("idle");
-      return;
-    }
-
-    // Si la respuesta es error JSON
-    if (!res.ok) {
-      toast(data.error || t.integrationsUi.waErrorServer);
-      setStep("idle");
-      return;
-    }
-
-    // Si ya esta conectado, saltamos al exito
-    if (data.status === "connected") {
-      setStep("connected");
-      setTimeout(() => { onSuccess(); onClose(); }, 2000);
-      return;
-    }
-
-    if (data.qrCode) {
-      setQrCode(data.qrCode);
-      setStep("qr");
-      // Polling cada 2 segundos para detectar inmediatamente cuando el usuario escanea en el celular
-      if (pollRef.current) clearInterval(pollRef.current);
-      pollRef.current = setInterval(async () => {
-        try {
-          const s = await fetch("/api/apps/whatsapp/status", { cache: "no-store" }).then(r => r.json());
-          if (s.status === "connected") {
-            if (pollRef.current) clearInterval(pollRef.current);
-            setPhone(s.phoneNumber);
-            setStep("connected");
-            setTimeout(() => {
-              onSuccess();
-              onClose();
-            }, 1200);
-          } else if (s.status === "qr_expired") {
-            if (pollRef.current) clearInterval(pollRef.current);
-            setStep("expired");
-          } else if (s.qrCode && s.qrCode !== qrCode) {
-            setQrCode(s.qrCode);
-          }
-        } catch (e) {
-          console.warn("[whatsapp-poll] Error polling status:", e);
-        }
-      }, 2000);
-    } else {
-      toast(data.error || t.integrationsUi.waFailed);
-      setStep("idle");
-    }
-  };
-
-  useEffect(() => {
-    // Verificación inmediata al abrir el modal: si ya está conectado, cerrar de inmediato
-    fetch("/api/apps/whatsapp/status", { cache: "no-store" })
-      .then(r => r.json())
-      .then(s => {
-        if (s.status === "connected") {
-          setPhone(s.phoneNumber);
-          setStep("connected");
-          setTimeout(() => {
-            onSuccess();
-            onClose();
-          }, 1200);
-        }
-      })
-      .catch(() => {});
-
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
-  }, []);
-
-  return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg w-full max-w-sm p-6 relative">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-semibold text-gray-900 dark:text-white">{t.crm.apps.whatsappModal.title}</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:text-gray-400">
-            <X size={20} />
-          </button>
-        </div>
-
-        {step === "idle" && (
-          <div className="text-center">
-            <p className="text-sm text-gray-500 mb-6">
-              {t.crm.apps.whatsappModal.desc}
-            </p>
-            <button
-              onClick={startConnect}
-              className="w-full py-3 text-[color:var(--on-primary)] text-sm font-semibold rounded-xl bg-primary hover:opacity-90 transition shadow-sm"
-            >
-              {t.crm.apps.whatsappModal.generateBtn}
-            </button>
-          </div>
-        )}
-
-        {step === "loading" && (
-          <div className="flex flex-col items-center gap-4 py-8 px-2 text-center h-40 justify-center">
-            <Loader2 size={32} className="animate-spin text-primary" />
-            <p className="text-sm text-gray-600 dark:text-gray-400 italic animate-pulse transition-opacity duration-500">
-              {LOADING_MESSAGES[loadingMsgIdx]}
-            </p>
-          </div>
-        )}
-
-        {step === "qr" && qrCode && (
-          <div className="text-center">
-            <p className="text-sm text-gray-500 mb-4">
-              {t.crm.apps.whatsappModal.instructions}
-            </p>
-            <div className="border-2 border-gray-100 rounded-xl p-3 inline-block mb-4 bg-white dark:bg-gray-900">
-              {/* Evolution API returns base64 directly */}
-              <img src={qrCode.startsWith("data:image") ? qrCode : `data:image/png;base64,${qrCode}`} alt={t.integrationsUi.waQrAlt} className="w-48 h-48" />
-            </div>
-            <div className="flex items-center gap-2 text-xs text-gray-400 justify-center">
-              <Loader2 size={12} className="animate-spin" />
-              {t.crm.apps.whatsappModal.waiting}
-            </div>
-          </div>
-        )}
-
-        {step === "expired" && (
-          <div className="text-center py-4">
-            <p className="text-sm text-gray-500 mb-4">{t.integrationsUi.waQrExpired}</p>
-            <button onClick={startConnect} className="btn-primary">{t.integrationsUi.waQrRegenerate}</button>
-          </div>
-        )}
-
-        {step === "connected" && (
-          <div className="text-center py-6">
-            <CheckCircle2 size={48} className="text-green-500 mx-auto mb-3" />
-            <p className="font-semibold text-gray-900 dark:text-white">{t.crm.apps.whatsappModal.success}</p>
-            {phone && <p className="text-sm text-gray-500 mt-1">{phone}</p>}
-          </div>
-        )}
-      </div>
-    </div>
-  );
+/** Checks every few seconds until the WhatsApp line is removed. Throws when a check fails or the time runs out. */
+async function waitForWhatsAppRemoval(): Promise<void> {
+  for (let i = 0; i < WA_CHECK_MAX; i += 1) {
+    await new Promise((resolve) => setTimeout(resolve, WA_CHECK_EVERY_MS));
+    const res = await checkWhatsAppDisconnectAction();
+    if (res.status === "removed" || res.status === "idle") return;
+  }
+  throw new Error("disconnect_timeout");
 }
 
 export default function AppsPage() {
@@ -371,12 +207,18 @@ export default function AppsPage() {
       onConfirm: async () => {
         setDisconnecting(provider);
         try {
-          await disconnectApp(provider);
+          if (provider === "WHATSAPP") {
+            // Step 1 answers at once; then short checks wait for Evolution to close the session and remove the line.
+            const started = await disconnectApp(provider);
+            if (started && started.status !== "removed") await waitForWhatsAppRemoval();
+          } else {
+            await disconnectApp(provider);
+          }
           setApps((prev) => prev.filter((a) => a.provider !== provider));
         } catch (err) {
           setNotificationState({
             title: t.integrationsUi.errorTitle,
-            message: t.integrationsUi.disconnectFailed,
+            message: err instanceof Error && err.message === "disconnect_timeout" ? t.integrationsUi.disconnectTimeout : t.integrationsUi.disconnectFailed,
             type: "error"
           });
         } finally {
@@ -466,9 +308,7 @@ export default function AppsPage() {
                     </div>
 
                     {(isConnected || toolActive) && (
-                      <span className="flex items-center gap-1 text-xs font-medium text-primary bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-full whitespace-nowrap">
-                        <Check size={12} /> {toolActive ? t.crm.apps.toolActive : t.crm.apps.connected}
-                      </span>
+                      <StatusBadge icon={Check}>{toolActive ? t.crm.apps.toolActive : t.crm.apps.connected}</StatusBadge>
                     )}
                   </div>
 
@@ -576,14 +416,24 @@ export default function AppsPage() {
                       <button
                         onClick={() => handleDisconnect(activeConn.provider)}
                         disabled={isDisconnecting}
-                        className="w-full flex items-center justify-center gap-1.5 px-3 py-2 border border-transparent text-red-600 text-xs font-medium rounded-lg hover:border-red-200 hover:bg-red-50 transition-colors disabled:opacity-50"
+                        className="w-full flex items-center justify-center gap-1.5 px-3 py-2 border border-transparent text-red-600 text-xs font-medium rounded-lg hover:border-red-200 hover:bg-red-50 transition-colors disabled:cursor-wait"
                       >
                         {isDisconnecting ? (
-                          <Loader2 size={14} className="animate-spin" />
+                          <ProgressLabel
+                            active
+                            steps={[
+                              t.integrationsUi.disconnectStepClosing,
+                              t.integrationsUi.disconnectStepWaiting,
+                              t.integrationsUi.disconnectStepRemoving,
+                              t.integrationsUi.disconnectStepFinishing,
+                            ]}
+                          />
                         ) : (
-                          <X size={14} />
+                          <>
+                            <X size={14} aria-hidden="true" />
+                            {t.crm.apps.disconnect} {getProviderName(activeConn.provider)}
+                          </>
                         )}
-                        {t.crm.apps.disconnect} {getProviderName(activeConn.provider)}
                       </button>
                     ) : toolState === "available" || toolState === "active" ? (
                       <button

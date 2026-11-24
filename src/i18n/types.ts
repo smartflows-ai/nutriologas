@@ -723,7 +723,7 @@ export interface Translations {
         title: string;
         desc: string;
         generateBtn: string;
-        instructions: string;
+        steps: { open: string; linked: string; scan: string };
         waiting: string;
         success: string;
       };
@@ -1565,6 +1565,11 @@ export interface Translations {
     disconnectTitle: string;
     disconnectMsg: string;
     disconnectFailed: string;
+    disconnectStepClosing: string;
+    disconnectStepWaiting: string;
+    disconnectStepRemoving: string;
+    disconnectStepFinishing: string;
+    disconnectTimeout: string;
     assistantToggleFailed: string;
     igLinked: string;
     igMissing: string;
