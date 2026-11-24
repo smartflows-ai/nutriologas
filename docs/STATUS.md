@@ -3,6 +3,12 @@
 > Movido desde `CLAUDE.md` el 2026-11-20 para que no se cargue en cada mensaje. No lo lee Claude por sí solo: ábrelo cuando la tarea toque pendientes, producción o QA.
 
 
+### Pending after the WhatsApp disconnect fix (2026-11-24, branch `fix/whatsapp-disconnect-evolution`, not committed)
+
+- Disconnecting WhatsApp now deletes the Evolution instance before the app row (`src/lib/whatsapp-disconnect-service.ts`). Not yet verified against a real instance: the logout/delete endpoints and the key each uses come from third-party docs (the official Evolution v2 pages returned 404 on 2026-11-24).
+- Full suite: 23 tests fail on `main` too (`n8n-p0-nodes`, `person-request`: Strip File Data, Booking Claim, Is File Message). Not caused by this change; pending a separate fix.
+- Tests are not a substitute for the human gate: nothing was deployed or committed.
+
 ### Pending after the wave of 2026-11-23 (branch `fix/ola-23-nov`, plan `.claude/plans/ola-23-nov.plan.md`)
 
 - **Real WhatsApp checks (deploy done)**: PR #137 is in production since 2026-11-22 01:20 UTC (`55bfa3d`), so the bot changes (#128 `bot/context`, #129 `bot/help`, #74 reply to SI) already reach WhatsApp. Checks C1-W, C2-W, C4-W of the plan (guide `docs/qa/ola-23-nov-humo-lunes.md`), from the test number `…2968`. Never use `…1960` (the number in newy's business profile) as a test patient; newy's connected WhatsApp line is `…1714` (since 2026-11-20 07:35 UTC).
