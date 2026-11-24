@@ -170,6 +170,33 @@ export async function fetchInstanceInfo(cfg: EvolutionConfig, instance: string):
   };
 }
 
+/** Ends the WhatsApp session of one instance (the instance token is used). Evolution: DELETE /instance/logout. */
+export async function logoutInstance(
+  cfg: EvolutionConfig,
+  args: { instance: string; apiKey: string },
+): Promise<EvolutionResult<unknown>> {
+  return evolutionRequest(cfg, {
+    path: `/instance/logout/${seg(args.instance)}`,
+    method: "DELETE",
+    apiKey: args.apiKey,
+  });
+}
+
+/**
+ * Removes the instance itself. Server-only, with the global key (the same key that creates instances).
+ * Evolution: DELETE /instance/delete. A 404 means the instance is already gone.
+ */
+export async function deleteInstance(
+  cfg: EvolutionConfig,
+  args: { instance: string },
+): Promise<EvolutionResult<unknown>> {
+  return evolutionRequest(cfg, {
+    path: `/instance/delete/${seg(args.instance)}`,
+    method: "DELETE",
+    apiKey: cfg.globalKey,
+  });
+}
+
 /** Current pairing code. null when the instance is already open or no code is ready yet. */
 export async function connectQr(cfg: EvolutionConfig, args: { instance: string; apiKey: string }): Promise<string | null> {
   const res = await evolutionRequest<{ base64?: string; code?: string }>(cfg, {
