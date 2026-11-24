@@ -11,7 +11,7 @@ Cloudinary              uploads, banners  newaigent/<tenantId>/...              
 Google Calendar         OAuth + events on the PRIMARY calendar; token refresh policy in lib/oauth-refresh.ts   lib/google-calendar.ts, lib/connected-apps.ts
 Microsoft Graph         Outlook events (Calendars.ReadWrite)                        lib/microsoft-calendar.ts
 Meta Graph (FB/IG)      campaigns publishing via n8n                                api/apps/oauth/facebook
-Evolution API           WhatsApp send/receive, QR                                   lib/whatsapp.ts, lib/whatsapp-qr.ts
+Evolution API           WhatsApp send/receive, QR                                   lib/messaging/evolution-adapter.ts (the only client), lib/whatsapp.ts, lib/whatsapp-qr.ts, lib/whatsapp-disconnect*.ts
 Google Places (new)     address search, server only GOOGLE_MAPS_API_KEY             api/places/*
 n8n                     bot agent, reminders cron, social campaigns (calls /api/internal)
 n8n REST API            N8N_API_URL (/api/v1) + N8N_API_KEY; read-only, only the /n8n command uses it (.claude/commands/n8n.md)
