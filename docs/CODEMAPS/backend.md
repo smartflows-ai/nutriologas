@@ -76,7 +76,7 @@ lib/patients.ts 165 (listPatients, getPatientTimeline, getKnownPatient)   lib/pa
 lib/whatsapp.ts 118          lib/tenant.ts 75   lib/reminders.ts 63   lib/reminder-actions.ts 72
 lib/reminder-run.ts 172       lib/reminder-data.ts 91   lib/reminder-state.ts 59   lib/reminder-badge.ts 21
 lib/reminder-messages.ts 122  lib/oauth-refresh.ts 58
-Team and access: staff-users.ts, staff-users-data.ts, team-api.ts, user-limits.ts, temp-password.ts, account-state.ts, account-state-data.ts, password-change(-data).ts, password-hash.ts, sign-in-check.ts, permission-guard.ts (requireCrmSession)
+Team and access: tenant-host-guard.ts (+ -data), staff-users.ts, staff-users-data.ts, team-api.ts, user-limits.ts, temp-password.ts, account-state.ts, account-state-data.ts, password-change(-data).ts, password-hash.ts, sign-in-check.ts, permission-guard.ts (requireCrmSession)
 Also: patient-key, phone, location, pets, clinic-time, greeting, confirmation-words, rate-limit, trial, stripe, conekta, cloudinary
 ```
 

@@ -19,12 +19,21 @@ export type PermissionResult =
   | { readonly ok: true; readonly session: Session; readonly tenantId: string; readonly role: string }
   | { readonly ok: false; readonly response: NextResponse };
 
-// For API handlers: 401 without a session, 403 without the permission.
+// A session of another business arrives with no `user`, like a signed-out one. It is told apart (403, not 401)
+// so the screen does not ask the person to sign in again: they are signed in, just on the wrong business.
+// The extra read only happens on the failure path (ticket #146).
+async function unauthorizedStatus(session: Session | null): Promise<401 | 403> {
+  if (session?.user) return 401;
+  const access = await getSessionAccess();
+  return access.kind === "other_business" ? 403 : 401;
+}
+
+// For API handlers: 401 without a session, 403 without the permission or on another business's host.
 export async function requirePermission(permission: Permission): Promise<PermissionResult> {
   const session = await getServerSession(authOptions);
   const status = permissionStatus(session, permission);
   if (status !== null || !session) {
-    const code = status ?? 401;
+    const code = status ?? (await unauthorizedStatus(session));
     return { ok: false, response: apiError(ERROR_BY_STATUS[code], code) };
   }
   return { ok: true, session, tenantId: session.user.tenantId, role: session.user.role };
@@ -36,6 +45,9 @@ export async function requirePermission(permission: Permission): Promise<Permiss
 export async function requireCrmSession(): Promise<AppSession> {
   const access = await getSessionAccess();
   if (access.kind === "password_change") redirect(CHANGE_PASSWORD_PATH);
+  // The person is signed in, but to another business: take them there (always a host that passes the rule, so
+  // no loop). If that address cannot be computed, login is the safe place.
+  if (access.kind === "other_business") redirect(access.homeUrl ? `${access.homeUrl}${ADMIN_ENTRY}` : LOGIN_PATH);
   if (access.kind !== "active" || !isCrmRole(access.session.user.role)) redirect(LOGIN_PATH);
   return access.session;
 }

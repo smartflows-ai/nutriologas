@@ -3,7 +3,7 @@
 > Movido desde `CLAUDE.md` el 2026-11-20 para que no se cargue en cada mensaje. No lo lee Claude por sí solo: ábrelo cuando la tarea toque pendientes, producción o QA.
 
 
-### Pending after the WhatsApp disconnect in two steps (2026-11-24, branch `fix/whatsapp-disconnect-diagnostics`, not committed)
+### Pending after the WhatsApp disconnect in two steps (2026-11-24, branch `fix/whatsapp-disconnect-diagnostics`)
 
 - Finish `doctorgcenter`: its instance is `close` in Evolution and its row is still in the database. Press disconnect again on `/admin/apps` without leaving the screen; it deletes a production instance, so it needs explicit approval.
 - Background sweep (option B): finishes disconnects that the owner left half-way. Needs an approved scheduler (n8n workflow or Vercel cron) and a deploy.
@@ -12,6 +12,11 @@
 - Check that the QR screen and `tenant-context` (read by the bot) do not overwrite or misread `waStatus = disconnecting`.
 - Commit and merge: the changes are not committed; `origin/main` has PR #183 that the branch does not have. Re-run `/ecc:code-review` before committing.
 - Deploy needs approval; the local `.env.local` pointing to the demo is kept outside the repo (restore it to go back to the demo).
+### Pending after the #146 fix (2026-11-24, branch `fix/146-tenant-host-guard`, not committed)
+
+- Session vs host guard done in code and tests; **not in production**. After the deploy the owner runs `docs/qa/146-sesion-vs-host.md` with newy (write) and doctorgcenter (read only).
+- Cost: one primary-key read of the session's business per session read on a business host (none on the root domain or localhost).
+- Open: one session per browser (option B, separate ticket); blind cross-subdomain POSTs; a locked session (`{expires}`) still reads as signed in for the browser client (not part of #146).
 
 ### Pending after the WhatsApp disconnect fix (2026-11-24, branch `fix/whatsapp-disconnect-evolution`, not committed)
 

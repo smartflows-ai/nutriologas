@@ -9,6 +9,8 @@ import { comparePassword } from "@/lib/password-hash";
 import { passwordMatches } from "@/lib/sign-in-check";
 import { googleSignInAllowed, INITIAL_SESSION_VERSION, sessionForAccess, type AccessKind } from "@/lib/account-state";
 import { readAccountAccess } from "@/lib/account-state-data";
+import { accessWithHost } from "@/lib/tenant-host-guard";
+import { checkRequestHost } from "@/lib/tenant-host-guard-data";
 
 // Cookie domain for subdomain sharing.
 // In dev: ".localhost" so doctor.localhost:3000 shares cookies with localhost:3000
@@ -208,7 +210,10 @@ export const authOptions: NextAuthOptions = {
       if (token.id && token.tenantId) {
         const tokenVersion = typeof token.sessionVersion === "number" ? token.sessionVersion : undefined;
         const access = await readAccountAccess(token.tenantId, token.id, tokenVersion);
-        token.access = access.kind;
+        // The cookie is shared by every subdomain (ticket #146): a session is only valid on its own business's
+        // host. Recomputed on every request, like the account check. Every route guard then sees no `user`.
+        const host = access.kind === "none" ? "neutral" : (await checkRequestHost(token.tenantId)).kind;
+        token.access = accessWithHost(access.kind, host);
         if (access.kind === "active") token.role = access.role as typeof token.role;
       }
 
