@@ -57,6 +57,13 @@ test("an account that owes a password change gets no user either, only the flag 
   assert.equal("user" in locked, false);
 });
 
+test("a session opened on another business's host is an empty session: no user, and the browser sees no sign-in", () => {
+  const locked = sessionForAccess(SESSION, "other_business");
+
+  assert.deepEqual(locked, {});
+  assert.equal("user" in locked, false);
+});
+
 test("a token with no access decision is treated as no access", () => {
   assert.deepEqual(sessionForAccess(SESSION, undefined), { expires: SESSION.expires });
 });

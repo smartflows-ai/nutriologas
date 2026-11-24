@@ -36,7 +36,9 @@ export function resolveAccountAccess(
   return { kind: "active", role: state.role };
 }
 
-export type AccessKind = AccountAccess["kind"];
+// "other_business" is not about the account but about the host (ticket #146): the cookie is shared by every
+// subdomain, so a valid session can arrive on the URL of a business that is not its own.
+export type AccessKind = AccountAccess["kind"] | "other_business";
 
 // Where a user with a temporary password is sent, and the only page that user may open.
 export const CHANGE_PASSWORD_PATH = "/cambiar-contrasena";
@@ -50,8 +52,14 @@ export interface LockedSession {
 // `!session?.user`, so they all answer 401. Leaving `user` with empty fields instead would be dangerous: Prisma
 // ignores a filter whose value is undefined, and a route would read every business's rows.
 // A token with no decision yet (`undefined`) is treated as no access.
-export function sessionForAccess<S extends { readonly expires: string }>(session: S, kind: AccessKind | undefined): S | LockedSession {
+// On another business's host the session is EMPTY (`{}`, not `{ expires }`): the browser client reads an empty
+// object as "not signed in", so that store shows the sign-in prompt instead of a half signed-in header.
+export function sessionForAccess<S extends { readonly expires: string }>(
+  session: S,
+  kind: AccessKind | undefined
+): S | LockedSession | Record<string, never> {
   if (kind === "active") return session;
+  if (kind === "other_business") return {};
   if (kind === "password_change") return { expires: session.expires, mustChangePassword: true };
   return { expires: session.expires };
 }

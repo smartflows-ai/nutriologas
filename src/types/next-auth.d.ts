@@ -17,7 +17,7 @@ declare module "next-auth" {
     role: UserRole;
     tenantId: string;
     // Recomputed from the database on every request; never trusted from the cookie.
-    access?: "none" | "password_change" | "active";
+    access?: "none" | "password_change" | "active" | "other_business";
     // The account's session version at sign-in. Missing in tokens issued before versions existed (counts as 0).
     sessionVersion?: number;
   }

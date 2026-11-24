@@ -3,6 +3,12 @@
 > Movido desde `CLAUDE.md` el 2026-11-20 para que no se cargue en cada mensaje. No lo lee Claude por sí solo: ábrelo cuando la tarea toque pendientes, producción o QA.
 
 
+### Pending after the #146 fix (2026-11-24, branch `fix/146-tenant-host-guard`, not committed)
+
+- Session vs host guard done in code and tests; **not in production**. After the deploy the owner runs `docs/qa/146-sesion-vs-host.md` with newy (write) and doctorgcenter (read only).
+- Cost: one primary-key read of the session's business per session read on a business host (none on the root domain or localhost).
+- Open: one session per browser (option B, separate ticket); blind cross-subdomain POSTs; a locked session (`{expires}`) still reads as signed in for the browser client (not part of #146).
+
 ### Pending after the WhatsApp disconnect fix (2026-11-24, branch `fix/whatsapp-disconnect-evolution`, not committed)
 
 - Disconnecting WhatsApp now deletes the Evolution instance before the app row (`src/lib/whatsapp-disconnect-service.ts`). Not yet verified against a real instance: the logout/delete endpoints and the key each uses come from third-party docs (the official Evolution v2 pages returned 404 on 2026-11-24).
