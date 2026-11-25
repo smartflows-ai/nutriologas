@@ -2,7 +2,8 @@
 import { NextAuthOptions } from "next-auth";
 import { headers } from "next/headers";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
-import GoogleProvider from "next-auth/providers/google";
+// Google sign-in is switched off (ticket #151); commented out, not deleted. Restore the import and the provider below.
+// import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@/lib/db";
 import { comparePassword } from "@/lib/password-hash";
@@ -103,10 +104,11 @@ export const authOptions: NextAuthOptions = {
   },
   session: { strategy: "jwt" },
   providers: [
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID ?? "",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
-    }),
+    // Switched off (ticket #151): without it /api/auth/signin/google does not exist.
+    // GoogleProvider({
+    //   clientId: process.env.GOOGLE_CLIENT_ID ?? "",
+    //   clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
+    // }),
     CredentialsProvider({
       name: "credentials",
       credentials: {

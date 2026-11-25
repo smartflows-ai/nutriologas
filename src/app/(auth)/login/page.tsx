@@ -11,8 +11,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslation } from "@/i18n";
 import { homeAfterSignIn } from "@/lib/home-after-sign-in";
 
-// Google sign-in is hidden for now. Set to true to show the button again (the NextAuth provider stays configured).
-const GOOGLE_LOGIN_ENABLED = false;
+// Google sign-in is switched off (ticket #151): the button below and the NextAuth provider in src/lib/auth.ts are
+// commented out, not deleted. To turn it back on, restore both (and this flag).
+// const GOOGLE_LOGIN_ENABLED = false;
 // Sign-up link is hidden for now. Set to true to show it again.
 const REGISTER_LINK_ENABLED = false;
 
@@ -46,6 +47,7 @@ export default function LoginPage() {
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2 text-center">{t.auth.loginTitle}</h1>
         <p className="text-gray-500 text-sm text-center mb-6">{t.auth.loginSubtitle}</p>
 
+        {/* Google sign-in, switched off (ticket #151). Restore with the provider in src/lib/auth.ts.
         {GOOGLE_LOGIN_ENABLED && (
         <>
         <button
@@ -62,6 +64,7 @@ export default function LoginPage() {
         </div>
         </>
         )}
+        */}
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div>
