@@ -5,6 +5,12 @@
 
 ---
 
+## 2026-11-24 — Claude — Google sign-in commented out while #151 is open
+
+Decision: comment out (not delete) the NextAuth Google provider and the buttons of `/login` and `/registro`. With no provider, `/api/auth/signin/google` does not start a sign-in. Reason: #151 can save a new Google customer in an arbitrary business; the login button was already hidden but `/registro` still showed one and the route was reachable by URL. Owners and staff sign in with email and password, and the Google Calendar connection is a separate flow, so nobody on the panel is affected. Rejected: deleting the code (needed again once #151 is fixed); a flag only in the UI (leaves the route open).
+
+---
+
 ## 2026-11-24 — Claude — #146: the host decides which business a session may open (option A, door guard)
 
 Decision: one shared cookie stays; the rule is applied where the session is read, not route by route. `other_business` is an access kind next to `none` and `password_change`: the NextAuth `jwt` callback and `getSessionAccess` compute it, and the session reaches routes and pages empty (`{}`). Reason: 44 routes read `getServerSession` directly and new ones appear; one point covers all of them and fails closed. `/admin` redirects to the session business's subdomain, never its custom domain (the cookie is not sent there, so it would loop through login). Rejected: an `/admin`-only check (leaves the API and customer pages open); one session per subdomain (option B, breaks Google sign-in without a root relay). Lesson: the Host header only decides which business the screen belongs to; the data is always the session's own, so this prevents confusion, it is not a defence against an attacker.

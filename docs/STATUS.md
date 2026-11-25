@@ -2,6 +2,11 @@
 
 > Movido desde `CLAUDE.md` el 2026-11-20 para que no se cargue en cada mensaje. No lo lee Claude por sí solo: ábrelo cuando la tarea toque pendientes, producción o QA.
 
+### Pending after switching off Google sign-in (2026-11-24, branch `fix/disable-google-signin`, not committed)
+
+- Google sign-in (`/login`, `/registro`, NextAuth provider) is commented out until #151 is fixed. Closes the entry point; does not fix #151.
+- #151 still open: read-only query of users with a Google account and their business (to know if any customer already landed in the wrong one). Fix before turning Google back on: business from the host, existing users searched inside that business only.
+- Customers who signed up with Google before cannot sign in now unless they use `/recuperar` to set a password (to verify with a real case).
 
 ### Pending after the WhatsApp disconnect in two steps (2026-11-24, branch `fix/whatsapp-disconnect-diagnostics`)
 
@@ -54,15 +59,9 @@
 - **UI checks still to do in a browser**: the opt-out band in a chat, the quiet-hours error in the card and the agenda spinner, with a light and a dark tenant color, dark mode and phone width. `local-utils/minimal-ui/` is not present on this machine, so its audits were not run.
 - **Privacy text**: the business notice says that a patient can stop messages by replying BAJA or STOP. It does not say that messages require consent, because in SHADOW mode they do not yet.
 
-
-
-
 ## Schema changes applied (history)
 
-
 Done so far: `prisma/sql/29-tenant-time-zone/` (`tenants.timeZone`, `tenants.timeZoneSource`, ticket #111): additive with defaults, tested on the local mirror (diff before, after `up.sql`, after `down.sql`; existing tenant rows unchanged), **applied to production** (confirmed read-only on 2026-11-18: both columns exist). `resolveBotTenant`, the reminders, the booking routes and both layouts select `timeZone`. `prisma/sql/28-help-requests/` (help state on `whatsapp_chats`, including `helpAssignedAt`, `users.whatsappNumber`, `tenants.helpEscalationMinutes`): additive; tested up, down and up again on the local throwaway database (an existing chat keeps the bot on and priority 0); **Applied to production on 2026-11-18** after a verified `pg_dump` backup (kept outside the repo) and an approval: the chats list, the sync route, `contact-status` and the reminders job read these columns, and they are in place. Done so far: `prisma/sql/27-appointment-soft-delete/` (`appointments.deletedAt`, `appointments.deletedById`, table `appointment_trail`, ticket #103): additive, tested on the local mirror (diff before, after `up.sql`, after `down.sql`; `down.sql` refuses while any visit is deleted or any trail row exists), **applied to production** (confirmed read-only on 2026-11-18: both columns and `appointment_trail` exist). Every appointment query filters `deletedAt`. `prisma/sql/23-user-access/` (`users.isActive`, `users.mustChangePassword` and `users.sessionVersion`, ticket #22): additive, tested on the local mirror (diff before, after `up.sql`, after `down.sql`; existing rows unchanged), **applied to production** (confirmed read-only on 2026-11-18: the three columns exist). Every session read selects these columns. `prisma/sql/19-staff-role/` (`STAFF` value in `UserRole`, ticket #21): **applied to production** (confirmed read-only on 2026-11-18: the enum has `STAFF`). The password reset lookup sends `'STAFF'` to the database. Its `down.sql` refuses to run while a STAFF user exists. `prisma/sql/22-referred-by/` (`referredByKey`, `referredByName` and an index on appointments), applied to the real database on 2026-11-06 after a verified `pg_dump` backup; additive. `prisma/sql/21-patient-intake/` (age, modality and meeting link on appointments, `Tenant.serviceModes`), applied to the real database on 2026-11-06 after a verified `pg_dump` backup (kept outside the repo); verified types, defaults and that the 32 existing appointments did not change. The throwaway-database `migrate diff` check was not run (no test database). The code that reads it is not deployed yet. `prisma/sql/16-reminder-attempts/` (ticket #16). `prisma/sql/17-plan-plus/` (PLUS value in `PlanId`), applied to production on 2026-11-05 after a verified backup; the code that uses it shipped with PR #49. There is no separate test database yet: local development uses the real one, so treat every local write as a production write.
-
-
 
 ## Known Issues / Pending
 

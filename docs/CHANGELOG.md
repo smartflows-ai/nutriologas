@@ -4,6 +4,16 @@ All notable changes to Presto AI are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased] — Google sign-in switched off (branch `fix/disable-google-signin`)
+
+### Changed
+- Google sign-in is commented out, not deleted: the `GoogleProvider` in `src/lib/auth.ts`, the button of `/login` (it was already hidden by `GOOGLE_LOGIN_ENABLED = false`) and the button of `/registro` (it was always shown). `/api/auth/providers` lists only `credentials`, and `/api/auth/signin/google` no longer starts anything (it goes back to `/login`). Reason: ticket #151 (a new customer who signs in with Google could be saved in a business other than the store they came from) is not confirmed, so the entry point is closed until it is fixed.
+- Not touched: email and password sign-in and sign-up, and the Google Calendar and Facebook connection of the owner (`api/apps/oauth/*`, a different flow). The `signIn` callback branch and the adapter stay as they are (dead code while the provider is off).
+- To turn it back on: restore the import and the provider in `src/lib/auth.ts` and the two buttons. Fix #151 first.
+
+### Tests
+- `tests/google-signin-disabled.test.ts` (no active provider, no button, credentials intact, Calendar flow intact).
+
 ## [Unreleased] — WhatsApp disconnect in two steps (branch `fix/whatsapp-disconnect-diagnostics`)
 
 ### Changed
