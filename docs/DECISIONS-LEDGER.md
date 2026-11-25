@@ -7,7 +7,7 @@
 
 ## 2026-11-24 — Claude — Google sign-in commented out while #151 is open
 
-Decision: comment out (not delete) the NextAuth Google provider and the buttons of `/login` and `/registro`. With no provider, `/api/auth/signin/google` does not start a sign-in. Reason: #151 can save a new Google customer in an arbitrary business; the login button was already hidden but `/registro` still showed one and the route was reachable by URL. Owners and staff sign in with email and password, and the Google Calendar connection is a separate flow, so nobody on the panel is affected. Rejected: deleting the code (needed again once #151 is fixed); a flag only in the UI (leaves the route open).
+Decision: comment out (not delete) the NextAuth Google provider and the buttons of `/login` and `/registro`. The owner then closed customer sign-up as well: `/registro` and `POST /api/auth/register` answer 404 (code kept in `SignupForm.tsx` and as a comment), because hiding only the page would leave account creation open by a direct POST. Known consequence: a new customer cannot create an account on the web. With no provider, `/api/auth/signin/google` does not start a sign-in. Reason: #151 can save a new Google customer in an arbitrary business; the login button was already hidden but `/registro` still showed one and the route was reachable by URL. Owners and staff sign in with email and password, and the Google Calendar connection is a separate flow, so nobody on the panel is affected. Rejected: deleting the code (needed again once #151 is fixed); a flag only in the UI (leaves the route open).
 
 ---
 

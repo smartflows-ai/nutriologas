@@ -226,6 +226,69 @@ test("Booking Claim does not mark 'ya quedó claro', 'ya quedó ocupado' or a ta
   for (const reply of replies) assert.equal(run({ output: reply }, { book_appointment: failed })[0].json.claimUnbacked, false, reply);
 });
 
+test("Booking Claim marks the way a bot or a patient in Mexico says it (te aparté, te la dejé, ya quedaste, se registró)", () => {
+  const run = guard();
+  const replies = [
+    "Listo, te agendé el martes a las 5.",
+    "Ya te aparté el lunes a las 10.",
+    "Te registré para el jueves.",
+    "Ya te anoté el viernes.",
+    "Te confirmé tu cita del sábado.",
+    "Te reagendé para el miércoles.",
+    "Listo, te la dejé para el lunes.",
+    "Te la dejé a las 12.",
+    "Ya te dejé agendada la cita.",
+    "Ya te tengo agendada para el martes.",
+    "Ya te tengo apartada tu cita.",
+    "Ya quedaste agendado para el lunes.",
+    "Ya quedaste para el viernes a las 4.",
+    "Ya quedamos para el lunes.",
+    "Ya quedó tu cita.",
+    "Tu cita ya quedó.",
+    "Tu cita ya quedó para las 5.",
+    "Se registró tu cita para el lunes.",
+    "Se agendó tu cita.",
+    "Ya estás agendada para el lunes.",
+    "Tu cita quedó apartada.",
+    "Quedó registrada tu cita.",
+    "Ya quedó apartada.",
+    "Hemos registrado tu cita.",
+    "Ya he apartado tu lugar para la consulta del lunes.",
+  ];
+  for (const reply of replies) {
+    const out = run({ output: reply }, { book_appointment: failed })[0].json;
+    assert.equal(out.claimUnbacked, true, reply);
+    assert.equal(out.output, reply, "the reply is never changed");
+  }
+});
+
+test("Booking Claim: the Mexican forms are backed when a tool succeeded", () => {
+  const run = guard();
+  for (const reply of ["Listo, te aparté el lunes a las 10.", "Ya quedaste agendado para el lunes.", "Se registró tu cita para el lunes."]) {
+    assert.equal(run({ output: reply }, { book_appointment: ok })[0].json.claimUnbacked, false, reply);
+  }
+});
+
+test("Booking Claim does not mark Mexican offers, questions, conditions or denials", () => {
+  const run = guard();
+  const replies = [
+    "¿Te la aparto a las 12?",
+    "Te la dejo a las 12 si te late.",
+    "Para que quede agendada necesito tu nombre completo.",
+    "Todavía no te he agendado nada.",
+    "No te agendé porque ese horario está ocupado.",
+    "Aún no te aparté nada, ¿qué día te late?",
+    "No se registró tu cita, ese horario está ocupado.",
+    "¿Quieres que te anote el lunes?",
+    "Ya quedaste de venir el lunes, ¿verdad?",
+    "Tu cita ya quedó cancelada.",
+    "El horario de las 5 se registró como ocupado.",
+    "Si te late, te registro el jueves.",
+    "Ya quedó claro, gracias.",
+  ];
+  for (const reply of replies) assert.equal(run({ output: reply }, { book_appointment: failed })[0].json.claimUnbacked, false, reply);
+});
+
 test("Booking Claim: a denial does not hide a claim that comes later in the same reply", () => {
   const run = guard();
   assert.equal(run({ output: "No pude agendar el lunes. Pero tu cita ha sido agendada para el martes." }, {})[0].json.claimUnbacked, true);
