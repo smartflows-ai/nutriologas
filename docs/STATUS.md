@@ -6,6 +6,8 @@
 
 - Google sign-in (`/login`, `/registro`, NextAuth provider) is commented out until #151 is fixed. Closes the entry point; does not fix #151.
 - #151 still open: read-only query of users with a Google account and their business (to know if any customer already landed in the wrong one). Fix before turning Google back on: business from the host, existing users searched inside that business only.
+- Customer sign-up is closed (`/registro` 404, `POST /api/auth/register` 404, login link commented out). Open question for the owner: a visitor without a session who reaches `/carrito`, `/checkout`, `/mis-citas` or `/mis-pedidos` lands on `/login` with no way to create an account.
+- Other paths that still create CUSTOMER users (not changed): `POST /api/appointments` (web booking, guest), `internal/bot/book` (WhatsApp, guest), `internal/triage` (guest), `src/lib/panel-appointments.ts` (panel agenda, guest) and the Google adapter in `auth.ts` (provider off). Guest accounts use a placeholder email and have no password, so they cannot sign in.
 - Customers who signed up with Google before cannot sign in now unless they use `/recuperar` to set a password (to verify with a real case).
 
 ### Pending after the WhatsApp disconnect in two steps (2026-11-24, branch `fix/whatsapp-disconnect-diagnostics`)

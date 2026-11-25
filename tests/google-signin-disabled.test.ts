@@ -29,8 +29,8 @@ test("the login page has no Google button", () => {
   assert.doesNotMatch(login, /continueGoogle/);
 });
 
-test("the signup page has no Google button", () => {
-  const signup = activeCode("src/app/(auth)/registro/page.tsx");
+test("the signup form (kept, not routed) has no Google button", () => {
+  const signup = activeCode("src/app/(auth)/registro/SignupForm.tsx");
   assert.doesNotMatch(signup, /signIn\(\s*["']google["']/);
   assert.doesNotMatch(signup, /continueGoogle/);
 });
@@ -38,7 +38,6 @@ test("the signup page has no Google button", () => {
 test("email and password sign-in is still there", () => {
   assert.match(activeCode("src/lib/auth.ts"), /CredentialsProvider\(/);
   assert.match(activeCode("src/app/(auth)/login/page.tsx"), /signIn\(\s*["']credentials["']/);
-  assert.match(activeCode("src/app/(auth)/registro/page.tsx"), /signIn\(\s*["']credentials["']/);
 });
 
 test("the Google Calendar connection is a different flow and is not touched", () => {

@@ -1,4 +1,13 @@
 // src/app/api/auth/register/route.ts
+// Customer sign-up is switched off (ticket #151): this route creates no user and answers 404, so an account
+// cannot be made by a direct POST either. The original handler is kept below as a comment.
+// To turn sign-up back on, restore it (and its imports), the /registro page and the login link. Fix #151 first.
+export async function POST() {
+  return new Response(null, { status: 404 });
+}
+
+/*
+// src/app/api/auth/register/route.ts
 import { prisma } from "@/lib/db";
 import { NextRequest } from "next/server";
 import bcrypt from "bcryptjs";
@@ -47,3 +56,4 @@ export async function POST(req: NextRequest) {
 
   return Response.json({ id: user.id, email: user.email }, { status: 201 });
 }
+*/
