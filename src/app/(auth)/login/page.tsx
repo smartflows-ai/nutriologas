@@ -14,8 +14,8 @@ import { homeAfterSignIn } from "@/lib/home-after-sign-in";
 // Google sign-in is switched off (ticket #151): the button below and the NextAuth provider in src/lib/auth.ts are
 // commented out, not deleted. To turn it back on, restore both (and this flag).
 // const GOOGLE_LOGIN_ENABLED = false;
-// Sign-up link is hidden for now. Set to true to show it again.
-const REGISTER_LINK_ENABLED = false;
+// Sign-up is closed (ticket #151): /registro answers 404, so the link below is commented out, not deleted.
+// const REGISTER_LINK_ENABLED = false;
 
 export default function LoginPage() {
   const { t } = useTranslation();
@@ -89,11 +89,13 @@ export default function LoginPage() {
           </button>
         </form>
 
+        {/* Sign-up link, closed (ticket #151). Restore with the /registro page.
         {REGISTER_LINK_ENABLED && (
           <p className="text-center text-sm text-gray-500 mt-4">
             {t.auth.noAccount} <Link href={`/registro${callbackUrl !== "/admin/dashboard" ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ""}`} className="text-primary hover:underline">{t.auth.register}</Link>
           </p>
         )}
+        */}
       </div>
     </div>
   );

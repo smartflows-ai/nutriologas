@@ -280,7 +280,8 @@ test("the /admin entry, login and signup send each role to its home", () => {
   assert.match(readRoot("src/app/admin/page.tsx"), /staffHomePath/);
   assert.match(readRoot("src/lib/home-after-sign-in.ts"), /roleHomePath/);
   assert.match(readRoot("src/app/(auth)/login/page.tsx"), /homeAfterSignIn\(\)/);
-  assert.match(readRoot("src/app/(auth)/registro/page.tsx"), /homeAfterSignIn\(\)/);
+  // /registro is closed (ticket #151); its form is kept in SignupForm.tsx and must still use the shared home.
+  assert.match(readRoot("src/app/(auth)/registro/SignupForm.tsx"), /homeAfterSignIn\(\)/);
 });
 
 // ── Phase 5: menu and controls by role ──────────────────────────────────────

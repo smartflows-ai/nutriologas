@@ -16,7 +16,7 @@ paths:
 
 - **Legal routes**: `/terminos` (Terms of Service) and `/privacidad` (Privacy Policy) available on the public storefront and the root domain.
 - **Component**: `src/components/legal/LegalPageLayout.tsx` handles the responsive layout, branding and multilingual support.
-- **Mandatory consent**: In `/registro` and in the onboarding modal (`OnboardingModal.tsx`), the user must tick the checkbox accepting the Terms and Privacy Policy before the account creation button is enabled.
+- **Mandatory consent** (`/registro` is closed since #151 and answers 404; the form is kept in `SignupForm.tsx`): In `/registro` and in the onboarding modal (`OnboardingModal.tsx`), the user must tick the checkbox accepting the Terms and Privacy Policy before the account creation button is enabled.
 - **Legal texts**: `src/components/legal/legalContent.ts` (Spanish and English; platform and each business). The business version receives its public data (`LegalSubject`: name, owner, address if there is a physical location, WhatsApp, and whether it handles health data). Do not put prices, plan limits or absolute guarantees in the text; point to the pricing page. Who operates NewAigent (legal name, address, privacy e-mail, retention period, jurisdiction) lives in `src/lib/legal-entity.ts` and is **empty**: an empty field is left out of the text. Fill it in and ask a lawyer to review before publishing. Check: `npx tsx local-utils/check-legal-content.ts`.
 - **Notice when capturing data**: the booking flow (`BookingFlow`) asks for a checkbox with a link to `/privacidad` (and consent for health data at health businesses). The bot introduction includes the link to the notice.
 

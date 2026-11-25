@@ -8,11 +8,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 - Google sign-in is commented out, not deleted: the `GoogleProvider` in `src/lib/auth.ts`, the button of `/login` (it was already hidden by `GOOGLE_LOGIN_ENABLED = false`) and the button of `/registro` (it was always shown). `/api/auth/providers` lists only `credentials`, and `/api/auth/signin/google` no longer starts anything (it goes back to `/login`). Reason: ticket #151 (a new customer who signs in with Google could be saved in a business other than the store they came from) is not confirmed, so the entry point is closed until it is fixed.
-- Not touched: email and password sign-in and sign-up, and the Google Calendar and Facebook connection of the owner (`api/apps/oauth/*`, a different flow). The `signIn` callback branch and the adapter stay as they are (dead code while the provider is off).
+- Customer sign-up is closed too: `/registro` answers a real 404 (there is no `page.tsx`; the original form is kept in `src/app/(auth)/registro/SignupForm.tsx`, rendered by no route. A page that only called `notFound()` answered 200, because `(auth)/layout.tsx` wraps pages in `Suspense`) and `POST /api/auth/register` answers 404 and creates no user (the original handler is a comment in the same file), so an account cannot be made by a direct POST. The "¿No tienes cuenta? Regístrate" link of `/login` is commented out (it was already hidden by `REGISTER_LINK_ENABLED = false`). Consequence decided by the owner: a new customer cannot create an account on the web, so cannot pay the cart or open "Mis citas" and "Mis pedidos"; `/carrito`, `/checkout`, `/mis-citas` and `/mis-pedidos` send a visitor without a session to `/login`, which now has no way to sign up (open question, not decided here).
+- Not touched: email and password sign-in, and the Google Calendar and Facebook connection of the owner (`api/apps/oauth/*`, a different flow). The `signIn` callback branch and the adapter stay as they are (dead code while the provider is off).
 - To turn it back on: restore the import and the provider in `src/lib/auth.ts` and the two buttons. Fix #151 first.
 
 ### Tests
-- `tests/google-signin-disabled.test.ts` (no active provider, no button, credentials intact, Calendar flow intact).
+- `tests/google-signin-disabled.test.ts` (no active provider, no button, credentials intact, Calendar flow intact) and `tests/signup-disabled.test.ts` (page 404, API 404 with no user created, no active link to `/registro`, nothing else calls the register API, login, `/recuperar` and business sign-up intact).
 
 ## [Unreleased] — WhatsApp disconnect in two steps (branch `fix/whatsapp-disconnect-diagnostics`)
 

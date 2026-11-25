@@ -1,5 +1,10 @@
 "use client";
-// src/app/(auth)/registro/page.tsx
+// src/app/(auth)/registro/SignupForm.tsx
+// Customer sign-up is switched off (ticket #151): there is no page.tsx in this folder, so /registro is a real
+// 404, and POST /api/auth/register creates nothing. This is the original page, kept as a component that no route
+// renders. To turn sign-up back on: rename it to page.tsx (and the function back to RegistroPage), restore the
+// API handler and the login link. Fix #151 first. (A page that only called notFound() answered 200, because
+// (auth)/layout.tsx wraps the page in Suspense.)
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { registerSchema, type RegisterInput } from "@/lib/validations";
@@ -11,7 +16,7 @@ import { signIn } from "next-auth/react";
 import { useTranslation } from "@/i18n";
 import { homeAfterSignIn } from "@/lib/home-after-sign-in";
 
-export default function RegistroPage() {
+export default function SignupForm() {
   const { t } = useTranslation();
   const router = useRouter();
   const searchParams = useSearchParams();
