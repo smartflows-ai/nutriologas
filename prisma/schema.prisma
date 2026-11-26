@@ -323,12 +323,14 @@ enum WhatsAppMediaKind {
 }
 
 enum WhatsAppMediaStatus {
+  RECEIVED // noted by sync, not decided yet (needs the full message from the origin)
   PENDING // let in, download pending or retrying
   STORED // the copy exists
   TOO_LARGE // declared size over 16 MB: never downloaded
   SIZE_UNKNOWN // the message did not say its size: never downloaded
   CONTACT_LIMIT // 31st file of the contact that business day
-  TENANT_LIMIT // the business store would pass 2 GB
+  TENANT_LIMIT // the business store would pass 1 GB
+  PLATFORM_LIMIT // the whole platform would pass its limit (server setting, 1 GB by default)
   VIEW_ONCE // never downloaded
   FAILED // gave up after the last attempt
   DESTROYED // the copy was destroyed (30 days, or the chat was deleted)
@@ -351,7 +353,7 @@ model WhatsAppMedia {
   keyId              String // WhatsApp message id; one row per business and message (a retry adds nothing)
   fromMe             Boolean // true: sent by the business
   kind               WhatsAppMediaKind
-  status             WhatsAppMediaStatus  @default(PENDING)
+  status             WhatsAppMediaStatus  @default(RECEIVED)
   fileName           String?              @db.Text
   mimeType           String? // the type the app read from the file, never the one the sender declared
   sizeBytes          BigInt? // declared size before the download, real size after it

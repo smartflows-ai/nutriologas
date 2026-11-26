@@ -1,9 +1,11 @@
 -- 36-whatsapp-media (ticket #182): WhatsApp files the panel shows for 30 days, from the patient and from the business.
--- whatsapp_media keeps one row per file (kind, status, size, dates, who hid it); the copy lives in a private store
--- under <tenantId>/<id> and is destroyed on its 30th day or when its chat is deleted. The row stays, without the
--- person's data (caption and file name are cleared). whatsapp_media_trail keeps one row per hide or restore.
+-- whatsapp_media keeps one row per file (kind, status, size, dates, who hid it; RECEIVED until it is decided).
+-- The copy lives in a private store under <tenantId>/<id> and is destroyed on its 30th day or when its chat is
+-- deleted. The row stays, without the person's data (caption and file name are cleared). whatsapp_media_trail
+-- keeps one row per hide or restore.
 -- Additive only: three new enums, two new tables, indexes and foreign keys. No existing table or row changes, and
--- the old code never reads these tables, so apply BEFORE deploying the code (database first).
+-- the old code never reads these tables, so apply BEFORE deploying the code (database first). The new code reads
+-- them for every business (the chat messages list, deleting a chat), so it must not be merged before this runs.
 -- The first block is generated with `prisma migrate diff` from the schema of main to the schema of this change; do
 -- not edit it by hand. The last block (row level security) is written by hand: prisma migrate diff does not see it.
 -- Run in one transaction: psql -v ON_ERROR_STOP=1 -1 -f up.sql
@@ -11,7 +13,7 @@
 CREATE TYPE "WhatsAppMediaKind" AS ENUM ('IMAGE', 'AUDIO', 'VIDEO', 'DOCUMENT', 'STICKER');
 
 -- CreateEnum
-CREATE TYPE "WhatsAppMediaStatus" AS ENUM ('PENDING', 'STORED', 'TOO_LARGE', 'SIZE_UNKNOWN', 'CONTACT_LIMIT', 'TENANT_LIMIT', 'VIEW_ONCE', 'FAILED', 'DESTROYED');
+CREATE TYPE "WhatsAppMediaStatus" AS ENUM ('RECEIVED', 'PENDING', 'STORED', 'TOO_LARGE', 'SIZE_UNKNOWN', 'CONTACT_LIMIT', 'TENANT_LIMIT', 'PLATFORM_LIMIT', 'VIEW_ONCE', 'FAILED', 'DESTROYED');
 
 -- CreateEnum
 CREATE TYPE "WhatsAppMediaTrailAction" AS ENUM ('HIDDEN', 'RESTORED');
@@ -25,7 +27,7 @@ CREATE TABLE "whatsapp_media" (
     "keyId" TEXT NOT NULL,
     "fromMe" BOOLEAN NOT NULL,
     "kind" "WhatsAppMediaKind" NOT NULL,
-    "status" "WhatsAppMediaStatus" NOT NULL DEFAULT 'PENDING',
+    "status" "WhatsAppMediaStatus" NOT NULL DEFAULT 'RECEIVED',
     "fileName" TEXT,
     "mimeType" TEXT,
     "sizeBytes" BIGINT,

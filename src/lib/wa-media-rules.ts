@@ -11,8 +11,12 @@ import { unwrapWaMessage } from "@/lib/wa-message-content";
 export const MAX_MEDIA_BYTES = 16 * 1024 * 1024;
 /** R3: files received from one contact (one chat) per business day. */
 export const MAX_MEDIA_PER_CONTACT_PER_DAY = 30;
-/** R4: bytes a business may hold in its private store, hidden files included. */
-export const MAX_TENANT_MEDIA_BYTES = 2 * 1024 * 1024 * 1024;
+/** R4 [v4]: bytes a business may hold in its private store, hidden files included (it was 2 GB). */
+export const MAX_TENANT_MEDIA_BYTES = 1024 * 1024 * 1024;
+/** R4 [v4]: bytes the whole platform may hold, unless the server setting WA_MEDIA_PLATFORM_MAX_BYTES says more. */
+export const DEFAULT_PLATFORM_MEDIA_BYTES = 1024 * 1024 * 1024;
+/** Download attempts before a file is given up as FAILED. */
+export const MAX_MEDIA_ATTEMPTS = 5;
 /** R5: days a copy lives; nothing moves this date. */
 export const MEDIA_RETENTION_DAYS = 30;
 
@@ -24,12 +28,14 @@ const TWO_POW_32 = 2 ** 32;
 export type MediaKind = "IMAGE" | "AUDIO" | "VIDEO" | "DOCUMENT" | "STICKER";
 
 export type MediaStatus =
+  | "RECEIVED"
   | "PENDING"
   | "STORED"
   | "TOO_LARGE"
   | "SIZE_UNKNOWN"
   | "CONTACT_LIMIT"
   | "TENANT_LIMIT"
+  | "PLATFORM_LIMIT"
   | "VIEW_ONCE"
   | "FAILED"
   | "DESTROYED";
@@ -37,7 +43,7 @@ export type MediaStatus =
 /** What a new file gets on arrival: PENDING means "download it"; anything else is the reason it is not. */
 export type Admission = Extract<
   MediaStatus,
-  "PENDING" | "VIEW_ONCE" | "SIZE_UNKNOWN" | "TOO_LARGE" | "CONTACT_LIMIT" | "TENANT_LIMIT"
+  "PENDING" | "VIEW_ONCE" | "SIZE_UNKNOWN" | "TOO_LARGE" | "CONTACT_LIMIT" | "TENANT_LIMIT" | "PLATFORM_LIMIT"
 >;
 
 export type DisplayMode = "image" | "audio" | "video" | "pdf-tab" | "download";
@@ -132,9 +138,23 @@ export interface AdmissionInput {
   contactCountToday: number;
   /** Bytes the business holds now (tenantBytesInUse). */
   tenantBytesInUse: number;
+  /** Bytes every business holds now, and the platform limit (platformMaxBytesOf). */
+  platformBytesInUse: number;
+  platformMaxBytes: number;
 }
 
-/** R2 to R4 and R7, in this order: view once, unknown size, too large, contact limit, business limit. */
+/** The platform limit from the server setting: a positive whole number of bytes, else 1 GB. Never "no limit". */
+export function platformMaxBytesOf(raw: string | undefined): number {
+  const text = raw?.trim() ?? "";
+  if (!/^\d+$/.test(text)) return DEFAULT_PLATFORM_MEDIA_BYTES;
+  const value = Number(text);
+  return Number.isSafeInteger(value) && value > 0 ? value : DEFAULT_PLATFORM_MEDIA_BYTES;
+}
+
+/**
+ * R2 to R4 and R7, in this order: view once, unknown size, too large, contact limit, business limit, platform limit.
+ * The caller counts inside the same locked transaction that writes the verdict (wa-media-data.ts).
+ */
 export function admitMedia(input: AdmissionInput): Admission {
   if (input.viewOnce) return "VIEW_ONCE";
   const bytes = input.declaredBytes;
@@ -142,10 +162,11 @@ export function admitMedia(input: AdmissionInput): Admission {
   if (bytes > MAX_MEDIA_BYTES) return "TOO_LARGE";
   if (!input.fromMe && input.contactCountToday >= MAX_MEDIA_PER_CONTACT_PER_DAY) return "CONTACT_LIMIT";
   if (input.tenantBytesInUse + bytes > MAX_TENANT_MEDIA_BYTES) return "TENANT_LIMIT";
+  if (input.platformBytesInUse + bytes > input.platformMaxBytes) return "PLATFORM_LIMIT";
   return "PENDING";
 }
 
-/** R3 (owner, 2026-11-25): only files let in count; a file turned away for any reason does not. */
+/** R3 (owner, 2026-11-25): only files let in count; a file turned away, or not decided yet (RECEIVED), does not. */
 export const CONTACT_COUNTED_STATUSES: readonly MediaStatus[] = ["PENDING", "STORED", "FAILED", "DESTROYED"];
 
 export function countsTowardContactLimit(status: MediaStatus): boolean {

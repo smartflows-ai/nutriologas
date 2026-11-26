@@ -8,6 +8,9 @@ import {
   MAX_MEDIA_BYTES,
   MAX_MEDIA_PER_CONTACT_PER_DAY,
   MAX_TENANT_MEDIA_BYTES,
+  DEFAULT_PLATFORM_MEDIA_BYTES,
+  MAX_MEDIA_ATTEMPTS,
+  platformMaxBytesOf,
   MEDIA_RETENTION_DAYS,
   admitMedia,
   contactCountOn,
@@ -63,6 +66,8 @@ function admit(overrides: Partial<Parameters<typeof admitMedia>[0]> = {}) {
     fromMe: false,
     contactCountToday: 0,
     tenantBytesInUse: 0,
+    platformBytesInUse: 0,
+    platformMaxBytes: DEFAULT_PLATFORM_MEDIA_BYTES,
     ...overrides,
   });
 }
@@ -72,7 +77,10 @@ function admit(overrides: Partial<Parameters<typeof admitMedia>[0]> = {}) {
 test("the limits are the owner's decisions", () => {
   assert.equal(MAX_MEDIA_BYTES, 16 * 1024 * 1024);
   assert.equal(MAX_MEDIA_PER_CONTACT_PER_DAY, 30);
-  assert.equal(MAX_TENANT_MEDIA_BYTES, 2 * 1024 * 1024 * 1024);
+  // [v4] 1 GB per business (it was 2 GB), and 1 GB for the whole platform unless the server says otherwise.
+  assert.equal(MAX_TENANT_MEDIA_BYTES, 1024 * 1024 * 1024);
+  assert.equal(DEFAULT_PLATFORM_MEDIA_BYTES, 1024 * 1024 * 1024);
+  assert.equal(MAX_MEDIA_ATTEMPTS, 5);
   assert.equal(MEDIA_RETENTION_DAYS, 30);
 });
 
@@ -186,7 +194,7 @@ test("files the business sends do not count and are not capped by contact", () =
 
 test("only admitted files count: pending, stored, failed and destroyed, hidden included", () => {
   const counted: MediaStatus[] = ["PENDING", "STORED", "FAILED", "DESTROYED"];
-  const notCounted: MediaStatus[] = ["TOO_LARGE", "SIZE_UNKNOWN", "CONTACT_LIMIT", "TENANT_LIMIT", "VIEW_ONCE"];
+  const notCounted: MediaStatus[] = ["RECEIVED", "TOO_LARGE", "SIZE_UNKNOWN", "CONTACT_LIMIT", "TENANT_LIMIT", "PLATFORM_LIMIT", "VIEW_ONCE"];
   for (const status of counted) assert.equal(countsTowardContactLimit(status), true, status);
   for (const status of notCounted) assert.equal(countsTowardContactLimit(status), false, status);
   const hidden = [row({ hiddenAt: new Date("2026-12-01T19:00:00Z") })];
@@ -250,7 +258,7 @@ test("the day window is right on a day the clock changes", () => {
   assert.equal(end.toISOString(), "2026-03-29T22:00:00.000Z");
 });
 
-// ── R4: 2 GB stored per business ────────────────────────────────────────────
+// ── R4: 1 GB stored per business, 1 GB for the whole platform ───────────────
 
 test("bytes in use count stored and pending files, hidden ones included, destroyed ones not", () => {
   const rows = [
@@ -262,13 +270,41 @@ test("bytes in use count stored and pending files, hidden ones included, destroy
     row({ status: "FAILED", sizeBytes: 7_000 }),
   ];
   assert.equal(tenantBytesInUse(rows), 600);
+  // A row not yet decided holds no place: its size is not known to be true until it is let in.
+  assert.equal(tenantBytesInUse([row({ status: "RECEIVED", sizeBytes: 9_000 })]), 0);
 });
 
-test("a file that would pass 2 GB is not stored; one that fits exactly is", () => {
+test("a file that would pass 1 GB is not stored; one that fits exactly is", () => {
   assert.equal(admit({ tenantBytesInUse: MAX_TENANT_MEDIA_BYTES - 1_000, declaredBytes: 1_000 }), "PENDING");
   assert.equal(admit({ tenantBytesInUse: MAX_TENANT_MEDIA_BYTES - 999, declaredBytes: 1_000 }), "TENANT_LIMIT");
-  // The business's own files are capped by the 2 GB too.
+  // The business's own files are capped by the 1 GB too.
   assert.equal(admit({ fromMe: true, tenantBytesInUse: MAX_TENANT_MEDIA_BYTES, declaredBytes: 1 }), "TENANT_LIMIT");
+});
+
+test("the platform limit is its own status: the sum of every business cannot pass it either", () => {
+  const max = 10_000;
+  assert.equal(admit({ platformMaxBytes: max, platformBytesInUse: 9_000, declaredBytes: 1_000 }), "PENDING");
+  assert.equal(admit({ platformMaxBytes: max, platformBytesInUse: 9_001, declaredBytes: 1_000 }), "PLATFORM_LIMIT");
+  // The business limit is checked first: a business over its own 1 GB says so, not the platform.
+  assert.equal(
+    admit({ platformMaxBytes: max, platformBytesInUse: max, tenantBytesInUse: MAX_TENANT_MEDIA_BYTES, declaredBytes: 1 }),
+    "TENANT_LIMIT",
+  );
+  assert.equal(countsTowardContactLimit("PLATFORM_LIMIT"), false);
+});
+
+test("with one business on, the platform limit behaves the same as the business limit", () => {
+  const inUse = MAX_TENANT_MEDIA_BYTES - 500;
+  assert.equal(admit({ tenantBytesInUse: inUse, platformBytesInUse: inUse, declaredBytes: 500 }), "PENDING");
+  assert.equal(admit({ tenantBytesInUse: inUse, platformBytesInUse: inUse, declaredBytes: 501 }), "TENANT_LIMIT");
+});
+
+test("the platform limit comes from the server setting; missing or invalid is 1 GB, never unlimited", () => {
+  assert.equal(platformMaxBytesOf(undefined), DEFAULT_PLATFORM_MEDIA_BYTES);
+  assert.equal(platformMaxBytesOf(""), DEFAULT_PLATFORM_MEDIA_BYTES);
+  for (const bad of ["abc", "-1", "0", "1.5", "1e9", " "]) assert.equal(platformMaxBytesOf(bad), DEFAULT_PLATFORM_MEDIA_BYTES, bad);
+  assert.equal(platformMaxBytesOf("2147483648"), 2_147_483_648);
+  assert.equal(platformMaxBytesOf(" 5000 "), 5_000);
 });
 
 test("a tenant-limit rejection does not count toward the contact limit", () => {
@@ -350,8 +386,18 @@ test("the store is asked to remove a copy for pending, stored and failed files; 
   for (const status of ["TOO_LARGE", "SIZE_UNKNOWN", "CONTACT_LIMIT", "TENANT_LIMIT", "VIEW_ONCE", "DESTROYED"] as MediaStatus[]) {
     assert.equal(needsStoreRemoval(status), false, status);
   }
-  // A failed file does not take space in the business's 2 GB: its copy, if any, is an orphan on its way out.
+  // A failed file does not take space in the business's 1 GB: its copy, if any, is an orphan on its way out.
   assert.equal(tenantBytesInUse([row({ status: "FAILED", sizeBytes: 5_000 })]), 0);
+});
+
+test("a row never decided (no origin configured) still closes on its 30th day and loses the person's data", () => {
+  const waiting = row({ status: "RECEIVED", destroyAfter: new Date("2026-12-31T18:00:00Z") });
+  assert.equal(isDueForDestruction(waiting, new Date("2026-12-31T17:59:59Z")), false);
+  assert.equal(isDueForDestruction(waiting, new Date("2026-12-31T18:00:00Z")), true);
+  const at = new Date("2026-12-31T18:05:00Z");
+  assert.deepEqual(destroyedPatch("RECEIVED", at), { status: "RECEIVED", destroyedAt: at, caption: null, fileName: null, storagePath: null });
+  assert.equal(needsStoreRemoval("RECEIVED"), false);
+  assert.equal(needsStoreRemoval("PLATFORM_LIMIT"), false);
 });
 
 // ── Storage path: always starts with the business ───────────────────────────
