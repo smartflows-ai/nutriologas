@@ -57,6 +57,8 @@ export interface Translations {
     greetingIntro: string;
     greetingPrivacy: string;
     mediaNotSupported: string;
+    /** #182: added after mediaNotSupported for a business that keeps WhatsApp files 30 days. {enlace}: its privacy notice. */
+    mediaStoredNotice: string;
     meetingLine: string;
     locationLine: string;
     bookedByLine: string;
@@ -1897,6 +1899,10 @@ export interface Translations {
     whatsapp_chat_not_found: string;
     whatsapp_not_opted_out: string;
     whatsapp_chat_opted_out: string;
+    // #182: files of a WhatsApp chat
+    whatsapp_media_not_found: string;
+    whatsapp_media_not_available: string;
+    whatsapp_media_link_failed: string;
     reminder_in_quiet_hours: string;
     whatsapp_message_required: string;
     whatsapp_send_failed: string;

@@ -35,7 +35,8 @@ test("the hand-off is raised by the server with its own reason and a failure sti
   assert.match(MEDIA, /raiseHelpForContact\(bot, \{ remoteJid, remoteJidAlt \}, "unsupported_media"\)/);
   assert.match(MEDIA, /catch \(error\)/);
   assert.match(MEDIA, /shouldReplyToMedia\(/);
-  assert.match(MEDIA, /mediaReplyText\(bot\.messageLanguage, bot\.tenantName\)/);
+  // #182 (R10) adds the storage notice as a third argument; the language and the business name stay the first two.
+  assert.match(MEDIA, /mediaReplyText\(bot\.messageLanguage, bot\.tenantName[,)]/);
 });
 
 test("bot/media applies the same guards as the normal flow before it raises or answers anything", () => {

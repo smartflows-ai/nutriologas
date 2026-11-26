@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/permission-guard";
 import { apiError } from "@/lib/api-errors";
 import { resolvePatch } from "@/lib/help-actions";
+import { destructionRequestForChat } from "@/lib/wa-media-data";
 
 /**
  * Turns the AI bot on or off for one contact. Off means the bot stops answering this chat,
@@ -71,11 +72,12 @@ export async function DELETE(
       return Response.json({ error: "Conversación no encontrada" }, { status: 404 });
     }
 
-    // Eliminar el chat. Los mensajes asociados se eliminan en cascada
-    // gracias a onDelete: Cascade en WhatsAppMessage.chatId.
-    await prisma.whatsAppChat.delete({
-      where: { id: chatId },
-    });
+    // Its files are marked for destruction and lose the person's data in the same transaction (#182); the 15-minute
+    // job removes the copies. Then the chat is deleted; its messages go with it (onDelete: Cascade).
+    await prisma.$transaction([
+      destructionRequestForChat(tenantId, chatId),
+      prisma.whatsAppChat.delete({ where: { id: chatId } }),
+    ]);
 
     return Response.json({ success: true });
   } catch (error: any) {

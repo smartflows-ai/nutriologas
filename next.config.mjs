@@ -1,3 +1,17 @@
+// Origin of the private store of WhatsApp files (#182): scheme, host and port of WA_MEDIA_STORE_ENDPOINT, the same
+// rule as storeOrigin() in src/lib/wa-media-storage.ts (https, or http only on this machine). Empty when unset, so
+// the page policy stays as before. Signed links (5 minutes) are opened by <img>, <audio> and <video>.
+const mediaStoreOrigin = (() => {
+  try {
+    const url = new URL((process.env.WA_MEDIA_STORE_ENDPOINT ?? "").trim());
+    const local = url.protocol === "http:" && (url.hostname === "localhost" || url.hostname === "127.0.0.1");
+    return url.protocol === "https:" || local ? url.origin : "";
+  } catch {
+    return "";
+  }
+})();
+const withMediaStore = (directive) => (mediaStoreOrigin ? `${directive} ${mediaStoreOrigin}` : directive);
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: "standalone",
@@ -64,7 +78,8 @@ const nextConfig = {
               "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://pay.conekta.com https://www.paypal.com https://www.sandbox.paypal.com https://www.googletagmanager.com https://js.stripe.com",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
-              "img-src 'self' data: blob: https://res.cloudinary.com https://lh3.googleusercontent.com https://www.paypal.com https://*.stripe.com",
+              withMediaStore("img-src 'self' data: blob: https://res.cloudinary.com https://lh3.googleusercontent.com https://www.paypal.com https://*.stripe.com"),
+              withMediaStore("media-src 'self' blob:"),
               "frame-src https://pay.conekta.com https://www.paypal.com https://www.sandbox.paypal.com https://js.stripe.com https://hooks.stripe.com",
               "connect-src 'self' https://openrouter.ai https://api.anthropic.com https://api.conekta.io https://graph.facebook.com https://www.googleapis.com https://api.stripe.com",
               "worker-src 'self' blob:",

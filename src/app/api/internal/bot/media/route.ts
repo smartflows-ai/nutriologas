@@ -11,6 +11,7 @@ import { isTeamNumber } from "@/lib/team-numbers";
 import { loadTeamNumbers } from "@/lib/team-numbers-data";
 import { raiseHelpForContact } from "@/lib/help-handler";
 import { MEDIA_REPLY_COOLDOWN_MINUTES, classifyInbound, mediaGate, mediaReplyText, shouldReplyToMedia } from "@/lib/unsupported-media";
+import { mediaEnabledFor } from "@/lib/wa-media-data";
 
 export async function POST(req: NextRequest) {
   if (!isInternalKeyValid(req)) return Response.json({ error: "No autorizado" }, { status: 401 });
@@ -47,7 +48,7 @@ export async function POST(req: NextRequest) {
     console.error("unsupported_media hand-off failed", error);
   }
 
-  const reply = mediaReplyText(bot.messageLanguage, bot.tenantName);
+  const reply = mediaReplyText(bot.messageLanguage, bot.tenantName, { storesFiles: mediaEnabledFor(bot.tenantId), privacyUrl: bot.privacyUrl });
   const now = new Date();
   const done = result && result.status === "done" ? result : null;
   const recent =
