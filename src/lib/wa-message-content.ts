@@ -47,6 +47,23 @@ export function unwrapWaMessage(message: unknown): UnwrappedWaMessage {
   return { message: current, viewOnce: viewOnce || flagged };
 }
 
+/** Every marker this module stores for a message with a file (the screen hides it next to the file, #182). */
+export const MEDIA_MARKERS: readonly string[] = [
+  "[Imagen]",
+  "[Audio]",
+  "[Video]",
+  "[Documento]",
+  "[Sticker]",
+  "[Foto de una sola vez]",
+  "[Video de una sola vez]",
+  "[Audio de una sola vez]",
+  "[Mensaje Multimedia]",
+];
+
+export function isMediaMarker(content: string): boolean {
+  return MEDIA_MARKERS.includes(content);
+}
+
 function textOf(value: unknown): string | null {
   return typeof value === "string" && value ? value : null;
 }

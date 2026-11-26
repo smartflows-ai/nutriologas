@@ -4,7 +4,7 @@
 // Run with: npx tsx --test tests/wa-message-content.test.ts
 import test from "node:test";
 import assert from "node:assert/strict";
-import { messageContentOf } from "../src/lib/wa-message-content";
+import { isMediaMarker, messageContentOf } from "../src/lib/wa-message-content";
 
 test("text messages keep their text", () => {
   assert.equal(messageContentOf({ conversation: "hola" }), "hola");
@@ -78,4 +78,16 @@ test("an empty view-once wrapper (no .message) is still view once: photo marker"
   for (const outer of ["viewOnceMessage", "viewOnceMessageV2", "viewOnceMessageV2Extension"]) {
     assert.equal(messageContentOf({ [outer]: {} }), "[Foto de una sola vez]", outer);
   }
+});
+
+test("every marker a file message can get is in the marker list the screen hides next to the file (#182)", () => {
+  const shapes = [
+    { imageMessage: {} }, { audioMessage: {} }, { videoMessage: {} }, { ptvMessage: {} }, { documentMessage: {} },
+    { documentWithCaptionMessage: {} }, { stickerMessage: {} }, { somethingNew: {} },
+    { viewOnceMessageV2: { message: { imageMessage: {} } } }, { viewOnceMessage: { message: { videoMessage: {} } } },
+    { viewOnceMessageV2Extension: { message: { audioMessage: {} } } }, { viewOnceMessageV2: {} },
+  ];
+  for (const shape of shapes) assert.equal(isMediaMarker(messageContentOf(shape)), true, JSON.stringify(shape));
+  assert.equal(isMediaMarker("mi estudio"), false);
+  assert.equal(isMediaMarker("[Ubicación]"), false, "location is not a file");
 });

@@ -796,6 +796,39 @@ export interface Translations {
       botPausedByOwner: string;
       botPausedManual: string;
       resumeBot: string;
+      // #182: files shown inside a WhatsApp chat (src/components/admin/whatsapp/media)
+      media: {
+        saving: string;
+        loading: string;
+        openImage: string;
+        closeImage: string;
+        download: string;
+        openPdf: string;
+        hide: string;
+        restore: string;
+        hiddenBy: string;
+        hiddenNoName: string;
+        unavailable: string;
+        tooLarge: string;
+        sizeUnknown: string;
+        contactLimit: string;
+        tenantLimit: string;
+        platformLimit: string;
+        viewOnceImage: string;
+        viewOnceVideo: string;
+        viewOnceAudio: string;
+        failed: string;
+        linkError: string;
+        actionError: string;
+        retry: string;
+        kindImage: string;
+        kindAudio: string;
+        kindVideo: string;
+        kindDocument: string;
+        kindSticker: string;
+        sizeKb: string;
+        sizeMb: string;
+      };
       help: {
         filterAll: string;
         filterNeedHelp: string;
