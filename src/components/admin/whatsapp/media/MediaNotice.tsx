@@ -5,7 +5,7 @@
 // color of the bubble, so it reads on the business's primary color and on the neutral side.
 import { AlertCircle, Ban, EyeOff, FileWarning, FileX, HelpCircle, Loader2, RotateCcw, Timer, type LucideIcon } from "lucide-react";
 import { useTranslation } from "@/i18n";
-import type { MediaNoticeKey } from "./media-view";
+import { hiddenDateLabel, type MediaNoticeKey } from "./media-view";
 
 const ICONS: Record<MediaNoticeKey, LucideIcon> = {
   saving: Loader2,
@@ -39,8 +39,8 @@ interface HiddenNoticeProps {
 }
 
 export function MediaHiddenNotice({ hidden, busy, onRestore }: HiddenNoticeProps) {
-  const { t } = useTranslation();
-  const date = new Date(hidden.at).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+  const { t, lang } = useTranslation();
+  const date = hiddenDateLabel(hidden.at, lang);
   const text = hidden.byName
     ? t.crm.whatsapp.media.hiddenBy.replace("{nombre}", hidden.byName).replace("{fecha}", date)
     : t.crm.whatsapp.media.hiddenNoName.replace("{fecha}", date);

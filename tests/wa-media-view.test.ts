@@ -5,7 +5,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { bubbleTextOf, mediaViewOf, nextMediaSrc, sizeLabel } from "../src/components/admin/whatsapp/media/media-view";
+import { bubbleTextOf, hiddenDateLabel, mediaViewOf, nextMediaSrc, sizeLabel } from "../src/components/admin/whatsapp/media/media-view";
 import type { MediaSummary } from "../src/lib/wa-media-summary";
 
 function summary(overrides: Partial<MediaSummary> = {}): MediaSummary {
@@ -134,4 +134,22 @@ test("photo, audio and video take their link through useAppliedSrc, so a renewal
   assert.match(bubble, /useAppliedSrc\(mode, latest, reload\)/);
   assert.match(bubble, /onEnded: onPause/);
   assert.doesNotMatch(bubble, /src=\{state\.url\}/);
+});
+
+// ── "Removed by … on <date>": the date follows the panel language, not the browser's ──
+
+test("the removal date reads in the panel language", () => {
+  const at = "2026-11-26T15:00:00.000Z";
+  const es = hiddenDateLabel(at, "es");
+  assert.match(es, /26/);
+  assert.match(es, /nov/i);
+  assert.match(es, /2026/);
+  assert.doesNotMatch(es, /Nov 26,/, "never the English order inside a Spanish panel");
+  assert.equal(hiddenDateLabel(at, "en"), "Nov 26, 2026");
+});
+
+test("the hidden notice formats its date with the panel language", () => {
+  const notice = source("src/components/admin/whatsapp/media/MediaNotice.tsx");
+  assert.match(notice, /hiddenDateLabel\(hidden\.at, lang\)/);
+  assert.doesNotMatch(notice, /toLocaleDateString\(undefined/);
 });

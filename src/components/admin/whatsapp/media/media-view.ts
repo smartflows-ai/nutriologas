@@ -88,3 +88,9 @@ export function nextMediaSrc(mode: DisplayMode, current: string | null, latest: 
   return latest;
 }
 
+const DATE_LOCALE: Readonly<Record<string, string>> = { es: "es-MX", en: "en-US" };
+
+/** "26 nov 2026" in a Spanish panel, "Nov 26, 2026" in an English one: the panel language, never the browser's. */
+export function hiddenDateLabel(iso: string, lang: string): string {
+  return new Date(iso).toLocaleDateString(DATE_LOCALE[lang] ?? DATE_LOCALE.es, { day: "numeric", month: "short", year: "numeric" });
+}
