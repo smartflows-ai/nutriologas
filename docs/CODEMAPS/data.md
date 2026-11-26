@@ -50,5 +50,5 @@ Both are read on every session check (account-state-data.ts). Additive: apply th
 ## Pending
 - Schema and DB in sync (checked 2026-11-02) except `whatsapp_bot_memory` (declare or exclude before any db:push).
 - No test database: local dev and production share one DB. Mirror DB, periodic backups and prisma migrate adoption are separate tasks.
-- Row Level Security not enabled; isolation is app-level only.
+- Row Level Security is ON for every table of `public` in the real database (read in the catalog on 2026-11-25: no policies, no `FORCE`; the app uses the owner role, which bypasses it). Isolation between businesses is still app-level only. A new table must enable it in its `up.sql`.
 - 23-user-access: backup and owner approval, then up.sql in one transaction, before the team code is merged.

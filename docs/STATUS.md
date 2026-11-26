@@ -2,6 +2,38 @@
 
 > Movido desde `CLAUDE.md` el 2026-11-20 para que no se cargue en cada mensaje. No lo lee Claude por sí solo: ábrelo cuando la tarea toque pendientes, producción o QA.
 
+### Pending after ticket #182, WhatsApp files in the panel (2026-11-26, branch `feat/182-media-backend`)
+
+**Not in production.** Nothing of this ticket is live: the switch is off for every business and `prisma/sql/36-whatsapp-media` is not applied to the real database. Detail of the feature: `.claude/rules/newaigent/whatsapp-messaging.md`, section "WhatsApp files in the panel". Evidence of the local test: `docs/qa/182-archivos-panel-whatsapp.md`.
+
+Gates before the merge (the owner applies the SQL himself):
+- **Apply `prisma/sql/36-whatsapp-media/up.sql` to the real database first** (fresh verified backup, one transaction, then check `relrowsecurity = true` on both tables and that existing rows did not change). The new code reads the two tables when a chat is deleted and at the end of the 15-minute job, so the database goes before the code.
+- **`/ecc:security-scan`**: not run on the final branch. The owner's rule of 2026-11-25 (no package or `npx` tool without a Context7 check) stopped it; the security review was done by reading the diff. Run it once Context7 is set up.
+- The two storage packages were installed with the owner's explicit yes without the Context7 check ("omitimos Context7 por el momento"): `@aws-sdk/client-s3` and `@aws-sdk/s3-request-presigner` 3.1166.0, exact, resolved with `--before=2026-11-12`, no install scripts.
+
+Not built yet (the feature cannot store a real file in production without the first one):
+- **The production origin**: the piece of the app that asks the WhatsApp connection for a file (describe a message by its key, download it). In the local test a script outside the repo did it. What it must do is measured (see the rule file): describe with the full message, never with the workflow's trimmed shape; take the name and the caption from the message, never from the download; refuse view once and anything over 16 MB before downloading.
+- Fetching the file right after `whatsapp/sync` answers (today only the 15-minute job retries, and only when an origin exists).
+- A read-only mode for the WhatsApp adapter, so a local app can read from a live line without being able to disconnect it (the owner said "todavía no").
+- The production private bucket and the `WA_MEDIA_*` variables in the hosting; then the switch for the test business.
+
+Not tested:
+- From a phone: document, PDF, view once, sticker, a second small video. Availability of a file one hour and one day after it was sent. Voice notes recorded on iOS.
+- The bot's reply with the new line, the pause and the notice to the team: the test phone is a team number, so the bot ignores it. Needs a phone that is not of the team.
+- Staff account in the panel (the hide and restore of the test were done by the owner). Dark mode, very light and very dark business colours, phone widths, keyboard: seen by the owner in one browser only; the QA round in the browser is pending. The interface audit scripts named in `CLAUDE.md` (`local-utils/minimal-ui/audit.js`, `theme-colors.js`) do not exist on the machine: the rules were checked by hand.
+- Isolation between two businesses in the deployed app: covered by automated tests; the real test needs a second test business before the feature is switched on for a real one.
+- The clean-up against the real store at day 30 (covered by tests with an injected clock).
+
+Before switching it on for a real business:
+- Privacy notice and terms: say that files sent by WhatsApp are kept, for how long (30 days), that a hidden file is destroyed within 30 days at most, and name the private store. The health-data consent text is tied to the booking checkbox; a patient who sends a study by WhatsApp never ticked it. For the owner's legal adviser.
+- n8n delivery (pasted by hand by the owner, files outside the repo): let stickers, view once and the round video note through the file guard, keep the caption and the view-once mark. Until then those types do not reach the app in production.
+
+Found in production during this test, belongs to #154 (not caused by this branch):
+- **A 2.1 MB video sent to the test line reached the WhatsApp connection and never started a run of the bot workflow**: no line in the chat, no reply, no notice. Four smaller files (8 KB to 45 KB) arrived in one or two seconds. In the 1,021 messages kept since 2026-11-12 the heaviest file that ever arrived is a photo of about 175 KB, and no video or document ever arrived. Cause not verified (inferred: the webhook carries the whole file as base64, `webhookConfig` has `base64: true`, and something between the connection and the workflow refuses a body of that size). With `base64: false` the webhook weighs a few KB; this test measured that the app can then ask for the file by its key.
+- Each file sent today is stored whole in the workflow's execution data, once per node that touched it (a 44 KB photo: five copies).
+
+Follow-up tickets to open (drafts with the owner): keep a chat file in the patient history beyond 30 days; destroy the copy when the patient deletes the message for everyone; tell the owner when the store is full; serve the files under the platform's own domain; a business that disconnects its line stops seeing its whole chat history in the panel; `whatsapp_messages.type` only tells images apart.
+
 ### Pending after switching off Google sign-in (2026-11-24, branch `fix/disable-google-signin`, not committed)
 
 - Google sign-in (`/login`, `/registro`, NextAuth provider) is commented out until #151 is fixed. Closes the entry point; does not fix #151.
@@ -90,7 +122,7 @@ Done so far: `prisma/sql/29-tenant-time-zone/` (`tenants.timeZone`, `tenants.tim
 - **Session check, what is left** (ticket #22 closed "JWT role is never re-read": the account row is now read on every request): `src/middleware.ts` still trusts the token, `SessionWatch` only runs on a section change, and the read has no cache. See "Authentication and Authorization".
 - **Team screen, follow-ups** (ticket #22): a temporary password does not expire by time, only by use or reset; the rate limits of the team and password-change routes are in memory per server instance; staff name and email cannot be edited and users cannot be deleted from the screen; Google sign-in resolves an account by email across all businesses (pre-existing); the STAFF and deactivated block judges only the account Google signs in as.
 - **Security review of 2026-11-10, pre-existing and not fixed in #22**: (1) the session cookie is shared by every subdomain of the root domain and the API handlers accept any content type, so a script running on another business's subdomain (for example through an XSS in a storefront) can make a signed-in owner's browser send a blind POST or PATCH to any owner API; it cannot read the answer. Fix for all routes: reject mutating requests whose `Origin` host differs from the request host, and require `application/json`. (2) Credentials sign-in has no attempt limit. (3) Booking by email (public `POST /api/appointments`, `bot/book`) links the visit to whichever user has that email, including a STAFF account; panel bookings (ticket #103) no longer do: they always use the phone's guest account. (4) A user's own password change does not end their other sessions (only an owner reset, a deactivation and `/recuperar` do).
-- Row Level Security in Supabase (currently only app-level filtering)
+- Row Level Security policies per business (the real database has it ON for every table since at least 2026-11-25, with no policies: it closes the public API roles, it does not isolate businesses; isolation is still app-level filtering)
 - Rate limiting on `/api/chat`
 - Trial expiry gate: `TrialBanner` and `TrialExpiredGate` exist, but the trial expiry gate in the admin layout still does not fully block all routes
 

@@ -17,6 +17,7 @@ How to make one safely:
 3. Take a verified backup first (`pg_dump` of the same major version, custom format, stored **outside the repo** with owner-only permissions; it holds personal data), and a fresh one right before applying. `pg_dump` refuses a server newer than itself.
 4. Get explicit human approval, then apply `up.sql` in one transaction (`psql -v ON_ERROR_STOP=1 -1 -f up.sql`) and verify types, defaults and that existing rows did not change.
 5. **Order: database first, code after.** New code reads the new columns; if it ships first, every appointment query fails (reminders, agenda, bot, CRM). Old code ignores extra columns, so the reverse is safe. Merging to `main` deploys through CI/CD, so a merge counts as a deploy.
+6. **A new table enables row level security in `up.sql`.** Read in the catalog of the real database on 2026-11-25: every table of `public` has row level security on, with no policies and no `FORCE`; the app connects with the owner role (it bypasses it), and the public API roles (`anon`, `authenticated`) hold `SELECT` on the tables, so that setting is the only thing that closes them. A table created without it would be the only one readable with the project's public key. `prisma migrate diff` does not see it: write `ALTER TABLE "<table>" ENABLE ROW LEVEL SECURITY;` by hand after the generated block and check `relrowsecurity = true` after applying (example: `prisma/sql/36-whatsapp-media/up.sql`).
 
 
 ---
