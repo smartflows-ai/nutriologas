@@ -84,6 +84,8 @@ model Tenant {
   whatsappChats   WhatsAppChat[]
   whatsappMessages WhatsAppMessage[]
   whatsappOutbox   WhatsAppOutbox[]
+  whatsappMedia    WhatsAppMedia[]
+  whatsappMediaTrail WhatsAppMediaTrail[]
   faqs            FAQ[]
   socialCampaigns SocialCampaign[]
   socialPosts     SocialPost[]
@@ -148,6 +150,9 @@ model User {
   deletedAppointments Appointment[] @relation("AppointmentDeletedBy")
   appointmentTrail    AppointmentTrail[]
   assignedChats       WhatsAppChat[] @relation("ChatAssignee")
+  // WhatsApp files this user hid and the hide / restore history they wrote (prisma/sql/36-whatsapp-media).
+  hiddenWhatsAppMedia WhatsAppMedia[] @relation("WhatsAppMediaHiddenBy")
+  whatsappMediaTrail  WhatsAppMediaTrail[]
   reviews Review[]
   accounts Account[]
   sessions Session[]
@@ -276,6 +281,7 @@ model WhatsAppChat {
   updatedAt   DateTime @updatedAt
 
   messages    WhatsAppMessage[]
+  media       WhatsAppMedia[]
 
   @@unique([tenantId, remoteJid])
   @@index([tenantId, helpPriority, updatedAt])
@@ -296,11 +302,95 @@ model WhatsAppMessage {
   type      String   @default("text") // text, image, etc.
   fromMe    Boolean  @default(false)
   timestamp DateTime @default(now())
+  media     WhatsAppMedia?
 
   @@unique([tenantId, keyId])
   @@index([tenantId])
   @@index([chatId])
   @@map("whatsapp_messages")
+}
+
+// ─── WHATSAPP FILES (ticket #182, prisma/sql/36-whatsapp-media) ─────────────
+// One row per file a chat message carries, from the patient or from the business. The copy lives 30 days in a
+// private store under <tenantId>/<id>; the row stays after it is destroyed, without the person's data
+// (caption and file name are cleared). Rules: src/lib/wa-media-rules.ts.
+enum WhatsAppMediaKind {
+  IMAGE
+  AUDIO
+  VIDEO
+  DOCUMENT
+  STICKER
+}
+
+enum WhatsAppMediaStatus {
+  PENDING // let in, download pending or retrying
+  STORED // the copy exists
+  TOO_LARGE // declared size over 16 MB: never downloaded
+  SIZE_UNKNOWN // the message did not say its size: never downloaded
+  CONTACT_LIMIT // 31st file of the contact that business day
+  TENANT_LIMIT // the business store would pass 2 GB
+  VIEW_ONCE // never downloaded
+  FAILED // gave up after the last attempt
+  DESTROYED // the copy was destroyed (30 days, or the chat was deleted)
+}
+
+enum WhatsAppMediaTrailAction {
+  HIDDEN
+  RESTORED
+}
+
+model WhatsAppMedia {
+  id                 String               @id @default(uuid())
+  tenantId           String
+  tenant             Tenant               @relation(fields: [tenantId], references: [id])
+  // Chat and message are dropped (set to null) when a chat is deleted: the row survives so its copy is destroyed.
+  chatId             String?
+  chat               WhatsAppChat?        @relation(fields: [chatId], references: [id], onDelete: SetNull)
+  messageId          String?              @unique
+  message            WhatsAppMessage?     @relation(fields: [messageId], references: [id], onDelete: SetNull)
+  keyId              String // WhatsApp message id; one row per business and message (a retry adds nothing)
+  fromMe             Boolean // true: sent by the business
+  kind               WhatsAppMediaKind
+  status             WhatsAppMediaStatus  @default(PENDING)
+  fileName           String?              @db.Text
+  mimeType           String? // the type the app read from the file, never the one the sender declared
+  sizeBytes          BigInt? // declared size before the download, real size after it
+  caption            String?              @db.Text
+  storagePath        String? // <tenantId>/<id>; null until stored and after destruction
+  receivedAt         DateTime
+  destroyAfter       DateTime // receivedAt + 30 days; hiding or restoring never changes it
+  destroyRequestedAt DateTime? // set when the chat is deleted; the null chatId is the safety net
+  destroyedAt        DateTime?
+  hiddenAt           DateTime?
+  hiddenById         String?
+  hiddenBy           User?                @relation("WhatsAppMediaHiddenBy", fields: [hiddenById], references: [id], onDelete: SetNull)
+  attempts           Int                  @default(0)
+  failureReason      String? // a short code, never a provider name or a provider answer
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  trail              WhatsAppMediaTrail[]
+
+  @@unique([tenantId, keyId])
+  @@index([tenantId, chatId, receivedAt]) // files of a chat; received per contact per business day
+  @@index([destroyedAt, destroyAfter]) // due for destruction
+  @@index([tenantId, status]) // bytes in use per business
+  @@map("whatsapp_media")
+}
+
+model WhatsAppMediaTrail {
+  id       String                   @id @default(uuid())
+  tenantId String
+  tenant   Tenant                   @relation(fields: [tenantId], references: [id])
+  mediaId  String
+  media    WhatsAppMedia            @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  action   WhatsAppMediaTrailAction
+  userId   String?
+  user     User?                    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  role     UserRole
+  at       DateTime                 @default(now())
+
+  @@index([tenantId, mediaId])
+  @@map("whatsapp_media_trail")
 }
 
 // ─── PACIENTES (Triage) ──────────────────────────────────
