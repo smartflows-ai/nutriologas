@@ -5,7 +5,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { ingestMedia, type IngestDeps, type IngestRow, type MediaOrigin } from "../src/lib/wa-media-ingest";
-import { MAX_MEDIA_ATTEMPTS, MAX_MEDIA_BYTES, type Admission, type MediaInfo } from "../src/lib/wa-media-rules";
+import { DEFAULT_PLATFORM_MEDIA_BYTES, MAX_MEDIA_ATTEMPTS, MAX_MEDIA_BYTES, admitMedia, mediaOf, type Admission, type MediaInfo } from "../src/lib/wa-media-rules";
 import type { MediaStore } from "../src/lib/wa-media-storage";
 
 const TENANT = "0b6f1a52-6a7e-4f43-9d55-1c1f0e7a9a11";
@@ -214,4 +214,66 @@ test("the failure reasons are short codes, never a provider message", async () =
   await ingestMedia(w.deps, MEDIA);
   const reason = w.calls.find((c) => c.startsWith("failed:"))?.split(":")[1] ?? "";
   assert.match(reason, /^[a-z_]+$/);
+});
+
+// ── An origin that describes from the connection's full record (phase 0 measurement, 2026-11-26) ──
+// The record shape is the one findMessages returned for a real photo: key, messageType, message with the media part.
+// Invented values; no network.
+
+function recordOrigin(record: Record<string, unknown>, downloads: string[]): MediaOrigin {
+  return {
+    async describe() {
+      return { ok: true, value: mediaOf(record.message) };
+    },
+    async download() {
+      downloads.push("download");
+      return { ok: true, value: JPEG };
+    },
+  };
+}
+
+function realAdmission(w: World) {
+  w.deps.admit = async (_id, info) => {
+    const verdict = admitMedia({
+      viewOnce: info.viewOnce,
+      declaredBytes: info.declaredBytes,
+      fromMe: false,
+      contactCountToday: 0,
+      tenantBytesInUse: 0,
+      platformBytesInUse: 0,
+      platformMaxBytes: DEFAULT_PLATFORM_MEDIA_BYTES,
+    });
+    w.row = { ...w.row, status: verdict };
+    return verdict;
+  };
+}
+
+test("a view-once photo seen in the full record is never downloaded, whatever the trimmed shape said", async () => {
+  for (const message of [
+    { viewOnceMessageV2: { message: { imageMessage: { fileLength: "45362", mimetype: "image/jpeg", mediaKey: "k" } } } },
+    { imageMessage: { viewOnce: true, fileLength: "45362", mimetype: "image/jpeg", mediaKey: "k" } },
+  ]) {
+    const downloads: string[] = [];
+    const w = world();
+    w.deps.origin = recordOrigin({ key: { id: "ABC" }, messageType: "imageMessage", message }, downloads);
+    realAdmission(w);
+    assert.equal(await ingestMedia(w.deps, MEDIA), "VIEW_ONCE");
+    assert.deepEqual(downloads, []);
+  }
+});
+
+test("a file over 16 MB in the full record (64-bit fileLength) is never downloaded", async () => {
+  const downloads: string[] = [];
+  const w = world();
+  const bigVideo = { videoMessage: { fileLength: { low: MAX_MEDIA_BYTES + 1, high: 0, unsigned: true }, mimetype: "video/mp4" } };
+  w.deps.origin = recordOrigin({ key: { id: "ABC" }, messageType: "videoMessage", message: bigVideo }, downloads);
+  realAdmission(w);
+  assert.equal(await ingestMedia(w.deps, MEDIA), "TOO_LARGE");
+  assert.deepEqual(downloads, []);
+});
+
+test("the file name comes from the full record, never from the download (the connection invents one)", async () => {
+  const described = mediaOf({ imageMessage: { fileLength: "45362", mimetype: "image/jpeg" } });
+  assert.equal(described?.fileName, null, "a photo with no name keeps no name; the screen uses the fallback");
+  assert.equal(mediaOf({ documentMessage: { fileLength: "100", fileName: "estudio.pdf" } })?.fileName, "estudio.pdf");
 });
