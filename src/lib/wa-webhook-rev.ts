@@ -7,7 +7,12 @@
 // - The address is the one stored on the line (the one it uses today). Without that address, the connection config or
 //   the signing secret, the line is skipped with a short code: the connection replaces the whole webhook config, so
 //   sending it without its headers would drop the signature.
-// - The mark is written only after the connection accepted the change. A failure marks nothing: the next round retries.
+// - The connection (2.3.7) saves the change but keeps `webhookBase64` in memory until the line connects again (found in
+//   production on 2026-11-27: applied, yet the next photo still carried the file). So after the call the line is
+//   restarted ONCE (the session is kept) and the mark is written only when it is "open" again within the wait: the mark
+//   means "applied and reloaded". Never a restart loop: a line that does not come back is not marked, its try is kept
+//   in metadata, and after MAX_RESTART_TRIES for the same change the round stops and reports it (a person looks at it).
+//   The tries start again when the wanted value changes (the business leaves and comes back to the list).
 // The pure part is tested with everything injected (tests/wa-webhook-rev.test.ts).
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
@@ -15,6 +20,7 @@ import {
   connectionState,
   evolutionConfigFromEnv,
   instanceKeyOf,
+  restartInstance,
   setWebhook,
   webhookHeaders,
   type ConnectionStateValue,
@@ -26,12 +32,29 @@ import { mediaEnabledFor } from "@/lib/wa-media-data";
 export const WEBHOOK_BASE64_META = "webhookBase64";
 /** One webhook call never waits longer than this. */
 export const WEBHOOK_SET_TIMEOUT_MS = 5_000;
-/** Each read of the line's state (before and after, the measurement of the first time). */
+/** Each read of the line's state. */
 export const STATE_TIMEOUT_MS = 2_000;
-/** Longest one line can take in the round. */
-export const WEBHOOK_SLOT_MS = WEBHOOK_SET_TIMEOUT_MS + 2 * STATE_TIMEOUT_MS;
+/** The restart call never waits longer than this (measured: 84 ms). */
+export const RESTART_TIMEOUT_MS = 5_000;
+/** How long the line has to be "open" again after the restart (measured: under 3 s). */
+export const RESTART_OPEN_TIMEOUT_MS = 15_000;
+/** Pause between two reads of the state while waiting for "open". */
+export const RESTART_POLL_MS = 1_500;
+/** Restarts tried for one change before the round gives up on that line. */
+export const MAX_RESTART_TRIES = 2;
+/** Longest one line can take in the round: the call, the restart, the wait for "open" and the two state reads. */
+export const WEBHOOK_SLOT_MS = WEBHOOK_SET_TIMEOUT_MS + RESTART_TIMEOUT_MS + RESTART_OPEN_TIMEOUT_MS + 2 * STATE_TIMEOUT_MS;
+/** Keys of the restart tries in connected_apps.metadata: how many, and for which wanted value. */
+export const WEBHOOK_RESTART_TRIES_META = "webhookRestartTries";
+export const WEBHOOK_RESTART_FOR_META = "webhookRestartFor";
 
-export type WebhookSkip = "up_to_date" | "line_not_connected" | "no_connection_config" | "no_webhook_url" | "no_secret";
+export type WebhookSkip =
+  | "up_to_date"
+  | "line_not_connected"
+  | "no_connection_config"
+  | "no_webhook_url"
+  | "no_secret"
+  | "restart_gave_up";
 export type WebhookDecision = { action: "apply"; base64: boolean } | { action: "skip"; reason: WebhookSkip };
 
 export interface WebhookInput {
@@ -42,6 +65,8 @@ export interface WebhookInput {
   hasConfig: boolean;
   hasUrl: boolean;
   hasSecret: boolean;
+  /** Restarts already tried for the value the list wants now. */
+  restartTries: number;
 }
 
 /** The base64 value a line without a mark has: the one the code used to create every line until this change. */
@@ -51,6 +76,16 @@ export function storedBase64Of(metadata: unknown): boolean | null {
   if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return null;
   const value = (metadata as Record<string, unknown>)[WEBHOOK_BASE64_META];
   return typeof value === "boolean" ? value : null;
+}
+
+/** The restart tries kept on the line, and the wanted value they were for. Anything malformed is no try. */
+export function restartTriesOf(metadata: unknown): { tries: number; wantedFor: boolean | null } {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return { tries: 0, wantedFor: null };
+  const raw = metadata as Record<string, unknown>;
+  const tries = raw[WEBHOOK_RESTART_TRIES_META];
+  const wantedFor = raw[WEBHOOK_RESTART_FOR_META];
+  if (typeof tries !== "number" || !Number.isInteger(tries) || tries < 0 || typeof wantedFor !== "boolean") return { tries: 0, wantedFor: null };
+  return { tries, wantedFor };
 }
 
 /** On: the file does not travel in the webhook (the app asks for it by key). Off: the usual webhook. */
@@ -65,6 +100,7 @@ export function decideWebhook(input: WebhookInput): WebhookDecision {
   if (!input.hasConfig) return { action: "skip", reason: "no_connection_config" };
   if (!input.hasUrl) return { action: "skip", reason: "no_webhook_url" };
   if (!input.hasSecret) return { action: "skip", reason: "no_secret" };
+  if (input.restartTries >= MAX_RESTART_TRIES) return { action: "skip", reason: "restart_gave_up" };
   return { action: "apply", base64: wanted };
 }
 
@@ -75,6 +111,9 @@ export interface WebhookLine {
   webhookUrl: string | null;
   connected: boolean;
   stored: boolean | null;
+  /** Restart tries kept on the line, and the wanted value they were for (null: none). */
+  restartTries: number;
+  restartFor: boolean | null;
   metadata: Record<string, unknown>;
 }
 
@@ -86,9 +125,23 @@ export interface WebhookDeps {
   secret: string | null;
   stateOf(line: WebhookLine): Promise<ConnectionStateValue | null>;
   setWebhook(line: WebhookLine, base64: boolean, headers: Record<string, string>): Promise<boolean>;
+  /** Restarts the line's socket so it reloads the webhook (the session is kept). */
+  restart(line: WebhookLine): Promise<boolean>;
+  sleep(ms: number): Promise<void>;
+  nowMs(): number;
+  /** Writes the mark and clears the restart tries. */
   markApplied(line: WebhookLine, base64: boolean): Promise<void>;
+  /** Keeps the number of restarts tried for this wanted value. */
+  markTry(line: WebhookLine, wanted: boolean, tries: number): Promise<void>;
   /** Server log: business id, value, result and the line's state only (never the address, the key or the secret). */
-  log(event: { tenantId: string; base64: boolean; applied: boolean; stateBefore: string | null; stateAfter: string | null }): void;
+  log(event: {
+    tenantId: string;
+    base64: boolean;
+    applied: boolean;
+    restarted: boolean;
+    stateBefore: string | null;
+    stateAfter: string | null;
+  }): void;
 }
 
 export interface WebhookRunResult {
@@ -98,31 +151,50 @@ export interface WebhookRunResult {
   /** Lines to apply that did not fit in this run's time: untouched, they wait for the next run. */
   leftForNextRun: number;
   /**
-   * Lines applied that were NOT "open" right after: the measurement that a webhook change does not cut a line, readable
-   * from the job's answer (the workflow's run) without the hosting's logs.
+   * Lines restarted that were NOT "open" again within RESTART_OPEN_TIMEOUT_MS: readable from the job's answer (the
+   * workflow's run) without the hosting's logs. Each one is left unmarked, with its try recorded.
    */
   notOpenAfter: number;
 }
 
-type ApplyOutcome = "applied" | "failed" | "not_open_before";
+type ApplyOutcome = "applied" | "failed" | "not_open_before" | "not_open_after";
 
-async function applyOne(
-  deps: WebhookDeps,
-  line: WebhookLine,
-  base64: boolean,
-  headers: Record<string, string>,
-  result: WebhookRunResult,
-): Promise<ApplyOutcome> {
+/** Reads the state until "open" or the wait ends. Returns the last state read. */
+async function waitForOpen(deps: WebhookDeps, line: WebhookLine): Promise<ConnectionStateValue | null> {
+  const started = deps.nowMs();
+  let state: ConnectionStateValue | null = null;
+  while (deps.nowMs() - started < RESTART_OPEN_TIMEOUT_MS) {
+    await deps.sleep(RESTART_POLL_MS);
+    state = await deps.stateOf(line);
+    if (state === "open") return state;
+  }
+  return state;
+}
+
+/** The tries of this line for the value wanted now: tries made for another value do not count. */
+function triesFor(line: WebhookLine, wanted: boolean): number {
+  return line.restartFor === wanted ? line.restartTries : 0;
+}
+
+async function applyOne(deps: WebhookDeps, line: WebhookLine, base64: boolean, headers: Record<string, string>): Promise<ApplyOutcome> {
   const stateBefore = await deps.stateOf(line);
   // The stored status can lag: a line that is not open right now is left for a later round.
   if (stateBefore !== "open") return "not_open_before";
   const applied = await deps.setWebhook(line, base64, headers);
-  const stateAfter = await deps.stateOf(line);
-  deps.log({ tenantId: line.tenantId, base64, applied, stateBefore, stateAfter });
-  if (!applied) return "failed";
-  if (stateAfter !== "open") result.notOpenAfter += 1;
-  await deps.markApplied(line, base64);
-  return "applied";
+  if (!applied) {
+    deps.log({ tenantId: line.tenantId, base64, applied, restarted: false, stateBefore, stateAfter: null });
+    return "failed";
+  }
+  // ONE restart, so the line reloads the webhook it keeps in memory. Never repeated in this run.
+  const restarted = await deps.restart(line);
+  const stateAfter = restarted ? await waitForOpen(deps, line) : null;
+  deps.log({ tenantId: line.tenantId, base64, applied, restarted, stateBefore, stateAfter });
+  if (restarted && stateAfter === "open") {
+    await deps.markApplied(line, base64);
+    return "applied";
+  }
+  await deps.markTry(line, base64, triesFor(line, base64) + 1);
+  return restarted ? "not_open_after" : "failed";
 }
 
 function countSkip(result: WebhookRunResult, reason: WebhookSkip): void {
@@ -140,6 +212,7 @@ export async function reconcileWebhooks(deps: WebhookDeps, clock: RunClock): Pro
       hasConfig: deps.hasConfig,
       hasUrl: Boolean(line.webhookUrl),
       hasSecret: Boolean(headers.jwt_key),
+      restartTries: triesFor(line, wantedBase64(deps.enabledFor(line.tenantId))),
     });
     if (decision.action === "skip") {
       countSkip(result, decision.reason);
@@ -149,9 +222,10 @@ export async function reconcileWebhooks(deps: WebhookDeps, clock: RunClock): Pro
       result.leftForNextRun += 1;
       continue;
     }
-    const outcome = await applyOne(deps, line, decision.base64, headers, result);
+    const outcome = await applyOne(deps, line, decision.base64, headers);
     if (outcome === "applied") result.applied += 1;
     else if (outcome === "failed") result.failed += 1;
+    else if (outcome === "not_open_after") result.notOpenAfter += 1;
     else countSkip(result, "line_not_connected");
   }
   return result;
@@ -176,6 +250,7 @@ export function realWebhookDeps(): WebhookDeps {
       });
       return apps.map((app) => {
         const metadata = asObject(app.metadata);
+        const restart = restartTriesOf(metadata);
         return {
           tenantId: app.tenantId,
           instance: app.waInstanceName as string,
@@ -183,6 +258,8 @@ export function realWebhookDeps(): WebhookDeps {
           webhookUrl: app.waWebhookUrl?.trim() || null,
           connected: app.waStatus === "connected",
           stored: storedBase64Of(metadata),
+          restartTries: restart.tries,
+          restartFor: restart.wantedFor,
           metadata,
         };
       });
@@ -198,12 +275,26 @@ export function realWebhookDeps(): WebhookDeps {
       if (!cfg || !line.webhookUrl) return false;
       return setWebhook({ ...cfg, timeoutMs: WEBHOOK_SET_TIMEOUT_MS }, { instance: line.instance, apiKey: line.apiKey, url: line.webhookUrl, headers, base64 });
     },
+    async restart(line) {
+      if (!cfg) return false;
+      return restartInstance({ ...cfg, timeoutMs: RESTART_TIMEOUT_MS }, { instance: line.instance, apiKey: line.apiKey });
+    },
+    sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+    nowMs: () => Date.now(),
     async markApplied(line, base64) {
-      // Read and written without a lock: the status route can rewrite metadata at the same moment (it keeps what it
-      // read). Losing the mark that way costs one repeated call in the next round; the call is idempotent.
+      // Read and written without a lock. The status route rewrites metadata only while a QR code is pending (a line
+      // that is not connected), and connect/whatsapp only when the line connects, so a connected line's mark is not
+      // lost in practice. If it were, the next round would apply and restart once more (one restart, measured safe).
+      const { [WEBHOOK_RESTART_TRIES_META]: _tries, [WEBHOOK_RESTART_FOR_META]: _for, ...rest } = line.metadata;
       await prisma.connectedApp.update({
         where: { tenantId_provider: { tenantId: line.tenantId, provider: "WHATSAPP" } },
-        data: { metadata: { ...line.metadata, [WEBHOOK_BASE64_META]: base64 } as Prisma.InputJsonValue },
+        data: { metadata: { ...rest, [WEBHOOK_BASE64_META]: base64 } as Prisma.InputJsonValue },
+      });
+    },
+    async markTry(line, wanted, tries) {
+      await prisma.connectedApp.update({
+        where: { tenantId_provider: { tenantId: line.tenantId, provider: "WHATSAPP" } },
+        data: { metadata: { ...line.metadata, [WEBHOOK_RESTART_TRIES_META]: tries, [WEBHOOK_RESTART_FOR_META]: wanted } as Prisma.InputJsonValue },
       });
     },
     log(event) {

@@ -313,6 +313,21 @@ export async function fetchInstanceInfo(cfg: EvolutionConfig, instance: string):
   };
 }
 
+/**
+ * Restarts one instance's socket so it reloads its settings from the connection's database; the session is kept (no
+ * QR, nothing deleted). Needed after a webhook change: 2.3.7 keeps `webhookBase64` in memory and reads it again only
+ * when the line connects (channel.service.ts loadWebhook, called from connectToWhatsapp). Measured on 2026-11-27 on
+ * the test line: 200 in 84 ms, "open" again within 3 s, one restart, no loop. Evolution: POST /instance/restart.
+ */
+export async function restartInstance(cfg: EvolutionConfig, args: { instance: string; apiKey: string }): Promise<boolean> {
+  const res = await evolutionRequest(cfg, {
+    path: `/instance/restart/${seg(args.instance)}`,
+    method: "POST",
+    apiKey: args.apiKey,
+  });
+  return res.ok;
+}
+
 /** Ends the WhatsApp session of one instance (the instance token is used). Evolution: DELETE /instance/logout. */
 export async function logoutInstance(
   cfg: EvolutionConfig,
