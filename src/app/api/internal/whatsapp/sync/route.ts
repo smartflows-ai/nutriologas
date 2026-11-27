@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { ownerTookOverPatch, resolvePatch } from "@/lib/help-actions";
 import { isOptOut } from "@/lib/wa-optout";
 import { messageContentOf } from "@/lib/wa-message-content";
-import { mediaEnabledFor, noteMediaFromSync } from "@/lib/wa-media-data";
+import { fetchMediaAtArrival, mediaEnabledFor, noteMediaFromSync } from "@/lib/wa-media-data";
 import { OPTED_OUT_PAUSE } from "@/lib/help-actions";
 import { raiseHelpOnChat, type HelpChatRow, type HelpTenant } from "@/lib/help-requests";
 import { HELP_CHAT_SELECT, HELP_TENANT_SELECT, realHelpDeps } from "@/lib/help-data";
@@ -138,6 +138,8 @@ export async function POST(req: NextRequest) {
     const isReaction = !!data.message?.reactionMessage;
     const ownerWroteToContact = fromMe && !isBotRecord && !isEcho && !isReaction;
 
+    // #182: the row of a file noted below; its download runs last, after every write of the chat's state.
+    let mediaId: string | null = null;
     if (!isEcho) {
       // One row per business and WhatsApp id (a retry does nothing). Until 35-message-key-drop-global is applied,
       // the old global index can still refuse a message another business stored: log it, keep the sync going.
@@ -166,8 +168,11 @@ export async function POST(req: NextRequest) {
       // #182: the file a message carries gets its row (only for businesses that are on). Only its shape is read,
       // never the file: a base64 in the event is not stored. A failure here never breaks the sync of the message.
       if (stored && mediaEnabledFor(tenantId)) {
-        await noteMediaFromSync({ tenantId, chatId: chat.id, messageId: stored.id, keyId, fromMe, message: data.message, receivedAt: timestamp })
-          .catch((error: unknown) => console.error("[whatsapp/sync] media row failed", error instanceof Error ? error.name : "error"));
+        mediaId = await noteMediaFromSync({ tenantId, chatId: chat.id, messageId: stored.id, keyId, fromMe, message: data.message, receivedAt: timestamp })
+          .catch((error: unknown) => {
+            console.error("[whatsapp/sync] media row failed", error instanceof Error ? error.name : "error");
+            return null;
+          });
       }
     }
 
@@ -211,6 +216,15 @@ export async function POST(req: NextRequest) {
         loopReason = `loop_detected: ${recentBotMessages} bot messages in last 60s`;
         console.warn(`[whatsapp/sync] Loop guard triggered for ${remoteJid} — ${loopReason}`);
       }
+    }
+
+    // #182, LAST: a light file is fetched right away, inside one deadline (INLINE_DEADLINE_MS, 6 s for the whole
+    // attempt). Everything above (the bot pause when the owner writes, the end of a help request, the loop guard) is
+    // already written, so a slow download or a cut request never puts them at risk. A heavier file, or one that does
+    // not make it, waits for the 15-minute round. A failure here never breaks the sync.
+    if (mediaId) {
+      await fetchMediaAtArrival(mediaId)
+        .catch((error: unknown) => console.error("[whatsapp/sync] media fetch failed", error instanceof Error ? error.name : "error"));
     }
 
     return Response.json({ success: true, chatId: chat.id, shouldRespond, loopReason });

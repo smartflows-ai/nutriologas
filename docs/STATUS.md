@@ -2,35 +2,31 @@
 
 > Movido desde `CLAUDE.md` el 2026-11-20 para que no se cargue en cada mensaje. No lo lee Claude por sí solo: ábrelo cuando la tarea toque pendientes, producción o QA.
 
-### Pending after ticket #182, WhatsApp files in the panel (2026-11-26, branch `feat/182-media-backend`)
+### Pending after ticket #182, WhatsApp files in the panel (updated 2026-11-27, branch `feat/182-media-origin`)
 
-**Not in production.** Nothing of this ticket is live: the switch is off for every business and `prisma/sql/36-whatsapp-media` is not applied to the real database. Detail of the feature: `.claude/rules/newaigent/whatsapp-messaging.md`, section "WhatsApp files in the panel". Evidence of the local test: `docs/qa/182-archivos-panel-whatsapp.md`.
+**In production, switched off.** PR #188 (`dd819c3`) merged on 2026-11-27 at 07:44 UTC and deployed at 07:47 UTC; `prisma/sql/36-whatsapp-media` is applied to the real database (catalogue checked: two tables, row level security, three enums). No `WA_MEDIA_*` variable exists in the hosting, so the switch is off for every business. Detail of the feature: `.claude/rules/newaigent/whatsapp-messaging.md`, section "WhatsApp files in the panel". Evidence of the local test: `docs/qa/182-archivos-panel-whatsapp.md`. Plan: `.claude/plans/182-archivos-panel-whatsapp.plan.md` (v11).
 
-Gates before the merge (the owner applies the SQL himself):
-- **Apply `prisma/sql/36-whatsapp-media/up.sql` to the real database first** (fresh verified backup, one transaction, then check `relrowsecurity = true` on both tables and that existing rows did not change). The new code reads the two tables when a chat is deleted and at the end of the 15-minute job, so the database goes before the code.
-- **`/ecc:security-scan`**: not run on the final branch. The owner's rule of 2026-11-25 (no package or `npx` tool without a Context7 check) stopped it; the security review was done by reading the diff. Run it once Context7 is set up.
-- The two storage packages were installed with the owner's explicit yes without the Context7 check ("omitimos Context7 por el momento"): `@aws-sdk/client-s3` and `@aws-sdk/s3-request-presigner` 3.1166.0, exact, resolved with `--before=2026-11-12`, no install scripts.
+In branch `feat/182-media-origin` (not merged; every step below asks the owner separately):
+- The production origin (`wa-media-origin.ts`), the fetch at arrival from `whatsapp/sync` (3 MiB, 6 s for the whole attempt), the round tied to the run's clock (45 s, 20 s per file), no retries for a business that is off, a message gone from the connection closes `FAILED` `message_not_found`, the "too large" notice says where to see the file.
+- #154 by the list: the webhook without the file only for the businesses that are on, applied by the 15-minute round itself (`wa-webhook-rev.ts`). **Pending the owner's explicit yes** (arch, 2026-11-27): kept in its own files so it can be taken out. Without it the webhook stays `base64: true` for everyone and heavy files keep getting lost (#154 stays open).
 
-Not built yet (the feature cannot store a real file in production without the first one):
-- **The production origin**: the piece of the app that asks the WhatsApp connection for a file (describe a message by its key, download it). In the local test a script outside the repo did it. What it must do is measured (see the rule file): describe with the full message, never with the workflow's trimmed shape; take the name and the caption from the message, never from the download; refuse view once and anything over 16 MB before downloading.
-- Fetching the file right after `whatsapp/sync` answers (today only the 15-minute job retries, and only when an origin exists).
+Order after the merge:
+- The owner publishes the five `WA_MEDIA_STORE_*` variables with the production bucket (not the `-test` one), then `WA_MEDIA_ENABLED_TENANTS` with the test business only, and redeploys.
+- The first round applies the webhook to the test line: in the reminders run's answer, `media.webhooks.applied` 1 and `notOpenAfter` 0 (also logged as `[wa-webhook] webhook change`), then the next test message arrives.
+- Tests with the owner's phone on the test business: `.claude/local-test/qa/182-produccion-guia.md`.
+- `EVOLUTION_WEBHOOK_SECRET` must exist in the hosting: without it the round never applies the webhook (it never sends it unsigned). n8narch read on 2026-11-27 that the live workflow's webhook asks for no authentication: separate security finding.
+
+Gates still open:
+- **Node 22 or later in the hosting** (`AbortSignal.any`, used by the deadlines of this branch). `package.json` pins no `engines`; the hosting no longer deploys Node 20, so it does not block today.
+- **`/ecc:security-scan`**: not run (needs Context7, owner's rule of 2026-11-25). The two storage packages (`@aws-sdk/client-s3`, `@aws-sdk/s3-request-presigner` 3.1166.0, exact) were installed with the owner's explicit yes without the Context7 check. This branch adds no package.
 - A read-only mode for the WhatsApp adapter, so a local app can read from a live line without being able to disconnect it (the owner said "todavía no").
-- The production private bucket and the `WA_MEDIA_*` variables in the hosting; then the switch for the test business.
+- A second test business switched on, for the isolation test in the deployed app.
+- Privacy notice and terms before the clinic is switched on: files sent by WhatsApp are kept up to 30 days, a hidden file is destroyed within 30 days at most, the private store is named. For the owner's legal adviser.
+- n8n delivery (pasted by the owner): let stickers, view once and the round video note through the file guard. 22 runs of the workflow keep patient files in their execution data (n8narch); deleting them is the owner's step.
 
-Not tested:
-- From a phone: document, PDF, view once, sticker, a second small video. Availability of a file one hour and one day after it was sent. Voice notes recorded on iOS.
-- The bot's reply with the new line, the pause and the notice to the team: the test phone is a team number, so the bot ignores it. Needs a phone that is not of the team.
-- Staff account in the panel (the hide and restore of the test were done by the owner). Dark mode, very light and very dark business colours, phone widths, keyboard: seen by the owner in one browser only; the QA round in the browser is pending. The interface audit scripts named in `CLAUDE.md` (`local-utils/minimal-ui/audit.js`, `theme-colors.js`) do not exist on the machine: the rules were checked by hand.
-- Isolation between two businesses in the deployed app: covered by automated tests; the real test needs a second test business before the feature is switched on for a real one.
-- The clean-up against the real store at day 30 (covered by tests with an injected clock).
+Not measured: availability of a file one hour and one day after it was sent (the 26-nov photo and video are past 24 h; read-only measurement waits for the owner's yes); videos of 10 to 16 MB; voice notes recorded on iOS; that `/webhook/set` does not cut an open line (the first application on the test line is the measurement).
 
-Before switching it on for a real business:
-- Privacy notice and terms: say that files sent by WhatsApp are kept, for how long (30 days), that a hidden file is destroyed within 30 days at most, and name the private store. The health-data consent text is tied to the booking checkbox; a patient who sends a study by WhatsApp never ticked it. For the owner's legal adviser.
-- n8n delivery (pasted by hand by the owner, files outside the repo): let stickers, view once and the round video note through the file guard, keep the caption and the view-once mark. Until then those types do not reach the app in production.
-
-Found in production during this test, belongs to #154 (not caused by this branch):
-- **A 2.1 MB video sent to the test line reached the WhatsApp connection and never started a run of the bot workflow**: no line in the chat, no reply, no notice. Four smaller files (8 KB to 45 KB) arrived in one or two seconds. In the 1,021 messages kept since 2026-11-12 the heaviest file that ever arrived is a photo of about 175 KB, and no video or document ever arrived. Cause not verified (inferred: the webhook carries the whole file as base64, `webhookConfig` has `base64: true`, and something between the connection and the workflow refuses a body of that size). With `base64: false` the webhook weighs a few KB; this test measured that the app can then ask for the file by its key.
-- Each file sent today is stored whole in the workflow's execution data, once per node that touched it (a 44 KB photo: five copies).
+Separate tickets found on 2026-11-27: "Desconectar" deletes the whole `connected_apps` row (bot context, risk state; 23 queries in 13 files assume "row = line"); `connect/whatsapp` builds the webhook address from `N8N_WEBHOOK_BASE_URL` even when it is missing ("undefined/…") and applies an unsigned webhook when the secret is missing.
 
 Follow-up tickets to open (drafts with the owner): keep a chat file in the patient history beyond 30 days; destroy the copy when the patient deletes the message for everyone; tell the owner when the store is full; serve the files under the platform's own domain; a business that disconnects its line stops seeing its whole chat history in the panel; `whatsapp_messages.type` only tells images apart.
 

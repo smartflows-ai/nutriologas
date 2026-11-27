@@ -4,7 +4,7 @@
 // Run with: npx tsx --test tests/wa-media-ingest.test.ts
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ingestMedia, type IngestDeps, type IngestRow, type MediaOrigin } from "../src/lib/wa-media-ingest";
+import { INLINE_MAX_BYTES, ingestMedia, type IngestDeps, type IngestRow, type MediaOrigin } from "../src/lib/wa-media-ingest";
 import { DEFAULT_PLATFORM_MEDIA_BYTES, MAX_MEDIA_ATTEMPTS, MAX_MEDIA_BYTES, admitMedia, mediaOf, type Admission, type MediaInfo } from "../src/lib/wa-media-rules";
 import type { MediaStore } from "../src/lib/wa-media-storage";
 
@@ -27,6 +27,7 @@ function baseRow(overrides: Partial<IngestRow> = {}): IngestRow {
     status: "RECEIVED",
     attempts: 0,
     destroyedAt: null,
+    sizeBytes: null,
     ...overrides,
   };
 }
@@ -46,6 +47,7 @@ function world(options: {
   origin?: boolean;
   storeConfigured?: boolean;
   putFails?: boolean;
+  enabled?: boolean;
 } = {}): World {
   const calls: string[] = [];
   const stored: World["stored"] = [];
@@ -78,6 +80,7 @@ function world(options: {
     origin: options.origin === false ? null : origin,
     store,
     storeConfigured: options.storeConfigured ?? true,
+    enabledFor: () => options.enabled ?? true,
     now: () => NOW,
     async loadRow() {
       calls.push("load");
@@ -86,7 +89,7 @@ function world(options: {
     async admit(_id, info) {
       calls.push(`admit:${info.kind}:${info.viewOnce}`);
       const verdict = options.verdict ?? (info.viewOnce ? "VIEW_ONCE" : "PENDING");
-      state.row = { ...state.row, status: verdict };
+      state.row = { ...state.row, status: verdict, sizeBytes: info.declaredBytes };
       return verdict;
     },
     async markStored(_id, result) {
@@ -194,13 +197,103 @@ test("a message the origin cannot find uses an attempt too: it may still be on i
   assert.ok(w.calls.includes("failed:message_not_found:retry"));
 });
 
-test("the last attempt closes the row: a pending one as FAILED, one never described as SIZE_UNKNOWN", async () => {
+test("the last attempt closes the row: a pending one as FAILED, one that could never be described as SIZE_UNKNOWN", async () => {
   const pending = world({ row: { status: "PENDING", attempts: MAX_MEDIA_ATTEMPTS - 1 }, download: { ok: false, error: "network" } });
   assert.equal(await ingestMedia(pending.deps, MEDIA), "FAILED");
   assert.ok(pending.calls.includes("failed:download_network:FAILED"));
-  const received = world({ row: { attempts: MAX_MEDIA_ATTEMPTS - 1 }, describe: { ok: true, value: null } });
+  const received = world({ row: { attempts: MAX_MEDIA_ATTEMPTS - 1 }, describe: { ok: false, error: "timeout" } });
   assert.equal(await ingestMedia(received.deps, MEDIA), "SIZE_UNKNOWN");
-  assert.ok(received.calls.includes("failed:message_not_found:SIZE_UNKNOWN"));
+  assert.ok(received.calls.includes("failed:describe_timeout:SIZE_UNKNOWN"));
+});
+
+test("a message the connection no longer has (line reconnected) closes as FAILED after the last attempt, not SIZE_UNKNOWN", async () => {
+  let w = world({ describe: { ok: true, value: null } });
+  for (let i = 0; i < MAX_MEDIA_ATTEMPTS; i += 1) {
+    const outcome = await ingestMedia(w.deps, MEDIA);
+    assert.equal(outcome, i < MAX_MEDIA_ATTEMPTS - 1 ? "retry" : "FAILED", `attempt ${i + 1}`);
+  }
+  assert.equal(w.row.status, "FAILED");
+  assert.ok(w.calls.includes("failed:message_not_found:FAILED"));
+  w = world({ row: { status: "PENDING" }, download: { ok: false, error: "http" } });
+  for (let i = 0; i < MAX_MEDIA_ATTEMPTS; i += 1) await ingestMedia(w.deps, MEDIA);
+  assert.equal(w.row.status, "FAILED");
+  assert.ok(w.calls.includes("failed:download_http:FAILED"));
+});
+
+test("a message that exists but declares no size still closes as SIZE_UNKNOWN, without downloading", async () => {
+  const w = world({ describe: { ok: true, value: { ...PHOTO, declaredBytes: null } } });
+  realAdmission(w);
+  assert.equal(await ingestMedia(w.deps, MEDIA), "SIZE_UNKNOWN");
+  assert.ok(!w.calls.includes("download"));
+});
+
+// ── The attempt right after sync: only light files, inside one deadline (plan v9-v11) ──
+
+test("the attempt at arrival fetches a file that declares at most the limit", async () => {
+  const w = world({ describe: { ok: true, value: { ...PHOTO, declaredBytes: INLINE_MAX_BYTES } } });
+  assert.equal(await ingestMedia(w.deps, MEDIA, { maxBytes: INLINE_MAX_BYTES }), "stored");
+});
+
+test("a file heavier than the limit is let in but left for the round: no download, no attempt used", async () => {
+  const w = world({ describe: { ok: true, value: { ...PHOTO, kind: "VIDEO", declaredBytes: INLINE_MAX_BYTES + 1 } } });
+  assert.equal(await ingestMedia(w.deps, MEDIA, { maxBytes: INLINE_MAX_BYTES }), "deferred");
+  assert.equal(w.row.status, "PENDING");
+  assert.equal(w.row.attempts, 0);
+  assert.ok(!w.calls.includes("download"));
+  const pending = world({ row: { status: "PENDING", sizeBytes: INLINE_MAX_BYTES + 1 } });
+  assert.equal(await ingestMedia(pending.deps, MEDIA, { maxBytes: INLINE_MAX_BYTES }), "deferred");
+  assert.ok(!pending.calls.includes("download"));
+});
+
+test("the limit is 3 MiB: the measured 2.1 MB video (2,183,734 bytes) is fetched at arrival", () => {
+  assert.equal(INLINE_MAX_BYTES, 3 * 1024 * 1024);
+  assert.ok(2_183_734 <= INLINE_MAX_BYTES);
+});
+
+test("an attempt cut by its deadline uses no attempt and leaves the row for the round", async () => {
+  const controller = new AbortController();
+  const w = world({ row: { status: "PENDING" } });
+  w.deps.origin = {
+    async describe() {
+      return { ok: true, value: PHOTO };
+    },
+    async download() {
+      controller.abort();
+      return { ok: false, error: "timeout" };
+    },
+  };
+  assert.equal(await ingestMedia(w.deps, MEDIA, { signal: controller.signal }), "cut");
+  assert.equal(w.row.attempts, 0);
+  assert.equal(w.row.status, "PENDING");
+});
+
+test("the deadline reaches the connection and the store", async () => {
+  const controller = new AbortController();
+  const seen: Array<AbortSignal | undefined> = [];
+  const w = world({ row: { status: "RECEIVED" } });
+  w.deps.origin = {
+    async describe(_ref, signal) {
+      seen.push(signal);
+      return { ok: true, value: PHOTO };
+    },
+    async download(_ref, signal) {
+      seen.push(signal);
+      return { ok: true, value: JPEG };
+    },
+  };
+  const put = w.deps.store.put;
+  w.deps.store = { ...w.deps.store, put: async (path, body, opts) => (seen.push(opts.signal), put(path, body, opts)) };
+  assert.equal(await ingestMedia(w.deps, MEDIA, { signal: controller.signal }), "stored");
+  assert.deepEqual(seen, [controller.signal, controller.signal, controller.signal]);
+});
+
+test("a business that is off fetches nothing and uses no attempt (its rows wait for their day 30)", async () => {
+  for (const status of ["RECEIVED", "PENDING"] as const) {
+    const w = world({ row: { status }, enabled: false });
+    assert.equal(await ingestMedia(w.deps, MEDIA), "disabled", status);
+    assert.deepEqual(w.calls, ["load"], status);
+    assert.equal(w.row.attempts, 0);
+  }
 });
 
 test("a row that already used every attempt is not tried again", async () => {
@@ -243,7 +336,7 @@ function realAdmission(w: World) {
       platformBytesInUse: 0,
       platformMaxBytes: DEFAULT_PLATFORM_MEDIA_BYTES,
     });
-    w.row = { ...w.row, status: verdict };
+    w.row = { ...w.row, status: verdict, sizeBytes: info.declaredBytes };
     return verdict;
   };
 }
@@ -276,4 +369,11 @@ test("the file name comes from the full record, never from the download (the con
   const described = mediaOf({ imageMessage: { fileLength: "45362", mimetype: "image/jpeg" } });
   assert.equal(described?.fileName, null, "a photo with no name keeps no name; the screen uses the fallback");
   assert.equal(mediaOf({ documentMessage: { fileLength: "100", fileName: "estudio.pdf" } })?.fileName, "estudio.pdf");
+});
+
+test("a download the connection refuses as too large ends TOO_LARGE, like the check after the download", async () => {
+  const w = world({ row: { status: "PENDING", sizeBytes: 100 }, download: { ok: false, error: "too_large" } });
+  assert.equal(await ingestMedia(w.deps, MEDIA), "TOO_LARGE");
+  assert.ok(w.calls.includes("too_large:null"), "the real size is not known");
+  assert.equal(w.row.attempts, 0);
 });

@@ -14,6 +14,8 @@ import {
   setWebhook,
   webhookHeaders,
 } from "@/lib/messaging/evolution-adapter";
+import { mediaEnabledFor } from "@/lib/wa-media-data";
+import { WEBHOOK_BASE64_META } from "@/lib/wa-webhook-rev";
 
 export async function POST(req: NextRequest) {
   try {
@@ -39,6 +41,9 @@ export async function POST(req: NextRequest) {
     // Evolution signs every webhook call with a short-lived JWT; n8n verifies it.
     const hookHeaders = webhookHeaders(process.env.EVOLUTION_WEBHOOK_SECRET);
     if (!hookHeaders.jwt_key) console.error("[whatsapp-connect] EVOLUTION_WEBHOOK_SECRET not set: webhook calls are unsigned; set it before enabling JWT Auth on the n8n trigger");
+    // #154: the file travels in the webhook only for businesses that are off; the ones on get it by key (#182).
+    // The same list drives the 15-minute round (wa-webhook-rev.ts), so a line connected early never gets it first.
+    const webhookBase64 = !mediaEnabledFor(tenantId);
 
     let qrCode: string | null = null;
     let status = "connecting";
@@ -57,7 +62,7 @@ export async function POST(req: NextRequest) {
       }
     } else {
       // 2. New instance with the required flags and the signed webhook.
-      const created = await createInstance(cfg, { instance: instanceName, webhookUrl, headers: hookHeaders });
+      const created = await createInstance(cfg, { instance: instanceName, webhookUrl, headers: hookHeaders, base64: webhookBase64 });
       if (!created.ok) {
         // Created at the same moment by another request: read it back instead of failing.
         const raced = await fetchInstanceInfo(cfg, instanceName);
@@ -79,9 +84,11 @@ export async function POST(req: NextRequest) {
     if (!(await setSettings(cfg, { instance: instanceName, apiKey: instanceKey }))) {
       console.warn("[whatsapp-connect] settings/set did not apply");
     }
-    if (!(await setWebhook(cfg, { instance: instanceName, apiKey: instanceKey, url: webhookUrl, headers: hookHeaders }))) {
-      console.warn("[whatsapp-connect] webhook/set did not apply");
-    }
+    const webhookApplied = await setWebhook(cfg, { instance: instanceName, apiKey: instanceKey, url: webhookUrl, headers: hookHeaders, base64: webhookBase64 });
+    if (!webhookApplied) console.warn("[whatsapp-connect] webhook/set did not apply");
+    // The mark the round compares with: written only when the connection accepted this webhook. When it did not,
+    // metadata below is rewritten without the old mark; for a business that is on, the next round applies it again.
+    const webhookMark = webhookApplied ? { [WEBHOOK_BASE64_META]: webhookBase64 } : {};
 
     // A new code starts its own lifetime; refreshes are counted from zero.
     const qrMeta = qrCode ? { qrIssuedAt: Date.now(), qrRefreshes: 0 } : {};
@@ -98,7 +105,7 @@ export async function POST(req: NextRequest) {
         waQrCode: qrCode,
         waWebhookUrl: webhookUrl,
         connectedByUserId: userId,
-        metadata: { instanceName, webhookUrl, ...qrMeta },
+        metadata: { instanceName, webhookUrl, ...qrMeta, ...webhookMark },
       },
       create: {
         tenantId,
@@ -111,7 +118,7 @@ export async function POST(req: NextRequest) {
         waWebhookUrl: webhookUrl,
         connectedByUserId: userId,
         scopes: "WHATSAPP",
-        metadata: { instanceName, webhookUrl, ...qrMeta },
+        metadata: { instanceName, webhookUrl, ...qrMeta, ...webhookMark },
       },
     });
 

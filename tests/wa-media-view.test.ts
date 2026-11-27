@@ -153,3 +153,18 @@ test("the hidden notice formats its date with the panel language", () => {
   assert.match(notice, /hiddenDateLabel\(hidden\.at, lang\)/);
   assert.doesNotMatch(notice, /toLocaleDateString\(undefined/);
 });
+
+// ── #182 v9: "too large" says where the file can still be seen (owner's annotation of 2026-11-27) ──
+
+test("the too-large notice says the file can be seen in the business's WhatsApp; view once does not", async () => {
+  const { es } = await import("../src/i18n/es");
+  const { en } = await import("../src/i18n/en");
+  const esMedia = es.crm.whatsapp.media;
+  const enMedia = en.crm.whatsapp.media;
+  assert.match(esMedia.tooLarge, /Puedes verlo en el WhatsApp del negocio/);
+  assert.match(enMedia.tooLarge, /You can see it in the business's WhatsApp/);
+  for (const key of ["viewOnceImage", "viewOnceVideo", "viewOnceAudio"] as const) {
+    assert.doesNotMatch(esMedia[key], /WhatsApp del negocio/, key);
+    assert.doesNotMatch(enMedia[key], /business's WhatsApp/, key);
+  }
+});

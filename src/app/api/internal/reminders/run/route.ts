@@ -8,8 +8,10 @@ import { isInternalKeyValid } from "@/lib/bot";
 import { loadReminderVisits, realReminderDeps } from "@/lib/reminder-data";
 import { syncCalendarDelete } from "@/lib/calendar-sync";
 import { reminderRunStatus, runReminderBatch } from "@/lib/reminder-run";
-import { runMediaPurge } from "@/lib/wa-media-purge";
+import { runClockFrom, runMediaPurge } from "@/lib/wa-media-purge";
 import { mediaPurgeDeps } from "@/lib/wa-media-data";
+import { serverMediaOrigin } from "@/lib/wa-media-origin";
+import { realWebhookDeps, reconcileWebhooks } from "@/lib/wa-webhook-rev";
 import { detectUnanswered, escalateDueChats, remindAssignees } from "@/lib/help-requests";
 import { realAssignmentDeps, realEscalationDeps, realHelpDeps, realUnansweredSource } from "@/lib/help-data";
 import { runHeldDrain } from "@/lib/messaging/drain";
@@ -56,12 +58,19 @@ async function runHelpChecks(now: Date) {
 }
 
 /**
- * WhatsApp files (#182): destroy the copies that are due and retry the files still to fetch. Its own error block:
- * a failure here never changes the reminder run's answer.
+ * WhatsApp files (#182): first the webhook of the lines whose business changed on the list (#154, one short call per
+ * line, only once), then destroy the copies that are due and retry the files still to fetch, all with the run's own
+ * clock (the workflow node gives up after 60 s). Its own error block: a failure here never changes the reminder run's
+ * answer, and a failure of the webhooks never stops the files.
  */
-async function runMediaChecks(now: Date) {
+async function runMediaChecks(now: Date, startedAt: number) {
   try {
-    return await runMediaPurge(mediaPurgeDeps(), now);
+    const webhooks = await reconcileWebhooks(realWebhookDeps(), runClockFrom(startedAt)).catch((error: unknown) => {
+      console.error("[reminders/run] webhook checks failed", error instanceof Error ? error.name : "error");
+      return null;
+    });
+    const files = await runMediaPurge(mediaPurgeDeps(serverMediaOrigin()), now, runClockFrom(startedAt));
+    return { ...files, webhooks };
   } catch (error: unknown) {
     console.error("[reminders/run] media checks failed", error instanceof Error ? error.name : "error");
     return null;
@@ -69,6 +78,7 @@ async function runMediaChecks(now: Date) {
 }
 
 export async function POST(req: NextRequest) {
+  const startedAt = Date.now();
   if (!isInternalKeyValid(req)) return Response.json({ error: "No autorizado" }, { status: 401 });
 
   const body = await req.json().catch(() => ({}));
@@ -88,7 +98,7 @@ export async function POST(req: NextRequest) {
   const help = dryRun ? null : await runHelpChecks(now);
   // Ban prevention: messages held for quiet hours whose window has opened (never in a dry run).
   const held = dryRun ? null : await runHeldDrain(now);
-  const media = dryRun ? null : await runMediaChecks(now);
+  const media = dryRun ? null : await runMediaChecks(now, startedAt);
 
   const status = reminderRunStatus(batch, dryRun);
   return Response.json(

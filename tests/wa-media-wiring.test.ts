@@ -101,3 +101,59 @@ test("deleting a chat and the destruction job do not depend on the switch: a bus
   assert.doesNotMatch(CHAT, /mediaEnabledFor/);
   assert.doesNotMatch(RUN, /mediaEnabledFor/);
 });
+
+// ── #182 production round: the file is fetched at arrival and by the 15-minute round (plan v9-v11) ──
+
+const ORIGIN = read("src/lib/wa-media-origin.ts");
+
+test("sync tries the download right after noting the file, only for a business that is on, and never breaks", () => {
+  const gate = SYNC.indexOf("mediaEnabledFor(tenantId)");
+  const note = SYNC.indexOf("noteMediaFromSync(");
+  const fetchNow = SYNC.indexOf("fetchMediaAtArrival(");
+  assert.ok(gate > 0 && gate < note && note < fetchNow, "switch, then the row, then the attempt");
+  assert.match(SYNC, /fetchMediaAtArrival\([\s\S]*?\.catch\(/);
+});
+
+test("the attempt at arrival takes only light files, inside ONE deadline that covers the whole attempt", () => {
+  const block = DATA.slice(DATA.indexOf("export async function fetchMediaAtArrival"));
+  assert.match(block, /maxBytes: INLINE_MAX_BYTES/);
+  assert.match(block, /AbortSignal\.timeout\(INLINE_DEADLINE_MS\)/);
+  assert.match(block, /Promise\.race\(/, "sync answers by the deadline even if a write ignores the signal");
+});
+
+test("the 15-minute job passes the real origin and the run's own clock to the round", () => {
+  assert.match(RUN, /const startedAt = Date\.now\(\)/);
+  assert.match(RUN, /runMediaPurge\(mediaPurgeDeps\(serverMediaOrigin\(\)\), now, runClockFrom\(startedAt\)\)/);
+});
+
+test("the retries list only businesses that are on, and an empty list asks nothing", () => {
+  const block = DATA.slice(DATA.indexOf("export async function listRetryable"));
+  assert.match(block, /if \(tenantIds\.length === 0\) return \[\];/);
+  assert.match(block, /tenantId: \{ in: \[\.\.\.tenantIds\] \}/);
+});
+
+test("the origin is built from the row's business only: its own line and key, read from its own row", () => {
+  assert.match(ORIGIN, /where: \{ tenantId_provider: \{ tenantId, provider: "WHATSAPP" \} \}/);
+  assert.doesNotMatch(ORIGIN, /process\.env\.WA_MEDIA/);
+  assert.doesNotMatch(ORIGIN, /sendText|sendWhatsAppMessage|setWebhook|logoutInstance|deleteInstance/, "the origin only reads");
+});
+
+test("the attempt at arrival runs LAST: every write of the chat's state and the loop guard come before it", () => {
+  const fetchNow = SYNC.indexOf("fetchMediaAtArrival(mediaId)");
+  assert.ok(fetchNow > 0);
+  for (const before of ['botPausedReason: "owner_reply"', "resolvePatch()", "shouldRespond = false"]) {
+    const at = SYNC.indexOf(before);
+    assert.ok(at > 0 && at < fetchNow, `${before} comes before the download`);
+  }
+  assert.ok(fetchNow < SYNC.indexOf("return Response.json({ success: true"), "then sync answers");
+});
+
+test("the retries list only rows idle since the cutoff the round computes", () => {
+  const block = DATA.slice(DATA.indexOf("export async function listRetryable"));
+  assert.match(block, /updatedAt: \{ lte: retryCutoff\(now, idleMs\) \}/);
+});
+
+test("the round's store has its own timeout for removals too, not only uploads", () => {
+  const block = DATA.slice(DATA.indexOf("export function mediaPurgeDeps"));
+  assert.match(block, /withStoreTimeouts\(serverMediaStore\(\), STORE_TIMEOUT_MS\)/);
+});

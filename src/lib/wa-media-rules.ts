@@ -335,13 +335,14 @@ export function displayModeOf(kind: MediaKind, sniffedMime: string | null): Disp
 
 // ── Server switch: on per business ──────────────────────────────────────────
 
+/** The business ids the switch lists, separated by commas. Empty or missing is nobody. */
+export function mediaEnabledTenantIds(rawList: string | undefined): string[] {
+  if (!rawList) return [];
+  return Array.from(new Set(rawList.split(",").map((entry) => entry.trim()).filter(Boolean)));
+}
+
 /** The switch lists the business ids that are on, separated by commas. Empty or missing is off for everyone. */
 export function isMediaEnabledFor(tenantId: string, rawList: string | undefined): boolean {
   const id = tenantId.trim();
-  if (!id || !rawList) return false;
-  return rawList
-    .split(",")
-    .map((entry) => entry.trim())
-    .filter(Boolean)
-    .includes(id);
+  return id !== "" && mediaEnabledTenantIds(rawList).includes(id);
 }

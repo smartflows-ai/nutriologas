@@ -33,6 +33,8 @@ export type StoreResult<T> = { ok: true; value: T } | { ok: false; error: StoreE
 
 export interface PutOptions {
   contentType: string;
+  /** The caller's deadline (the attempt at arrival): when it fires, the upload is aborted. */
+  signal?: AbortSignal;
 }
 
 /** What the store needs from an S3 client. The real one wraps the official SDK; tests pass a fake. */
@@ -43,8 +45,8 @@ export interface MediaStoreClient {
     Body: Uint8Array;
     ContentType: string;
     ContentLength: number;
-  }): Promise<void>;
-  remove(input: { Bucket: string; Key: string }): Promise<void>;
+  }, signal?: AbortSignal): Promise<void>;
+  remove(input: { Bucket: string; Key: string }, signal?: AbortSignal): Promise<void>;
   presignGet(input: {
     Bucket: string;
     Key: string;
@@ -63,7 +65,8 @@ export interface SignedUrlOptions {
 export interface MediaStore {
   put(path: string, body: Uint8Array, options: PutOptions): Promise<StoreResult<void>>;
   signedUrl(path: string, options?: SignedUrlOptions): Promise<StoreResult<string>>;
-  remove(path: string): Promise<StoreResult<void>>;
+  /** `signal`: the caller's timeout; when it fires, the removal is aborted (and reported as failed, to retry). */
+  remove(path: string, signal?: AbortSignal): Promise<StoreResult<void>>;
 }
 
 // ── Config ──────────────────────────────────────────────────────────────────
@@ -160,11 +163,11 @@ function s3ClientOf(config: MediaStoreConfig): MediaStoreClient {
     responseChecksumValidation: "WHEN_REQUIRED",
   });
   return {
-    async put(input) {
-      await client.send(new PutObjectCommand(input));
+    async put(input, signal) {
+      await client.send(new PutObjectCommand(input), signal ? { abortSignal: signal } : {});
     },
-    async remove(input) {
-      await client.send(new DeleteObjectCommand(input));
+    async remove(input, signal) {
+      await client.send(new DeleteObjectCommand(input), signal ? { abortSignal: signal } : {});
     },
     async presignGet({ expiresIn, ...input }) {
       return getSignedUrl(client, new GetObjectCommand(input), { expiresIn });
@@ -207,13 +210,16 @@ export function createMediaStore(config: MediaStoreConfig | null, injected?: Med
       // Defense in depth: admission already refuses larger files, the store never takes one either.
       if (body.byteLength > MAX_MEDIA_BYTES) return { ok: false, error: "too_large" };
       return attempt("put", () =>
-        client.put({
-          Bucket: config.bucket,
-          Key: path,
-          Body: body,
-          ContentType: options.contentType,
-          ContentLength: body.byteLength,
-        }),
+        client.put(
+          {
+            Bucket: config.bucket,
+            Key: path,
+            Body: body,
+            ContentType: options.contentType,
+            ContentLength: body.byteLength,
+          },
+          options.signal,
+        ),
       );
     },
     async signedUrl(path, options = {}) {
@@ -228,9 +234,9 @@ export function createMediaStore(config: MediaStoreConfig | null, injected?: Med
         }),
       );
     },
-    async remove(path) {
+    async remove(path, signal) {
       if (!validPath(path)) return invalid;
-      return attempt("remove", () => client.remove({ Bucket: config.bucket, Key: path }));
+      return attempt("remove", () => client.remove({ Bucket: config.bucket, Key: path }, signal));
     },
   };
 }
