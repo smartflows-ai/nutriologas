@@ -16,6 +16,9 @@ export interface EvolutionConfig {
 
 export type EvolutionError = "timeout" | "network" | "http";
 
+/** The detail of an answer refused without reading it: it declared a body over the caller's limit. */
+const BODY_OVER_LIMIT = "body over limit";
+
 export type EvolutionResult<T> =
   | { ok: true; status: number; data: T }
   | { ok: false; status: number | null; error: EvolutionError; detail?: string | null };
@@ -115,9 +118,22 @@ function isTimeout(error: unknown): boolean {
   return error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError");
 }
 
+/** The adapter's own timeout, plus the caller's deadline when there is one: whichever comes first aborts the call. */
+function requestSignal(timeoutMs: number, callerSignal: AbortSignal | undefined): AbortSignal {
+  const own = AbortSignal.timeout(timeoutMs);
+  return callerSignal ? AbortSignal.any([own, callerSignal]) : own;
+}
+
+/** True when the answer says (Content-Length) it is longer than the limit. Without that header the body is read. */
+function declaresMoreThan(res: Response, maxBodyBytes: number | undefined): boolean {
+  if (maxBodyBytes === undefined) return false;
+  const declared = Number(res.headers.get("content-length"));
+  return Number.isFinite(declared) && declared > maxBodyBytes;
+}
+
 export async function evolutionRequest<T = unknown>(
   cfg: EvolutionConfig,
-  req: { path: string; apiKey: string; method?: "GET" | "POST" | "DELETE"; body?: unknown },
+  req: { path: string; apiKey: string; method?: "GET" | "POST" | "DELETE"; body?: unknown; signal?: AbortSignal; maxBodyBytes?: number },
 ): Promise<EvolutionResult<T>> {
   const doFetch = cfg.fetchImpl ?? fetch;
   const headers: Record<string, string> = { apikey: req.apiKey };
@@ -127,9 +143,13 @@ export async function evolutionRequest<T = unknown>(
       method: req.method ?? "GET",
       headers,
       body: req.body === undefined ? undefined : JSON.stringify(req.body),
-      signal: AbortSignal.timeout(cfg.timeoutMs ?? DEFAULT_TIMEOUT_MS),
+      signal: requestSignal(cfg.timeoutMs ?? DEFAULT_TIMEOUT_MS, req.signal),
     });
     if (!res.ok) return { ok: false, status: res.status, error: "http", detail: await shortProviderMessage(res) };
+    if (declaresMoreThan(res, req.maxBodyBytes)) {
+      await res.body?.cancel().catch(() => undefined);
+      return { ok: false, status: res.status, error: "http", detail: BODY_OVER_LIMIT };
+    }
     const text = await res.text();
     const data = (text ? JSON.parse(text) : {}) as T;
     return { ok: true, status: res.status, data };
@@ -158,6 +178,71 @@ export async function sendText(
   });
   if (!res.ok) return res;
   return { ok: true, messageId: res.data?.key?.id ?? null, data: res.data };
+}
+
+// ── Files of received messages (#182): read by message key, never carried in the webhook ──
+
+/** The fields of a message key the connection needs to find a message and its file. */
+export interface MessageKey {
+  id: string;
+  remoteJid: string;
+  fromMe: boolean;
+}
+
+type JsonRecord = Record<string, unknown>;
+
+/**
+ * Records asked per lookup. In 2.3.7 `offset` is the page size (`take`, newest first; channel.service.ts fetchMessages,
+ * read on 2026-11-27). A small page instead of one record, so the caller picks the record of the same id and side if
+ * the connection keeps more than one with that id.
+ */
+const FIND_PAGE_SIZE = 10;
+
+/**
+ * The stored records of ONE message, by its id, on one instance (empty when the connection has no such message).
+ * Read only. The record carries the full message: size (fileLength), type, file name, caption and view once.
+ */
+export async function findMessageByKey(
+  cfg: EvolutionConfig,
+  args: { instance: string; apiKey: string; keyId: string; signal?: AbortSignal },
+): Promise<EvolutionResult<JsonRecord[]>> {
+  const res = await evolutionRequest<{ messages?: { records?: unknown } }>(cfg, {
+    path: `/chat/findMessages/${seg(args.instance)}`,
+    method: "POST",
+    apiKey: args.apiKey,
+    body: { where: { key: { id: args.keyId } }, offset: FIND_PAGE_SIZE, page: 1 },
+    signal: args.signal,
+  });
+  if (!res.ok) return res;
+  const records = res.data?.messages?.records;
+  const list = Array.isArray(records) ? records.filter((r): r is JsonRecord => !!r && typeof r === "object") : [];
+  return { ok: true, status: res.status, data: list };
+}
+
+/**
+ * The bytes of the file of one message, asked by its key alone (measured on 2026-11-26: a 2.1 MB video in 871 ms).
+ * Read only. An answer without bytes is an error, never an empty file.
+ */
+/** Like any read, plus "too_large": the answer declared more than `maxResponseBytes` and was never read. */
+export type MediaByKeyResult = EvolutionResult<Uint8Array> | { ok: false; status: number | null; error: "too_large" };
+
+export async function mediaByKey(
+  cfg: EvolutionConfig,
+  args: { instance: string; apiKey: string; key: MessageKey; signal?: AbortSignal; maxResponseBytes?: number },
+): Promise<MediaByKeyResult> {
+  const res = await evolutionRequest<{ base64?: unknown }>(cfg, {
+    path: `/chat/getBase64FromMediaMessage/${seg(args.instance)}`,
+    method: "POST",
+    apiKey: args.apiKey,
+    body: { message: { key: { id: args.key.id, remoteJid: args.key.remoteJid, fromMe: args.key.fromMe } }, convertToMp4: false },
+    signal: args.signal,
+    maxBodyBytes: args.maxResponseBytes,
+  });
+  if (!res.ok && res.detail === BODY_OVER_LIMIT) return { ok: false, status: res.status, error: "too_large" };
+  if (!res.ok) return res;
+  const base64 = typeof res.data?.base64 === "string" ? res.data.base64 : "";
+  if (!base64) return { ok: false, status: res.status, error: "http", detail: "no file in the answer" };
+  return { ok: true, status: res.status, data: new Uint8Array(Buffer.from(base64, "base64")) };
 }
 
 // ── Connection ──────────────────────────────────────────────────────────────

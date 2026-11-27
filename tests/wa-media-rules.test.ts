@@ -24,6 +24,7 @@ import {
   isDueForDestruction,
   needsStoreRemoval,
   isMediaEnabledFor,
+  mediaEnabledTenantIds,
   isPathOfTenant,
   mediaOf,
   mediaStoragePath,
@@ -505,4 +506,10 @@ test("the switch lists the businesses that are on; an empty list is off for ever
   assert.equal(isMediaEnabledFor(TENANT, OTHER_TENANT), false);
   assert.equal(isMediaEnabledFor("", ","), false);
   assert.equal(isMediaEnabledFor(TENANT, TENANT.slice(0, 8)), false);
+});
+
+test("the businesses that are on, as a list: trimmed, without blanks or repeats; empty when missing", () => {
+  assert.deepEqual(mediaEnabledTenantIds(undefined), []);
+  assert.deepEqual(mediaEnabledTenantIds(" , ,"), []);
+  assert.deepEqual(mediaEnabledTenantIds(` ${TENANT} , ${OTHER_TENANT},${TENANT} `), [TENANT, OTHER_TENANT]);
 });

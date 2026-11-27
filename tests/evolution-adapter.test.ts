@@ -15,6 +15,8 @@ import {
   setWebhook,
   webhookHeaders,
   typingDelayMs,
+  findMessageByKey,
+  mediaByKey,
 } from "../src/lib/messaging/evolution-adapter";
 
 interface Call {
@@ -216,4 +218,83 @@ test("a list of objects is described by its shape too", async () => {
   const f = fakeFetch([{ status: 400, body: { message: [{ a: 1 }] } }]);
   const res = await evolutionRequest(cfg(f.impl), { path: "/x", apiKey: "K" });
   assert.equal(res.ok === false && res.detail, "shape: message:array");
+});
+
+// ── #182: the two reads by message key (the file never travels in the webhook) ──
+
+test("findMessageByKey asks for one message by its id with the instance key, and returns its records", async () => {
+  const record = { key: { id: "ABC", fromMe: false }, messageType: "imageMessage", message: { imageMessage: { fileLength: "45362" } } };
+  const f = fakeFetch([{ status: 200, body: { messages: { total: 1, records: [record] } } }]);
+  const res = await findMessageByKey(cfg(f.impl), { instance: "slug-tenant", apiKey: "INST", keyId: "ABC" });
+  assert.deepEqual(res, { ok: true, status: 200, data: [record] });
+  assert.equal(f.calls[0].url, "https://evo.example.com/chat/findMessages/slug-tenant");
+  assert.equal(f.calls[0].init.method, "POST");
+  assert.equal(headerOf(f.calls[0], "apikey"), "INST");
+  assert.deepEqual(JSON.parse(String(f.calls[0].init.body)).where, { key: { id: "ABC" } });
+});
+
+test("findMessageByKey gives an empty list when the connection has no such message", async () => {
+  const f = fakeFetch([{ status: 200, body: { messages: { total: 0, records: [] } } }]);
+  assert.deepEqual(await findMessageByKey(cfg(f.impl), { instance: "i", apiKey: "K", keyId: "X" }), { ok: true, status: 200, data: [] });
+  const odd = fakeFetch([{ status: 200, body: { unexpected: true } }]);
+  assert.deepEqual(await findMessageByKey(cfg(odd.impl), { instance: "i", apiKey: "K", keyId: "X" }), { ok: true, status: 200, data: [] });
+});
+
+test("mediaByKey sends only the key (id, chat, side) and returns the file bytes", async () => {
+  const f = fakeFetch([{ status: 201, body: { mediaType: "imageMessage", base64: Buffer.from([0xff, 0xd8, 0xff]).toString("base64") } }]);
+  const res = await mediaByKey(cfg(f.impl), { instance: "slug-tenant", apiKey: "INST", key: { id: "ABC", remoteJid: "c@s.whatsapp.net", fromMe: false } });
+  assert.equal(res.ok, true);
+  assert.deepEqual(res.ok && Array.from(res.data), [0xff, 0xd8, 0xff]);
+  assert.equal(f.calls[0].url, "https://evo.example.com/chat/getBase64FromMediaMessage/slug-tenant");
+  const body = JSON.parse(String(f.calls[0].init.body));
+  assert.deepEqual(body, { message: { key: { id: "ABC", remoteJid: "c@s.whatsapp.net", fromMe: false } }, convertToMp4: false });
+});
+
+test("mediaByKey without bytes in the answer is an error, never an empty file", async () => {
+  const f = fakeFetch([{ status: 201, body: { mediaType: "imageMessage" } }]);
+  const res = await mediaByKey(cfg(f.impl), { instance: "i", apiKey: "K", key: { id: "A", remoteJid: "c@s.whatsapp.net", fromMe: false } });
+  assert.equal(res.ok, false);
+  assert.equal(res.ok === false && res.error, "http");
+});
+
+test("a deadline given by the caller reaches the request, next to the adapter's own timeout", async () => {
+  const controller = new AbortController();
+  let seen: AbortSignal | undefined;
+  const impl = (async (_url: string, init: RequestInit) => {
+    seen = init.signal ?? undefined;
+    controller.abort();
+    if (seen?.aborted) throw Object.assign(new Error("aborted"), { name: "AbortError" });
+    return new Response("{}", { status: 200 });
+  }) as unknown as typeof fetch;
+  const res = await mediaByKey(cfg(impl), { instance: "i", apiKey: "K", key: { id: "A", remoteJid: "c@s.whatsapp.net", fromMe: false }, signal: controller.signal });
+  assert.equal(res.ok === false && res.error, "timeout");
+  assert.ok(seen?.aborted, "the caller's deadline aborts the request");
+});
+
+test("findMessageByKey asks for a small page (offset is the page size in 2.3.7), so the matching record can be chosen", async () => {
+  const f = fakeFetch([{ status: 200, body: { messages: { records: [] } } }]);
+  await findMessageByKey(cfg(f.impl), { instance: "i", apiKey: "K", keyId: "ABC" });
+  const body = JSON.parse(String(f.calls[0].init.body));
+  assert.equal(body.page, 1);
+  assert.equal(body.offset, 10);
+});
+
+test("mediaByKey refuses an answer that declares a body over the limit, without reading it", async () => {
+  let read = false;
+  const impl = (async () => {
+    const res = new Response(JSON.stringify({ base64: "AAAA" }), { status: 201, headers: { "content-length": "2000" } });
+    const text = res.text.bind(res);
+    res.text = async () => ((read = true), text());
+    return res;
+  }) as unknown as typeof fetch;
+  const res = await mediaByKey(cfg(impl), { instance: "i", apiKey: "K", key: { id: "A", remoteJid: "c@s.whatsapp.net", fromMe: false }, maxResponseBytes: 1000 });
+  assert.equal(res.ok === false && res.error, "too_large");
+  assert.equal(read, false, "the body is never read");
+});
+
+test("mediaByKey with a body under the limit, or without a declared length, reads it as before", async () => {
+  const body = JSON.stringify({ base64: Buffer.from([1, 2]).toString("base64") });
+  const impl = (async () => new Response(body, { status: 201, headers: { "content-length": String(body.length) } })) as unknown as typeof fetch;
+  const ok = await mediaByKey(cfg(impl), { instance: "i", apiKey: "K", key: { id: "A", remoteJid: "c@s.whatsapp.net", fromMe: false }, maxResponseBytes: 1000 });
+  assert.equal(ok.ok, true);
 });

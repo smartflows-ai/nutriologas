@@ -122,8 +122,8 @@ interface Call {
 function fakeClient(fail?: { op: string; error: Error }): { client: MediaStoreClient; calls: Call[] } {
   const calls: Call[] = [];
   const client: MediaStoreClient = {
-    async put(input) {
-      calls.push({ op: "put", input: { ...input } });
+    async put(input, signal) {
+      calls.push({ op: "put", input: { ...input, ...(signal ? { signal } : {}) } });
       if (fail?.op === "put") throw fail.error;
     },
     async remove(input) {
@@ -260,4 +260,12 @@ test("the fallback download name is chosen by the caller (the business language)
     `attachment; filename="file"; filename*=UTF-8''file`,
   );
   assert.equal(safeDownloadName("", "file"), "file");
+});
+
+test("the caller's deadline reaches the upload (the attempt at arrival can cut it)", async () => {
+  const { client, calls } = fakeClient();
+  const store = createMediaStore(CONFIG, client);
+  const controller = new AbortController();
+  await store.put(PATH, new Uint8Array([1]), { contentType: "image/jpeg", signal: controller.signal });
+  assert.equal(calls[0].input.signal, controller.signal);
 });

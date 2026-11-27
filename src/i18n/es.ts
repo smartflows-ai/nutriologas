@@ -937,7 +937,7 @@ export const es: Translations = {
         hiddenBy: "Archivo eliminado por {nombre} el {fecha}",
         hiddenNoName: "Archivo eliminado el {fecha}",
         unavailable: "Archivo ya no disponible",
-        tooLarge: "Archivo demasiado grande (más de 16 MB): no se guardó",
+        tooLarge: "Archivo demasiado grande (más de 16 MB): no se guardó. Puedes verlo en el WhatsApp del negocio",
         sizeUnknown: "No se pudo saber el tamaño del archivo: no se guardó",
         contactLimit: "No se guardó: este contacto llegó al límite de archivos del día",
         tenantLimit: "No se guardó: el espacio de archivos del negocio está lleno",

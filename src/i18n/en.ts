@@ -937,7 +937,7 @@ export const en: Translations = {
         hiddenBy: "File removed by {nombre} on {fecha}",
         hiddenNoName: "File removed on {fecha}",
         unavailable: "File no longer available",
-        tooLarge: "File too large (over 16 MB): not saved",
+        tooLarge: "File too large (over 16 MB): not saved. You can see it in the business's WhatsApp",
         sizeUnknown: "The file size could not be known: not saved",
         contactLimit: "Not saved: this contact reached the daily file limit",
         tenantLimit: "Not saved: the business's file space is full",

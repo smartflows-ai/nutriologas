@@ -16,6 +16,7 @@ import {
   destructionRequestPatch,
   hidePatch,
   isMediaEnabledFor,
+  mediaEnabledTenantIds,
   mediaOf,
   platformMaxBytesOf,
   restorePatch,
@@ -24,8 +25,17 @@ import {
   type MediaKind,
   type MediaStatus,
 } from "@/lib/wa-media-rules";
-import { ingestMedia, type IngestDeps, type IngestRow, type MediaOrigin, type StoredResult } from "@/lib/wa-media-ingest";
-import type { PurgeDeps } from "@/lib/wa-media-purge";
+import {
+  INLINE_MAX_BYTES,
+  ingestMedia,
+  type IngestDeps,
+  type IngestOutcome,
+  type IngestRow,
+  type MediaOrigin,
+  type StoredResult,
+} from "@/lib/wa-media-ingest";
+import { STORE_TIMEOUT_MS, retryCutoff, type PurgeDeps } from "@/lib/wa-media-purge";
+import { serverMediaOrigin } from "@/lib/wa-media-origin";
 import { summaryOf, type MediaSummary } from "@/lib/wa-media-summary";
 import { mediaStoreConfigFromEnv, serverMediaStore, type MediaStore } from "@/lib/wa-media-storage";
 
@@ -38,6 +48,17 @@ const toNumber = (value: bigint | null | undefined): number | null => (value ===
 export function mediaEnabledFor(tenantId: string): boolean {
   return isMediaEnabledFor(tenantId, process.env.WA_MEDIA_ENABLED_TENANTS);
 }
+
+/** The businesses that are on, for the round's retries. */
+function enabledTenantIds(): string[] {
+  return mediaEnabledTenantIds(process.env.WA_MEDIA_ENABLED_TENANTS);
+}
+
+/**
+ * The whole attempt right after sync must end within this time: the workflow waits 10 s for sync (read in the live
+ * workflow on 2026-11-27) and those calls take 118 to 321 ms today, so 6 s leaves room for the rest of sync.
+ */
+export const INLINE_DEADLINE_MS = 6_000;
 
 // ── whatsapp/sync: note the file a message carries ──────────────────────────
 
@@ -141,22 +162,42 @@ async function loadIngestRow(mediaId: string): Promise<IngestRow | null> {
     where: { id: mediaId },
     select: {
       id: true, tenantId: true, keyId: true, fromMe: true, kind: true, status: true, attempts: true, destroyedAt: true,
-      chat: { select: { remoteJid: true } },
+      sizeBytes: true, chat: { select: { remoteJid: true } },
     },
   });
   if (!row || !row.chat) return null;
   return {
     id: row.id, tenantId: row.tenantId, keyId: row.keyId, remoteJid: row.chat.remoteJid, fromMe: row.fromMe,
     kind: row.kind as MediaKind, status: row.status as MediaStatus, attempts: row.attempts, destroyedAt: row.destroyedAt,
+    sizeBytes: toNumber(row.sizeBytes),
   };
 }
 
-/** The real dependencies of ingestMedia. The origin is null until it is configured (phase 0 measurement). */
+/** The store's own timeout, plus the caller's deadline when there is one. */
+function storeSignal(timeoutMs: number, callerSignal: AbortSignal | undefined): AbortSignal {
+  const own = AbortSignal.timeout(timeoutMs);
+  return callerSignal ? AbortSignal.any([own, callerSignal]) : own;
+}
+
+/**
+ * Every upload and every removal ends by its own timeout, so one slow store never holds a run past the workflow's
+ * limit. A timed-out upload uses one attempt; a timed-out removal leaves the row as it is, for the next run.
+ */
+function withStoreTimeouts(store: MediaStore, timeoutMs: number): MediaStore {
+  return {
+    ...store,
+    put: (path, body, options) => store.put(path, body, { ...options, signal: storeSignal(timeoutMs, options.signal) }),
+    remove: (path, signal) => store.remove(path, storeSignal(timeoutMs, signal)),
+  };
+}
+
+/** The real dependencies of ingestMedia. Without an origin (no connection configured) nothing is fetched. */
 export function ingestDeps(origin: MediaOrigin | null, store: MediaStore, storeConfigured: boolean): IngestDeps {
   return {
     origin,
-    store,
+    store: withStoreTimeouts(store, STORE_TIMEOUT_MS),
     storeConfigured,
+    enabledFor: mediaEnabledFor,
     now: () => new Date(),
     loadRow: loadIngestRow,
     admit: (mediaId, info) => admitMediaRow(mediaId, info),
@@ -166,8 +207,12 @@ export function ingestDeps(origin: MediaOrigin | null, store: MediaStore, storeC
         data: { status: "STORED", storagePath: result.storagePath, mimeType: result.mimeType, sizeBytes: BigInt(result.sizeBytes), failureReason: null },
       });
     },
-    async markTooLarge(mediaId: string, sizeBytes: number) {
-      await prisma.whatsAppMedia.update({ where: { id: mediaId }, data: { status: "TOO_LARGE", sizeBytes: BigInt(sizeBytes) } });
+    async markTooLarge(mediaId: string, sizeBytes: number | null) {
+      // Null: the connection refused the answer before reading it, so the size the row has is kept.
+      await prisma.whatsAppMedia.update({
+        where: { id: mediaId },
+        data: { status: "TOO_LARGE", ...(sizeBytes === null ? {} : { sizeBytes: BigInt(sizeBytes) }) },
+      });
     },
     async markAttemptFailed(mediaId: string, reason: string, finalStatus: MediaStatus | null) {
       await prisma.whatsAppMedia.update({
@@ -202,14 +247,16 @@ export async function markDestroyed(mediaId: string, status: MediaStatus, at: Da
   await prisma.whatsAppMedia.update({ where: { id: mediaId }, data: destroyedPatch(status, at) });
 }
 
-/** Rows still to fetch, untouched for at least `idleMs`, with attempts left. */
-export async function listRetryable(now: Date, idleMs: number, limit: number): Promise<string[]> {
+/** Rows still to fetch of the businesses that are on, untouched for at least `idleMs`, with attempts left. */
+export async function listRetryable(now: Date, idleMs: number, limit: number, tenantIds: readonly string[]): Promise<string[]> {
+  if (tenantIds.length === 0) return [];
   const rows = await prisma.whatsAppMedia.findMany({
     where: {
+      tenantId: { in: [...tenantIds] },
       destroyedAt: null,
       status: { in: ["RECEIVED", "PENDING"] },
       attempts: { lt: MAX_MEDIA_ATTEMPTS },
-      updatedAt: { lte: new Date(now.getTime() - idleMs) },
+      updatedAt: { lte: retryCutoff(now, idleMs) },
       chatId: { not: null },
     },
     orderBy: { receivedAt: "asc" },
@@ -220,21 +267,41 @@ export async function listRetryable(now: Date, idleMs: number, limit: number): P
 }
 
 /**
- * The real dependencies of the purge at the end of the 15-minute job. The origin of files is null until it is
- * written after the phase 0 measurement: until then nothing is fetched or retried, only destroyed when due.
+ * The real dependencies of the purge at the end of the 15-minute job. Without an origin (no WhatsApp connection on
+ * this server) nothing is fetched or retried, only destroyed when due.
  */
-export function mediaPurgeDeps(origin: MediaOrigin | null = null): PurgeDeps {
-  const store = serverMediaStore();
+export function mediaPurgeDeps(origin: MediaOrigin | null): PurgeDeps {
+  const store = withStoreTimeouts(serverMediaStore(), STORE_TIMEOUT_MS);
   const storeConfigured = mediaStoreConfigFromEnv() !== null;
-  const deps = ingestDeps(origin, store, storeConfigured);
+  const deps = ingestDeps(origin, serverMediaStore(), storeConfigured);
   return {
     store,
     storeConfigured,
     listDue: listDueForDestruction,
     markDestroyed,
+    enabledTenantIds: enabledTenantIds(),
     listRetryable,
     ingest: origin ? (mediaId) => ingestMedia(deps, mediaId) : null,
   };
+}
+
+// ── whatsapp/sync: the attempt right after the row is noted ─────────────────
+
+/**
+ * Fetches a light file (at most INLINE_MAX_BYTES) right away, inside ONE deadline for the whole attempt. sync answers
+ * by the deadline even if a database write ignores the signal (the race); whatever did not end is left as it is, and
+ * the 15-minute round takes it after RETRY_IDLE_MS. A cut and a heavier file use no attempt.
+ */
+export async function fetchMediaAtArrival(mediaId: string): Promise<IngestOutcome> {
+  const deps = ingestDeps(serverMediaOrigin(), serverMediaStore(), mediaStoreConfigFromEnv() !== null);
+  const signal = AbortSignal.timeout(INLINE_DEADLINE_MS);
+  const deadline = new Promise<IngestOutcome>((resolve) => {
+    signal.addEventListener("abort", () => resolve("cut"), { once: true });
+  });
+  const attempt = ingestMedia(deps, mediaId, { maxBytes: INLINE_MAX_BYTES, signal });
+  // A failure that comes after the deadline already answered is not left unhandled.
+  attempt.catch(() => undefined);
+  return Promise.race([attempt, deadline]);
 }
 
 // ── Panel: summaries, one file, hide and restore ────────────────────────────
