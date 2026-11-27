@@ -8,12 +8,13 @@
 
 In branch `feat/182-media-origin` (not merged; every step below asks the owner separately):
 - The production origin (`wa-media-origin.ts`), the fetch at arrival from `whatsapp/sync` (3 MiB, 6 s for the whole attempt), the round tied to the run's clock (45 s, 20 s per file), no retries for a business that is off, a message gone from the connection closes `FAILED` `message_not_found`, the "too large" notice says where to see the file.
-- #154 is NOT in this branch: the webhook stays `base64: true` for every line, so a heavy file never reaches the app (only light photos and voice notes are fetched).
+- #154 by the list: the webhook without the file only for the businesses that are on, applied by the 15-minute round itself (`wa-webhook-rev.ts`). **Pending the owner's explicit yes** (arch, 2026-11-27): kept in its own files so it can be taken out. Without it the webhook stays `base64: true` for everyone and heavy files keep getting lost (#154 stays open).
 
 Order after the merge:
 - The owner publishes the five `WA_MEDIA_STORE_*` variables with the production bucket (not the `-test` one), then `WA_MEDIA_ENABLED_TENANTS` with the test business only, and redeploys.
+- The first round applies the webhook to the test line: in the reminders run's answer, `media.webhooks.applied` 1 and `notOpenAfter` 0 (also logged as `[wa-webhook] webhook change`), then the next test message arrives.
 - Tests with the owner's phone on the test business: `.claude/local-test/qa/182-produccion-guia.md`.
-- n8narch read on 2026-11-27 that the live workflow's webhook asks for no authentication: separate security finding.
+- `EVOLUTION_WEBHOOK_SECRET` must exist in the hosting: without it the round never applies the webhook (it never sends it unsigned). n8narch read on 2026-11-27 that the live workflow's webhook asks for no authentication: separate security finding.
 
 Gates still open:
 - **Node 22 or later in the hosting** (`AbortSignal.any`, used by the deadlines of this branch). `package.json` pins no `engines`; the hosting no longer deploys Node 20, so it does not block today.

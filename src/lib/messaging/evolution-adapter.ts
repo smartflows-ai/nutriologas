@@ -361,8 +361,12 @@ const INSTANCE_SETTINGS = {
   syncFullHistory: false,
 } as const;
 
-function webhookConfig(url: string, headers: Record<string, string>) {
-  return { enabled: true, url, headers, byEvents: false, base64: true, events: ["MESSAGES_UPSERT", "CONNECTION_UPDATE"] };
+/**
+ * The webhook of a line. `base64` says whether the file travels inside each message event (#154): false for the
+ * businesses that are on (the app asks for the file by key), true otherwise. Always explicit, never defaulted.
+ */
+function webhookConfig(url: string, headers: Record<string, string>, base64: boolean) {
+  return { enabled: true, url, headers, byEvents: false, base64, events: ["MESSAGES_UPSERT", "CONNECTION_UPDATE"] };
 }
 
 export type CreateInstanceResult =
@@ -371,7 +375,7 @@ export type CreateInstanceResult =
 
 export async function createInstance(
   cfg: EvolutionConfig,
-  args: { instance: string; webhookUrl: string; headers: Record<string, string> },
+  args: { instance: string; webhookUrl: string; headers: Record<string, string>; base64: boolean },
 ): Promise<CreateInstanceResult> {
   const res = await evolutionRequest<{ hash?: string | { apikey?: string }; qrcode?: { base64?: string } }>(cfg, {
     path: "/instance/create",
@@ -382,7 +386,7 @@ export async function createInstance(
       qrcode: true,
       integration: "WHATSAPP-BAILEYS",
       ...INSTANCE_SETTINGS,
-      webhook: webhookConfig(args.webhookUrl, args.headers),
+      webhook: webhookConfig(args.webhookUrl, args.headers, args.base64),
     },
   });
   if (!res.ok) return res;
@@ -403,13 +407,13 @@ export async function setSettings(cfg: EvolutionConfig, args: { instance: string
 
 export async function setWebhook(
   cfg: EvolutionConfig,
-  args: { instance: string; apiKey: string; url: string; headers: Record<string, string> },
+  args: { instance: string; apiKey: string; url: string; headers: Record<string, string>; base64: boolean },
 ): Promise<boolean> {
   const res = await evolutionRequest(cfg, {
     path: `/webhook/set/${seg(args.instance)}`,
     method: "POST",
     apiKey: args.apiKey,
-    body: { webhook: webhookConfig(args.url, args.headers) },
+    body: { webhook: webhookConfig(args.url, args.headers, args.base64) },
   });
   return res.ok;
 }

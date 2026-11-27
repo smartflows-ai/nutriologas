@@ -150,6 +150,7 @@ test("createInstance sends the required flags and webhook headers, and returns t
     instance: "slug-tenant",
     webhookUrl: "https://n8n.example.com/webhook/id/slug-tenant",
     headers: { jwt_key: "S" },
+    base64: true,
   });
   assert.deepEqual(res, { ok: true, token: "NEW-TOKEN", qrCode: "QR", alreadyExists: false });
   const body = JSON.parse(String(f.calls[0].init.body));
@@ -164,13 +165,13 @@ test("createInstance sends the required flags and webhook headers, and returns t
 
 test("createInstance reports an instance that already exists", async () => {
   const f = fakeFetch([{ status: 403, body: { response: { message: ['This name "x" is already in use.'] } } }]);
-  const res = await createInstance(cfg(f.impl), { instance: "x", webhookUrl: "u", headers: {} });
+  const res = await createInstance(cfg(f.impl), { instance: "x", webhookUrl: "u", headers: {}, base64: true });
   assert.equal(res.ok, false);
 });
 
 test("setWebhook sends the secret headers with the instance key", async () => {
   const f = fakeFetch([{ status: 201, body: {} }]);
-  const ok = await setWebhook(cfg(f.impl), { instance: "i", apiKey: "INST", url: "https://h/w", headers: { jwt_key: "S" } });
+  const ok = await setWebhook(cfg(f.impl), { instance: "i", apiKey: "INST", url: "https://h/w", headers: { jwt_key: "S" }, base64: true });
   assert.equal(ok, true);
   const body = JSON.parse(String(f.calls[0].init.body));
   assert.deepEqual(body.webhook.headers, { jwt_key: "S" });
