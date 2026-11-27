@@ -86,9 +86,13 @@ export async function POST(req: NextRequest) {
     }
     const webhookApplied = await setWebhook(cfg, { instance: instanceName, apiKey: instanceKey, url: webhookUrl, headers: hookHeaders, base64: webhookBase64 });
     if (!webhookApplied) console.warn("[whatsapp-connect] webhook/set did not apply");
-    // The mark the round compares with: written only when the connection accepted this webhook. When it did not,
-    // metadata below is rewritten without the old mark; for a business that is on, the next round applies it again.
-    const webhookMark = webhookApplied ? { [WEBHOOK_BASE64_META]: webhookBase64 } : {};
+    // The mark the round compares with: written only when the connection accepted this webhook AND the line loads it
+    // afterwards. The connection keeps the webhook's base64 in memory and reads it when the line connects: a new line,
+    // or one waiting for its QR, connects after this; a line that was already open does not, so it gets no mark and
+    // the 15-minute round applies and restarts it once. Without a mark, metadata below is rewritten without the old
+    // one; for a business that is on, the next round applies it again.
+    const loadsWebhookAfter = existing?.state !== "open";
+    const webhookMark = webhookApplied && loadsWebhookAfter ? { [WEBHOOK_BASE64_META]: webhookBase64 } : {};
 
     // A new code starts its own lifetime; refreshes are counted from zero.
     const qrMeta = qrCode ? { qrIssuedAt: Date.now(), qrRefreshes: 0 } : {};

@@ -8,11 +8,11 @@
 
 In branch `feat/182-media-origin` (not merged; every step below asks the owner separately):
 - The production origin (`wa-media-origin.ts`), the fetch at arrival from `whatsapp/sync` (3 MiB, 6 s for the whole attempt), the round tied to the run's clock (45 s, 20 s per file), no retries for a business that is off, a message gone from the connection closes `FAILED` `message_not_found`, the "too large" notice says where to see the file.
-- #154 by the list: the webhook without the file only for the businesses that are on, applied by the 15-minute round itself (`wa-webhook-rev.ts`). **Pending the owner's explicit yes** (arch, 2026-11-27): kept in its own files so it can be taken out. Without it the webhook stays `base64: true` for everyone and heavy files keep getting lost (#154 stays open).
+- #154 by the list: merged in PR #195 (2026-11-27, 09:54 UTC). On the test line the call was accepted but the webhook kept the file: the connection keeps `webhookBase64` in memory until the line connects again. One manual restart of the test line (10:44 UTC, owner's yes; 200 in 84 ms, "open" within 3 s) fixed it: the next photo and the 2.1 MB video arrived without the file in the webhook and were stored. Branch `fix/154-webhook-restart`: the round restarts the line once after the call and marks only when it is open again (at most 2 tries per change).
 
 Order after the merge:
 - The owner publishes the five `WA_MEDIA_STORE_*` variables with the production bucket (not the `-test` one), then `WA_MEDIA_ENABLED_TENANTS` with the test business only, and redeploys.
-- The first round applies the webhook to the test line: in the reminders run's answer, `media.webhooks.applied` 1 and `notOpenAfter` 0 (also logged as `[wa-webhook] webhook change`), then the next test message arrives.
+- When a business enters the list, the next round applies the webhook and restarts its line once: in the reminders run's answer, `media.webhooks.applied` 1 and `notOpenAfter` 0 (also logged as `[wa-webhook] webhook change`); then a test message with a photo must arrive without the file in the webhook (qa with n8narch, case A13).
 - Tests with the owner's phone on the test business: `.claude/local-test/qa/182-produccion-guia.md`.
 - `EVOLUTION_WEBHOOK_SECRET` must exist in the hosting: without it the round never applies the webhook (it never sends it unsigned). n8narch read on 2026-11-27 that the live workflow's webhook asks for no authentication: separate security finding.
 
@@ -24,7 +24,7 @@ Gates still open:
 - Privacy notice and terms before the clinic is switched on: files sent by WhatsApp are kept up to 30 days, a hidden file is destroyed within 30 days at most, the private store is named. For the owner's legal adviser.
 - n8n delivery (pasted by the owner): let stickers, view once and the round video note through the file guard. 22 runs of the workflow keep patient files in their execution data (n8narch); deleting them is the owner's step.
 
-Not measured: availability of a file one hour and one day after it was sent (the 26-nov photo and video are past 24 h; read-only measurement waits for the owner's yes); videos of 10 to 16 MB; voice notes recorded on iOS; that `/webhook/set` does not cut an open line (the first application on the test line is the measurement).
+Not measured: availability of a file one hour and one day after it was sent (the 26-nov photo and video are past 24 h; read-only measurement waits for the owner's yes); videos of 10 to 16 MB; voice notes recorded on iOS; a restart of a line with real traffic (the test line had none).
 
 Separate tickets found on 2026-11-27: "Desconectar" deletes the whole `connected_apps` row (bot context, risk state; 23 queries in 13 files assume "row = line"); `connect/whatsapp` builds the webhook address from `N8N_WEBHOOK_BASE_URL` even when it is missing ("undefined/…") and applies an unsigned webhook when the secret is missing.
 
