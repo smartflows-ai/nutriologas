@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { ownerTookOverPatch, resolvePatch } from "@/lib/help-actions";
 import { isOptOut } from "@/lib/wa-optout";
 import { messageContentOf } from "@/lib/wa-message-content";
+import { mediaEnabledFor, noteMediaFromSync } from "@/lib/wa-media-data";
 import { OPTED_OUT_PAUSE } from "@/lib/help-actions";
 import { raiseHelpOnChat, type HelpChatRow, type HelpTenant } from "@/lib/help-requests";
 import { HELP_CHAT_SELECT, HELP_TENANT_SELECT, realHelpDeps } from "@/lib/help-data";
@@ -140,7 +141,7 @@ export async function POST(req: NextRequest) {
     if (!isEcho) {
       // One row per business and WhatsApp id (a retry does nothing). Until 35-message-key-drop-global is applied,
       // the old global index can still refuse a message another business stored: log it, keep the sync going.
-      await prisma.whatsAppMessage
+      const stored = await prisma.whatsAppMessage
         .upsert({
           where: { tenantId_keyId: { tenantId, keyId } },
           update: {},
@@ -154,11 +155,20 @@ export async function POST(req: NextRequest) {
             timestamp,
             type: data.message?.imageMessage ? "image" : "text",
           },
+          select: { id: true },
         })
         .catch((error: unknown) => {
           if ((error as { code?: string })?.code !== "P2002") throw error;
           console.warn("[whatsapp/sync] message id already stored by another business; skipped until migration 35");
+          return null;
         });
+
+      // #182: the file a message carries gets its row (only for businesses that are on). Only its shape is read,
+      // never the file: a base64 in the event is not stored. A failure here never breaks the sync of the message.
+      if (stored && mediaEnabledFor(tenantId)) {
+        await noteMediaFromSync({ tenantId, chatId: chat.id, messageId: stored.id, keyId, fromMe, message: data.message, receivedAt: timestamp })
+          .catch((error: unknown) => console.error("[whatsapp/sync] media row failed", error instanceof Error ? error.name : "error"));
+      }
     }
 
     if (ownerWroteToContact && chat.botEnabled) {

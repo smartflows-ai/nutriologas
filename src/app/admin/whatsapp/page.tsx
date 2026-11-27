@@ -6,6 +6,8 @@ import { MessageSquare, Settings, Send, User, Bot, BotOff, Bell, BellOff, Refres
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useTranslation } from "@/i18n";
+import { MediaBubble } from "@/components/admin/whatsapp/media/MediaBubble";
+import { bubbleTextOf } from "@/components/admin/whatsapp/media/media-view";
 import { translateApiError } from "@/i18n/validation";
 import PendingConfirmations from "@/components/admin/PendingConfirmations";
 import ReminderMessagesCard from "@/components/admin/ReminderMessagesCard";
@@ -611,6 +613,9 @@ function WhatsAppPageContent() {
                   {messages.map((msg, i) => (
                     <div key={msg.id || i} className={`flex ${msg.fromMe ? 'justify-end' : 'justify-start'}`}>
                       <div className={`max-w-[85%] md:max-w-[75%] px-4 py-2 rounded-xl text-sm shadow-sm ${msg.fromMe ? 'bg-primary text-[color:var(--on-primary)] rounded-tr-none' : 'bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 rounded-tl-none border border-gray-100'}`}>
+                        {msg.media && <MediaBubble media={msg.media} onChanged={() => selectedChat && void fetchMessages(selectedChat.id)} />}
+                        {/* With a file, its caption shows and the marker ("[Imagen]") never does (#182, bubbleTextOf). */}
+                        {bubbleTextOf(msg.content, msg.media ?? null) !== null && (
                         <div className="prose-chat break-words">
                           <ReactMarkdown 
                             remarkPlugins={[remarkGfm]}
@@ -628,9 +633,10 @@ function WhatsAppPageContent() {
                                 : <pre className="bg-black/10 p-3 rounded-xl text-xs overflow-x-auto my-2"><code className="font-mono" {...props} /></pre>
                             }}
                           >
-                            {parseWhatsAppToMarkdown(msg.content)}
+                            {parseWhatsAppToMarkdown(bubbleTextOf(msg.content, msg.media ?? null) ?? "")}
                           </ReactMarkdown>
                         </div>
+                        )}
                         <p className={`text-xs mt-1 text-right ${msg.fromMe ? 'text-[color:var(--on-primary)] opacity-80' : 'text-gray-400'}`}>
                           {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </p>

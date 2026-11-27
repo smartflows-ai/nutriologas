@@ -10,13 +10,21 @@ import { fill } from "@/lib/utils";
 export const MEDIA_REPLY_COOLDOWN_MINUTES = 10;
 const COOLDOWN_MS = MEDIA_REPLY_COOLDOWN_MINUTES * 60 * 1000;
 
-/** The WhatsApp message types that count as a file the bot cannot read. */
+/**
+ * The WhatsApp message types that count as a file the bot cannot read. #182: view once (its three outer keys; a
+ * file marked view once inside keeps its own type) and the round video note are files too. The workflow's file
+ * guard does not let them through yet: they take effect once its delivery is pasted.
+ */
 const FILE_MESSAGE_TYPES: ReadonlySet<string> = new Set([
   "audioMessage",
   "imageMessage",
   "videoMessage",
+  "ptvMessage",
   "documentMessage",
   "documentWithCaptionMessage",
+  "viewOnceMessage",
+  "viewOnceMessageV2",
+  "viewOnceMessageV2Extension",
 ]);
 
 /** `file`: answer and mark the chat. `silent`: nothing changes, as before. Unknown types are silent. */
@@ -57,7 +65,20 @@ export function shouldReplyToMedia(state: MediaChatState, now: Date): boolean {
   return true;
 }
 
-/** The answer to the patient, in the business language. It names no provider and promises no one in particular. */
-export function mediaReplyText(language: string, businessName: string): string {
-  return fill(customerTexts(language).mediaNotSupported, { negocio: businessName });
+export interface MediaStorageNotice {
+  /** The business keeps WhatsApp files 30 days (#182 server switch). */
+  storesFiles: boolean;
+  privacyUrl: string;
+}
+
+/**
+ * The answer to the patient, in the business language. It names no provider and promises no one in particular.
+ * #182 (R10): a business that keeps files adds one line, "may be kept up to 30 days", with its privacy notice. It says
+ * "may": a file too large, view once or over a limit is not kept, and the bot never promises otherwise.
+ */
+export function mediaReplyText(language: string, businessName: string, notice?: MediaStorageNotice): string {
+  const texts = customerTexts(language);
+  const reply = fill(texts.mediaNotSupported, { negocio: businessName });
+  if (!notice?.storesFiles || !notice.privacyUrl) return reply;
+  return `${reply} ${fill(texts.mediaStoredNotice, { enlace: notice.privacyUrl })}`;
 }

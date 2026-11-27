@@ -4,6 +4,28 @@ All notable changes to Presto AI are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased] — WhatsApp files in the panel, ticket #182 (branch `feat/182-media-backend`)
+
+Not live: the switch is off for every business and SQL 36 is not applied to the real database.
+
+### Added
+- Tables `whatsapp_media` and `whatsapp_media_trail` (`prisma/sql/36-whatsapp-media`, with row level security on).
+- Rules for a chat file (`src/lib/wa-media-rules.ts`): 16 MB per file, 30 per contact per business day, 1 GB per business and for the platform, destruction 30 days after arrival, hide and restore with a trail, view once never stored, safe types read from the bytes.
+- Private store door (`src/lib/wa-media-storage.ts`, S3 protocol, key limited to the store) and two pinned packages for it.
+- Ingest, data layer, clean-up and access rule (`wa-media-ingest`, `wa-media-data`, `wa-media-purge`, `wa-media-access`, `wa-media-summary`).
+- Routes `GET /api/apps/whatsapp/media/[id]` (5-minute signed link), `POST .../hide` and `.../restore`.
+- Chat screen components in `src/components/admin/whatsapp/media/` and 30 texts in `crm.whatsapp.media`.
+- Server variables `WA_MEDIA_ENABLED_TENANTS`, `WA_MEDIA_PLATFORM_MAX_BYTES` and five `WA_MEDIA_STORE_*`.
+
+### Changed
+- `GET /api/apps/whatsapp/messages` returns `media` per message; deleting a chat marks its files for destruction; `reminders/run` ends with the file clean-up; `whatsapp/sync` notes the file of a message for a business that is on.
+- The line stored for a message (`messageContentOf`): view once has its own markers, a video or document keeps its caption, the round video note is "[Video]", and a text inside a disappearing-message wrapper is read as text.
+- `bot/media`: one more line in the reply for a business that is on; view once and the round video note count as files.
+- Page policy: the origin of the private store is added to `img-src` and to a new `media-src`.
+
+### Not included
+- The production origin that asks the WhatsApp connection for the file. See `docs/STATUS.md`.
+
 ## [Unreleased] — Google sign-in switched off (branch `fix/disable-google-signin`)
 
 ### Changed

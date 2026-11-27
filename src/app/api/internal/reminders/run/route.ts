@@ -8,6 +8,8 @@ import { isInternalKeyValid } from "@/lib/bot";
 import { loadReminderVisits, realReminderDeps } from "@/lib/reminder-data";
 import { syncCalendarDelete } from "@/lib/calendar-sync";
 import { reminderRunStatus, runReminderBatch } from "@/lib/reminder-run";
+import { runMediaPurge } from "@/lib/wa-media-purge";
+import { mediaPurgeDeps } from "@/lib/wa-media-data";
 import { detectUnanswered, escalateDueChats, remindAssignees } from "@/lib/help-requests";
 import { realAssignmentDeps, realEscalationDeps, realHelpDeps, realUnansweredSource } from "@/lib/help-data";
 import { runHeldDrain } from "@/lib/messaging/drain";
@@ -53,6 +55,19 @@ async function runHelpChecks(now: Date) {
   }
 }
 
+/**
+ * WhatsApp files (#182): destroy the copies that are due and retry the files still to fetch. Its own error block:
+ * a failure here never changes the reminder run's answer.
+ */
+async function runMediaChecks(now: Date) {
+  try {
+    return await runMediaPurge(mediaPurgeDeps(), now);
+  } catch (error: unknown) {
+    console.error("[reminders/run] media checks failed", error instanceof Error ? error.name : "error");
+    return null;
+  }
+}
+
 export async function POST(req: NextRequest) {
   if (!isInternalKeyValid(req)) return Response.json({ error: "No autorizado" }, { status: 401 });
 
@@ -73,6 +88,7 @@ export async function POST(req: NextRequest) {
   const help = dryRun ? null : await runHelpChecks(now);
   // Ban prevention: messages held for quiet hours whose window has opened (never in a dry run).
   const held = dryRun ? null : await runHeldDrain(now);
+  const media = dryRun ? null : await runMediaChecks(now);
 
   const status = reminderRunStatus(batch, dryRun);
   return Response.json(
@@ -83,6 +99,7 @@ export async function POST(req: NextRequest) {
       calendarRemoved: calendar.removed,
       help,
       held,
+      media,
       ...batch,
     },
     { status },

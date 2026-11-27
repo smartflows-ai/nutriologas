@@ -57,6 +57,8 @@ export interface Translations {
     greetingIntro: string;
     greetingPrivacy: string;
     mediaNotSupported: string;
+    /** #182: added after mediaNotSupported for a business that keeps WhatsApp files 30 days. {enlace}: its privacy notice. */
+    mediaStoredNotice: string;
     meetingLine: string;
     locationLine: string;
     bookedByLine: string;
@@ -794,6 +796,39 @@ export interface Translations {
       botPausedByOwner: string;
       botPausedManual: string;
       resumeBot: string;
+      // #182: files shown inside a WhatsApp chat (src/components/admin/whatsapp/media)
+      media: {
+        saving: string;
+        loading: string;
+        openImage: string;
+        closeImage: string;
+        download: string;
+        openPdf: string;
+        hide: string;
+        restore: string;
+        hiddenBy: string;
+        hiddenNoName: string;
+        unavailable: string;
+        tooLarge: string;
+        sizeUnknown: string;
+        contactLimit: string;
+        tenantLimit: string;
+        platformLimit: string;
+        viewOnceImage: string;
+        viewOnceVideo: string;
+        viewOnceAudio: string;
+        failed: string;
+        linkError: string;
+        actionError: string;
+        retry: string;
+        kindImage: string;
+        kindAudio: string;
+        kindVideo: string;
+        kindDocument: string;
+        kindSticker: string;
+        sizeKb: string;
+        sizeMb: string;
+      };
       help: {
         filterAll: string;
         filterNeedHelp: string;
@@ -1897,6 +1932,10 @@ export interface Translations {
     whatsapp_chat_not_found: string;
     whatsapp_not_opted_out: string;
     whatsapp_chat_opted_out: string;
+    // #182: files of a WhatsApp chat
+    whatsapp_media_not_found: string;
+    whatsapp_media_not_available: string;
+    whatsapp_media_link_failed: string;
     reminder_in_quiet_hours: string;
     whatsapp_message_required: string;
     whatsapp_send_failed: string;

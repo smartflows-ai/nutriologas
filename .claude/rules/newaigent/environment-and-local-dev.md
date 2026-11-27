@@ -93,6 +93,15 @@ INTERNAL_API_KEY=                # openssl rand -hex 32
 EVOLUTION_API_URL=              # https with a valid certificate (the app no longer accepts invalid certs)
 EVOLUTION_API_KEY=              # Global key: server-side only, for create/fetchInstances. Never stored in the DB
 EVOLUTION_WEBHOOK_SECRET=       # Evolution signs each webhook with a 10-min JWT (jwt_key header); the n8n trigger verifies it. openssl rand -hex 32, same value in n8n
+
+# WhatsApp files in the panel (ticket #182). Without the five WA_MEDIA_STORE_* the store is "not configured" and nothing is attempted
+WA_MEDIA_ENABLED_TENANTS=        # business ids that are on, comma separated; empty = off for everyone
+WA_MEDIA_PLATFORM_MAX_BYTES=     # bytes the whole platform may hold; missing or invalid = 1073741824 (1 GB)
+WA_MEDIA_STORE_ENDPOINT=         # S3 endpoint of the private store (https; http only on this machine). Its origin is added to img-src and media-src
+WA_MEDIA_STORE_REGION=
+WA_MEDIA_STORE_BUCKET=           # private bucket, 16 MB per file; use a separate bucket ending in -test for local tests
+WA_MEDIA_STORE_ACCESS_KEY_ID=    # key limited to the store, never the database key
+WA_MEDIA_STORE_SECRET_ACCESS_KEY=
 PLATFORM_WA_INSTANCE=            # NewAigent's own instance: account messages such as the password reset code (src/lib/platform-whatsapp.ts). Without it no code is sent and /recuperar still answers ok
 PLATFORM_WA_INSTANCE_TOKEN=     # That instance's own token (optional; falls back to the global key)
 
@@ -127,3 +136,13 @@ Then open `http://doctor.localhost:3000` to see the "doctor" tenant.
   - In the callback, the final redirect is built dynamically as `http://${slug}.localhost:3000/admin/...`, ensuring local development always stays on `localhost:3000` without altering production environment variables.
 
 ---
+
+### A local app on a copy of the database still reaches real WhatsApp and the real calendar
+
+A local copy of the database isolates the data, not the connections: the rows it copies hold working keys.
+
+- The send pauses (`platform_flags.globalKillSwitch`, `tenants.whatsappKillSwitch`) stop sends only. Connect, disconnect, QR, settings and webhook calls still reach the real WhatsApp connection server, and the instance name is always `<slug>-<tenantId>`: on 2026-11-26 a click on "Desconectar" in `/admin/apps` of a local app called the real server (harmless that day, the line was already gone in production). With a line connected in production the same click drops it.
+- Start a local app that runs on a copy with `EVOLUTION_API_URL` and `EVOLUTION_API_KEY` empty in the process: the adapter then answers "not available" and touches nothing. Nobody opens `/admin/apps` or uses connect or disconnect there, and nobody books, moves or cancels visits (the copy holds a working calendar connection).
+- `/admin/whatsapp` shows "WhatsApp no conectado" and hides every chat when the business has no WhatsApp row in `connected_apps`. A local copy without that row needs a placeholder row (an invented instance name) to open the chats.
+- A worktree `.env` copied from the main folder carries the real database and connection values; only the variables of the process hide them. A script that writes must refuse to run when the database is not the copy.
+

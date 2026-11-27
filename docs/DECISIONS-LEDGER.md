@@ -5,6 +5,35 @@
 
 ---
 
+## 2026-11-26 — Claude — #182: WhatsApp files in the panel (rules, store, and what the local test proved)
+
+Decisions of the owner (2026-11-24 to 2026-11-26):
+- Files are stored on arrival, in a private store, never under a public address. 16 MB per file, kept 30 days. The app fetches the file; n8n never receives or passes it.
+- Limits in total, not only per file: 30 files per contact per business day (only files let in count; the contact is the chat) and 1 GB held per business, plus 1 GB for the whole platform as a server setting. It started at 2 GB per business and went down to 1 GB because the store's free plan gives 1 GB in all. Lesson, the same as #141: a per-item limit does not limit the total; ask "per item or in total, and for whom" before planning.
+- View once is never stored: the chat shows a notice. A copy the patient asked to be seen once is not ours to keep.
+- No exception to the 30 days. The panel lets the team download; keeping a file in the patient history is a separate ticket.
+- Both sides: what the patient sends and what the business sends from its phone.
+- Deleting before time is a soft delete: hidden, with who and when, restorable, by the owner and by staff. The copy is destroyed on its original 30th day: hiding never restarts the clock. A file of someone who opted out is stored like their text.
+- Whoever can see a file can download it. The bot's reply to a file says that files may be kept up to 30 days and links the privacy notice ("may", because a file over the limit or a view once is not kept).
+- The store is the storage of the database provider, in a private bucket, also for local tests (a separate bucket ending in `-test`). The provider's domain may show in the signed link in this version.
+- Tests run on the test business only; the other business is not touched. The feature is switched on per business.
+
+Decisions of the architect:
+- The store speaks S3 with a key limited to the store, never the key that opens the database. The download name goes in the signed link, not on the object: the provider does not serve back a `Content-Disposition` given at upload.
+- Admission is decided with the full message from the WhatsApp connection, never with the workflow's trimmed shape (no size, no caption, no view-once mark there). Unknown size means no download and has its own state, so it can be counted.
+- A link already issued may open for up to 5 minutes after hiding; shortening it breaks video playback.
+- Anything that arrives as a document only downloads; a PDF opens in another tab. The type comes from the bytes.
+- New tables enable row level security in their `up.sql` (every table of the real database has it on).
+
+What the local test proved (2026-11-26, real files sent by WhatsApp to the test business, read from the connection by a script outside the repo): a photo, a voice note, a photo with its caption and a 2.1 MB video can be asked for by their key, pass the real rules and the real store, and show in the panel. It did not prove the production origin (not written), the path through the workflow, nor the bot's reply to a patient.
+
+Lessons:
+- A local copy of the database does not isolate WhatsApp: a "Desconectar" click in the local app reached the real connection server. A local app on a copy starts with the connection variables empty.
+- The screen `/admin/whatsapp` hides every chat when the business has no WhatsApp connection row.
+- Testing the new path found a production loss on the old one: a 2.1 MB video never reached the bot workflow (belongs to #154).
+
+---
+
 ## 2026-11-24 — Claude — Google sign-in commented out while #151 is open
 
 Decision: comment out (not delete) the NextAuth Google provider and the buttons of `/login` and `/registro`. The owner then closed customer sign-up as well: `/registro` and `POST /api/auth/register` answer 404 (code kept in `SignupForm.tsx` and as a comment), because hiding only the page would leave account creation open by a direct POST. Known consequence: a new customer cannot create an account on the web. With no provider, `/api/auth/signin/google` does not start a sign-in. Reason: #151 can save a new Google customer in an arbitrary business; the login button was already hidden but `/registro` still showed one and the route was reachable by URL. Owners and staff sign in with email and password, and the Google Calendar connection is a separate flow, so nobody on the panel is affected. Rejected: deleting the code (needed again once #151 is fixed); a flag only in the UI (leaves the route open).

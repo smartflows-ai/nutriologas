@@ -12,6 +12,12 @@ test("audio, image, video and document are files the bot cannot read", () => {
   }
 });
 
+test("view once (any of its three outer keys) and the round video note are files too (#182)", () => {
+  for (const type of ["viewOnceMessage", "viewOnceMessageV2", "viewOnceMessageV2Extension", "ptvMessage"]) {
+    assert.equal(classifyInbound(type), "file", type);
+  }
+});
+
 test("stickers, reactions, location, contacts and unknown types stay silent (out of scope for this wave)", () => {
   for (const type of [
     "stickerMessage",
@@ -94,4 +100,16 @@ test("the answer names no provider and no one kind of business", () => {
     assert.doesNotMatch(text, /claude|anthropic|openai|gpt|openrouter|evolution|n8n|baileys/i);
     assert.doesNotMatch(text, /consultorio|paciente|patient|cl[ií]nica|clinic|doctor/i);
   }
+});
+
+test("#182: for a business that keeps files, the answer adds the 30-day line and its privacy link", () => {
+  const base = mediaReplyText("es", "Clínica Sol");
+  const stored = mediaReplyText("es", "Clínica Sol", { storesFiles: true, privacyUrl: "https://sol.example.com/privacidad" });
+  assert.ok(stored.startsWith(base));
+  assert.match(stored, /pueden guardarse hasta 30 días/);
+  assert.match(stored, /https:\/\/sol\.example\.com\/privacidad/);
+  assert.equal(mediaReplyText("es", "Clínica Sol", { storesFiles: false, privacyUrl: "https://x" }), base);
+  const english = mediaReplyText("en", "Sun Clinic", { storesFiles: true, privacyUrl: "https://sun.example.com/privacidad" });
+  assert.match(english, /may be kept for up to 30 days/);
+  assert.doesNotMatch(stored, /guardan|se guardarán/, "it never promises a file is kept");
 });
